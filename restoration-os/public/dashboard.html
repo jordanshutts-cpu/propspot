@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#61B746">
-  <title>Restoration OS — Dashboard</title>
+  <title>Prop Spot — Dashboard</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
   <style>
@@ -28,7 +28,7 @@
 <body>
 
 <header class="app-header">
-  <span class="logo"><img src="logo.png" class="logo-img" alt="">Restoration OS</span>
+  <span class="logo"><img src="logo.png" class="logo-img" alt="">Prop Spot</span>
   <div class="header-actions">
     <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
   </div>
@@ -78,7 +78,6 @@
         opps   += p.opportunity_count || 0;
         pur    += p.purchase_count    || 0;
       }
-      // For project breakdown we have to fetch projects directly.
       const projects = await apiFetch('/api/projects');
       ren    = projects.filter(p => p.status === 'renovating').length;
       listed = projects.filter(p => ['listed_for_sale','listed_for_rent','rented'].includes(p.status)).length;

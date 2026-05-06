@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#61B746">
-  <title>Restoration OS — Add Property</title>
+  <title>Prop Spot — Add Property</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -85,9 +85,6 @@
       });
       window.location.href = `/property.html?id=${property.id}`;
     }catch(error){
-      // The server returns the existing property in a 409 — but our fetch
-      // wrapper threw, so we re-fetch via the dup-aware path. Simpler: parse
-      // the message and show the dup banner if applicable.
       try{
         const r = await fetch(API_BASE + '/api/properties', {
           method: 'POST',
