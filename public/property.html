@@ -24,6 +24,23 @@
       max-width: 100%; max-height: 70dvh;
       display: none; border-radius: 8px;
     }
+    .lb-nav {
+      position: absolute;
+      top: 50%; transform: translateY(-50%);
+      background: rgba(0,0,0,.45);
+      border: none; color: #fff;
+      font-size: 2.2rem; line-height: 1;
+      width: 48px; height: 64px;
+      cursor: pointer; z-index: 10;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      transition: background .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .lb-nav:active { background: rgba(0,0,0,.7); }
+    .lb-prev { left: 6px; }
+    .lb-next { right: 6px; }
+    .lb-nav.hidden { display: none; }
     .lightbox-actions {
       display: flex; gap: 10px;
       padding: 10px 20px 4px;
@@ -326,6 +343,8 @@
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox" onclick="closeLightboxOutside(event)">
   <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lb-nav lb-prev" id="lb-prev" onclick="navigatePhoto(-1)">‹</button>
+  <button class="lb-nav lb-next" id="lb-next" onclick="navigatePhoto(1)">›</button>
   <img class="lightbox-img" id="lightbox-img" src="" alt="Photo">
   <video class="lightbox-video" id="lightbox-video" controls playsinline></video>
   <div class="lightbox-meta" id="lightbox-meta"></div>
@@ -397,6 +416,7 @@
   let photos       = [];
   let folders      = [];
   let currentPhoto = null;
+  let currentIdx   = -1;
   let currentFolder = null;   // null = all
   let sortNewest   = true;
   let property     = null;
@@ -554,11 +574,13 @@
   // ── Lightbox ────────────────────────────────────────────────────
   function openLightbox(idx) {
     const sorted = document.getElementById('photo-grid-wrap')._sorted || photos;
+    currentIdx   = idx;
     currentPhoto = sorted[idx];
-    const isVideo  = currentPhoto.media_type === 'video';
-    const imgEl    = document.getElementById('lightbox-img');
-    const vidEl    = document.getElementById('lightbox-video');
-    const annBtn   = document.getElementById('lb-annotate-btn');
+
+    const isVideo = currentPhoto.media_type === 'video';
+    const imgEl   = document.getElementById('lightbox-img');
+    const vidEl   = document.getElementById('lightbox-video');
+    const annBtn  = document.getElementById('lb-annotate-btn');
 
     if (isVideo) {
       imgEl.style.display = 'none';
@@ -578,9 +600,20 @@
       ${currentPhoto.notes ? `<br><em>${escHtml(currentPhoto.notes)}</em>` : ''}
       ${currentPhoto.lat ? `<br>📍 ${currentPhoto.lat.toFixed(5)}, ${currentPhoto.lng.toFixed(5)}` : ''}`;
 
+    // Show/hide nav arrows
+    const total = sorted.length;
+    document.getElementById('lb-prev').classList.toggle('hidden', idx <= 0);
+    document.getElementById('lb-next').classList.toggle('hidden', idx >= total - 1);
+
     buildMoveDropdown();
     document.getElementById('lightbox').classList.add('open');
     document.body.style.overflow = 'hidden';
+  }
+
+  function navigatePhoto(dir) {
+    const sorted = document.getElementById('photo-grid-wrap')._sorted || photos;
+    const next   = currentIdx + dir;
+    if (next >= 0 && next < sorted.length) openLightbox(next);
   }
 
   function closeLightbox() {
@@ -590,11 +623,25 @@
     document.getElementById('lightbox').classList.remove('open');
     document.body.style.overflow = '';
     currentPhoto = null;
+    currentIdx   = -1;
   }
 
   function closeLightboxOutside(e) {
     if (e.target === document.getElementById('lightbox')) closeLightbox();
   }
+
+  // ── Touch swipe for lightbox ──────────────────────────────────
+  let _swipeStartX = null;
+  document.getElementById('lightbox').addEventListener('touchstart', e => {
+    _swipeStartX = e.touches[0].clientX;
+  }, { passive: true });
+  document.getElementById('lightbox').addEventListener('touchend', e => {
+    if (_swipeStartX === null) return;
+    const dx = e.changedTouches[0].clientX - _swipeStartX;
+    _swipeStartX = null;
+    if (Math.abs(dx) < 40) return;      // ignore tiny movements
+    navigatePhoto(dx < 0 ? 1 : -1);    // swipe left = next, swipe right = prev
+  }, { passive: true });
 
   function buildMoveDropdown() {
     const drop = document.getElementById('lb-move-dropdown');
@@ -865,7 +912,11 @@
     return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
   }
 
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLightbox(); closeAllSheets(); } });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape')     { closeLightbox(); closeAllSheets(); }
+    if (e.key === 'ArrowLeft')  { navigatePhoto(-1); }
+    if (e.key === 'ArrowRight') { navigatePhoto(1); }
+  });
 
   init();
 </script>
