@@ -347,6 +347,7 @@
 
   <!-- Top bar -->
   <div class="cam-top">
+    <button class="cam-btn" onclick="history.length > 1 ? history.back() : (location.href='/dashboard.html')" title="Back" style="font-size:1.6rem;line-height:1;">‹</button>
     <button class="cam-btn" id="torch-btn" onclick="toggleTorch()">⚡</button>
     <div class="mode-toggle">
       <button class="mode-btn active" id="mode-cam" onclick="setMode('camera')">📷 Camera</button>
