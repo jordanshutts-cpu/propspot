@@ -99,9 +99,37 @@
     /* ── Zoom row ── */
     .zoom-row {
       display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 4px 4px 8px;
+    }
+    .zoom-presets {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .zoom-preset-btn {
+      background: rgba(255,255,255,.15);
+      border: 1.5px solid rgba(255,255,255,.25);
+      color: rgba(255,255,255,.85);
+      border-radius: 100px;
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 5px 13px;
+      cursor: pointer;
+      transition: background .12s, border-color .12s;
+      min-width: 48px;
+      text-align: center;
+    }
+    .zoom-preset-btn.active {
+      background: #61B746;
+      border-color: #61B746;
+      color: #fff;
+    }
+    .zoom-slider-row {
+      display: flex;
       align-items: center;
       gap: 8px;
-      padding: 4px 4px 8px;
     }
     .zoom-lbl {
       color: rgba(255,255,255,.8);
@@ -333,10 +361,18 @@
 
     <!-- Zoom -->
     <div class="zoom-row" id="zoom-row">
-      <span style="color:rgba(255,255,255,.6);font-size:.85rem;">🔍</span>
-      <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
-             oninput="handleZoom(this.value)">
-      <span class="zoom-lbl" id="zoom-lbl">1.0×</span>
+      <div class="zoom-presets" id="zoom-presets">
+        <button class="zoom-preset-btn" id="preset-05" onclick="setZoomPreset(0.5)">0.5×</button>
+        <button class="zoom-preset-btn active" id="preset-1" onclick="setZoomPreset(1)">1×</button>
+        <button class="zoom-preset-btn" id="preset-2" onclick="setZoomPreset(2)">2×</button>
+        <button class="zoom-preset-btn" id="preset-5" onclick="setZoomPreset(5)">5×</button>
+      </div>
+      <div class="zoom-slider-row">
+        <span style="color:rgba(255,255,255,.6);font-size:.85rem;">🔍</span>
+        <input type="range" id="zoom-slider" min="0.5" max="5" step="0.1" value="1"
+               oninput="handleZoom(this.value)">
+        <span class="zoom-lbl" id="zoom-lbl">1.0×</span>
+      </div>
     </div>
 
     <!-- Thumbnail strip -->
@@ -400,7 +436,7 @@
 
   let stream = null, facingMode = 'environment';
   let torchOn = false, torchSupported = false;
-  let currentZoom = 1, zoomMax = 5, hardwareZoom = false;
+  let currentZoom = 1, zoomMin = 1, zoomMax = 5, hardwareZoom = false;
   let queue = [];
   let selectedPropId = PRESET_PROP || null;
   let allProps = [];
@@ -444,12 +480,24 @@
       // Hardware zoom
       if (caps.zoom) {
         hardwareZoom = true;
+        zoomMin = caps.zoom.min || 1;
         zoomMax = caps.zoom.max || 5;
-        document.getElementById('zoom-slider').max = zoomMax;
+        const slider = document.getElementById('zoom-slider');
+        slider.min = zoomMin;
+        slider.max = zoomMax;
+        // Show/hide 0.5x preset based on ultra-wide support
+        document.getElementById('preset-05').style.display = zoomMin <= 0.5 ? '' : 'none';
+        // Hide 5x preset if max zoom is lower
+        document.getElementById('preset-5').style.display = zoomMax >= 4 ? '' : 'none';
       } else {
         hardwareZoom = false;
+        zoomMin = 1;
         zoomMax = 3;
-        document.getElementById('zoom-slider').max = zoomMax;
+        const slider = document.getElementById('zoom-slider');
+        slider.min = 1;
+        slider.max = zoomMax;
+        document.getElementById('preset-05').style.display = 'none';
+        document.getElementById('preset-5').style.display = 'none';
       }
 
       // Torch
@@ -497,19 +545,38 @@
   // ── Zoom ──────────────────────────────────────────────────────
   async function handleZoom(val) {
     currentZoom = parseFloat(val);
+    document.getElementById('zoom-slider').value = currentZoom;
     document.getElementById('zoom-lbl').textContent = currentZoom.toFixed(1) + '×';
+    updateZoomPresetHighlight();
 
     if (hardwareZoom && stream) {
       try {
+        const clampedZoom = Math.max(zoomMin, Math.min(zoomMax, currentZoom));
         await stream.getVideoTracks()[0]
-          .applyConstraints({ advanced: [{ zoom: currentZoom }] });
+          .applyConstraints({ advanced: [{ zoom: clampedZoom }] });
         document.getElementById('video-el').style.transform = '';
         return;
       } catch (_) {}
     }
-    // CSS fallback
-    document.getElementById('video-el').style.transform = `scale(${currentZoom})`;
-    document.getElementById('video-el').style.transformOrigin = 'center center';
+    // CSS fallback — only scale up (can't do true ultra-wide without hardware)
+    if (currentZoom > 1) {
+      document.getElementById('video-el').style.transform = `scale(${currentZoom})`;
+      document.getElementById('video-el').style.transformOrigin = 'center center';
+    } else {
+      document.getElementById('video-el').style.transform = '';
+    }
+  }
+
+  function setZoomPreset(level) {
+    handleZoom(level);
+  }
+
+  function updateZoomPresetHighlight() {
+    const presets = { 'preset-05': 0.5, 'preset-1': 1, 'preset-2': 2, 'preset-5': 5 };
+    Object.entries(presets).forEach(([id, val]) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('active', Math.abs(currentZoom - val) < 0.15);
+    });
   }
 
   // ── Capture ───────────────────────────────────────────────────
