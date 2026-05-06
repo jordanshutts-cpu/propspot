@@ -6,15 +6,11 @@
 const TOKEN_KEY = 'fieldcam_token';
 const USER_KEY  = 'fieldcam_user';
 
-// ── Auth Storage ─────────────────────────────────────────────
-
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t)      { localStorage.setItem(TOKEN_KEY, t); }
 function clearToken()     { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); }
 function getCachedUser()  { try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; } }
 function setCachedUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
-
-// ── API Fetch Wrapper ─────────────────────────────────────────
 
 async function apiFetch(path, options = {}) {
   const token = getToken();
@@ -43,8 +39,6 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-// ── Auth Helpers ─────────────────────────────────────────────
-
 async function requireAuth() {
   if (!getToken()) {
     window.location.href = '/index.html';
@@ -66,13 +60,9 @@ async function signOut() {
   window.location.href = '/index.html';
 }
 
-// ── User ──────────────────────────────────────────────────────
-
 async function getCurrentUser() {
   return getCachedUser() || apiFetch('/api/auth/me');
 }
-
-// ── Properties ───────────────────────────────────────────────
 
 async function getProperties() {
   return apiFetch('/api/properties');
@@ -100,8 +90,6 @@ async function deleteProperty(id) {
   return apiFetch(`/api/properties/${id}`, { method: 'DELETE' });
 }
 
-// ── Photos ───────────────────────────────────────────────────
-
 async function getPhotos(propertyId) {
   return apiFetch(`/api/photos/${propertyId}`);
 }
@@ -116,15 +104,12 @@ async function uploadPhoto({ file, propertyId, lat, lng, notes }) {
   return apiFetch(`/api/photos/${propertyId}`, {
     method: 'POST',
     body: formData
-    // No Content-Type header — browser sets multipart boundary automatically
   });
 }
 
 async function deletePhoto(photo) {
   return apiFetch(`/api/photos/${photo.id}`, { method: 'DELETE' });
 }
-
-// ── Team ─────────────────────────────────────────────────────
 
 async function getTeamMembers() {
   return apiFetch('/api/team');
@@ -136,8 +121,6 @@ async function inviteUser(email, fullName) {
     body: JSON.stringify({ email, fullName })
   });
 }
-
-// ── GPS / Geolocation ────────────────────────────────────────
 
 function getCurrentPosition(options = {}) {
   return new Promise((resolve, reject) => {
@@ -173,8 +156,6 @@ async function findNearbyProperties(lat, lng, radiusMeters = NEARBY_RADIUS_METER
     .filter(p => p.distance <= radiusMeters)
     .sort((a, b) => a.distance - b.distance);
 }
-
-// ── UI Helpers ───────────────────────────────────────────────
 
 function showToast(message, type = 'success') {
   const existing = document.getElementById('fc-toast');
@@ -224,7 +205,6 @@ async function populateHeader() {
   if (el && user) el.textContent = user.full_name || user.email || 'You';
 }
 
-// ── Restoration OS link ──────────────────────────────────────
 let _osUrlCache = null;
 async function getOsUrl() {
   if (_osUrlCache !== null) return _osUrlCache;
@@ -244,7 +224,7 @@ async function injectOsLink() {
   link.id = 'os-link';
   link.className = 'icon-btn';
   link.href = url;
-  link.title = 'Restoration OS';
+  link.title = 'Prop Spot';
   link.textContent = '🏠';
   headerActions.insertBefore(link, headerActions.firstChild);
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#61B746">
-  <title>Restoration OS — Contact</title>
+  <title>Prop Spot — Contact</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
   <style>
@@ -29,7 +29,6 @@
   <p class="text-muted text-sm">Loading…</p>
 </main>
 
-<!-- Invite modal — the heart of the contact-to-user feature -->
 <div id="invite-modal" class="hidden modal-bg">
   <div class="modal-card">
     <div class="section-header">
@@ -114,7 +113,6 @@
     document.getElementById('page').innerHTML = html;
   }
 
-  // ── Invite flow ──────────────────────────────────────────────
   function openInvite(){
     if (!contact.email){ showToast('Add an email to this contact first', 'error'); return; }
     document.getElementById('invite-blurb').textContent =

@@ -1,5 +1,5 @@
 // ============================================================
-//  Restoration OS — Shared Frontend Utilities
+//  Prop Spot — Shared Frontend Utilities
 //  Pattern-matched to FieldCam's app.js so any FieldCam page can
 //  read OS tokens directly (we use a shared key).
 // ============================================================
@@ -7,14 +7,14 @@
 const TOKEN_KEY = 'ros_token';
 const USER_KEY  = 'ros_user';
 
-// ── Auth Storage ─────────────────────────────────────────────
+// ── Auth Storage ────────────────────────────────────────────────────────
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t)      { localStorage.setItem(TOKEN_KEY, t); }
 function clearToken()     { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); }
 function getCachedUser()  { try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; } }
 function setCachedUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
 
-// ── API Fetch Wrapper ─────────────────────────────────────────
+// ── API Fetch Wrapper ──────────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
   const token = getToken();
   const isFormData = options.body instanceof FormData;
@@ -34,7 +34,6 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-// ── Auth Helpers ─────────────────────────────────────────────
 async function requireAuth() {
   if (!getToken()) { window.location.href = '/index.html'; return null; }
   try {
@@ -54,12 +53,10 @@ async function getCurrentUser() {
   return getCachedUser() || apiFetch('/api/auth/me');
 }
 
-// ── Properties ───────────────────────────────────────────────
 async function getProperties()         { return apiFetch('/api/properties'); }
 async function getProperty(id)         { return apiFetch(`/api/properties/${id}`); }
 async function createProperty(p)       { return apiFetch('/api/properties', { method: 'POST', body: JSON.stringify(p) }); }
 
-// ── Contacts ─────────────────────────────────────────────────
 async function getContacts(params = {}) {
   const qs = new URLSearchParams(params).toString();
   return apiFetch(`/api/contacts${qs ? '?' + qs : ''}`);
@@ -71,7 +68,6 @@ async function inviteContact(id, body){ return apiFetch(`/api/contacts/${id}/inv
 async function linkContactToProperty(body)   { return apiFetch('/api/property-contacts', { method: 'POST', body: JSON.stringify(body) }); }
 async function unlinkContactFromProperty(body){ return apiFetch('/api/property-contacts', { method: 'DELETE', body: JSON.stringify(body) }); }
 
-// ── Apps ─────────────────────────────────────────────────────
 async function getApps()                       { return apiFetch('/api/apps'); }
 async function getAppGrants(appId)             { return apiFetch(`/api/apps/${appId}/grants`); }
 async function grantAppAccess(appId, userId, body) {
@@ -81,7 +77,6 @@ async function revokeAppAccess(appId, userId)  {
   return apiFetch(`/api/apps/${appId}/grants/${userId}`, { method: 'DELETE' });
 }
 
-// ── Users / Team ─────────────────────────────────────────────
 async function getUsers() { return apiFetch('/api/users'); }
 async function inviteUser(email, fullName, app_grants) {
   return apiFetch('/api/auth/invite', {
@@ -90,7 +85,6 @@ async function inviteUser(email, fullName, app_grants) {
   });
 }
 
-// ── Pipeline ─────────────────────────────────────────────────
 async function listPipeline(stage, propertyId) {
   const qs = propertyId ? `?property_id=${propertyId}` : '';
   return apiFetch(`/api/${stage}${qs}`);
@@ -102,13 +96,11 @@ async function promotePipelineRecord(stage, id, body = {}) {
   return apiFetch(`/api/${stage}/${id}/promote`, { method: 'POST', body: JSON.stringify(body) });
 }
 
-// ── Activity ─────────────────────────────────────────────────
 async function getActivity(params = {}) {
   const qs = new URLSearchParams(params).toString();
   return apiFetch(`/api/activity${qs ? '?' + qs : ''}`);
 }
 
-// ── UI helpers (matches FieldCam) ────────────────────────────
 function showToast(message, type = 'success') {
   const existing = document.getElementById('ros-toast');
   if (existing) existing.remove();
