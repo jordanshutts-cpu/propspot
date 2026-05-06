@@ -6,9 +6,79 @@
   <meta name="theme-color" content="#61B746">
   <title>FieldCam — Properties</title>
   <link rel="stylesheet" href="style.css">
-  <style>@keyframes shimmer{to{background-position:-200% 0}}</style>
+  <!-- Leaflet map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    #map {
+      width: 100%;
+      height: 260px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+      z-index: 0;
+    }
+
+    /* Leaflet popup tweaks */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      padding: 0;
+    }
+    .leaflet-popup-content { margin: 0; }
+    .map-popup {
+      padding: 12px 16px;
+      min-width: 160px;
+    }
+    .map-popup .popup-name {
+      font-weight: 700;
+      font-size: .95rem;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+    .map-popup .popup-address {
+      font-size: .78rem;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+    .map-popup a {
+      display: block;
+      background: #61B746;
+      color: #fff;
+      text-align: center;
+      padding: 7px 12px;
+      border-radius: 7px;
+      text-decoration: none;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+
+    /* Custom green marker */
+    .green-marker {
+      background: #61B746;
+      border: 2px solid #fff;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+
+    .map-no-gps {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: .85rem;
+      margin-bottom: 16px;
+      border: 1.5px dashed var(--border);
+    }
+  </style>
 </head>
 <body>
+
 <header class="app-header">
   <span class="logo">📸 FieldCam</span>
   <div class="header-actions">
@@ -18,6 +88,7 @@
 </header>
 
 <main class="page">
+
   <!-- GPS Nearby Banner -->
   <div id="nearby-banner" class="nearby-banner hidden" onclick="goToNearby()">
     <div class="nearby-icon">📍</div>
@@ -26,6 +97,17 @@
       <span id="nearby-dist">Tap to view</span>
     </div>
     <div style="margin-left:auto;font-size:1.4rem;">›</div>
+  </div>
+
+  <!-- Map -->
+  <div id="map-section">
+    <div class="section-header" style="margin-bottom:8px;">
+      <span class="section-title">📍 Project Map</span>
+      <button class="btn btn-secondary" style="padding:5px 12px;font-size:.78rem;" onclick="centerOnMe()">
+        My Location
+      </button>
+    </div>
+    <div id="map"></div>
   </div>
 
   <!-- Search -->
@@ -41,9 +123,10 @@
   </div>
 
   <div id="properties-list">
-    <div class="card mb-16" style="height:200px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
-    <div class="card mb-16" style="height:200px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
+    <div class="card mb-16" style="height:180px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
+    <div class="card mb-16" style="height:180px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
   </div>
+
 </main>
 
 <a class="fab" href="/camera.html" title="Take Photo">📷</a>
@@ -57,31 +140,153 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  let allProperties=[], nearbyProperty=null;
+  let allProperties = [], nearbyProperty = null;
+  let map = null, userMarker = null, propertyMarkers = [];
 
-  async function init(){
-    const user=await requireAuth(); if(!user)return;
+  // ── Custom green pin icon ────────────────────────────────────
+  function makeIcon(color = '#61B746', size = 14) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${size*2}px;height:${size*2}px;
+        background:${color};
+        border:3px solid #fff;
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        box-shadow:0 2px 8px rgba(0,0,0,.3);
+      "></div>`,
+      iconSize: [size*2, size*2],
+      iconAnchor: [size, size*2],
+      popupAnchor: [0, -(size*2)]
+    });
+  }
+
+  // ── Init map ─────────────────────────────────────────────────
+  function initMap(properties) {
+    if (map) { map.remove(); map = null; }
+
+    map = L.map('map', { zoomControl: true, attributionControl: false });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    const withGPS = properties.filter(p => p.lat && p.lng);
+
+    if (withGPS.length === 0) {
+      // Default to US center if no GPS properties
+      map.setView([39.5, -98.35], 4);
+    }
+
+    // Add property pins
+    propertyMarkers = [];
+    withGPS.forEach(p => {
+      const marker = L.marker([p.lat, p.lng], { icon: makeIcon('#61B746') })
+        .addTo(map)
+        .bindPopup(`
+          <div class="map-popup">
+            <div class="popup-name">${escHtml(p.name)}</div>
+            <div class="popup-address">${escHtml(p.address || 'No address')}</div>
+            <a href="/property.html?id=${p.id}">📷 View Photos (${p.photo_count || 0})</a>
+          </div>`, { maxWidth: 220 });
+      propertyMarkers.push(marker);
+    });
+
+    // Fit map to show all pins
+    if (withGPS.length > 0) {
+      const group = L.featureGroup(propertyMarkers);
+      map.fitBounds(group.getBounds().pad(0.2), { maxZoom: 15 });
+    }
+
+    // Show user location
+    tryUserLocation();
+  }
+
+  function tryUserLocation() {
+    if (!map) return;
+    getCurrentPosition()
+      .then(pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+
+        // Blue dot for user
+        const userIcon = L.divIcon({
+          className: '',
+          html: `<div style="
+            width:16px;height:16px;
+            background:#3b82f6;
+            border:3px solid #fff;
+            border-radius:50%;
+            box-shadow:0 0 0 4px rgba(59,130,246,.25);
+          "></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+
+        if (userMarker) userMarker.remove();
+        userMarker = L.marker([lat, lng], { icon: userIcon })
+          .addTo(map)
+          .bindPopup('<div class="map-popup"><div class="popup-name">📍 You are here</div></div>');
+      })
+      .catch(() => {}); // silent fail
+  }
+
+  function centerOnMe() {
+    getCurrentPosition()
+      .then(pos => {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+        if (userMarker) userMarker.openPopup();
+      })
+      .catch(() => showToast('Could not get your location', 'error'));
+  }
+
+  // ── Update map markers to match filtered list ─────────────────
+  function syncMapToList(list) {
+    if (!map) return;
+    propertyMarkers.forEach(m => map.removeLayer(m));
+    propertyMarkers = [];
+    const withGPS = list.filter(p => p.lat && p.lng);
+    withGPS.forEach(p => {
+      const marker = L.marker([p.lat, p.lng], { icon: makeIcon('#61B746') })
+        .addTo(map)
+        .bindPopup(`
+          <div class="map-popup">
+            <div class="popup-name">${escHtml(p.name)}</div>
+            <div class="popup-address">${escHtml(p.address || '')}</div>
+            <a href="/property.html?id=${p.id}">📷 View Photos (${p.photo_count || 0})</a>
+          </div>`, { maxWidth: 220 });
+      propertyMarkers.push(marker);
+    });
+    if (withGPS.length > 0) {
+      map.fitBounds(L.featureGroup(propertyMarkers).getBounds().pad(0.2), { maxZoom: 15 });
+    }
+  }
+
+  // ── Properties ────────────────────────────────────────────────
+  async function init() {
+    const user = await requireAuth();
+    if (!user) return;
     await loadProperties();
     detectNearby();
   }
 
-  async function loadProperties(){
-    try{
-      allProperties=await getProperties();
+  async function loadProperties() {
+    try {
+      allProperties = await getProperties();
       renderProperties(allProperties);
-    }catch(err){
-      document.getElementById('properties-list').innerHTML=
+      initMap(allProperties);
+    } catch (err) {
+      document.getElementById('properties-list').innerHTML =
         `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
 
-  function renderProperties(list){
-    const el=document.getElementById('properties-list');
-    document.getElementById('props-count').textContent=
-      list.length===1?'1 Property':`${list.length} Properties`;
+  function renderProperties(list) {
+    const el = document.getElementById('properties-list');
+    document.getElementById('props-count').textContent =
+      list.length === 1 ? '1 Property' : `${list.length} Properties`;
 
-    if(list.length===0){
-      el.innerHTML=`<div class="empty-state">
+    if (list.length === 0) {
+      el.innerHTML = `<div class="empty-state">
         <div class="empty-icon">🏗️</div>
         <p>No properties yet.<br>Add your first renovation site!</p>
         <a href="/add-property.html" class="btn btn-primary">+ Add Property</a>
@@ -89,48 +294,51 @@
       return;
     }
 
-    el.innerHTML=list.map(p=>{
-      const cnt=p.photo_count||0;
-      const thumb=p.cover_url
-        ?`<img class="property-thumb" src="${escHtml(p.cover_url)}" alt="${escHtml(p.name)}" loading="lazy">`
-        :`<div class="property-thumb-placeholder">🏠</div>`;
+    el.innerHTML = list.map(p => {
+      const cnt = p.photo_count || 0;
+      const thumb = p.cover_url
+        ? `<img class="property-thumb" src="${escHtml(p.cover_url)}" alt="${escHtml(p.name)}" loading="lazy">`
+        : `<div class="property-thumb-placeholder">🏠</div>`;
       return `<a class="property-card" href="/property.html?id=${p.id}">
         ${thumb}
         <div class="property-info">
           <div class="property-name">${escHtml(p.name)}</div>
-          <div class="property-address">${escHtml(p.address||'')}</div>
+          <div class="property-address">${escHtml(p.address || '')}</div>
           <div class="property-meta">
-            <span>📷 ${cnt} photo${cnt!==1?'s':''}</span>
-            ${p.lat?'<span>📍 GPS set</span>':''}
+            <span>📷 ${cnt} photo${cnt !== 1 ? 's' : ''}</span>
+            ${p.lat ? '<span>📍 GPS set</span>' : ''}
           </div>
         </div>
       </a>`;
     }).join('');
   }
 
-  function filterProperties(q){
-    const f=allProperties.filter(p=>
-      p.name.toLowerCase().includes(q.toLowerCase())||
-      (p.address||'').toLowerCase().includes(q.toLowerCase())
+  function filterProperties(q) {
+    const filtered = allProperties.filter(p =>
+      p.name.toLowerCase().includes(q.toLowerCase()) ||
+      (p.address || '').toLowerCase().includes(q.toLowerCase())
     );
-    renderProperties(f);
+    renderProperties(filtered);
+    syncMapToList(filtered);
   }
 
-  async function detectNearby(){
-    try{
-      const pos=await getCurrentPosition();
-      const nearby=await findNearbyProperties(pos.coords.latitude,pos.coords.longitude);
-      if(nearby.length>0){
-        nearbyProperty=nearby[0];
-        document.getElementById('nearby-name').textContent=nearbyProperty.name;
-        document.getElementById('nearby-dist').textContent=
+  async function detectNearby() {
+    try {
+      const pos = await getCurrentPosition();
+      const nearby = await findNearbyProperties(pos.coords.latitude, pos.coords.longitude);
+      if (nearby.length > 0) {
+        nearbyProperty = nearby[0];
+        document.getElementById('nearby-name').textContent = nearbyProperty.name;
+        document.getElementById('nearby-dist').textContent =
           `${Math.round(nearbyProperty.distance)}m away — tap to view`;
         document.getElementById('nearby-banner').classList.remove('hidden');
       }
-    }catch(_){}
+    } catch (_) {}
   }
 
-  function goToNearby(){if(nearbyProperty)window.location.href=`/property.html?id=${nearbyProperty.id}`;}
+  function goToNearby() {
+    if (nearbyProperty) window.location.href = `/property.html?id=${nearbyProperty.id}`;
+  }
 
   init();
 </script>

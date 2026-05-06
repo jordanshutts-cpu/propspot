@@ -33,6 +33,13 @@ app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 );
 
+// ── Public config (serves non-secret keys to authenticated frontend) ──
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || ''
+  });
+});
+
 // ── Serve Frontend (public/) ───────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
