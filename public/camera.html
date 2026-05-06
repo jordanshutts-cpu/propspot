@@ -7,9 +7,14 @@
   <title>FieldCam — Camera</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    body { background: #000; }
+    html, body {
+      margin: 0; padding: 0;
+      background: #000;
+      overflow: hidden;
+      height: 100%;
+    }
 
-    /* ── Full-screen camera layout ── */
+    /* ── Full-screen flex column ── */
     .cam-wrap {
       position: fixed;
       inset: 0;
@@ -18,58 +23,92 @@
       background: #000;
     }
 
-    /* ── Video feed ── */
+    /* ── Video takes all remaining space ── */
     #video-el {
       flex: 1;
       width: 100%;
+      min-height: 0;
       object-fit: cover;
       display: block;
-      transition: transform .15s;
     }
 
-    /* ── Top bar (flash / flip / close) ── */
+    /* ── Upload-mode placeholder ── */
+    #upload-mode-wrap {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 40px 24px;
+    }
+    #upload-mode-wrap.active { display: flex; }
+
+    /* ── Top overlay ── */
     .cam-top {
       position: absolute;
       top: 0; left: 0; right: 0;
-      padding: 12px 16px;
+      padding: env(safe-area-inset-top, 12px) 16px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(to bottom, rgba(0,0,0,.6), transparent);
-      z-index: 10;
+      background: linear-gradient(to bottom, rgba(0,0,0,.65), transparent);
+      z-index: 20;
     }
     .cam-btn {
       width: 44px; height: 44px;
       border-radius: 50%;
-      background: rgba(255,255,255,.15);
-      backdrop-filter: blur(4px);
+      background: rgba(255,255,255,.18);
+      backdrop-filter: blur(6px);
       border: none; color: #fff;
-      font-size: 1.3rem;
+      font-size: 1.25rem;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
-      transition: background .15s;
+      flex-shrink: 0;
     }
-    .cam-btn:active { background: rgba(255,255,255,.3); }
-    .cam-btn.active { background: #f5c518; color: #000; }
-    .cam-btn.danger { background: rgba(239,68,68,.7); }
+    .cam-btn:active { background: rgba(255,255,255,.35); }
+    .cam-btn.torch-on { background: #f5c518; color: #000; }
 
-    /* ── Zoom bar ── */
-    .zoom-bar {
-      position: absolute;
-      bottom: 260px; left: 0; right: 0;
-      padding: 0 24px;
+    .mode-toggle {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      margin: 0 10px;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 8px 6px;
+      border-radius: 8px;
+      border: none;
+      font-size: .78rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: rgba(255,255,255,.15);
+      color: rgba(255,255,255,.7);
+    }
+    .mode-btn.active { background: #61B746; color: #fff; }
+
+    /* ── Bottom panel — part of flex flow (fixes iOS scroll bug) ── */
+    .cam-bottom {
+      flex-shrink: 0;
+      background: rgba(0,0,0,.82);
+      backdrop-filter: blur(8px);
+      padding: 8px 12px env(safe-area-inset-bottom, 20px);
+    }
+
+    /* ── Zoom row ── */
+    .zoom-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      z-index: 10;
+      gap: 8px;
+      padding: 4px 4px 8px;
     }
-    .zoom-label {
-      color: #fff;
-      font-size: .8rem;
+    .zoom-lbl {
+      color: rgba(255,255,255,.8);
+      font-size: .78rem;
       font-weight: 700;
-      min-width: 36px;
-      text-align: center;
-      text-shadow: 0 1px 3px rgba(0,0,0,.8);
+      min-width: 38px;
+      text-align: right;
     }
     #zoom-slider {
       flex: 1;
@@ -81,41 +120,49 @@
     }
     #zoom-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 20px; height: 20px;
+      width: 22px; height: 22px;
       border-radius: 50%;
       background: #fff;
       cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0,0,0,.4);
+      box-shadow: 0 2px 6px rgba(0,0,0,.5);
     }
 
-    /* ── Bottom controls ── */
-    .cam-bottom {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      background: linear-gradient(to top, rgba(0,0,0,.85), transparent);
-      padding: 12px 16px 32px;
-      z-index: 10;
+    /* ── Thumbnail strip — KEY FIX: explicit block with overflow-x ── */
+    .thumb-strip-outer {
+      width: 100%;
+      overflow-x: scroll;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      margin-bottom: 8px;
     }
+    .thumb-strip-outer::-webkit-scrollbar { display: none; }
 
-    /* Thumbnail strip */
     .thumb-strip {
       display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
       gap: 6px;
-      overflow-x: auto;
-      padding: 0 0 10px;
-      scrollbar-width: none;
-      min-height: 64px;
+      padding: 4px 0;
+      min-height: 70px;
       align-items: center;
+      width: max-content;  /* lets strip grow naturally */
+      min-width: 100%;
     }
-    .thumb-strip::-webkit-scrollbar { display: none; }
+
+    .thumb-empty-msg {
+      color: rgba(255,255,255,.4);
+      font-size: .75rem;
+      white-space: nowrap;
+      padding: 0 4px;
+    }
 
     .thumb-wrap {
       position: relative;
       flex-shrink: 0;
-      width: 58px; height: 58px;
+      width: 62px; height: 62px;
       border-radius: 8px;
       overflow: hidden;
-      border: 2px solid rgba(255,255,255,.4);
+      border: 2px solid rgba(255,255,255,.35);
     }
     .thumb-wrap img {
       width: 100%; height: 100%;
@@ -123,353 +170,285 @@
     }
     .thumb-remove {
       position: absolute;
-      top: 1px; right: 1px;
+      top: 2px; right: 2px;
       width: 18px; height: 18px;
-      background: rgba(0,0,0,.7);
+      background: rgba(0,0,0,.75);
       border: none; color: #fff;
       border-radius: 50%;
-      font-size: .65rem;
+      font-size: .6rem;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      line-height: 1;
-    }
-    .thumb-count {
-      color: rgba(255,255,255,.6);
-      font-size: .75rem;
-      white-space: nowrap;
     }
 
-    /* Shutter row */
+    /* ── Shutter row ── */
     .shutter-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 8px;
+      padding: 0 6px;
     }
 
     .shutter-btn {
-      width: 72px; height: 72px;
+      width: 70px; height: 70px;
       border-radius: 50%;
       background: #fff;
-      border: 4px solid rgba(255,255,255,.4);
-      box-shadow: 0 0 0 3px #61B746;
+      border: 4px solid rgba(255,255,255,.3);
+      outline: 3px solid #61B746;
       cursor: pointer;
-      transition: transform .08s;
       position: relative;
+      transition: transform .08s;
     }
-    .shutter-btn:active { transform: scale(.92); }
-    .shutter-btn .shutter-count {
+    .shutter-btn:active { transform: scale(.91); }
+
+    .shutter-badge {
       position: absolute;
-      top: -8px; right: -8px;
+      top: -6px; right: -8px;
       background: #61B746;
       color: #fff;
       border-radius: 100px;
-      font-size: .7rem;
-      font-weight: 700;
+      font-size: .68rem;
+      font-weight: 800;
       padding: 2px 6px;
       display: none;
+      min-width: 20px;
+      text-align: center;
     }
-    .shutter-btn.has-photos .shutter-count { display: block; }
+    .shutter-btn.has-photos .shutter-badge { display: block; }
 
-    /* Upload all button */
     .upload-all-btn {
       background: #61B746;
       color: #fff;
       border: none;
       border-radius: 10px;
-      padding: 12px 20px;
-      font-size: .9rem;
+      padding: 10px 14px;
+      font-size: .82rem;
       font-weight: 700;
       cursor: pointer;
-      min-width: 100px;
+      min-width: 90px;
+      line-height: 1.3;
       text-align: center;
-      transition: background .15s;
     }
-    .upload-all-btn:disabled { background: #888; }
-    .upload-all-btn.empty { background: rgba(255,255,255,.15); color: rgba(255,255,255,.5); }
+    .upload-all-btn:disabled { background: #555; }
+    .upload-all-btn.empty    { background: rgba(255,255,255,.12); color: rgba(255,255,255,.4); }
 
-    /* Progress bar */
-    .upload-progress {
+    /* ── Upload progress ── */
+    .upload-progress { display: none; padding-top: 8px; }
+    .prog-bar  { height: 4px; background: rgba(255,255,255,.2); border-radius: 4px; overflow: hidden; }
+    .prog-fill { height: 100%; background: #61B746; transition: width .3s; }
+    .prog-lbl  { color: rgba(255,255,255,.7); font-size: .75rem; text-align: center; margin-top: 5px; }
+
+    /* ── Torch tooltip ── */
+    #torch-tip {
       display: none;
-      margin-top: 8px;
-    }
-    .progress-bar {
-      height: 4px;
-      background: rgba(255,255,255,.2);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: #61B746;
-      border-radius: 4px;
-      transition: width .3s;
-    }
-    .progress-label {
-      color: rgba(255,255,255,.8);
-      font-size: .78rem;
-      text-align: center;
-      margin-top: 4px;
+      position: absolute;
+      top: 68px; left: 12px;
+      background: rgba(0,0,0,.75);
+      color: #fff;
+      font-size: .75rem;
+      padding: 5px 12px;
+      border-radius: 100px;
+      z-index: 30;
+      white-space: nowrap;
     }
 
-    /* ── Upload mode overlay ── */
-    .mode-toggle {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 8px;
+    /* ── Settings sheet ── */
+    .sheet-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 90; display: none;
     }
-    .mode-btn {
-      flex: 1;
-      padding: 7px;
-      border-radius: 8px;
-      border: none;
-      font-size: .8rem;
-      font-weight: 600;
-      cursor: pointer;
-      background: rgba(255,255,255,.15);
-      color: rgba(255,255,255,.7);
-    }
-    .mode-btn.active { background: #61B746; color: #fff; }
-
-    /* Property + notes panel (slide-up sheet) */
+    .sheet-overlay.open { display: block; }
     .sheet {
       position: fixed;
       bottom: 0; left: 0; right: 0;
-      background: #1a1a1a;
+      background: #1c1c1e;
       border-radius: 20px 20px 0 0;
-      padding: 16px 16px 40px;
-      z-index: 200;
+      padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+      z-index: 100;
       transform: translateY(100%);
-      transition: transform .3s ease;
-      max-height: 75dvh;
+      transition: transform .28s ease;
+      max-height: 78dvh;
       overflow-y: auto;
     }
     .sheet.open { transform: translateY(0); }
     .sheet-handle {
-      width: 40px; height: 4px;
+      width: 36px; height: 4px;
       background: rgba(255,255,255,.2);
       border-radius: 4px;
-      margin: 0 auto 16px;
+      margin: 0 auto 14px;
     }
-    .sheet-title { color: #fff; font-weight: 700; font-size: 1rem; margin-bottom: 12px; }
-    .sheet .form-input, .sheet .form-textarea, .sheet .form-select {
-      background: #2a2a2a; color: #fff; border-color: #333;
+    .sheet-title { color: #fff; font-weight: 700; font-size: .95rem; margin-bottom: 10px; }
+    .sheet .form-input, .sheet .form-textarea {
+      background: #2c2c2e; color: #fff; border-color: #3a3a3c;
     }
-    .sheet .form-label { color: rgba(255,255,255,.7); }
+    .sheet .form-label { color: rgba(255,255,255,.65); font-size: .82rem; }
     .prop-opt-dark {
       padding: 10px 12px;
-      border: 1.5px solid #333;
+      border: 1.5px solid #3a3a3c;
       border-radius: 8px;
       margin-bottom: 6px;
-      cursor: pointer;
-      color: #fff;
-      transition: border-color .15s;
+      cursor: pointer; color: #fff;
     }
-    .prop-opt-dark.selected { border-color: #61B746; background: rgba(97,183,70,.15); }
-    .prop-opt-dark .opt-name { font-weight: 600; font-size: .9rem; }
-    .prop-opt-dark .opt-dist { font-size: .75rem; color: rgba(255,255,255,.5); }
-
-    .sheet-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,.5);
-      z-index: 190;
-      display: none;
-    }
-    .sheet-overlay.open { display: block; }
-
-    /* Upload-mode file picker */
-    #upload-mode-wrap {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      flex: 1;
-      gap: 16px;
-      padding: 40px 24px;
-    }
-    #upload-mode-wrap.active { display: flex; }
-
-    /* Torch not supported message */
-    #torch-unsupported {
-      display: none;
-      position: absolute;
-      top: 70px; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,.7);
-      color: #fff;
-      font-size: .78rem;
-      padding: 6px 14px;
-      border-radius: 100px;
-      white-space: nowrap;
-      z-index: 20;
-    }
+    .prop-opt-dark.selected { border-color: #61B746; background: rgba(97,183,70,.18); }
+    .prop-opt-dark .opt-name { font-weight: 600; font-size: .88rem; }
+    .prop-opt-dark .opt-dist { font-size: .73rem; color: rgba(255,255,255,.45); }
   </style>
 </head>
 <body>
-
 <div class="cam-wrap">
-  <!-- Video -->
+
+  <!-- Live video -->
   <video id="video-el" autoplay playsinline muted></video>
 
-  <!-- Upload file mode background -->
+  <!-- Library mode placeholder -->
   <div id="upload-mode-wrap">
-    <div style="font-size:4rem;">🖼️</div>
-    <p style="color:rgba(255,255,255,.7);font-size:.95rem;text-align:center;">
-      Tap below to choose photos from your library
+    <div style="font-size:3.5rem;">🖼️</div>
+    <p style="color:rgba(255,255,255,.65);font-size:.9rem;text-align:center;">
+      Choose one or multiple photos from your library
     </p>
     <input type="file" id="upload-input" accept="image/*" multiple
            onchange="handleFileSelect(this)" style="display:none">
-    <button class="btn btn-primary" onclick="document.getElementById('upload-input').click()"
-            style="padding:14px 32px;">
+    <button class="btn btn-primary" style="padding:13px 32px;"
+            onclick="document.getElementById('upload-input').click()">
       📂 Choose Photos
     </button>
+    <a href="/import.html" style="color:rgba(255,255,255,.5);font-size:.82rem;text-decoration:none;">
+      🧠 Smart Geo-Match import →
+    </a>
   </div>
 
-  <!-- Torch unsupported tooltip -->
-  <div id="torch-unsupported">⚠️ Flash not available on this device</div>
-
-  <!-- Top controls -->
+  <!-- Top bar -->
   <div class="cam-top">
-    <button class="cam-btn" id="torch-btn" onclick="toggleTorch()" title="Flash">⚡</button>
-    <div class="mode-toggle" style="flex:1;margin:0 12px;">
+    <button class="cam-btn" id="torch-btn" onclick="toggleTorch()">⚡</button>
+    <div class="mode-toggle">
       <button class="mode-btn active" id="mode-cam" onclick="setMode('camera')">📷 Camera</button>
-      <button class="mode-btn" id="mode-up"  onclick="setMode('upload')">🖼 Library</button>
+      <button class="mode-btn"        id="mode-up"  onclick="setMode('upload')">🖼 Library</button>
     </div>
-    <button class="cam-btn" id="flip-btn" onclick="flipCamera()" title="Flip">🔄</button>
+    <button class="cam-btn" onclick="flipCamera()">🔄</button>
+    <div id="torch-tip">Flash not available on this device</div>
   </div>
 
-  <!-- Zoom bar -->
-  <div class="zoom-bar" id="zoom-bar">
-    <span style="font-size:.9rem;">🔍</span>
-    <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
-           oninput="handleZoom(this.value)">
-    <span class="zoom-label" id="zoom-label">1×</span>
-  </div>
-
-  <!-- Bottom panel -->
+  <!-- Bottom panel (in flex flow — fixes iOS scroll) -->
   <div class="cam-bottom">
+
+    <!-- Zoom -->
+    <div class="zoom-row" id="zoom-row">
+      <span style="color:rgba(255,255,255,.6);font-size:.85rem;">🔍</span>
+      <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1"
+             oninput="handleZoom(this.value)">
+      <span class="zoom-lbl" id="zoom-lbl">1.0×</span>
+    </div>
+
     <!-- Thumbnail strip -->
-    <div class="thumb-strip" id="thumb-strip">
-      <span class="thumb-count" id="thumb-empty-msg">Photos you take appear here</span>
+    <div class="thumb-strip-outer" id="thumb-strip-outer">
+      <div class="thumb-strip" id="thumb-strip">
+        <span class="thumb-empty-msg" id="thumb-empty-msg">Photos you take appear here</span>
+      </div>
     </div>
 
     <!-- Shutter row -->
     <div class="shutter-row">
-      <!-- Left: settings -->
-      <button class="cam-btn" onclick="openSheet()" title="Property & Notes" style="width:52px;height:52px;">⚙️</button>
-
-      <!-- Shutter -->
+      <button class="cam-btn" style="width:50px;height:50px;" onclick="openSheet()">⚙️</button>
       <button class="shutter-btn" id="shutter-btn" onclick="capturePhoto()">
-        <span class="shutter-count" id="shutter-count">0</span>
+        <span class="shutter-badge" id="shutter-badge">0</span>
       </button>
-
-      <!-- Right: upload all -->
       <button class="upload-all-btn empty" id="upload-all-btn" onclick="uploadAll()">
         Upload<br><span id="upload-count">0</span> photos
       </button>
     </div>
 
-    <!-- Progress bar -->
+    <!-- Progress -->
     <div class="upload-progress" id="upload-progress">
-      <div class="progress-bar">
-        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
-      </div>
-      <div class="progress-label" id="progress-label">Uploading…</div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="prog-lbl" id="prog-lbl">Uploading…</div>
     </div>
+
   </div>
 </div>
 
-<!-- Property + Notes Sheet -->
+<!-- Sheet overlay + drawer -->
 <div class="sheet-overlay" id="sheet-overlay" onclick="closeSheet()"></div>
 <div class="sheet" id="settings-sheet">
   <div class="sheet-handle"></div>
-  <div class="sheet-title">📍 Property & Notes</div>
+  <div class="sheet-title">⚙️ Property &amp; Notes</div>
 
   <div class="form-group">
-    <label class="form-label">Assign to Property</label>
+    <label class="form-label">Assign photos to property</label>
     <div id="sheet-props-list">
-      <p style="color:rgba(255,255,255,.5);font-size:.85rem;">Loading properties…</p>
+      <p style="color:rgba(255,255,255,.4);font-size:.85rem;">Loading…</p>
     </div>
-    <a href="/add-property.html" style="color:#61B746;font-size:.82rem;display:block;margin-top:8px;">+ Add new property</a>
+    <a href="/add-property.html"
+       style="color:#61B746;font-size:.8rem;display:block;margin-top:8px;">
+      + Add new property
+    </a>
   </div>
 
   <div class="form-group">
     <label class="form-label">Notes (applied to all photos in this batch)</label>
     <textarea class="form-textarea" id="photo-notes" rows="2"
-              placeholder="e.g. Kitchen demo complete, north wall…"></textarea>
+              placeholder="e.g. Kitchen demo complete…"></textarea>
   </div>
 
-  <button class="btn btn-primary btn-full" onclick="closeSheet()">Done</button>
+  <button class="btn btn-primary btn-full" onclick="closeSheet()">Done ✓</button>
 </div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  // ── State ─────────────────────────────────────────────────────
-  const params        = new URLSearchParams(location.search);
-  const PRESET_PROP   = params.get('property_id');
+  const params      = new URLSearchParams(location.search);
+  const PRESET_PROP = params.get('property_id');
 
-  let stream          = null;
-  let facingMode      = 'environment';
-  let currentMode     = 'camera';
-  let torchOn         = false;
-  let torchSupported  = false;
-  let currentZoom     = 1;
-  let zoomMax         = 5;
-  let hardwareZoom    = false;
-
-  let queue           = [];          // { file, url }
-  let selectedPropId  = PRESET_PROP || null;
-  let allProps        = [];
+  let stream = null, facingMode = 'environment';
+  let torchOn = false, torchSupported = false;
+  let currentZoom = 1, zoomMax = 5, hardwareZoom = false;
+  let queue = [];
+  let selectedPropId = PRESET_PROP || null;
+  let allProps = [];
   let userLat = null, userLng = null;
+  let currentMode = 'camera';
 
   // ── Init ──────────────────────────────────────────────────────
   async function init() {
     const user = await requireAuth(); if (!user) return;
-    await loadAllProperties();
+    loadAllProperties();
     startGPS();
     startCamera();
   }
 
-  // ── GPS ───────────────────────────────────────────────────────
   async function startGPS() {
     try {
       const pos = await getCurrentPosition();
       userLat = pos.coords.latitude;
       userLng = pos.coords.longitude;
-      await autoSelectNearby();
+      if (!selectedPropId) {
+        const nearby = await findNearbyProperties(userLat, userLng, 500);
+        if (nearby.length > 0) selectProp(nearby[0].id);
+      }
     } catch (_) {}
-  }
-
-  async function autoSelectNearby() {
-    if (!userLat || selectedPropId) return;
-    const nearby = await findNearbyProperties(userLat, userLng, 500);
-    if (nearby.length > 0) selectProp(nearby[0].id);
   }
 
   // ── Camera ────────────────────────────────────────────────────
   async function startCamera() {
     stopCamera();
-    const video = document.getElementById('video-el');
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
         audio: false
       });
+      const video = document.getElementById('video-el');
       video.srcObject = stream;
 
-      // Probe zoom + torch capabilities
       const track = stream.getVideoTracks()[0];
-      const caps   = track.getCapabilities?.() || {};
+      const caps  = track.getCapabilities?.() || {};
 
-      // Zoom
+      // Hardware zoom
       if (caps.zoom) {
         hardwareZoom = true;
         zoomMax = caps.zoom.max || 5;
         document.getElementById('zoom-slider').max = zoomMax;
       } else {
         hardwareZoom = false;
-        zoomMax = 3; // CSS zoom cap
+        zoomMax = 3;
         document.getElementById('zoom-slider').max = zoomMax;
       }
 
@@ -478,18 +457,20 @@
       document.getElementById('torch-btn').style.opacity = torchSupported ? '1' : '0.4';
 
     } catch (err) {
-      showToast('Camera access denied — switch to Library mode', 'error');
+      showToast('Camera access denied — use Library mode', 'error');
       setMode('upload');
     }
   }
 
   function stopCamera() {
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    torchOn = false;
+    document.getElementById('torch-btn')?.classList.remove('torch-on');
   }
 
   async function flipCamera() {
     torchOn = false;
-    document.getElementById('torch-btn').classList.remove('active');
+    document.getElementById('torch-btn').classList.remove('torch-on');
     facingMode = facingMode === 'environment' ? 'user' : 'environment';
     await startCamera();
   }
@@ -497,47 +478,51 @@
   // ── Torch ─────────────────────────────────────────────────────
   async function toggleTorch() {
     if (!torchSupported) {
-      const el = document.getElementById('torch-unsupported');
-      el.style.display = 'block';
-      setTimeout(() => el.style.display = 'none', 2500);
+      const tip = document.getElementById('torch-tip');
+      tip.style.display = 'block';
+      setTimeout(() => tip.style.display = 'none', 2200);
       return;
     }
     torchOn = !torchOn;
     try {
-      const track = stream?.getVideoTracks()[0];
-      await track.applyConstraints({ advanced: [{ torch: torchOn }] });
-      document.getElementById('torch-btn').classList.toggle('active', torchOn);
-    } catch (e) {
-      showToast('Could not toggle flash', 'error');
+      await stream.getVideoTracks()[0]
+        .applyConstraints({ advanced: [{ torch: torchOn }] });
+      document.getElementById('torch-btn').classList.toggle('torch-on', torchOn);
+    } catch (_) {
       torchOn = false;
+      showToast('Could not toggle flash', 'error');
     }
   }
 
   // ── Zoom ──────────────────────────────────────────────────────
   async function handleZoom(val) {
     currentZoom = parseFloat(val);
-    document.getElementById('zoom-label').textContent = currentZoom.toFixed(1) + '×';
+    document.getElementById('zoom-lbl').textContent = currentZoom.toFixed(1) + '×';
 
     if (hardwareZoom && stream) {
       try {
-        const track = stream.getVideoTracks()[0];
-        await track.applyConstraints({ advanced: [{ zoom: currentZoom }] });
-        document.getElementById('video-el').style.transform = 'none';
+        await stream.getVideoTracks()[0]
+          .applyConstraints({ advanced: [{ zoom: currentZoom }] });
+        document.getElementById('video-el').style.transform = '';
         return;
       } catch (_) {}
     }
-    // CSS zoom fallback
+    // CSS fallback
     document.getElementById('video-el').style.transform = `scale(${currentZoom})`;
+    document.getElementById('video-el').style.transformOrigin = 'center center';
   }
 
   // ── Capture ───────────────────────────────────────────────────
   function capturePhoto() {
     if (currentMode !== 'camera') return;
     const video = document.getElementById('video-el');
-    if (!video.srcObject) return;
+    if (!video.srcObject) { showToast('Camera not ready', 'error'); return; }
 
-    // Flash effect
-    flashEffect();
+    // White flash effect
+    const flash = document.createElement('div');
+    flash.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:.5;z-index:999;pointer-events:none;transition:opacity .12s';
+    document.body.appendChild(flash);
+    setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 120); }, 30);
 
     const canvas = document.createElement('canvas');
     canvas.width  = video.videoWidth  || 1920;
@@ -552,18 +537,10 @@
     }, 'image/jpeg', 0.88);
   }
 
-  function flashEffect() {
-    const flash = document.createElement('div');
-    flash.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0.6;z-index:999;pointer-events:none;transition:opacity .15s';
-    document.body.appendChild(flash);
-    setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 150); }, 30);
-  }
-
-  // ── Library upload ────────────────────────────────────────────
+  // ── Library select ────────────────────────────────────────────
   function handleFileSelect(input) {
     Array.from(input.files).forEach(file => {
-      const url = URL.createObjectURL(file);
-      queue.push({ file, url });
+      queue.push({ file, url: URL.createObjectURL(file) });
     });
     input.value = '';
     renderThumbs();
@@ -571,39 +548,40 @@
 
   // ── Thumbnail strip ───────────────────────────────────────────
   function renderThumbs() {
-    const strip  = document.getElementById('thumb-strip');
-    const btn    = document.getElementById('upload-all-btn');
-    const count  = document.getElementById('upload-count');
+    const strip   = document.getElementById('thumb-strip');
+    const outer   = document.getElementById('thumb-strip-outer');
+    const btn     = document.getElementById('upload-all-btn');
     const shutter = document.getElementById('shutter-btn');
-    const sCount  = document.getElementById('shutter-count');
+    const badge   = document.getElementById('shutter-badge');
+    const count   = document.getElementById('upload-count');
     const emptyMsg = document.getElementById('thumb-empty-msg');
 
     if (queue.length === 0) {
       strip.innerHTML = '';
+      emptyMsg.style.display = 'inline';
       strip.appendChild(emptyMsg);
-      emptyMsg.style.display = '';
       btn.classList.add('empty');
-      btn.disabled = false;
       shutter.classList.remove('has-photos');
       count.textContent = '0';
+      badge.textContent = '0';
       return;
     }
 
-    emptyMsg.style.display = 'none';
+    // Build thumbs as HTML string — all inline, no DOM re-parenting
     strip.innerHTML = queue.map((item, i) => `
       <div class="thumb-wrap">
-        <img src="${item.url}" alt="Photo ${i+1}">
+        <img src="${item.url}" alt="">
         <button class="thumb-remove" onclick="removeFromQueue(${i})">✕</button>
       </div>`).join('');
 
+    // Update counters
     btn.classList.remove('empty');
-    btn.disabled = false;
-    count.textContent = queue.length;
-    sCount.textContent = queue.length;
     shutter.classList.add('has-photos');
+    badge.textContent  = queue.length;
+    count.textContent  = queue.length;
 
-    // Scroll strip to end
-    strip.scrollLeft = strip.scrollWidth;
+    // Scroll to the newest photo (right end)
+    requestAnimationFrame(() => { outer.scrollLeft = outer.scrollWidth; });
   }
 
   function removeFromQueue(idx) {
@@ -614,104 +592,83 @@
 
   // ── Upload all ────────────────────────────────────────────────
   async function uploadAll() {
-    if (queue.length === 0) {
-      showToast('Take some photos first!', 'error'); return;
-    }
-    if (!selectedPropId) {
-      openSheet();
-      showToast('Select a property first', 'error'); return;
-    }
+    if (queue.length === 0) { showToast('Take some photos first!', 'error'); return; }
+    if (!selectedPropId)    { openSheet(); showToast('Select a property first', 'error'); return; }
 
-    const btn      = document.getElementById('upload-all-btn');
-    const progress = document.getElementById('upload-progress');
-    const fill     = document.getElementById('progress-fill');
-    const label    = document.getElementById('progress-label');
-    const notes    = document.getElementById('photo-notes').value;
+    const btn   = document.getElementById('upload-all-btn');
+    const prog  = document.getElementById('upload-progress');
+    const fill  = document.getElementById('prog-fill');
+    const lbl   = document.getElementById('prog-lbl');
+    const notes = document.getElementById('photo-notes').value;
 
     btn.disabled = true;
-    progress.style.display = 'block';
+    prog.style.display = 'block';
 
     const total = queue.length;
     let done = 0, failed = 0;
 
     for (let i = 0; i < queue.length; i++) {
-      label.textContent = `Uploading ${i + 1} of ${total}…`;
-      fill.style.width  = `${((i) / total) * 100}%`;
-
+      lbl.textContent      = `Uploading ${i + 1} of ${total}…`;
+      fill.style.width     = `${(i / total) * 100}%`;
       try {
-        await uploadPhoto({
-          file:       queue[i].file,
-          propertyId: selectedPropId,
-          lat:        userLat,
-          lng:        userLng,
-          notes
-        });
+        await uploadPhoto({ file: queue[i].file, propertyId: selectedPropId,
+                            lat: userLat, lng: userLng, notes });
         done++;
-      } catch (e) {
-        failed++;
-        console.error('Upload failed for photo', i, e);
-      }
+      } catch (e) { failed++; console.error(e); }
     }
 
     fill.style.width = '100%';
-    label.textContent = failed === 0
+    lbl.textContent  = failed === 0
       ? `✅ All ${done} photos uploaded!`
       : `⚠️ ${done} uploaded, ${failed} failed`;
 
-    // Clean up queue
     queue.forEach(item => URL.revokeObjectURL(item.url));
     queue = [];
     renderThumbs();
 
     setTimeout(() => {
-      progress.style.display = 'none';
-      fill.style.width = '0%';
-      btn.disabled = false;
+      prog.style.display = 'none';
+      fill.style.width   = '0%';
+      btn.disabled       = false;
       if (failed === 0) window.location.href = `/property.html?id=${selectedPropId}`;
     }, 1200);
   }
 
-  // ── Mode switch ───────────────────────────────────────────────
+  // ── Mode ──────────────────────────────────────────────────────
   function setMode(mode) {
     currentMode = mode;
-    const video   = document.getElementById('video-el');
-    const upWrap  = document.getElementById('upload-mode-wrap');
-    const zoomBar = document.getElementById('zoom-bar');
-    const torchBtn = document.getElementById('torch-btn');
-    const flipBtn  = document.getElementById('flip-btn');
+    const video    = document.getElementById('video-el');
+    const upWrap   = document.getElementById('upload-mode-wrap');
+    const zoomRow  = document.getElementById('zoom-row');
     document.getElementById('mode-cam').classList.toggle('active', mode === 'camera');
-    document.getElementById('mode-up').classList.toggle('active', mode === 'upload');
+    document.getElementById('mode-up').classList.toggle('active',  mode === 'upload');
 
     if (mode === 'camera') {
       upWrap.classList.remove('active');
       video.style.display = 'block';
-      zoomBar.style.display = 'flex';
-      torchBtn.style.display = 'flex';
-      flipBtn.style.display  = 'flex';
+      zoomRow.style.display = '';
       startCamera();
     } else {
       stopCamera();
       video.style.display = 'none';
       upWrap.classList.add('active');
-      zoomBar.style.display = 'none';
-      torchBtn.style.display = 'none';
-      flipBtn.style.display  = 'none';
+      zoomRow.style.display = 'none';
     }
   }
 
   // ── Property sheet ────────────────────────────────────────────
   async function loadAllProperties() {
     allProps = await getProperties();
-    renderSheetProps(allProps);
+    renderSheetProps();
   }
 
-  function renderSheetProps(list) {
+  function renderSheetProps() {
     const el = document.getElementById('sheet-props-list');
-    if (!list.length) {
-      el.innerHTML = `<p style="color:rgba(255,255,255,.5);font-size:.85rem;">No properties yet.</p>`;
+    if (!allProps.length) {
+      el.innerHTML = `<p style="color:rgba(255,255,255,.4);font-size:.82rem;">No properties yet.</p>`;
       return;
     }
-    el.innerHTML = list.map(p => `
+    el.innerHTML = allProps.map(p => `
       <div class="prop-opt-dark ${p.id === selectedPropId ? 'selected' : ''}"
            id="sheet-prop-${p.id}" onclick="selectProp('${p.id}')">
         <div class="opt-name">${escHtml(p.name)}</div>
@@ -722,11 +679,11 @@
   function selectProp(id) {
     selectedPropId = id;
     document.querySelectorAll('.prop-opt-dark').forEach(el => el.classList.remove('selected'));
-    const el = document.getElementById(`sheet-prop-${id}`);
-    if (el) el.classList.add('selected');
+    document.getElementById(`sheet-prop-${id}`)?.classList.add('selected');
   }
 
-  function openSheet()  {
+  function openSheet() {
+    renderSheetProps();
     document.getElementById('settings-sheet').classList.add('open');
     document.getElementById('sheet-overlay').classList.add('open');
   }
@@ -735,9 +692,7 @@
     document.getElementById('sheet-overlay').classList.remove('open');
   }
 
-  // Stop camera on leave
   window.addEventListener('beforeunload', stopCamera);
-
   init();
 </script>
 </body>
