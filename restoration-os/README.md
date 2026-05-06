@@ -1,6 +1,6 @@
 # Restoration OS
 
-Central operating system for **The Restoration Homes**.
+Central operating system for **Restoration Homes**.
 
 Owns: identity & SSO, properties (canonical), contacts, the deal pipeline
 (prospects → leads → opportunities → purchases → projects), and the apps
