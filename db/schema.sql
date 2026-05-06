@@ -87,3 +87,13 @@ ALTER TABLE users  ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'member';
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id) ON DELETE SET NULL;
 -- Make oldest user the admin (bootstrap)
 UPDATE users SET role = 'admin' WHERE id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1) AND role = 'member';
+
+-- ── Comments ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS comments (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  photo_id   UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+  body       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS comments_photo_id_idx ON comments(photo_id);

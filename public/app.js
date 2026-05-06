@@ -282,3 +282,20 @@ async function setUserRole(userId, role) {
     body: JSON.stringify({ role })
   });
 }
+
+// ── Comments ──────────────────────────────────────────────────
+
+async function getComments(photoId) {
+  return apiFetch(`/api/comments?photo_id=${encodeURIComponent(photoId)}`);
+}
+
+async function postComment(photoId, body) {
+  return apiFetch('/api/comments', {
+    method: 'POST',
+    body: JSON.stringify({ photo_id: photoId, body })
+  });
+}
+
+async function deleteComment(commentId) {
+  return apiFetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+}

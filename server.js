@@ -31,6 +31,7 @@ app.use('/api/photos',     require('./routes/photos'));
 app.use('/api/team',       require('./routes/team'));
 app.use('/api/folders',    require('./routes/folders'));
 app.use('/api/access',     require('./routes/access'));
+app.use('/api/comments',   require('./routes/comments'));
 
 // ── Health Check (Railway uses this) ──────────────────────────
 app.get('/api/health', (req, res) =>
