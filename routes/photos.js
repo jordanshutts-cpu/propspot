@@ -10,20 +10,22 @@ router.use(requireAuth);
 // Store uploads in memory before streaming to Cloudinary
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB max
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB (supports video)
   fileFilter(req, file, cb) {
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Only image files are allowed'));
+    if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
+      return cb(new Error('Only image and video files are allowed'));
     }
     cb(null, true);
   }
 });
 
 // Upload buffer to Cloudinary using a stream
-function uploadToCloudinary(buffer, options = {}) {
+function uploadToCloudinary(buffer, mimetype, options = {}) {
+  const isVideo    = mimetype.startsWith('video/');
+  const resourceType = isVideo ? 'video' : 'image';
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: 'fieldcam', resource_type: 'image', ...options },
+      { folder: 'fieldcam', resource_type: resourceType, ...options },
       (err, result) => err ? reject(err) : resolve(result)
     );
     stream.end(buffer);
@@ -63,17 +65,21 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
     );
     if (!propRows[0]) return res.status(404).json({ error: 'Property not found' });
 
+    const mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+
     // Upload to Cloudinary
-    const result = await uploadToCloudinary(req.file.buffer, {
+    const result = await uploadToCloudinary(req.file.buffer, req.file.mimetype, {
       public_id: `${propertyId}/${Date.now()}`,
-      transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+      ...(mediaType === 'image'
+        ? { transformation: [{ quality: 'auto', fetch_format: 'auto' }] }
+        : {})
     });
 
     // Save metadata to DB
     const { rows } = await query(`
       INSERT INTO photos
-        (property_id, uploaded_by, url, cloudinary_id, lat, lng, notes, taken_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        (property_id, uploaded_by, url, cloudinary_id, lat, lng, notes, media_type, taken_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
       RETURNING *
     `, [
       propertyId,
@@ -82,14 +88,17 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
       result.public_id,
       lat  ? parseFloat(lat)  : null,
       lng  ? parseFloat(lng)  : null,
-      notes?.trim() || null
+      notes?.trim() || null,
+      mediaType
     ]);
 
-    // Update property cover_url to this photo
-    await query(
-      'UPDATE properties SET cover_url = $1, updated_at = NOW() WHERE id = $2',
-      [result.secure_url, propertyId]
-    );
+    // Update property cover_url only for images (not video URLs)
+    if (mediaType === 'image') {
+      await query(
+        'UPDATE properties SET cover_url = $1, updated_at = NOW() WHERE id = $2',
+        [result.secure_url, propertyId]
+      );
+    }
 
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -113,17 +122,18 @@ router.delete('/:id', async (req, res) => {
 
     // Delete from Cloudinary
     if (photo.cloudinary_id) {
-      await cloudinary.uploader.destroy(photo.cloudinary_id).catch(e =>
+      const resourceType = photo.media_type === 'video' ? 'video' : 'image';
+      await cloudinary.uploader.destroy(photo.cloudinary_id, { resource_type: resourceType }).catch(e =>
         console.warn('Cloudinary delete warning:', e.message)
       );
     }
 
-    // Delete from DB (cascade handles nothing here since photos don't cascade up)
+    // Delete from DB
     await query('DELETE FROM photos WHERE id = $1', [req.params.id]);
 
-    // Update property cover to next most recent photo (if any)
+    // Update property cover to next most recent image (skip videos)
     const { rows: remaining } = await query(
-      'SELECT url FROM photos WHERE property_id = $1 ORDER BY taken_at DESC LIMIT 1',
+      `SELECT url FROM photos WHERE property_id = $1 AND (media_type IS NULL OR media_type = 'image') ORDER BY taken_at DESC LIMIT 1`,
       [photo.property_id]
     );
     await query(

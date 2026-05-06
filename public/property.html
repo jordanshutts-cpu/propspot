@@ -6,6 +6,34 @@
   <meta name="theme-color" content="#61B746">
   <title>FieldCam — Property</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .video-grid-thumb {
+      width: 100%; height: 100%;
+      background: #111;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #fff; gap: 4px;
+      border-radius: 4px;
+    }
+    .video-grid-thumb .vgt-icon { font-size: 1.8rem; }
+    .video-grid-thumb .vgt-label { font-size: .65rem; opacity: .55; }
+    .lightbox-video {
+      max-width: 100%; max-height: 70dvh;
+      display: none; border-radius: 8px;
+    }
+    .lightbox-actions {
+      display: flex; gap: 10px;
+      padding: 10px 20px 4px;
+    }
+    .lightbox-actions button {
+      flex: 1; padding: 11px;
+      border-radius: 10px; border: none;
+      font-size: .88rem; font-weight: 600;
+      cursor: pointer;
+    }
+    .lb-annotate-btn { background: #61B746; color: #fff; }
+    .lb-delete-btn   { background: rgba(255,59,48,.15); color: #FF3B30; }
+  </style>
 </head>
 <body>
 <header class="app-header">
@@ -58,12 +86,17 @@
 <div class="lightbox" id="lightbox" onclick="closeLightboxOutside(event)">
   <button class="lightbox-close" onclick="closeLightbox()">✕</button>
   <img class="lightbox-img" id="lightbox-img" src="" alt="Photo">
+  <video class="lightbox-video" id="lightbox-video" controls playsinline></video>
   <div class="lightbox-meta" id="lightbox-meta"></div>
-  <button class="lightbox-delete" onclick="deleteCurrentPhoto()">🗑 Delete Photo</button>
+  <div class="lightbox-actions">
+    <button id="lb-annotate-btn" class="lb-annotate-btn" onclick="annotateCurrentPhoto()">✏️ Annotate</button>
+    <button class="lb-delete-btn" onclick="deleteCurrentPhoto()">🗑 Delete</button>
+  </div>
 </div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="annotator.js"></script>
 <script>
   const params=new URLSearchParams(location.search);
   const PROP_ID=params.get('id');
@@ -115,7 +148,10 @@
     }
     wrap.innerHTML=`<div class="photo-grid">${sorted.map((p,i)=>`
       <div class="photo-thumb-wrap" onclick="openLightbox(${i})">
-        <img src="${escHtml(p.url)}" alt="Photo" loading="lazy">
+        ${p.media_type==='video'
+          ? `<div class="video-grid-thumb"><span class="vgt-icon">▶</span><span class="vgt-label">Video</span></div>`
+          : `<img src="${escHtml(p.url)}" alt="Photo" loading="lazy">`
+        }
         <div class="photo-thumb-overlay">
           <div>${fmtShort(p.taken_at)}</div>
           <div>${escHtml(p.uploader_name||'')}</div>
@@ -132,7 +168,22 @@
   function openLightbox(idx){
     const sorted=document.getElementById('photo-grid-wrap')._sorted||photos;
     currentPhoto=sorted[idx];
-    document.getElementById('lightbox-img').src=currentPhoto.url;
+    const isVideo=currentPhoto.media_type==='video';
+    const imgEl  =document.getElementById('lightbox-img');
+    const vidEl  =document.getElementById('lightbox-video');
+    const annBtn =document.getElementById('lb-annotate-btn');
+
+    if(isVideo){
+      imgEl.style.display='none';
+      vidEl.style.display='block';
+      vidEl.src=currentPhoto.url;
+      annBtn.style.display='none';
+    }else{
+      vidEl.style.display='none'; vidEl.pause?.(); vidEl.src='';
+      imgEl.style.display=''; imgEl.src=currentPhoto.url;
+      annBtn.style.display='';
+    }
+
     document.getElementById('lightbox-meta').innerHTML=`
       <strong>${escHtml(currentPhoto.uploader_name||'Team member')}</strong> &middot;
       ${formatDate(currentPhoto.taken_at)}
@@ -143,16 +194,34 @@
   }
 
   function closeLightbox(){
+    const vidEl=document.getElementById('lightbox-video');
+    vidEl.pause?.(); vidEl.src='';
     document.getElementById('lightbox').classList.remove('open');
     document.body.style.overflow='';
     currentPhoto=null;
+  }
+
+  async function annotateCurrentPhoto(){
+    if(!currentPhoto||currentPhoto.media_type==='video') return;
+    const photo=currentPhoto;
+    closeLightbox();
+    openAnnotator(photo.url, async blob=>{
+      try{
+        showToast('Saving annotated photo…');
+        const file=new File([blob],`annotated_${Date.now()}.jpg`,{type:'image/jpeg'});
+        await uploadPhoto({file, propertyId:PROP_ID, notes:'Annotated'});
+        showToast('Annotated photo saved!');
+        await loadPhotos();
+      }catch(err){ showToast('Upload failed: '+err.message,'error'); }
+    }, null);
   }
 
   function closeLightboxOutside(e){if(e.target===document.getElementById('lightbox'))closeLightbox();}
 
   async function deleteCurrentPhoto(){
     if(!currentPhoto)return;
-    if(!confirm('Delete this photo? This cannot be undone.'))return;
+    const label=currentPhoto.media_type==='video'?'video':'photo';
+    if(!confirm(`Delete this ${label}? This cannot be undone.`))return;
     try{
       await deletePhoto(currentPhoto);
       photos=photos.filter(p=>p.id!==currentPhoto.id);

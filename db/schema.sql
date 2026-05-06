@@ -47,3 +47,6 @@ CREATE TABLE IF NOT EXISTS photos (
 CREATE INDEX IF NOT EXISTS photos_property_id_idx ON photos(property_id);
 CREATE INDEX IF NOT EXISTS photos_taken_at_idx    ON photos(taken_at DESC);
 CREATE INDEX IF NOT EXISTS properties_created_idx ON properties(created_at DESC);
+
+-- Migrations (idempotent)
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
