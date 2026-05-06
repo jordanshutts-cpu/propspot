@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <title>FieldCam — Camera</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .mode-btn{flex:1;padding:10px;background:none;border:2px solid var(--border);border-radius:8px;font-weight:600;font-size:.9rem;cursor:pointer;color:var(--text-muted);transition:all .15s}
+    .mode-btn.active{border-color:var(--brand);color:var(--brand);background:var(--brand-light)}
+    #preview-img{width:100%;height:100%;object-fit:cover;display:none}
+    #video-el{width:100%;height:100%;object-fit:cover;display:none}
+    .prop-option{padding:12px;border:2px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+    .prop-option.selected{border-color:var(--brand);background:var(--brand-light)}
+    .prop-option .prop-opt-name{font-weight:600}
+    .prop-option .prop-opt-dist{font-size:.8rem;color:var(--text-muted)}
+  </style>
+</head>
+<body>
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title">Add Photo</span>
+</header>
+
+<main class="page" style="padding-top:12px;">
+  <div class="flex gap-8 mb-16">
+    <button class="mode-btn active" id="mode-camera" onclick="setMode('camera')">📷 Camera</button>
+    <button class="mode-btn"        id="mode-upload" onclick="setMode('upload')">🖼 Upload</button>
+  </div>
+
+  <div class="camera-preview mb-16" id="preview-wrap" style="height:280px;">
+    <video id="video-el" autoplay playsinline muted></video>
+    <img id="preview-img" alt="Preview">
+    <div id="placeholder-msg" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#888;gap:12px;">
+      <div style="font-size:3rem;">📷</div>
+      <p class="text-sm">Camera will appear here</p>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-8 mb-16">
+    <span id="gps-pill" class="gps-pill warn">📍 Getting location…</span>
+    <span id="gps-coords" class="text-xs text-muted"></span>
+  </div>
+
+  <div id="camera-controls" class="camera-controls mb-16">
+    <button class="btn btn-secondary" onclick="flipCamera()">🔄</button>
+    <button class="shutter-btn" id="shutter-btn" onclick="capturePhoto()"></button>
+    <button class="btn btn-secondary" onclick="retakePhoto()" id="retake-btn" style="display:none">↩ Retake</button>
+  </div>
+
+  <div id="upload-controls" class="mb-16 hidden">
+    <input type="file" id="upload-input" accept="image/*" onchange="handleFileSelect(this)" style="display:none">
+    <button class="btn btn-secondary btn-full" onclick="document.getElementById('upload-input').click()">
+      🖼 Choose Photo from Library
+    </button>
+  </div>
+
+  <div class="card mb-16">
+    <div class="card-body">
+      <div class="section-header mb-8">
+        <span class="section-title">Assign to Property</span>
+        <a href="/add-property.html" class="text-sm" style="color:var(--brand)">+ New</a>
+      </div>
+      <div id="nearby-props-section"><p class="text-sm text-muted mb-8">📍 Detecting nearby properties…</p></div>
+      <div id="all-props-section" class="hidden"></div>
+      <div id="props-list"></div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Notes (optional)</label>
+    <textarea class="form-textarea" id="photo-notes" placeholder="E.g. Kitchen demo complete…"></textarea>
+  </div>
+
+  <button class="btn btn-primary btn-full mb-16" id="submit-btn" onclick="submitPhoto()">📤 Upload Photo</button>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Properties</a>
+  <a class="nav-link active" href="/camera.html"><span class="nav-icon">📷</span>Camera</a>
+  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const params=new URLSearchParams(location.search);
+  const PRESET_PROP=params.get('property_id');
+  let stream=null,capturedFile=null,selectedPropId=PRESET_PROP||null;
+  let userLat=null,userLng=null,facingMode='environment',currentMode='camera';
+  let allProps=[];
+
+  async function init(){
+    const user=await requireAuth(); if(!user)return;
+    await loadAllProperties();
+    startGPS();
+    if(currentMode==='camera')startCamera();
+  }
+
+  async function startGPS(){
+    const pill=document.getElementById('gps-pill');
+    try{
+      const pos=await getCurrentPosition();
+      userLat=pos.coords.latitude; userLng=pos.coords.longitude;
+      pill.className='gps-pill'; pill.textContent='📍 GPS locked';
+      document.getElementById('gps-coords').textContent=`${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
+      await loadNearbyProperties(userLat,userLng);
+    }catch(e){
+      pill.className='gps-pill err'; pill.textContent='📍 GPS unavailable';
+      document.getElementById('nearby-props-section').innerHTML=
+        '<p class="text-sm text-muted">Could not detect location. Select a property below.</p>';
+      showAllProperties();
+    }
+  }
+
+  async function loadAllProperties(){ allProps=await getProperties(); }
+
+  async function loadNearbyProperties(lat,lng){
+    const nearby=await findNearbyProperties(lat,lng,500);
+    const ns=document.getElementById('nearby-props-section');
+    if(nearby.length===0){
+      ns.innerHTML='<p class="text-sm text-muted mb-8">No properties within 500m:</p>';
+      showAllProperties(); return;
+    }
+    ns.innerHTML='<p class="text-sm text-muted mb-8">📍 Nearby:</p>';
+    renderPropOptions(nearby);
+    if(!selectedPropId&&nearby.length>0)selectProperty(nearby[0].id);
+    const as=document.getElementById('all-props-section');
+    as.classList.remove('hidden');
+    as.innerHTML='<button class="btn btn-secondary btn-full mt-8" style="font-size:.85rem;" onclick="showAllProperties()">Show all properties</button>';
+  }
+
+  function renderPropOptions(list){
+    document.getElementById('props-list').innerHTML=list.map(p=>`
+      <div class="prop-option ${p.id===selectedPropId?'selected':''}" id="prop-opt-${p.id}" onclick="selectProperty('${p.id}')">
+        <div class="prop-opt-name">${escHtml(p.name)}</div>
+        <div class="prop-opt-dist">${escHtml(p.address||'')}${p.distance!==undefined?` · ${Math.round(p.distance)}m away`:''}</div>
+      </div>`).join('');
+  }
+
+  function showAllProperties(){
+    document.getElementById('all-props-section').innerHTML='<p class="text-sm text-muted mb-8">All properties:</p>';
+    renderPropOptions(allProps);
+    if(selectedPropId){const el=document.getElementById(`prop-opt-${selectedPropId}`);if(el)el.classList.add('selected');}
+  }
+
+  function selectProperty(id){
+    document.querySelectorAll('.prop-option').forEach(el=>el.classList.remove('selected'));
+    selectedPropId=id;
+    const el=document.getElementById(`prop-opt-${id}`);if(el)el.classList.add('selected');
+  }
+
+  async function startCamera(){
+    stopCamera();
+    const video=document.getElementById('video-el'),ph=document.getElementById('placeholder-msg');
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:1920},height:{ideal:1080}},audio:false});
+      video.srcObject=stream; video.style.display='block'; ph.style.display='none';
+      document.getElementById('preview-img').style.display='none';
+    }catch(err){
+      ph.innerHTML='<div style="font-size:2rem;">⚠️</div><p class="text-sm">Camera access denied.<br>Use Upload mode instead.</p>';
+    }
+  }
+
+  function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
+
+  async function flipCamera(){facingMode=facingMode==='environment'?'user':'environment';await startCamera();}
+
+  function capturePhoto(){
+    const video=document.getElementById('video-el');
+    if(!video.srcObject)return;
+    const canvas=document.createElement('canvas');
+    canvas.width=video.videoWidth||1280; canvas.height=video.videoHeight||720;
+    canvas.getContext('2d').drawImage(video,0,0);
+    canvas.toBlob(blob=>{
+      capturedFile=new File([blob],`photo_${Date.now()}.jpg`,{type:'image/jpeg'});
+      const img=document.getElementById('preview-img');
+      img.src=URL.createObjectURL(blob); img.style.display='block';
+      video.style.display='none';
+      document.getElementById('shutter-btn').style.display='none';
+      document.getElementById('retake-btn').style.display='inline-flex';
+      document.getElementById('placeholder-msg').style.display='none';
+    },'image/jpeg',0.88);
+  }
+
+  function retakePhoto(){
+    capturedFile=null;
+    document.getElementById('preview-img').style.display='none';
+    document.getElementById('video-el').style.display='block';
+    document.getElementById('shutter-btn').style.display='';
+    document.getElementById('retake-btn').style.display='none';
+  }
+
+  function setMode(mode){
+    currentMode=mode;
+    document.getElementById('mode-camera').classList.toggle('active',mode==='camera');
+    document.getElementById('mode-upload').classList.toggle('active',mode==='upload');
+    document.getElementById('camera-controls').classList.toggle('hidden',mode!=='camera');
+    document.getElementById('upload-controls').classList.toggle('hidden',mode!=='upload');
+    if(mode==='camera')startCamera();
+    else{stopCamera();document.getElementById('video-el').style.display='none';}
+  }
+
+  function handleFileSelect(input){
+    const file=input.files[0]; if(!file)return;
+    capturedFile=file;
+    const img=document.getElementById('preview-img');
+    img.src=URL.createObjectURL(file); img.style.display='block';
+    document.getElementById('placeholder-msg').style.display='none';
+  }
+
+  async function submitPhoto(){
+    if(!capturedFile){showToast('Please take or select a photo first.','error');return;}
+    if(!selectedPropId){showToast('Please select a property.','error');return;}
+    const btn=document.getElementById('submit-btn');
+    showSpinner(btn,'Uploading…');
+    try{
+      await uploadPhoto({file:capturedFile,propertyId:selectedPropId,lat:userLat,lng:userLng,
+        notes:document.getElementById('photo-notes').value});
+      showToast('Photo uploaded! ✅');
+      setTimeout(()=>window.location.href=`/property.html?id=${selectedPropId}`,800);
+    }catch(err){showToast('Upload failed: '+err.message,'error');hideSpinner(btn);}
+  }
+
+  window.addEventListener('beforeunload',stopCamera);
+  init();
+</script>
+</body>
+</html>

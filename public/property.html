@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <title>FieldCam — Property</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title" id="prop-title">Property</span>
+  <div class="header-actions">
+    <button class="icon-btn" id="sort-btn" onclick="toggleSort()" title="Sort">↕️</button>
+  </div>
+</header>
+
+<main class="page" style="padding-top:12px;">
+  <div class="card mb-16">
+    <div class="card-body">
+      <div class="flex items-center justify-between mb-8">
+        <span class="section-title" id="prop-name">Loading…</span>
+        <span class="badge" id="photo-badge">0 photos</span>
+      </div>
+      <p class="text-muted text-sm" id="prop-address"></p>
+      <p class="text-muted text-sm mt-8" id="prop-notes"></p>
+      <div class="flex gap-8 mt-12">
+        <a id="take-photo-btn" href="#" class="btn btn-primary" style="flex:1;padding:10px;">📷 Add Photo</a>
+        <button class="btn btn-secondary" style="padding:10px 14px;" onclick="copyAddress()">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">Photos</span>
+    <span class="text-muted text-sm" id="sort-label">Newest first</span>
+  </div>
+
+  <div id="photo-grid-wrap">
+    <div class="photo-grid">
+      <div style="aspect-ratio:1;background:#f0f0f0;border-radius:4px"></div>
+      <div style="aspect-ratio:1;background:#e8e8e8;border-radius:4px"></div>
+      <div style="aspect-ratio:1;background:#f0f0f0;border-radius:4px"></div>
+    </div>
+  </div>
+</main>
+
+<a class="fab" id="fab-camera" href="#">📷</a>
+
+<nav class="bottom-nav">
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Properties</a>
+  <a class="nav-link" href="/camera.html"><span class="nav-icon">📷</span>Camera</a>
+  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+</nav>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightboxOutside(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="Photo">
+  <div class="lightbox-meta" id="lightbox-meta"></div>
+  <button class="lightbox-delete" onclick="deleteCurrentPhoto()">🗑 Delete Photo</button>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const params=new URLSearchParams(location.search);
+  const PROP_ID=params.get('id');
+  let photos=[],currentPhoto=null,sortNewest=true,property=null;
+
+  async function init(){
+    const user=await requireAuth(); if(!user)return;
+    if(!PROP_ID){window.location.href='/dashboard.html';return;}
+    const camUrl=`/camera.html?property_id=${PROP_ID}`;
+    document.getElementById('take-photo-btn').href=camUrl;
+    document.getElementById('fab-camera').href=camUrl;
+    await loadProperty();
+    await loadPhotos();
+  }
+
+  async function loadProperty(){
+    try{
+      property=await getProperty(PROP_ID);
+      document.title=`FieldCam — ${property.name}`;
+      document.getElementById('prop-title').textContent=property.name;
+      document.getElementById('prop-name').textContent=property.name;
+      document.getElementById('prop-address').textContent=property.address||'';
+      document.getElementById('prop-notes').textContent=property.notes||'';
+    }catch(err){showToast('Failed to load property','error');}
+  }
+
+  async function loadPhotos(){
+    try{
+      photos=await getPhotos(PROP_ID);
+      renderPhotos();
+    }catch(err){showToast('Failed to load photos','error');}
+  }
+
+  function renderPhotos(){
+    const sorted=[...photos].sort((a,b)=>sortNewest
+      ?new Date(b.taken_at)-new Date(a.taken_at)
+      :new Date(a.taken_at)-new Date(b.taken_at));
+    document.getElementById('photo-badge').textContent=
+      `${photos.length} photo${photos.length!==1?'s':''}`;
+    const wrap=document.getElementById('photo-grid-wrap');
+    wrap._sorted=sorted;
+    if(sorted.length===0){
+      wrap.innerHTML=`<div class="empty-state">
+        <div class="empty-icon">📷</div>
+        <p>No photos yet for this property.</p>
+        <a href="/camera.html?property_id=${PROP_ID}" class="btn btn-primary">Take First Photo</a>
+      </div>`;
+      return;
+    }
+    wrap.innerHTML=`<div class="photo-grid">${sorted.map((p,i)=>`
+      <div class="photo-thumb-wrap" onclick="openLightbox(${i})">
+        <img src="${escHtml(p.url)}" alt="Photo" loading="lazy">
+        <div class="photo-thumb-overlay">
+          <div>${fmtShort(p.taken_at)}</div>
+          <div>${escHtml(p.uploader_name||'')}</div>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+
+  function toggleSort(){
+    sortNewest=!sortNewest;
+    document.getElementById('sort-label').textContent=sortNewest?'Newest first':'Oldest first';
+    renderPhotos();
+  }
+
+  function openLightbox(idx){
+    const sorted=document.getElementById('photo-grid-wrap')._sorted||photos;
+    currentPhoto=sorted[idx];
+    document.getElementById('lightbox-img').src=currentPhoto.url;
+    document.getElementById('lightbox-meta').innerHTML=`
+      <strong>${escHtml(currentPhoto.uploader_name||'Team member')}</strong> &middot;
+      ${formatDate(currentPhoto.taken_at)}
+      ${currentPhoto.notes?`<br><em>${escHtml(currentPhoto.notes)}</em>`:''}
+      ${currentPhoto.lat?`<br>📍 ${currentPhoto.lat.toFixed(5)}, ${currentPhoto.lng.toFixed(5)}`:''}`;
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow='hidden';
+  }
+
+  function closeLightbox(){
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow='';
+    currentPhoto=null;
+  }
+
+  function closeLightboxOutside(e){if(e.target===document.getElementById('lightbox'))closeLightbox();}
+
+  async function deleteCurrentPhoto(){
+    if(!currentPhoto)return;
+    if(!confirm('Delete this photo? This cannot be undone.'))return;
+    try{
+      await deletePhoto(currentPhoto);
+      photos=photos.filter(p=>p.id!==currentPhoto.id);
+      closeLightbox();
+      renderPhotos();
+      showToast('Photo deleted');
+    }catch(err){showToast('Failed to delete: '+err.message,'error');}
+  }
+
+  function copyAddress(){
+    if(property?.address)
+      navigator.clipboard.writeText(property.address).then(()=>showToast('Address copied!'));
+  }
+
+  function fmtShort(iso){return iso?new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}
+
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLightbox();});
+
+  init();
+</script>
+</body>
+</html>

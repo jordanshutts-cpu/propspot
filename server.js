@@ -1,0 +1,57 @@
+require('dotenv').config();
+const express    = require('express');
+const cors       = require('cors');
+const path       = require('path');
+const cloudinary = require('cloudinary').v2;
+const { initDb } = require('./db');
+
+// ── Cloudinary config ──────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const app = express();
+
+// ── Middleware ─────────────────────────────────────────────────
+app.use(cors({
+  origin: process.env.APP_URL || '*',
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ── API Routes ─────────────────────────────────────────────────
+app.use('/api/auth',       require('./routes/auth'));
+app.use('/api/properties', require('./routes/properties'));
+app.use('/api/photos',     require('./routes/photos'));
+app.use('/api/team',       require('./routes/team'));
+
+// ── Health Check (Railway uses this) ──────────────────────────
+app.get('/api/health', (req, res) =>
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+);
+
+// ── Serve Frontend (public/) ───────────────────────────────────
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Catch-all: send index.html for any unknown GET (SPA-style)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ── Start ──────────────────────────────────────────────────────
+const PORT = parseInt(process.env.PORT) || 3000;
+
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 FieldCam running on port ${PORT}`);
+      console.log(`   http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ Failed to initialize database:', err);
+    process.exit(1);
+  });

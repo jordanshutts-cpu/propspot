@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <title>FieldCam — Properties</title>
+  <link rel="stylesheet" href="style.css">
+  <style>@keyframes shimmer{to{background-position:-200% 0}}</style>
+</head>
+<body>
+<header class="app-header">
+  <span class="logo">📸 FieldCam</span>
+  <div class="header-actions">
+    <a class="icon-btn" href="/team.html" title="Team">👥</a>
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <!-- GPS Nearby Banner -->
+  <div id="nearby-banner" class="nearby-banner hidden" onclick="goToNearby()">
+    <div class="nearby-icon">📍</div>
+    <div class="nearby-text">
+      <strong id="nearby-name">Nearby Property</strong>
+      <span id="nearby-dist">Tap to view</span>
+    </div>
+    <div style="margin-left:auto;font-size:1.4rem;">›</div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input class="form-input" type="search" id="search-input"
+           placeholder="Search properties…" oninput="filterProperties(this.value)">
+  </div>
+
+  <div class="section-header">
+    <span class="section-title" id="props-count">All Properties</span>
+    <a href="/add-property.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">+ Add</a>
+  </div>
+
+  <div id="properties-list">
+    <div class="card mb-16" style="height:200px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
+    <div class="card mb-16" style="height:200px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
+  </div>
+</main>
+
+<a class="fab" href="/camera.html" title="Take Photo">📷</a>
+
+<nav class="bottom-nav">
+  <a class="nav-link active" href="/dashboard.html"><span class="nav-icon">🏠</span>Properties</a>
+  <a class="nav-link" href="/camera.html"><span class="nav-icon">📷</span>Camera</a>
+  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let allProperties=[], nearbyProperty=null;
+
+  async function init(){
+    const user=await requireAuth(); if(!user)return;
+    await loadProperties();
+    detectNearby();
+  }
+
+  async function loadProperties(){
+    try{
+      allProperties=await getProperties();
+      renderProperties(allProperties);
+    }catch(err){
+      document.getElementById('properties-list').innerHTML=
+        `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderProperties(list){
+    const el=document.getElementById('properties-list');
+    document.getElementById('props-count').textContent=
+      list.length===1?'1 Property':`${list.length} Properties`;
+
+    if(list.length===0){
+      el.innerHTML=`<div class="empty-state">
+        <div class="empty-icon">🏗️</div>
+        <p>No properties yet.<br>Add your first renovation site!</p>
+        <a href="/add-property.html" class="btn btn-primary">+ Add Property</a>
+      </div>`;
+      return;
+    }
+
+    el.innerHTML=list.map(p=>{
+      const cnt=p.photo_count||0;
+      const thumb=p.cover_url
+        ?`<img class="property-thumb" src="${escHtml(p.cover_url)}" alt="${escHtml(p.name)}" loading="lazy">`
+        :`<div class="property-thumb-placeholder">🏠</div>`;
+      return `<a class="property-card" href="/property.html?id=${p.id}">
+        ${thumb}
+        <div class="property-info">
+          <div class="property-name">${escHtml(p.name)}</div>
+          <div class="property-address">${escHtml(p.address||'')}</div>
+          <div class="property-meta">
+            <span>📷 ${cnt} photo${cnt!==1?'s':''}</span>
+            ${p.lat?'<span>📍 GPS set</span>':''}
+          </div>
+        </div>
+      </a>`;
+    }).join('');
+  }
+
+  function filterProperties(q){
+    const f=allProperties.filter(p=>
+      p.name.toLowerCase().includes(q.toLowerCase())||
+      (p.address||'').toLowerCase().includes(q.toLowerCase())
+    );
+    renderProperties(f);
+  }
+
+  async function detectNearby(){
+    try{
+      const pos=await getCurrentPosition();
+      const nearby=await findNearbyProperties(pos.coords.latitude,pos.coords.longitude);
+      if(nearby.length>0){
+        nearbyProperty=nearby[0];
+        document.getElementById('nearby-name').textContent=nearbyProperty.name;
+        document.getElementById('nearby-dist').textContent=
+          `${Math.round(nearbyProperty.distance)}m away — tap to view`;
+        document.getElementById('nearby-banner').classList.remove('hidden');
+      }
+    }catch(_){}
+  }
+
+  function goToNearby(){if(nearbyProperty)window.location.href=`/property.html?id=${nearbyProperty.id}`;}
+
+  init();
+</script>
+</body>
+</html>

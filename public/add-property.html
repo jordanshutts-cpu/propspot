@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <title>FieldCam — Add Property</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title">Add Property</span>
+</header>
+
+<main class="page" style="padding-top:16px;">
+  <div class="card">
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Property Name *</label>
+        <input class="form-input" type="text" id="prop-name" placeholder="e.g. 142 Maple St Renovation" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Street Address</label>
+        <input class="form-input" type="text" id="prop-address" placeholder="123 Main St, City, State 12345">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Description</label>
+        <textarea class="form-textarea" id="prop-notes" placeholder="3-bedroom full gut renovation…"></textarea>
+      </div>
+
+      <div style="background:var(--bg);border-radius:10px;padding:14px;margin-bottom:16px;">
+        <div class="flex items-center justify-between mb-8">
+          <span class="font-bold text-sm">📍 GPS Coordinates</span>
+          <span id="gps-status-pill" class="gps-pill warn" style="font-size:.72rem;">Not set</span>
+        </div>
+        <div class="flex gap-8 mb-8">
+          <div style="flex:1">
+            <label class="form-label" style="font-size:.78rem;">Latitude</label>
+            <input class="form-input" type="number" id="prop-lat" step="any" placeholder="37.77493" style="font-size:.9rem;">
+          </div>
+          <div style="flex:1">
+            <label class="form-label" style="font-size:.78rem;">Longitude</label>
+            <input class="form-input" type="number" id="prop-lng" step="any" placeholder="-122.41942" style="font-size:.9rem;">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-full" onclick="useCurrentGPS()" id="gps-btn">📍 Use My Current Location</button>
+        <p class="text-xs text-muted mt-8" id="gps-hint">GPS lets the app auto-detect this property when your team arrives.</p>
+      </div>
+
+      <p id="form-error"   class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+      <p id="form-success" class="text-sm mb-8" style="color:var(--success);display:none;"></p>
+      <button class="btn btn-primary btn-full" onclick="handleSubmit()" id="submit-btn">➕ Add Property</button>
+    </div>
+  </div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Properties</a>
+  <a class="nav-link" href="/camera.html"><span class="nav-icon">📷</span>Camera</a>
+  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  async function init(){ await requireAuth(); }
+
+  async function useCurrentGPS(){
+    const btn=document.getElementById('gps-btn'),pill=document.getElementById('gps-status-pill');
+    showSpinner(btn,'Getting GPS…'); pill.className='gps-pill warn'; pill.textContent='Locating…';
+    try{
+      const pos=await getCurrentPosition();
+      const lat=pos.coords.latitude.toFixed(6),lng=pos.coords.longitude.toFixed(6);
+      document.getElementById('prop-lat').value=lat;
+      document.getElementById('prop-lng').value=lng;
+      pill.className='gps-pill'; pill.textContent='✅ GPS set';
+      document.getElementById('gps-hint').textContent=`Captured: ${lat}, ${lng} (±${Math.round(pos.coords.accuracy)}m)`;
+      // Free reverse geocode
+      try{
+        const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+          {headers:{'Accept-Language':'en'}});
+        const j=await r.json();
+        if(j.display_name&&!document.getElementById('prop-address').value)
+          document.getElementById('prop-address').value=j.display_name;
+      }catch(_){}
+    }catch(err){
+      pill.className='gps-pill err'; pill.textContent='❌ GPS failed';
+    }
+    hideSpinner(btn); btn.textContent='📍 Refresh Location';
+  }
+
+  async function handleSubmit(){
+    const btn=document.getElementById('submit-btn');
+    const errEl=document.getElementById('form-error'),okEl=document.getElementById('form-success');
+    errEl.style.display='none'; okEl.style.display='none';
+    const name=document.getElementById('prop-name').value.trim();
+    if(!name){errEl.textContent='Property name is required.';errEl.style.display='block';return;}
+    showSpinner(btn,'Saving…');
+    try{
+      const prop=await createProperty({
+        name,
+        address:document.getElementById('prop-address').value.trim()||null,
+        notes:document.getElementById('prop-notes').value.trim()||null,
+        lat:document.getElementById('prop-lat').value||null,
+        lng:document.getElementById('prop-lng').value||null
+      });
+      okEl.textContent='✅ Property added!'; okEl.style.display='block';
+      setTimeout(()=>window.location.href=`/property.html?id=${prop.id}`,800);
+    }catch(err){
+      errEl.textContent='Error: '+err.message; errEl.style.display='block'; hideSpinner(btn);
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
