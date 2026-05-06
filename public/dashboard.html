@@ -278,9 +278,37 @@
       allProperties = await getProperties();
       renderProperties(allProperties);
       initMap(allProperties);
+      // Geocode any properties with an address but no GPS (runs in background)
+      geocodeMissingGPS(allProperties);
     } catch (err) {
       document.getElementById('properties-list').innerHTML =
         `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  async function geocodeMissingGPS(properties) {
+    const missing = properties.filter(p => !p.lat && p.address);
+    if (!missing.length) return;
+    let config;
+    try { config = await apiFetch('/api/config'); } catch(_) { return; }
+    const key = config.googleMapsApiKey;
+    if (!key) return;
+
+    for (const prop of missing) {
+      try {
+        const r = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(prop.address)}&key=${key}`
+        );
+        const d = await r.json();
+        if (d.results?.[0]) {
+          const { lat, lng } = d.results[0].geometry.location;
+          // Save to DB so it won't need geocoding again
+          await updateProperty(prop.id, { lat, lng }).catch(() => {});
+          // Update local copy and refresh map
+          prop.lat = lat; prop.lng = lng;
+          initMap(allProperties);
+        }
+      } catch(_) {}
     }
   }
 

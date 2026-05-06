@@ -107,6 +107,46 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
   }
 });
 
+// ── PATCH /api/photos/:id  (replace with annotated version) ───────
+router.patch('/:id', upload.single('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+  try {
+    const { rows } = await query('SELECT * FROM photos WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Photo not found' });
+    const photo = rows[0];
+
+    // Delete old Cloudinary asset
+    if (photo.cloudinary_id) {
+      const oldType = photo.media_type === 'video' ? 'video' : 'image';
+      await cloudinary.uploader.destroy(photo.cloudinary_id, { resource_type: oldType })
+        .catch(e => console.warn('Cloudinary delete warning:', e.message));
+    }
+
+    // Upload annotated image
+    const result = await uploadToCloudinary(req.file.buffer, req.file.mimetype, {
+      public_id: `${photo.property_id}/${Date.now()}`,
+      transformation: [{ quality: 'auto', fetch_format: 'auto' }]
+    });
+
+    // Update DB record in place
+    const { rows: updated } = await query(`
+      UPDATE photos SET url = $1, cloudinary_id = $2, taken_at = NOW()
+      WHERE id = $3 RETURNING *
+    `, [result.secure_url, result.public_id, photo.id]);
+
+    // If this was the property cover, update it too
+    await query(
+      'UPDATE properties SET cover_url = $1, updated_at = NOW() WHERE id = $2 AND cover_url = $3',
+      [result.secure_url, photo.property_id, photo.url]
+    );
+
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('Photo patch error:', err);
+    res.status(500).json({ error: 'Failed to update photo: ' + err.message });
+  }
+});
+
 // ── DELETE /api/photos/:id ─────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {

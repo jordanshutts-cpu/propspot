@@ -207,12 +207,16 @@
     closeLightbox();
     openAnnotator(photo.url, async blob=>{
       try{
-        showToast('Saving annotated photo…');
-        const file=new File([blob],`annotated_${Date.now()}.jpg`,{type:'image/jpeg'});
-        await uploadPhoto({file, propertyId:PROP_ID, notes:'Annotated'});
-        showToast('Annotated photo saved!');
-        await loadPhotos();
-      }catch(err){ showToast('Upload failed: '+err.message,'error'); }
+        showToast('Saving…');
+        const formData=new FormData();
+        formData.append('photo', new File([blob],`annotated_${Date.now()}.jpg`,{type:'image/jpeg'}));
+        const updated=await apiFetch(`/api/photos/${photo.id}`,{method:'PATCH',body:formData});
+        // Replace in local array so re-render is instant
+        const idx=photos.findIndex(p=>p.id===photo.id);
+        if(idx>=0) photos[idx]={...photos[idx], url:updated.url, cloudinary_id:updated.cloudinary_id};
+        showToast('Photo updated!');
+        renderPhotos();
+      }catch(err){ showToast('Failed: '+err.message,'error'); }
     }, null);
   }
 
