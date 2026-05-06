@@ -1,12 +1,12 @@
 -- ============================================================
---  Restoration OS — PostgreSQL Schema
+--  Prop Spot — PostgreSQL Schema
 --  Idempotent: every CREATE uses IF NOT EXISTS.
 --  Triggers and functions use CREATE OR REPLACE.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- ── Users ─────────────────────────────────────────────────────
+-- ── Users ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email           TEXT UNIQUE NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ── Apps Registry ─────────────────────────────────────────────
+-- ── Apps Registry ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS apps (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug        TEXT UNIQUE NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS apps (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ── App Grants (per-user, per-app) ────────────────────────────
+-- ── App Grants (per-user, per-app) ───────────────────────────────────────
 -- scope JSONB shapes:
 --   {"all": true}                     -- access everything in app
 --   {"project_ids": ["uuid", ...]}    -- only listed projects
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS app_grants (
 CREATE INDEX IF NOT EXISTS app_grants_app_idx  ON app_grants(app_id);
 CREATE INDEX IF NOT EXISTS app_grants_user_idx ON app_grants(user_id);
 
--- ── Properties (canonical, unique per address) ────────────────
+-- ── Properties (canonical, unique per address) ────────────────────────
 CREATE TABLE IF NOT EXISTS properties (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   address_line1       TEXT NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS properties (
 CREATE INDEX IF NOT EXISTS properties_parcel_idx  ON properties(parcel_id);
 CREATE INDEX IF NOT EXISTS properties_created_idx ON properties(created_at DESC);
 
--- ── Contacts ──────────────────────────────────────────────────
+-- ── Contacts ──────────────────────────────────────────────────────────────
 -- type ENUM kept as TEXT + CHECK for forward-compat (easy to add new types).
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'contact_type') THEN
@@ -99,7 +99,7 @@ CREATE INDEX IF NOT EXISTS contacts_type_idx  ON contacts(type);
 CREATE INDEX IF NOT EXISTS contacts_email_idx ON contacts(LOWER(email));
 CREATE INDEX IF NOT EXISTS contacts_user_idx  ON contacts(user_id);
 
--- ── Property ⇄ Contact bridge ─────────────────────────────────
+-- ── Property ⇄ Contact bridge ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS property_contacts (
   property_id  UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   contact_id   UUID NOT NULL REFERENCES contacts(id)   ON DELETE CASCADE,
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS property_contacts (
 CREATE INDEX IF NOT EXISTS pc_property_idx ON property_contacts(property_id);
 CREATE INDEX IF NOT EXISTS pc_contact_idx  ON property_contacts(contact_id);
 
--- ── Pipeline: prospects ───────────────────────────────────────
+-- ── Pipeline: prospects ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS prospects (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id       UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS prospects (
 CREATE INDEX IF NOT EXISTS prospects_property_idx ON prospects(property_id);
 CREATE INDEX IF NOT EXISTS prospects_status_idx   ON prospects(status);
 
--- ── Pipeline: leads ───────────────────────────────────────────
+-- ── Pipeline: leads ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS leads (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id         UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS leads_property_idx ON leads(property_id);
 CREATE INDEX IF NOT EXISTS leads_status_idx   ON leads(status);
 
--- ── Pipeline: opportunities ───────────────────────────────────
+-- ── Pipeline: opportunities ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS opportunities (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id         UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS opportunities (
 CREATE INDEX IF NOT EXISTS opps_property_idx ON opportunities(property_id);
 CREATE INDEX IF NOT EXISTS opps_status_idx   ON opportunities(status);
 
--- ── Pipeline: purchases ───────────────────────────────────────
+-- ── Pipeline: purchases ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS purchases (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id              UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS purchases (
 CREATE INDEX IF NOT EXISTS purchases_property_idx ON purchases(property_id);
 CREATE INDEX IF NOT EXISTS purchases_status_idx   ON purchases(status);
 
--- ── Pipeline: projects ────────────────────────────────────────
+-- ── Pipeline: projects ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS projects (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id              UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -222,7 +222,7 @@ CREATE INDEX IF NOT EXISTS projects_property_idx ON projects(property_id);
 CREATE INDEX IF NOT EXISTS projects_status_idx   ON projects(status);
 CREATE INDEX IF NOT EXISTS projects_kind_idx     ON projects(kind);
 
--- ── Activity log ──────────────────────────────────────────────
+-- ── Activity log ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS activity (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -236,7 +236,7 @@ CREATE INDEX IF NOT EXISTS activity_entity_idx ON activity(entity_type, entity_i
 CREATE INDEX IF NOT EXISTS activity_created_idx ON activity(created_at DESC);
 CREATE INDEX IF NOT EXISTS activity_actor_idx   ON activity(actor_user_id);
 
--- ── updated_at triggers ───────────────────────────────────────
+-- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;

@@ -13,15 +13,15 @@ async function sendInviteEmail({ to, inviteLink, inviterName, appsList }) {
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
   });
 
-  const apps = (appsList || []).map(a => `<li>${a}</li>`).join('') || '<li>Restoration OS</li>';
+  const apps = (appsList || []).map(a => `<li>${a}</li>`).join('') || '<li>Prop Spot</li>';
 
   await transporter.sendMail({
-    from: process.env.FROM_EMAIL || 'Restoration OS <noreply@restorationhomes.app>',
+    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@restorationhomes.app>',
     to,
-    subject: `${inviterName} invited you to Restoration OS`,
+    subject: `${inviterName} invited you to Prop Spot`,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#111827;">
-        <h2 style="color:#61B746;">You're invited to Restoration OS</h2>
+        <h2 style="color:#61B746;">You're invited to Prop Spot</h2>
         <p>${inviterName} has invited you to collaborate.</p>
         <p>You'll have access to:</p>
         <ul>${apps}</ul>
