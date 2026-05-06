@@ -6,6 +6,20 @@
 const TOKEN_KEY = 'fieldcam_token';
 const USER_KEY  = 'fieldcam_user';
 
+// SSO handoff: if Prop Spot deep-linked us with ?token=…, consume it
+// before any other code runs and clean it out of the URL bar.
+(function consumeSsoToken() {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (!token) return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.removeItem(USER_KEY);
+  params.delete('token');
+  const qs = params.toString();
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+})();
+
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t)      { localStorage.setItem(TOKEN_KEY, t); }
 function clearToken()     { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); }

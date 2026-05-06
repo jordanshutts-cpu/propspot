@@ -96,8 +96,13 @@
       grid.innerHTML = '<p class="text-muted text-sm">No apps granted yet.</p>';
       return;
     }
+    const token = getToken();
     grid.innerHTML = me.grants.map(g => {
-      const url = g.base_url || '#';
+      let url = '#';
+      if (g.base_url) {
+        const sep = g.base_url.includes('?') ? '&' : '?';
+        url = g.base_url + sep + 'token=' + encodeURIComponent(token);
+      }
       return `<a class="app-tile" href="${escHtml(url)}">
         <div class="app-icon">${escHtml(g.icon || '🧩')}</div>
         <div class="app-name">${escHtml(g.name)}</div>
