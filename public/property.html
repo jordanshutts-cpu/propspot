@@ -21,8 +21,9 @@
 
     /* ── Lightbox extras ── */
     .lightbox-video {
-      max-width: 100%; max-height: 70dvh;
+      max-width: 100%; max-height: 50dvh;
       display: none; border-radius: 8px;
+      flex-shrink: 0;
     }
     .lb-nav {
       position: absolute;
@@ -278,32 +279,31 @@
     }
     .icon-btn:active { background: rgba(0,0,0,.07); }
 
-    /* ── Comments panel ── */
+    /* ── Comments panel (pinned bottom section of lightbox) ── */
     .lb-comments {
       width: 100%;
-      max-width: 600px;
+      flex-shrink: 0;        /* never shrink — always visible */
       background: #1c1c1e;
-      border-top: 1px solid rgba(255,255,255,.08);
+      border-top: 1px solid rgba(255,255,255,.1);
       display: flex;
       flex-direction: column;
     }
     .lb-comments-header {
       padding: 10px 16px 0;
-      color: rgba(255,255,255,.5);
-      font-size: .75rem;
+      color: rgba(255,255,255,.45);
+      font-size: .72rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: .5px;
     }
     .lb-comments-list {
-      flex: 1;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       padding: 10px 16px;
       display: flex;
       flex-direction: column;
       gap: 12px;
-      min-height: 56px;
-      max-height: 220px;
+      max-height: 180px;     /* scrollable list, capped so input is always reachable */
     }
     .lb-comment {
       display: flex;
@@ -493,23 +493,28 @@
 </nav>
 
 <!-- Lightbox -->
-<div class="lightbox" id="lightbox" onclick="closeLightboxOutside(event)">
-  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-  <button class="lb-nav lb-prev" id="lb-prev" onclick="navigatePhoto(-1)">‹</button>
-  <button class="lb-nav lb-next" id="lb-next" onclick="navigatePhoto(1)">›</button>
-  <img class="lightbox-img" id="lightbox-img" src="" alt="Photo">
-  <video class="lightbox-video" id="lightbox-video" controls playsinline></video>
-  <div class="lightbox-meta" id="lightbox-meta"></div>
-  <div class="lightbox-actions">
-    <button id="lb-annotate-btn" class="lb-annotate-btn" onclick="annotateCurrentPhoto()">✏️ Annotate</button>
-    <button class="lb-move-btn" id="lb-move-btn" onclick="toggleMoveDropdown(event)">
-      📁 Move
-      <div class="lb-move-dropdown" id="lb-move-dropdown"></div>
-    </button>
-    <button class="lb-delete-btn" onclick="deleteCurrentPhoto()">🗑 Delete</button>
+<div class="lightbox" id="lightbox">
+  <!-- Close button: always visible at top-right -->
+  <button class="lightbox-close" onclick="closeLightbox()" style="z-index:10;">✕</button>
+
+  <!-- Scrollable top section: photo + meta + actions -->
+  <div class="lb-top" id="lb-top" onclick="closeLightboxOutside(event)">
+    <button class="lb-nav lb-prev" id="lb-prev" onclick="navigatePhoto(-1)">‹</button>
+    <button class="lb-nav lb-next" id="lb-next" onclick="navigatePhoto(1)">›</button>
+    <img class="lightbox-img" id="lightbox-img" src="" alt="Photo">
+    <video class="lightbox-video" id="lightbox-video" controls playsinline></video>
+    <div class="lightbox-meta" id="lightbox-meta"></div>
+    <div class="lightbox-actions">
+      <button id="lb-annotate-btn" class="lb-annotate-btn" onclick="annotateCurrentPhoto()">✏️ Annotate</button>
+      <button class="lb-move-btn" id="lb-move-btn" onclick="toggleMoveDropdown(event)">
+        📁 Move
+        <div class="lb-move-dropdown" id="lb-move-dropdown"></div>
+      </button>
+      <button class="lb-delete-btn" onclick="deleteCurrentPhoto()">🗑 Delete</button>
+    </div>
   </div>
 
-  <!-- Comments -->
+  <!-- Comments: pinned to bottom, never clipped -->
   <div class="lb-comments" id="lb-comments">
     <div class="lb-comments-header">💬 Comments</div>
     <div class="lb-comments-list" id="lb-comments-list">
@@ -812,15 +817,16 @@
   }
 
   function closeLightboxOutside(e) {
-    if (e.target === document.getElementById('lightbox')) closeLightbox();
+    // Close when tapping the dark background of lb-top (not the image/buttons)
+    if (e.target === document.getElementById('lb-top')) closeLightbox();
   }
 
-  // ── Touch swipe for lightbox ──────────────────────────────────
+  // ── Touch swipe for lightbox (on the scrollable top section) ───
   let _swipeStartX = null;
-  document.getElementById('lightbox').addEventListener('touchstart', e => {
+  document.getElementById('lb-top').addEventListener('touchstart', e => {
     _swipeStartX = e.touches[0].clientX;
   }, { passive: true });
-  document.getElementById('lightbox').addEventListener('touchend', e => {
+  document.getElementById('lb-top').addEventListener('touchend', e => {
     if (_swipeStartX === null) return;
     const dx = e.changedTouches[0].clientX - _swipeStartX;
     _swipeStartX = null;
