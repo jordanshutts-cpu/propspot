@@ -23,10 +23,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── API Routes ─────────────────────────────────────────────────
+// Share must be before auth middleware so public GET /api/share/:token works
+app.use('/api/share',      require('./routes/share'));
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/properties', require('./routes/properties'));
 app.use('/api/photos',     require('./routes/photos'));
 app.use('/api/team',       require('./routes/team'));
+app.use('/api/folders',    require('./routes/folders'));
+app.use('/api/access',     require('./routes/access'));
 
 // ── Health Check (Railway uses this) ──────────────────────────
 app.get('/api/health', (req, res) =>

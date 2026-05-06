@@ -35,16 +35,26 @@ function uploadToCloudinary(buffer, mimetype, options = {}) {
 // ── GET /api/photos/:propertyId ────────────────────────────────
 router.get('/:propertyId', async (req, res) => {
   try {
-    const { rows } = await query(`
+    const { folder_id } = req.query;
+    let sql = `
       SELECT
         ph.*,
-        u.full_name AS uploader_name,
-        u.email     AS uploader_email
+        u.full_name  AS uploader_name,
+        u.email      AS uploader_email,
+        f.name       AS folder_name
       FROM photos ph
-      LEFT JOIN users u ON u.id = ph.uploaded_by
+      LEFT JOIN users   u ON u.id  = ph.uploaded_by
+      LEFT JOIN folders f ON f.id  = ph.folder_id
       WHERE ph.property_id = $1
-      ORDER BY ph.taken_at DESC
-    `, [req.params.propertyId]);
+    `;
+    const params = [req.params.propertyId];
+    if (folder_id) {
+      sql += ` AND ph.folder_id = $2`;
+      params.push(folder_id);
+    }
+    sql += ` ORDER BY ph.taken_at DESC`;
+
+    const { rows } = await query(sql, params);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch photos' });
@@ -56,7 +66,7 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
 
   const { propertyId } = req.params;
-  const { lat, lng, notes } = req.body;
+  const { lat, lng, notes, folder_id } = req.body;
 
   try {
     // Confirm property exists
@@ -78,8 +88,8 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
     // Save metadata to DB
     const { rows } = await query(`
       INSERT INTO photos
-        (property_id, uploaded_by, url, cloudinary_id, lat, lng, notes, media_type, taken_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        (property_id, uploaded_by, url, cloudinary_id, lat, lng, notes, media_type, folder_id, taken_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
       RETURNING *
     `, [
       propertyId,
@@ -89,7 +99,8 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
       lat  ? parseFloat(lat)  : null,
       lng  ? parseFloat(lng)  : null,
       notes?.trim() || null,
-      mediaType
+      mediaType,
+      folder_id || null
     ]);
 
     // Update property cover_url only for images (not video URLs)
@@ -144,6 +155,23 @@ router.patch('/:id', upload.single('photo'), async (req, res) => {
   } catch (err) {
     console.error('Photo patch error:', err);
     res.status(500).json({ error: 'Failed to update photo: ' + err.message });
+  }
+});
+
+// ── PATCH /api/photos/:id/folder ───────────────────────────────
+// Move a photo to a different folder (or unassign)
+router.patch('/:id/folder', async (req, res) => {
+  const { folder_id } = req.body;
+  try {
+    const { rows } = await query(
+      'UPDATE photos SET folder_id = $1 WHERE id = $2 RETURNING *',
+      [folder_id || null, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Photo not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to move photo' });
   }
 });
 

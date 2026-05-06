@@ -7,6 +7,7 @@
   <title>FieldCam — Property</title>
   <link rel="stylesheet" href="style.css">
   <style>
+    /* ── Video thumb ── */
     .video-grid-thumb {
       width: 100%; height: 100%;
       background: #111;
@@ -15,8 +16,10 @@
       color: #fff; gap: 4px;
       border-radius: 4px;
     }
-    .video-grid-thumb .vgt-icon { font-size: 1.8rem; }
+    .video-grid-thumb .vgt-icon  { font-size: 1.8rem; }
     .video-grid-thumb .vgt-label { font-size: .65rem; opacity: .55; }
+
+    /* ── Lightbox extras ── */
     .lightbox-video {
       max-width: 100%; max-height: 70dvh;
       display: none; border-radius: 8px;
@@ -32,19 +35,247 @@
       cursor: pointer;
     }
     .lb-annotate-btn { background: #61B746; color: #fff; }
+    .lb-move-btn     { background: rgba(255,255,255,.12); color: #fff; position: relative; }
     .lb-delete-btn   { background: rgba(255,59,48,.15); color: #FF3B30; }
+
+    /* Move dropdown */
+    .lb-move-dropdown {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0; right: 0;
+      background: #2c2c2e;
+      border-radius: 10px;
+      overflow: hidden;
+      z-index: 10;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    .lb-move-dropdown.open { display: block; }
+    .lb-move-option {
+      padding: 12px 14px;
+      color: #fff;
+      font-size: .88rem;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .lb-move-option:last-child { border-bottom: none; }
+    .lb-move-option:hover { background: rgba(255,255,255,.08); }
+    .lb-move-option.current { color: #61B746; }
+
+    /* ── Folder tab bar ── */
+    .folder-tabs-outer {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 0 16px 0;
+      margin-bottom: 4px;
+    }
+    .folder-tabs-outer::-webkit-scrollbar { display: none; }
+    .folder-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      width: max-content;
+      min-width: 100%;
+      padding: 8px 0;
+    }
+    .folder-tab {
+      flex-shrink: 0;
+      padding: 7px 14px;
+      border-radius: 100px;
+      border: 1.5px solid #e0e0e0;
+      background: #fff;
+      color: #555;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .folder-tab.active {
+      background: #61B746;
+      border-color: #61B746;
+      color: #fff;
+    }
+    .folder-tab-add {
+      flex-shrink: 0;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 1.5px solid #ddd;
+      background: #fff;
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: #666;
+    }
+
+    /* ── Dark sheet (shared by folder/share/access) ── */
+    .sheet-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 90; display: none;
+    }
+    .sheet-overlay.open { display: block; }
+    .sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #1c1c1e;
+      border-radius: 20px 20px 0 0;
+      padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+      z-index: 100;
+      transform: translateY(100%);
+      transition: transform .28s ease;
+      max-height: 82dvh;
+      overflow-y: auto;
+    }
+    .sheet.open { transform: translateY(0); }
+    .sheet-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,.2);
+      border-radius: 4px;
+      margin: 0 auto 16px;
+    }
+    .sheet-title {
+      color: #fff; font-weight: 700;
+      font-size: 1rem; margin-bottom: 16px;
+    }
+    .sheet-label {
+      color: rgba(255,255,255,.5);
+      font-size: .78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+    .sheet .form-input, .sheet .form-textarea {
+      background: #2c2c2e; color: #fff; border-color: #3a3a3c;
+    }
+    .sheet .form-label { color: rgba(255,255,255,.65); font-size: .82rem; }
+
+    /* Template buttons */
+    .template-btns {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .template-btn {
+      flex: 1; min-width: 100px;
+      padding: 10px 8px;
+      background: #2c2c2e;
+      border: 1.5px solid #3a3a3c;
+      border-radius: 10px;
+      color: #fff;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .template-btn:active { background: #3a3a3c; }
+
+    /* Share link row */
+    .share-link-row {
+      background: #2c2c2e;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .share-link-info {
+      flex: 1; min-width: 0;
+    }
+    .share-link-label {
+      color: #fff; font-size: .85rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .share-link-url {
+      color: rgba(255,255,255,.4); font-size: .72rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .share-link-btns { display: flex; gap: 6px; flex-shrink: 0; }
+    .share-link-btns button {
+      padding: 6px 10px;
+      border-radius: 8px; border: none;
+      font-size: .78rem; font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-copy   { background: #61B746; color: #fff; }
+    .btn-revoke { background: rgba(255,59,48,.15); color: #FF3B30; }
+
+    /* Access row */
+    .access-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .access-row:last-child { border-bottom: none; }
+    .access-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: #3a3a3c;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: .9rem;
+      flex-shrink: 0;
+    }
+    .access-info { flex: 1; min-width: 0; }
+    .access-name {
+      color: #fff; font-size: .88rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .access-email {
+      color: rgba(255,255,255,.4); font-size: .75rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .access-select {
+      background: #2c2c2e; color: #fff;
+      border: 1px solid #3a3a3c;
+      border-radius: 8px; padding: 6px 8px;
+      font-size: .8rem; cursor: pointer;
+    }
+    .access-status-text {
+      color: rgba(255,255,255,.55); font-size: .85rem;
+      margin-bottom: 14px; line-height: 1.4;
+    }
+    .access-note {
+      color: rgba(255,255,255,.3); font-size: .75rem;
+      margin-top: 12px; line-height: 1.4;
+    }
+
+    /* Create share area */
+    .share-create-row {
+      display: flex; gap: 8px; margin-bottom: 14px;
+    }
+    .share-create-row button {
+      flex: 1; padding: 11px 8px;
+      border-radius: 10px; border: none;
+      background: #2c2c2e;
+      color: #fff; font-size: .85rem; font-weight: 600;
+      cursor: pointer;
+    }
+    .share-create-row button:active { background: #3a3a3c; }
+
+    /* header action buttons */
+    .header-actions { display: flex; gap: 6px; align-items: center; }
+    .icon-btn {
+      background: none; border: none;
+      font-size: 1.1rem; cursor: pointer;
+      padding: 4px 6px; border-radius: 8px;
+    }
+    .icon-btn:active { background: rgba(0,0,0,.07); }
   </style>
 </head>
 <body>
+
 <header class="app-header">
   <button class="back-btn" onclick="history.back()">‹</button>
   <span class="header-title" id="prop-title">Property</span>
   <div class="header-actions">
-    <button class="icon-btn" id="sort-btn" onclick="toggleSort()" title="Sort">↕️</button>
+    <button class="icon-btn" onclick="openShareSheet()" title="Share">🔗</button>
+    <button class="icon-btn" id="access-btn" onclick="openAccessSheet()" title="Access" style="display:none;">🔒</button>
+    <button class="icon-btn" onclick="toggleSort()" title="Sort">↕️</button>
   </div>
 </header>
 
 <main class="page" style="padding-top:12px;">
+  <!-- Property info card -->
   <div class="card mb-16">
     <div class="card-body">
       <div class="flex items-center justify-between mb-8">
@@ -60,11 +291,20 @@
     </div>
   </div>
 
-  <div class="section-header">
-    <span class="section-title">Photos</span>
+  <!-- Folder tab bar -->
+  <div class="folder-tabs-outer">
+    <div class="folder-tabs" id="folder-tabs">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Section header -->
+  <div class="section-header" style="padding: 0 16px 6px;">
+    <span class="section-title" id="section-title">All Photos</span>
     <span class="text-muted text-sm" id="sort-label">Newest first</span>
   </div>
 
+  <!-- Photo grid -->
   <div id="photo-grid-wrap">
     <div class="photo-grid">
       <div style="aspect-ratio:1;background:#f0f0f0;border-radius:4px"></div>
@@ -79,6 +319,7 @@
 <nav class="bottom-nav">
   <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Properties</a>
   <a class="nav-link" href="/camera.html"><span class="nav-icon">📷</span>Camera</a>
+  <a class="nav-link" href="/import.html"><span class="nav-icon">📂</span>Import</a>
   <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
 </nav>
 
@@ -90,159 +331,541 @@
   <div class="lightbox-meta" id="lightbox-meta"></div>
   <div class="lightbox-actions">
     <button id="lb-annotate-btn" class="lb-annotate-btn" onclick="annotateCurrentPhoto()">✏️ Annotate</button>
+    <button class="lb-move-btn" id="lb-move-btn" onclick="toggleMoveDropdown(event)">
+      📁 Move
+      <div class="lb-move-dropdown" id="lb-move-dropdown"></div>
+    </button>
     <button class="lb-delete-btn" onclick="deleteCurrentPhoto()">🗑 Delete</button>
   </div>
+</div>
+
+<!-- Sheet overlay (shared) -->
+<div class="sheet-overlay" id="sheet-overlay" onclick="closeAllSheets()"></div>
+
+<!-- Add Folder Sheet -->
+<div class="sheet" id="folder-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">📁 Add Folders</div>
+
+  <div class="sheet-label">Quick Templates</div>
+  <div class="template-btns">
+    <button class="template-btn" onclick="applyTemplate('Renovation')">🔨 Renovation</button>
+    <button class="template-btn" onclick="applyTemplate('Inspection')">🔍 Inspection</button>
+    <button class="template-btn" onclick="applyTemplate('Commercial')">🏢 Commercial</button>
+  </div>
+
+  <div class="sheet-label">Custom Folder</div>
+  <div class="form-group" style="margin-bottom:12px;">
+    <input class="form-input" id="new-folder-name" placeholder="e.g. Before Renovation"
+           style="background:#2c2c2e;color:#fff;border-color:#3a3a3c;">
+  </div>
+  <button class="btn btn-primary btn-full" onclick="createFolderFromSheet()">Create Folder</button>
+</div>
+
+<!-- Share Sheet -->
+<div class="sheet" id="share-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">🔗 Share</div>
+
+  <div class="share-create-row">
+    <button onclick="doCreateShareLink(false)">🏠 Share whole property</button>
+    <button id="share-folder-btn" onclick="doCreateShareLink(true)" style="display:none;">📁 Share this folder</button>
+  </div>
+
+  <div class="sheet-label">Existing Links</div>
+  <div id="share-links-list">
+    <p style="color:rgba(255,255,255,.4);font-size:.83rem;">No share links yet.</p>
+  </div>
+</div>
+
+<!-- Access Sheet -->
+<div class="sheet" id="access-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">🔒 Property Access</div>
+  <p class="access-status-text" id="access-status-text">Loading…</p>
+  <div id="access-members-list"></div>
+  <p class="access-note">When any restrictions are set, team members without explicit access cannot see this property.</p>
 </div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="annotator.js"></script>
 <script>
-  const params=new URLSearchParams(location.search);
-  const PROP_ID=params.get('id');
-  let photos=[],currentPhoto=null,sortNewest=true,property=null;
+  const params = new URLSearchParams(location.search);
+  const PROP_ID = params.get('id');
 
-  async function init(){
-    const user=await requireAuth(); if(!user)return;
-    if(!PROP_ID){window.location.href='/dashboard.html';return;}
-    const camUrl=`/camera.html?property_id=${PROP_ID}`;
-    document.getElementById('take-photo-btn').href=camUrl;
-    document.getElementById('fab-camera').href=camUrl;
+  let photos       = [];
+  let folders      = [];
+  let currentPhoto = null;
+  let currentFolder = null;   // null = all
+  let sortNewest   = true;
+  let property     = null;
+  let isAdmin      = false;
+  let currentUserId = null;
+
+  const TEMPLATES = {
+    Renovation: ['Before', 'During', 'After', 'Permits', 'Materials'],
+    Inspection:  ['Exterior', 'Interior', 'Electrical', 'Plumbing', 'HVAC'],
+    Commercial:  ['Storefront', 'Interior', 'Mechanical', 'Electrical', 'Permits']
+  };
+
+  // ── Init ────────────────────────────────────────────────────────
+  async function init() {
+    const user = await requireAuth();
+    if (!user) return;
+    if (!PROP_ID) { window.location.href = '/dashboard.html'; return; }
+
+    currentUserId = user.id;
+    isAdmin = user.role === 'admin';
+
+    if (isAdmin) document.getElementById('access-btn').style.display = '';
+
+    const camUrl = `/camera.html?property_id=${PROP_ID}`;
+    document.getElementById('take-photo-btn').href = camUrl;
+    document.getElementById('fab-camera').href     = camUrl;
+
     await loadProperty();
-    await loadPhotos();
+    await loadFolders();
+    await loadPhotos(null);
   }
 
-  async function loadProperty(){
-    try{
-      property=await getProperty(PROP_ID);
-      document.title=`FieldCam — ${property.name}`;
-      document.getElementById('prop-title').textContent=property.name;
-      document.getElementById('prop-name').textContent=property.name;
-      document.getElementById('prop-address').textContent=property.address||'';
-      document.getElementById('prop-notes').textContent=property.notes||'';
-    }catch(err){showToast('Failed to load property','error');}
+  // ── Property ────────────────────────────────────────────────────
+  async function loadProperty() {
+    try {
+      property = await getProperty(PROP_ID);
+      document.title = `FieldCam — ${property.name}`;
+      document.getElementById('prop-title').textContent   = property.name;
+      document.getElementById('prop-name').textContent    = property.name;
+      document.getElementById('prop-address').textContent = property.address || '';
+      document.getElementById('prop-notes').textContent   = property.notes   || '';
+    } catch (err) { showToast('Failed to load property', 'error'); }
   }
 
-  async function loadPhotos(){
-    try{
-      photos=await getPhotos(PROP_ID);
+  function copyAddress() {
+    if (property?.address)
+      navigator.clipboard.writeText(property.address).then(() => showToast('Address copied!'));
+  }
+
+  // ── Folders ─────────────────────────────────────────────────────
+  async function loadFolders() {
+    try {
+      folders = await getFolders(PROP_ID);
+      renderFolderTabs();
+    } catch (err) { showToast('Failed to load folders', 'error'); }
+  }
+
+  function renderFolderTabs() {
+    const totalPhotos = photos.length;
+    const allCount = folders.reduce((s, f) => s + (f.photo_count || 0), totalPhotos);
+
+    // "All" tab count = photos.length (full unfiltered list)
+    // Individual tabs use folder.photo_count from server
+    const tabsEl = document.getElementById('folder-tabs');
+    const allPhotosCount = photos.length; // already loaded when this runs after loadPhotos
+
+    const tabs = [`
+      <button class="folder-tab ${currentFolder === null ? 'active' : ''}"
+              onclick="selectFolder(null)">All (${allPhotosCount})</button>`];
+
+    folders.forEach(f => {
+      tabs.push(`
+        <button class="folder-tab ${currentFolder === f.id ? 'active' : ''}"
+                id="ftab-${f.id}" onclick="selectFolder('${f.id}')">
+          ${escHtml(f.name)} (${f.photo_count || 0})
+        </button>`);
+    });
+
+    tabs.push(`<button class="folder-tab-add" onclick="openFolderSheet()" title="Add folder">+</button>`);
+    tabsEl.innerHTML = tabs.join('');
+  }
+
+  async function selectFolder(id) {
+    currentFolder = id;
+    const folderObj = folders.find(f => f.id === id);
+    document.getElementById('section-title').textContent =
+      id === null ? 'All Photos' : (folderObj ? folderObj.name : 'Photos');
+    await loadPhotos(id);
+  }
+
+  // ── Photos ──────────────────────────────────────────────────────
+  async function loadPhotos(folderId) {
+    try {
+      photos = await getPhotos(PROP_ID, folderId);
       renderPhotos();
-    }catch(err){showToast('Failed to load photos','error');}
+      // Refresh folder tabs with updated "All" count when showing all
+      if (folderId === null) {
+        // Re-render tabs using total photos count
+        const tabsEl = document.getElementById('folder-tabs');
+        const tabs = [`
+          <button class="folder-tab ${currentFolder === null ? 'active' : ''}"
+                  onclick="selectFolder(null)">All (${photos.length})</button>`];
+        folders.forEach(f => {
+          tabs.push(`
+            <button class="folder-tab ${currentFolder === f.id ? 'active' : ''}"
+                    id="ftab-${f.id}" onclick="selectFolder('${f.id}')">
+              ${escHtml(f.name)} (${f.photo_count || 0})
+            </button>`);
+        });
+        tabs.push(`<button class="folder-tab-add" onclick="openFolderSheet()" title="Add folder">+</button>`);
+        tabsEl.innerHTML = tabs.join('');
+      }
+    } catch (err) { showToast('Failed to load photos', 'error'); }
   }
 
-  function renderPhotos(){
-    const sorted=[...photos].sort((a,b)=>sortNewest
-      ?new Date(b.taken_at)-new Date(a.taken_at)
-      :new Date(a.taken_at)-new Date(b.taken_at));
-    document.getElementById('photo-badge').textContent=
-      `${photos.length} photo${photos.length!==1?'s':''}`;
-    const wrap=document.getElementById('photo-grid-wrap');
-    wrap._sorted=sorted;
-    if(sorted.length===0){
-      wrap.innerHTML=`<div class="empty-state">
+  function renderPhotos() {
+    const sorted = [...photos].sort((a, b) => sortNewest
+      ? new Date(b.taken_at) - new Date(a.taken_at)
+      : new Date(a.taken_at) - new Date(b.taken_at));
+
+    document.getElementById('photo-badge').textContent =
+      `${photos.length} photo${photos.length !== 1 ? 's' : ''}`;
+
+    const wrap = document.getElementById('photo-grid-wrap');
+    wrap._sorted = sorted;
+
+    if (sorted.length === 0) {
+      wrap.innerHTML = `<div class="empty-state">
         <div class="empty-icon">📷</div>
-        <p>No photos yet for this property.</p>
+        <p>No photos yet${currentFolder ? ' in this folder' : ' for this property'}.</p>
         <a href="/camera.html?property_id=${PROP_ID}" class="btn btn-primary">Take First Photo</a>
       </div>`;
       return;
     }
-    wrap.innerHTML=`<div class="photo-grid">${sorted.map((p,i)=>`
+
+    wrap.innerHTML = `<div class="photo-grid">${sorted.map((p, i) => `
       <div class="photo-thumb-wrap" onclick="openLightbox(${i})">
-        ${p.media_type==='video'
+        ${p.media_type === 'video'
           ? `<div class="video-grid-thumb"><span class="vgt-icon">▶</span><span class="vgt-label">Video</span></div>`
           : `<img src="${escHtml(p.url)}" alt="Photo" loading="lazy">`
         }
         <div class="photo-thumb-overlay">
           <div>${fmtShort(p.taken_at)}</div>
-          <div>${escHtml(p.uploader_name||'')}</div>
+          <div>${escHtml(p.uploader_name || '')}</div>
         </div>
       </div>`).join('')}</div>`;
   }
 
-  function toggleSort(){
-    sortNewest=!sortNewest;
-    document.getElementById('sort-label').textContent=sortNewest?'Newest first':'Oldest first';
+  function toggleSort() {
+    sortNewest = !sortNewest;
+    document.getElementById('sort-label').textContent = sortNewest ? 'Newest first' : 'Oldest first';
     renderPhotos();
   }
 
-  function openLightbox(idx){
-    const sorted=document.getElementById('photo-grid-wrap')._sorted||photos;
-    currentPhoto=sorted[idx];
-    const isVideo=currentPhoto.media_type==='video';
-    const imgEl  =document.getElementById('lightbox-img');
-    const vidEl  =document.getElementById('lightbox-video');
-    const annBtn =document.getElementById('lb-annotate-btn');
+  // ── Lightbox ────────────────────────────────────────────────────
+  function openLightbox(idx) {
+    const sorted = document.getElementById('photo-grid-wrap')._sorted || photos;
+    currentPhoto = sorted[idx];
+    const isVideo  = currentPhoto.media_type === 'video';
+    const imgEl    = document.getElementById('lightbox-img');
+    const vidEl    = document.getElementById('lightbox-video');
+    const annBtn   = document.getElementById('lb-annotate-btn');
 
-    if(isVideo){
-      imgEl.style.display='none';
-      vidEl.style.display='block';
-      vidEl.src=currentPhoto.url;
-      annBtn.style.display='none';
-    }else{
-      vidEl.style.display='none'; vidEl.pause?.(); vidEl.src='';
-      imgEl.style.display=''; imgEl.src=currentPhoto.url;
-      annBtn.style.display='';
+    if (isVideo) {
+      imgEl.style.display = 'none';
+      vidEl.style.display = 'block';
+      vidEl.src = currentPhoto.url;
+      annBtn.style.display = 'none';
+    } else {
+      vidEl.style.display = 'none'; vidEl.pause?.(); vidEl.src = '';
+      imgEl.style.display = ''; imgEl.src = currentPhoto.url;
+      annBtn.style.display = '';
     }
 
-    document.getElementById('lightbox-meta').innerHTML=`
-      <strong>${escHtml(currentPhoto.uploader_name||'Team member')}</strong> &middot;
+    document.getElementById('lightbox-meta').innerHTML = `
+      <strong>${escHtml(currentPhoto.uploader_name || 'Team member')}</strong> &middot;
       ${formatDate(currentPhoto.taken_at)}
-      ${currentPhoto.notes?`<br><em>${escHtml(currentPhoto.notes)}</em>`:''}
-      ${currentPhoto.lat?`<br>📍 ${currentPhoto.lat.toFixed(5)}, ${currentPhoto.lng.toFixed(5)}`:''}`;
+      ${currentPhoto.folder_name ? `<br>📁 ${escHtml(currentPhoto.folder_name)}` : ''}
+      ${currentPhoto.notes ? `<br><em>${escHtml(currentPhoto.notes)}</em>` : ''}
+      ${currentPhoto.lat ? `<br>📍 ${currentPhoto.lat.toFixed(5)}, ${currentPhoto.lng.toFixed(5)}` : ''}`;
+
+    buildMoveDropdown();
     document.getElementById('lightbox').classList.add('open');
-    document.body.style.overflow='hidden';
+    document.body.style.overflow = 'hidden';
   }
 
-  function closeLightbox(){
-    const vidEl=document.getElementById('lightbox-video');
-    vidEl.pause?.(); vidEl.src='';
+  function closeLightbox() {
+    const vidEl = document.getElementById('lightbox-video');
+    vidEl.pause?.(); vidEl.src = '';
+    document.getElementById('lb-move-dropdown').classList.remove('open');
     document.getElementById('lightbox').classList.remove('open');
-    document.body.style.overflow='';
-    currentPhoto=null;
+    document.body.style.overflow = '';
+    currentPhoto = null;
   }
 
-  async function annotateCurrentPhoto(){
-    if(!currentPhoto||currentPhoto.media_type==='video') return;
-    const photo=currentPhoto;
+  function closeLightboxOutside(e) {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+  }
+
+  function buildMoveDropdown() {
+    const drop = document.getElementById('lb-move-dropdown');
+    const currentFolderId = currentPhoto?.folder_id || null;
+
+    const opts = [
+      { id: null, name: '— Unassigned —' },
+      ...folders.map(f => ({ id: f.id, name: f.name }))
+    ];
+
+    drop.innerHTML = opts.map(o => `
+      <div class="lb-move-option ${o.id === currentFolderId ? 'current' : ''}"
+           onclick="handleMovePhoto('${o.id || ''}', event)">
+        ${o.id === currentFolderId ? '✓ ' : ''}${escHtml(o.name)}
+      </div>`).join('');
+  }
+
+  function toggleMoveDropdown(e) {
+    e.stopPropagation();
+    document.getElementById('lb-move-dropdown').classList.toggle('open');
+  }
+
+  async function handleMovePhoto(folderId, e) {
+    e.stopPropagation();
+    if (!currentPhoto) return;
+    document.getElementById('lb-move-dropdown').classList.remove('open');
+    try {
+      const updated = await movePhotoToFolder(currentPhoto.id, folderId || null);
+      // Update local array
+      const idx = photos.findIndex(p => p.id === currentPhoto.id);
+      if (idx >= 0) photos[idx] = { ...photos[idx], folder_id: updated.folder_id };
+      currentPhoto.folder_id = updated.folder_id;
+      showToast('Photo moved!');
+      closeLightbox();
+      await loadFolders();
+      await loadPhotos(currentFolder);
+    } catch (err) { showToast('Failed to move photo: ' + err.message, 'error'); }
+  }
+
+  async function annotateCurrentPhoto() {
+    if (!currentPhoto || currentPhoto.media_type === 'video') return;
+    const photo = currentPhoto;
     closeLightbox();
-    openAnnotator(photo.url, async blob=>{
-      try{
+    openAnnotator(photo.url, async blob => {
+      try {
         showToast('Saving…');
-        const formData=new FormData();
-        formData.append('photo', new File([blob],`annotated_${Date.now()}.jpg`,{type:'image/jpeg'}));
-        const updated=await apiFetch(`/api/photos/${photo.id}`,{method:'PATCH',body:formData});
-        // Replace in local array so re-render is instant
-        const idx=photos.findIndex(p=>p.id===photo.id);
-        if(idx>=0) photos[idx]={...photos[idx], url:updated.url, cloudinary_id:updated.cloudinary_id};
+        const formData = new FormData();
+        formData.append('photo', new File([blob], `annotated_${Date.now()}.jpg`, { type: 'image/jpeg' }));
+        const updated = await apiFetch(`/api/photos/${photo.id}`, { method: 'PATCH', body: formData });
+        const idx = photos.findIndex(p => p.id === photo.id);
+        if (idx >= 0) photos[idx] = { ...photos[idx], url: updated.url, cloudinary_id: updated.cloudinary_id };
         showToast('Photo updated!');
         renderPhotos();
-      }catch(err){ showToast('Failed: '+err.message,'error'); }
+      } catch (err) { showToast('Failed: ' + err.message, 'error'); }
     }, null);
   }
 
-  function closeLightboxOutside(e){if(e.target===document.getElementById('lightbox'))closeLightbox();}
-
-  async function deleteCurrentPhoto(){
-    if(!currentPhoto)return;
-    const label=currentPhoto.media_type==='video'?'video':'photo';
-    if(!confirm(`Delete this ${label}? This cannot be undone.`))return;
-    try{
+  async function deleteCurrentPhoto() {
+    if (!currentPhoto) return;
+    const label = currentPhoto.media_type === 'video' ? 'video' : 'photo';
+    if (!confirm(`Delete this ${label}? This cannot be undone.`)) return;
+    try {
       await deletePhoto(currentPhoto);
-      photos=photos.filter(p=>p.id!==currentPhoto.id);
+      photos = photos.filter(p => p.id !== currentPhoto.id);
       closeLightbox();
       renderPhotos();
+      await loadFolders();
       showToast('Photo deleted');
-    }catch(err){showToast('Failed to delete: '+err.message,'error');}
+    } catch (err) { showToast('Failed to delete: ' + err.message, 'error'); }
   }
 
-  function copyAddress(){
-    if(property?.address)
-      navigator.clipboard.writeText(property.address).then(()=>showToast('Address copied!'));
+  // ── Folder Sheet ────────────────────────────────────────────────
+  function openFolderSheet() {
+    document.getElementById('new-folder-name').value = '';
+    openSheet('folder-sheet');
+  }
+  function closeFolderSheet() { closeSheet('folder-sheet'); }
+
+  async function createFolderFromSheet() {
+    const name = document.getElementById('new-folder-name').value.trim();
+    if (!name) { showToast('Enter a folder name', 'error'); return; }
+    try {
+      await createFolders(PROP_ID, [name]);
+      await loadFolders();
+      await loadPhotos(currentFolder);
+      closeFolderSheet();
+      showToast(`Folder "${name}" created`);
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
   }
 
-  function fmtShort(iso){return iso?new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}
+  async function applyTemplate(templateName) {
+    const names = TEMPLATES[templateName];
+    if (!names) return;
+    try {
+      await createFolders(PROP_ID, names);
+      await loadFolders();
+      await loadPhotos(currentFolder);
+      closeFolderSheet();
+      showToast(`${templateName} folders created`);
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
 
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLightbox();});
+  // ── Share Sheet ─────────────────────────────────────────────────
+  async function openShareSheet() {
+    // Show "Share this folder" button only if a folder is selected
+    const folderBtn = document.getElementById('share-folder-btn');
+    folderBtn.style.display = currentFolder ? '' : 'none';
+    if (currentFolder) {
+      const f = folders.find(x => x.id === currentFolder);
+      folderBtn.textContent = `📁 Share "${f ? f.name : 'folder'}"`;
+    }
+    await refreshShareLinks();
+    openSheet('share-sheet');
+  }
+
+  async function refreshShareLinks() {
+    const listEl = document.getElementById('share-links-list');
+    try {
+      const links = await getShareLinks(PROP_ID);
+      if (!links.length) {
+        listEl.innerHTML = `<p style="color:rgba(255,255,255,.4);font-size:.83rem;">No share links yet.</p>`;
+        return;
+      }
+      listEl.innerHTML = links.map(l => {
+        const url = `${location.origin}/share.html?t=${l.token}`;
+        const label = l.label || (l.folder_id ? (l.folder_name || 'Folder') : 'Whole property');
+        return `<div class="share-link-row">
+          <div class="share-link-info">
+            <div class="share-link-label">${escHtml(label)}</div>
+            <div class="share-link-url">${escHtml(url)}</div>
+          </div>
+          <div class="share-link-btns">
+            <button class="btn-copy" onclick="copyShareUrl('${escHtml(url)}')">Copy</button>
+            <button class="btn-revoke" onclick="doRevokeShareLink('${l.token}')">Revoke</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      listEl.innerHTML = `<p style="color:rgba(255,59,48,.8);font-size:.83rem;">Failed to load links.</p>`;
+    }
+  }
+
+  async function doCreateShareLink(forFolder) {
+    const folderId = forFolder ? currentFolder : null;
+    const label    = forFolder
+      ? (folders.find(f => f.id === currentFolder)?.name || null)
+      : null;
+    try {
+      await createShareLink(PROP_ID, folderId, label);
+      await refreshShareLinks();
+      showToast('Share link created!');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
+
+  function copyShareUrl(url) {
+    navigator.clipboard.writeText(url).then(() => showToast('Link copied!'));
+  }
+
+  async function doRevokeShareLink(token) {
+    if (!confirm('Revoke this share link? Anyone with the link will lose access.')) return;
+    try {
+      await revokeShareLink(token);
+      await refreshShareLinks();
+      showToast('Link revoked');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
+
+  // ── Access Sheet ────────────────────────────────────────────────
+  async function openAccessSheet() {
+    const listEl  = document.getElementById('access-members-list');
+    const statEl  = document.getElementById('access-status-text');
+    listEl.innerHTML = '<p style="color:rgba(255,255,255,.4);font-size:.83rem;">Loading…</p>';
+    openSheet('access-sheet');
+
+    try {
+      const [accessData, team] = await Promise.all([
+        getPropertyAccess(PROP_ID),
+        getTeamMembers()
+      ]);
+
+      const restricted = accessData.restricted;
+      const accessMap  = {};
+      accessData.access.forEach(a => { accessMap[a.user_id] = a.access_level; });
+
+      statEl.textContent = restricted
+        ? `Restricted to ${accessData.access.length} member${accessData.access.length !== 1 ? 's' : ''}`
+        : 'Open to all team members';
+
+      // Show non-admin members
+      const members = team.filter(m => m.role !== 'admin');
+      if (!members.length) {
+        listEl.innerHTML = `<p style="color:rgba(255,255,255,.4);font-size:.83rem;">No non-admin team members yet.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = members.map(m => {
+        const name   = escHtml(m.full_name || m.email || 'Unknown');
+        const initials = (m.full_name || m.email || '?')[0].toUpperCase();
+        const level  = accessMap[m.id] || 'open';
+        return `<div class="access-row">
+          <div class="access-avatar">${initials}</div>
+          <div class="access-info">
+            <div class="access-name">${name}</div>
+            <div class="access-email">${escHtml(m.email || '')}</div>
+          </div>
+          <select class="access-select" onchange="setAccess('${m.id}', this.value)">
+            <option value="open"  ${level === 'open'  ? 'selected' : ''}>Open access</option>
+            <option value="view"  ${level === 'view'  ? 'selected' : ''}>View only</option>
+            <option value="full"  ${level === 'full'  ? 'selected' : ''}>Full access</option>
+            <option value="none"  ${level === 'none'  ? 'selected' : ''}>No access</option>
+          </select>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      listEl.innerHTML = `<p style="color:rgba(255,59,48,.8);font-size:.83rem;">Failed to load access data.</p>`;
+    }
+  }
+
+  async function setAccess(userId, level) {
+    try {
+      if (level === 'open') {
+        await revokePropertyAccess(PROP_ID, userId);
+        showToast('Access opened');
+      } else if (level === 'none') {
+        // Grant "view" but mark no access — represented as no entry OR a specific no-access.
+        // The simplest approach: revoke any existing grant (they have no access via restriction)
+        await revokePropertyAccess(PROP_ID, userId).catch(() => {});
+        await grantPropertyAccess(PROP_ID, userId, 'view').then(async () => {
+          // Actually for "no access" we revoke so they're excluded by the restriction logic
+          await revokePropertyAccess(PROP_ID, userId).catch(() => {});
+        });
+        showToast('Access removed');
+      } else {
+        await grantPropertyAccess(PROP_ID, userId, level);
+        showToast('Access updated');
+      }
+      // Refresh status text
+      const accessData = await getPropertyAccess(PROP_ID);
+      document.getElementById('access-status-text').textContent = accessData.restricted
+        ? `Restricted to ${accessData.access.length} member${accessData.access.length !== 1 ? 's' : ''}`
+        : 'Open to all team members';
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
+
+  // ── Sheet helpers ───────────────────────────────────────────────
+  let activeSheet = null;
+
+  function openSheet(id) {
+    closeAllSheets();
+    document.getElementById(id).classList.add('open');
+    document.getElementById('sheet-overlay').classList.add('open');
+    activeSheet = id;
+  }
+  function closeSheet(id) {
+    document.getElementById(id).classList.remove('open');
+    document.getElementById('sheet-overlay').classList.remove('open');
+    activeSheet = null;
+  }
+  function closeAllSheets() {
+    ['folder-sheet', 'share-sheet', 'access-sheet'].forEach(id => {
+      document.getElementById(id).classList.remove('open');
+    });
+    document.getElementById('sheet-overlay').classList.remove('open');
+    activeSheet = null;
+  }
+
+  function fmtShort(iso) {
+    return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLightbox(); closeAllSheets(); } });
 
   init();
 </script>

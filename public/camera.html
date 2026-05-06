@@ -490,6 +490,13 @@
     </a>
   </div>
 
+  <div class="form-group" id="folder-group" style="display:none;">
+    <label class="form-label">Save to folder (optional)</label>
+    <div id="sheet-folder-list">
+      <p style="color:rgba(255,255,255,.4);font-size:.82rem;">No folders for this property.</p>
+    </div>
+  </div>
+
   <div class="form-group">
     <label class="form-label">Notes (applied to all photos in this batch)</label>
     <textarea class="form-textarea" id="photo-notes" rows="2"
@@ -511,7 +518,9 @@
   let currentZoom = 1, zoomMin = 1, zoomMax = 5, hardwareZoom = false;
   let queue = [];
   let selectedPropId = PRESET_PROP || null;
+  let selectedFolderId = null;
   let allProps = [];
+  let allFolders = [];
   let userLat = null, userLng = null;
   let currentMode = 'camera';
 
@@ -770,7 +779,8 @@
       fill.style.width     = `${(i / total) * 100}%`;
       try {
         await uploadPhoto({ file: queue[i].file, propertyId: selectedPropId,
-                            lat: userLat, lng: userLng, notes });
+                            lat: userLat, lng: userLng, notes,
+                            folderId: selectedFolderId });
         done++;
       } catch (e) { failed++; console.error(e); }
     }
@@ -909,14 +919,62 @@
       </div>`).join('');
   }
 
-  function selectProp(id) {
+  async function selectProp(id) {
     selectedPropId = id;
+    selectedFolderId = null;
     document.querySelectorAll('.prop-opt-dark').forEach(el => el.classList.remove('selected'));
     document.getElementById(`sheet-prop-${id}`)?.classList.add('selected');
+    await loadFoldersForProp(id);
+  }
+
+  async function loadFoldersForProp(propId) {
+    const group  = document.getElementById('folder-group');
+    const listEl = document.getElementById('sheet-folder-list');
+    try {
+      allFolders = await getFolders(propId);
+    } catch (_) { allFolders = []; }
+
+    if (!allFolders.length) {
+      group.style.display = 'none';
+      return;
+    }
+
+    group.style.display = '';
+    renderSheetFolders();
+  }
+
+  function renderSheetFolders() {
+    const listEl = document.getElementById('sheet-folder-list');
+    if (!allFolders.length) {
+      listEl.innerHTML = `<p style="color:rgba(255,255,255,.4);font-size:.82rem;">No folders for this property.</p>`;
+      return;
+    }
+
+    // "None" option + folders
+    const noneSelected = selectedFolderId === null;
+    listEl.innerHTML = [`
+      <div class="prop-opt-dark ${noneSelected ? 'selected' : ''}"
+           id="sheet-folder-none" onclick="selectFolder(null)">
+        <div class="opt-name" style="color:rgba(255,255,255,.55);">— No folder —</div>
+      </div>`
+    ].concat(allFolders.map(f => `
+      <div class="prop-opt-dark ${selectedFolderId === f.id ? 'selected' : ''}"
+           id="sheet-folder-${f.id}" onclick="selectFolder('${f.id}')">
+        <div class="opt-name">📁 ${escHtml(f.name)}</div>
+        <div class="opt-dist">${f.photo_count || 0} photo${f.photo_count !== 1 ? 's' : ''}</div>
+      </div>`)).join('');
+  }
+
+  function selectFolder(id) {
+    selectedFolderId = id;
+    document.querySelectorAll('#sheet-folder-list .prop-opt-dark').forEach(el => el.classList.remove('selected'));
+    const targetId = id ? `sheet-folder-${id}` : 'sheet-folder-none';
+    document.getElementById(targetId)?.classList.add('selected');
   }
 
   function openSheet() {
     renderSheetProps();
+    if (selectedPropId) loadFoldersForProp(selectedPropId);
     document.getElementById('settings-sheet').classList.add('open');
     document.getElementById('sheet-overlay').classList.add('open');
   }

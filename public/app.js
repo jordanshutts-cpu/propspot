@@ -102,16 +102,18 @@ async function deleteProperty(id) {
 
 // ── Photos ───────────────────────────────────────────────────
 
-async function getPhotos(propertyId) {
-  return apiFetch(`/api/photos/${propertyId}`);
+async function getPhotos(propertyId, folderId) {
+  const q = folderId ? `?folder_id=${encodeURIComponent(folderId)}` : '';
+  return apiFetch(`/api/photos/${propertyId}${q}`);
 }
 
-async function uploadPhoto({ file, propertyId, lat, lng, notes }) {
+async function uploadPhoto({ file, propertyId, lat, lng, notes, folderId }) {
   const formData = new FormData();
   formData.append('photo', file);
-  if (lat)   formData.append('lat',   lat);
-  if (lng)   formData.append('lng',   lng);
-  if (notes) formData.append('notes', notes);
+  if (lat)      formData.append('lat',       lat);
+  if (lng)      formData.append('lng',       lng);
+  if (notes)    formData.append('notes',     notes);
+  if (folderId) formData.append('folder_id', folderId);
 
   return apiFetch(`/api/photos/${propertyId}`, {
     method: 'POST',
@@ -222,4 +224,61 @@ async function populateHeader() {
   const user = await getCurrentUser();
   const el = document.getElementById('user-name');
   if (el && user) el.textContent = user.full_name || user.email || 'You';
+}
+
+// ── Folders ───────────────────────────────────────────────────
+
+async function getFolders(propertyId) {
+  return apiFetch(`/api/folders/${propertyId}`);
+}
+async function createFolders(propertyId, names) {
+  return apiFetch(`/api/folders/${propertyId}`, {
+    method: 'POST',
+    body: JSON.stringify({ names: Array.isArray(names) ? names : [names] })
+  });
+}
+async function deleteFolder(folderId) {
+  return apiFetch(`/api/folders/${folderId}`, { method: 'DELETE' });
+}
+async function movePhotoToFolder(photoId, folderId) {
+  return apiFetch(`/api/photos/${photoId}/folder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ folder_id: folderId || null })
+  });
+}
+
+// ── Share links ───────────────────────────────────────────────
+
+async function createShareLink(propertyId, folderId, label) {
+  return apiFetch('/api/share', {
+    method: 'POST',
+    body: JSON.stringify({ propertyId, folderId: folderId || null, label: label || null })
+  });
+}
+async function getShareLinks(propertyId) {
+  return apiFetch(`/api/share?propertyId=${propertyId}`);
+}
+async function revokeShareLink(token) {
+  return apiFetch(`/api/share/${token}`, { method: 'DELETE' });
+}
+
+// ── Access control ────────────────────────────────────────────
+
+async function getPropertyAccess(propertyId) {
+  return apiFetch(`/api/access/${propertyId}`);
+}
+async function grantPropertyAccess(propertyId, userId, accessLevel) {
+  return apiFetch(`/api/access/${propertyId}`, {
+    method: 'POST',
+    body: JSON.stringify({ userId, accessLevel })
+  });
+}
+async function revokePropertyAccess(propertyId, userId) {
+  return apiFetch(`/api/access/${propertyId}/${userId}`, { method: 'DELETE' });
+}
+async function setUserRole(userId, role) {
+  return apiFetch(`/api/access/users/${userId}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role })
+  });
 }

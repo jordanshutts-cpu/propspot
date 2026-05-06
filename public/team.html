@@ -6,6 +6,39 @@
   <meta name="theme-color" content="#61B746">
   <title>FieldCam — Team</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .role-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    .role-admin   { background: rgba(97,183,70,.15);  color: #61B746; }
+    .role-member  { background: rgba(0,0,0,.07);       color: #888; }
+    .role-viewer  { background: rgba(255,149,0,.15);  color: #FF9500; }
+    .role-invited { background: rgba(255,59,48,.12);  color: #FF3B30; }
+
+    .role-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: .8rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .role-select:disabled { opacity: .45; cursor: not-allowed; }
+
+    .team-row-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+  </style>
 </head>
 <body>
 <header class="app-header">
@@ -58,64 +91,114 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  let currentUserId=null, lastInviteLink=null;
+  let currentUserId = null;
+  let currentUserRole = 'member';
+  let lastInviteLink = null;
 
-  async function init(){
-    const user=await requireAuth(); if(!user)return;
-    currentUserId=user.id;
+  async function init() {
+    const user = await requireAuth();
+    if (!user) return;
+    currentUserId   = user.id;
+    currentUserRole = user.role || 'member';
     await loadTeam();
   }
 
-  async function loadTeam(){
-    try{
-      const members=await getTeamMembers();
-      document.getElementById('member-count').textContent=members.length;
-      const list=document.getElementById('team-list');
-      if(!members.length){list.innerHTML='<p class="text-muted text-sm">No team members yet. Invite someone!</p>';return;}
-      list.innerHTML=members.map(m=>{
-        const name=m.full_name||m.email||'Unknown';
-        const isYou=m.id===currentUserId;
+  function roleBadgeHtml(role, isActive) {
+    if (!isActive) return `<span class="role-badge role-invited">Invited</span>`;
+    if (role === 'admin')  return `<span class="role-badge role-admin">Admin</span>`;
+    if (role === 'viewer') return `<span class="role-badge role-viewer">Viewer</span>`;
+    return `<span class="role-badge role-member">Member</span>`;
+  }
+
+  async function loadTeam() {
+    try {
+      const members = await getTeamMembers();
+      document.getElementById('member-count').textContent = members.length;
+      const list = document.getElementById('team-list');
+      if (!members.length) {
+        list.innerHTML = '<p class="text-muted text-sm">No team members yet. Invite someone!</p>';
+        return;
+      }
+
+      list.innerHTML = members.map(m => {
+        const name   = m.full_name || m.email || 'Unknown';
+        const isYou  = m.id === currentUserId;
+        const role   = m.role || 'member';
+        const isAdmin = currentUserRole === 'admin';
+
+        // Role selector: shown to admins for non-self members
+        let roleControl;
+        if (isAdmin && !isYou) {
+          roleControl = `<select class="role-select" onchange="changeRole('${m.id}', this.value)">
+            <option value="admin"  ${role === 'admin'  ? 'selected' : ''}>Admin</option>
+            <option value="member" ${role === 'member' ? 'selected' : ''}>Member</option>
+            <option value="viewer" ${role === 'viewer' ? 'selected' : ''}>Viewer</option>
+          </select>`;
+        } else {
+          roleControl = roleBadgeHtml(role, m.is_active);
+        }
+
         return `<div class="team-row">
           <div class="avatar">${name.charAt(0).toUpperCase()}</div>
           <div class="team-info">
-            <div class="team-name">${escHtml(name)} ${isYou?'<span class="badge" style="font-size:.7rem;">You</span>':''}</div>
-            <div class="team-email">${escHtml(m.email||'')}</div>
+            <div class="team-name">
+              ${escHtml(name)}
+              ${isYou ? '<span class="badge" style="font-size:.7rem;">You</span>' : ''}
+            </div>
+            <div class="team-email">${escHtml(m.email || '')}</div>
           </div>
-          <span class="badge ${m.is_active?'badge-green':'badge-red'}">${m.is_active?'Active':'Invited'}</span>
+          <div class="team-row-right">
+            ${isYou ? roleBadgeHtml(role, m.is_active) : roleControl}
+          </div>
         </div>`;
       }).join('');
-    }catch(err){
-      document.getElementById('team-list').innerHTML=`<p class="text-muted text-sm">Could not load team: ${escHtml(err.message)}</p>`;
+    } catch (err) {
+      document.getElementById('team-list').innerHTML =
+        `<p class="text-muted text-sm">Could not load team: ${escHtml(err.message)}</p>`;
     }
   }
 
-  async function sendInvite(){
-    const email=document.getElementById('invite-email').value.trim();
-    const name=document.getElementById('invite-name').value.trim();
-    const btn=document.getElementById('invite-btn'),msg=document.getElementById('invite-msg');
-    msg.style.display='none';
-    if(!email){msg.textContent='Please enter an email address.';msg.style.color='var(--danger)';msg.style.display='block';return;}
-    showSpinner(btn,'Sending…');
-    try{
-      const res=await inviteUser(email,name||undefined);
-      msg.textContent=res.message; msg.style.color='var(--success)'; msg.style.display='block';
-      document.getElementById('invite-email').value='';
-      document.getElementById('invite-name').value='';
-      if(res.inviteLink){
-        lastInviteLink=res.inviteLink;
-        document.getElementById('invite-link-text').textContent=res.inviteLink;
+  async function changeRole(userId, role) {
+    try {
+      await setUserRole(userId, role);
+      showToast('Role updated');
+      await loadTeam();
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
+
+  async function sendInvite() {
+    const email = document.getElementById('invite-email').value.trim();
+    const name  = document.getElementById('invite-name').value.trim();
+    const btn   = document.getElementById('invite-btn');
+    const msg   = document.getElementById('invite-msg');
+    msg.style.display = 'none';
+    if (!email) {
+      msg.textContent = 'Please enter an email address.';
+      msg.style.color = 'var(--danger)';
+      msg.style.display = 'block';
+      return;
+    }
+    showSpinner(btn, 'Sending…');
+    try {
+      const res = await inviteUser(email, name || undefined);
+      msg.textContent = res.message; msg.style.color = 'var(--success)'; msg.style.display = 'block';
+      document.getElementById('invite-email').value = '';
+      document.getElementById('invite-name').value  = '';
+      if (res.inviteLink) {
+        lastInviteLink = res.inviteLink;
+        document.getElementById('invite-link-text').textContent = res.inviteLink;
         document.getElementById('invite-link-box').classList.remove('hidden');
       }
       await loadTeam();
-    }catch(err){
-      msg.textContent='❌ '+err.message; msg.style.color='var(--danger)'; msg.style.display='block';
+    } catch (err) {
+      msg.textContent = '❌ ' + err.message; msg.style.color = 'var(--danger)'; msg.style.display = 'block';
     }
     hideSpinner(btn);
   }
 
-  function copyInviteLink(){
-    if(lastInviteLink)
-      navigator.clipboard.writeText(lastInviteLink).then(()=>showToast('Link copied!'));
+  function copyInviteLink() {
+    if (lastInviteLink)
+      navigator.clipboard.writeText(lastInviteLink).then(() => showToast('Link copied!'));
   }
 
   init();

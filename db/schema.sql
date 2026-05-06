@@ -50,3 +50,40 @@ CREATE INDEX IF NOT EXISTS properties_created_idx ON properties(created_at DESC)
 
 -- Migrations (idempotent)
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
+
+-- ── Folders ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS folders (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  sort_order  INT  DEFAULT 0,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Property Access ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS property_access (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id  UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  access_level TEXT NOT NULL DEFAULT 'view',
+  granted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(property_id, user_id)
+);
+
+-- ── Share Links ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS share_links (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token       TEXT UNIQUE NOT NULL,
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  folder_id   UUID REFERENCES folders(id) ON DELETE CASCADE,
+  label       TEXT,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE users  ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'member';
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id) ON DELETE SET NULL;
+-- Make oldest user the admin (bootstrap)
+UPDATE users SET role = 'admin' WHERE id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1) AND role = 'member';
