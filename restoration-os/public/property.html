@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Restoration OS — Property</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .stage-section { margin-bottom: 20px; }
+    .stage-section h3 { font-size: .9rem; font-weight: 700; margin-bottom: 8px; display:flex; align-items:center; gap:8px; }
+    .pipe-row { background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 12px; margin-bottom: 6px; display:flex; align-items:center; justify-content:space-between; gap: 8px; }
+    .pipe-row .meta { font-size: .8rem; color: var(--text-muted); }
+    .status-pill { font-size: .7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; }
+    .contact-row { display:flex; gap:10px; align-items:center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .contact-row:last-child { border-bottom:none; }
+    .role-tag { font-size: .7rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title" id="hdr">Property</span>
+</header>
+
+<main class="page" id="page">
+  <p class="text-muted text-sm">Loading…</p>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get('id');
+  let property = null;
+
+  async function init(){
+    if (!await requireAuth()) return;
+    if (!id) { document.getElementById('page').innerHTML = '<p>Missing property id.</p>'; return; }
+    await load();
+  }
+
+  async function load(){
+    try{
+      property = await getProperty(id);
+      document.getElementById('hdr').textContent = property.address_line1;
+      render();
+    }catch(err){
+      document.getElementById('page').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function pipeRow(stage, r){
+    const desc = {
+      prospects:    `${escHtml(r.source)} · ${escHtml(r.raw_name || '')} ${r.raw_phone ? '· ' + escHtml(r.raw_phone) : ''}`,
+      leads:        `${escHtml(r.source)} ${r.motivation_notes ? '· ' + escHtml(r.motivation_notes.slice(0,80)) : ''}`,
+      opportunities:`offer ${formatMoney(r.our_offer)} ${r.appointment_at ? '· apt ' + formatDate(r.appointment_at) : ''}`,
+      purchases:    `purchase ${formatMoney(r.purchase_price)} ${r.contract_date ? '· contract ' + formatDate(r.contract_date) : ''}`,
+      projects:     `${escHtml(r.kind)} · ${escHtml(r.status)}`
+    }[stage];
+    const canPromote = stage !== 'projects' && r.status !== 'promoted';
+    return `<div class="pipe-row">
+      <div>
+        <div>${desc || ''}</div>
+        <div class="meta">${formatDate(r.created_at)} · <span class="status-pill">${escHtml(r.status)}</span></div>
+      </div>
+      ${canPromote ? `<button class="btn btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="promote('${stage}','${r.id}')">Promote ›</button>` : ''}
+    </div>`;
+  }
+
+  function render(){
+    const sections = [
+      ['📥 Prospects',     'prospects',     property.prospects],
+      ['🎯 Leads',         'leads',         property.leads],
+      ['🤝 Opportunities', 'opportunities', property.opportunities],
+      ['📝 Purchases',     'purchases',     property.purchases],
+      ['🔧 Projects',      'projects',      property.projects]
+    ];
+
+    let html = `
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="property-name">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
+          <div class="property-address">${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}</div>
+          ${property.parcel_id ? `<div class="text-muted text-xs mt-8">Parcel: ${escHtml(property.parcel_id)}</div>` : ''}
+        </div>
+      </div>
+    `;
+
+    for (const [label, stage, rows] of sections){
+      html += `<div class="stage-section">
+        <h3>${label}<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addRecord('${stage}')">+ Add</button></h3>
+        ${rows.length ? rows.map(r => pipeRow(stage, r)).join('') : '<div class="text-muted text-xs">None yet.</div>'}
+      </div>`;
+    }
+
+    html += `<div class="stage-section">
+      <h3>📇 Contacts<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addContactLink()">+ Link</button></h3>
+      ${property.contacts.length
+        ? property.contacts.map(c => `<div class="contact-row">
+            <div class="avatar">${escHtml(c.full_name.charAt(0).toUpperCase())}</div>
+            <div style="flex:1;">
+              <div><a href="/contact.html?id=${c.id}">${escHtml(c.full_name)}</a></div>
+              <div class="role-tag">${escHtml(c.role)}${c.is_primary ? ' · primary' : ''}</div>
+            </div>
+            <button class="icon-btn" style="background:rgba(239,68,68,.15);color:var(--danger);" onclick="unlink('${c.id}','${c.role}')" title="Unlink">×</button>
+          </div>`).join('')
+        : '<div class="text-muted text-xs">No contacts linked.</div>'}
+    </div>`;
+
+    document.getElementById('page').innerHTML = html;
+  }
+
+  async function addRecord(stage){
+    if (stage === 'prospects'){
+      const source = prompt('Prospect source (foreclosure_list, bankruptcy_list, probate_list, divorce_list, scraped, purchased_data):', 'foreclosure_list');
+      if (!source) return;
+      const raw_name  = prompt('Name (optional):') || '';
+      const raw_phone = prompt('Phone (optional):') || '';
+      try {
+        await createPipelineRecord('prospects', { property_id: id, source, raw_name, raw_phone });
+        showToast('Prospect added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'leads'){
+      const source = prompt('Lead source (ppl, ppc, organic_web, inbound_call, referral, prospect_response):', 'inbound_call');
+      if (!source) return;
+      try {
+        await createPipelineRecord('leads', { property_id: id, source });
+        showToast('Lead added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'opportunities'){
+      const our_offer = prompt('Our offer ($):');
+      try {
+        await createPipelineRecord('opportunities', { property_id: id, our_offer: our_offer ? Number(our_offer) : null });
+        showToast('Opportunity added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'purchases'){
+      const purchase_price = prompt('Purchase price ($):');
+      try {
+        await createPipelineRecord('purchases', { property_id: id, purchase_price: purchase_price ? Number(purchase_price) : null });
+        showToast('Purchase added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'projects'){
+      const kind = prompt("Kind ('flip' or 'rental'):", 'flip');
+      if (!['flip','rental'].includes(kind)) return showToast('Invalid kind', 'error');
+      try {
+        await createPipelineRecord('projects', { property_id: id, kind });
+        showToast('Project added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    }
+  }
+
+  async function promote(stage, recordId){
+    let body = {};
+    if (stage === 'purchases'){
+      const kind = prompt("Promote to project — kind ('flip' or 'rental'):", 'flip');
+      if (!['flip','rental'].includes(kind)) return showToast('Invalid kind', 'error');
+      body = { kind };
+    }
+    try {
+      await promotePipelineRecord(stage, recordId, body);
+      showToast('Promoted'); await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function addContactLink(){
+    const contacts = await getContacts();
+    if (!contacts.length){ if (confirm('No contacts yet. Create one?')) window.location.href = '/contacts.html'; return; }
+    const choice = prompt(
+      'Contact ID? Available:\n' +
+      contacts.slice(0, 20).map(c => `${c.id.slice(0,8)} — ${c.full_name} (${c.type})`).join('\n')
+    );
+    if (!choice) return;
+    const match = contacts.find(c => c.id.startsWith(choice.trim()));
+    if (!match) return showToast('No match', 'error');
+    const role = prompt('Role on this property (e.g. seller, contractor, accountant):', match.type);
+    if (!role) return;
+    try {
+      await linkContactToProperty({ property_id: id, contact_id: match.id, role });
+      showToast('Linked'); await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function unlink(contactId, role){
+    if (!confirm('Unlink this contact?')) return;
+    try {
+      await unlinkContactFromProperty({ property_id: id, contact_id: contactId, role });
+      showToast('Unlinked'); await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  init();
+</script>
+</body>
+</html>

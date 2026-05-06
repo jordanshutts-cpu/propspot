@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Restoration OS — Apps</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">🧩 Apps</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <p class="text-sm text-muted mb-16">Apps registered with Restoration OS. Each one validates the same JWT we issue here, so users sign in once.</p>
+  <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
+  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
+  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+  <a class="nav-link active" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  async function init(){
+    if (!await requireAuth()) return;
+    try{
+      const apps = await getApps();
+      const el = document.getElementById('list');
+      el.innerHTML = apps.map(a => `
+        <div class="team-row">
+          <div class="avatar" style="background:#fff;color:var(--brand);font-size:1.2rem;border:2px solid var(--brand);">
+            ${escHtml(a.icon || '🧩')}
+          </div>
+          <div class="team-info">
+            <div class="team-name">${escHtml(a.name)}</div>
+            <div class="team-email">${escHtml(a.description || a.slug)}</div>
+            ${a.base_url ? `<div class="text-xs"><a href="${escHtml(a.base_url)}" target="_blank">${escHtml(a.base_url)}</a></div>` : ''}
+          </div>
+          <span class="badge">${a.user_count} ${a.user_count === 1 ? 'user' : 'users'}</span>
+        </div>
+      `).join('');
+    }catch(err){
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+  init();
+</script>
+</body>
+</html>

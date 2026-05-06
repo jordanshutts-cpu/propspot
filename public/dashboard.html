@@ -269,6 +269,7 @@
   async function init() {
     const user = await requireAuth();
     if (!user) return;
+    injectOsLink();
     await loadProperties();
     detectNearby();
   }

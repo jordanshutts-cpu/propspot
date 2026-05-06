@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Restoration OS — Accept Invite</title>
+  <link rel="stylesheet" href="style.css">
+  <style>body{padding-bottom:0;background:linear-gradient(160deg,#edf7e9 0%,#ffffff 100%)}</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-logo">🏠 Restoration OS</div>
+  <p class="login-tagline">You've been invited! Create your account below.</p>
+
+  <div class="login-card">
+    <div id="invalid-msg" class="hidden">
+      <div class="empty-state" style="padding:24px 0;">
+        <div class="empty-icon">⚠️</div>
+        <p>This invite link is invalid or has expired.<br>Ask whoever invited you for a new one.</p>
+        <a href="/index.html" class="btn btn-secondary mt-16">Back to Sign In</a>
+      </div>
+    </div>
+
+    <form id="invite-form" onsubmit="handleAccept(event)" class="hidden">
+      <div class="form-group">
+        <label class="form-label">Your Full Name</label>
+        <input class="form-input" type="text" id="full-name" placeholder="Your Name" required autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Create Password</label>
+        <input class="form-input" type="password" id="password"
+               placeholder="Min. 6 characters" required autocomplete="new-password" minlength="6">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <input class="form-input" type="password" id="password-confirm"
+               placeholder="Repeat password" required autocomplete="new-password">
+      </div>
+      <p id="accept-error" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+      <button class="btn btn-primary btn-full" type="submit" id="accept-btn">✅ Join Restoration OS</button>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const token=new URLSearchParams(location.search).get('token');
+  function init(){
+    if(!token){ document.getElementById('invalid-msg').classList.remove('hidden'); }
+    else      { document.getElementById('invite-form').classList.remove('hidden'); }
+    if(getToken()) window.location.href='/dashboard.html';
+  }
+  async function handleAccept(e){
+    e.preventDefault();
+    const btn=document.getElementById('accept-btn');
+    const errEl=document.getElementById('accept-error');
+    const pass=document.getElementById('password').value;
+    const confirm=document.getElementById('password-confirm').value;
+    errEl.style.display='none';
+    if(pass!==confirm){ errEl.textContent='Passwords do not match.'; errEl.style.display='block'; return; }
+    showSpinner(btn,'Creating account…');
+    try{
+      const{token:jwt,user}=await apiFetch('/api/auth/accept-invite',{
+        method:'POST',
+        body:JSON.stringify({
+          token, password:pass,
+          fullName:document.getElementById('full-name').value.trim()||undefined
+        })
+      });
+      setToken(jwt); setCachedUser(user);
+      showToast('Welcome aboard!');
+      setTimeout(()=>window.location.href='/dashboard.html',800);
+    }catch(err){
+      if(err.message.includes('invalid or has expired')){
+        document.getElementById('invite-form').classList.add('hidden');
+        document.getElementById('invalid-msg').classList.remove('hidden');
+      } else {
+        errEl.textContent=err.message; errEl.style.display='block';
+        hideSpinner(btn);
+      }
+    }
+  }
+  init();
+</script>
+</body>
+</html>

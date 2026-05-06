@@ -223,3 +223,28 @@ async function populateHeader() {
   const el = document.getElementById('user-name');
   if (el && user) el.textContent = user.full_name || user.email || 'You';
 }
+
+// ── Restoration OS link ──────────────────────────────────────
+let _osUrlCache = null;
+async function getOsUrl() {
+  if (_osUrlCache !== null) return _osUrlCache;
+  try {
+    const cfg = await fetch(API_BASE + '/api/config').then(r => r.json());
+    _osUrlCache = cfg.osUrl || '';
+  } catch { _osUrlCache = ''; }
+  return _osUrlCache;
+}
+
+async function injectOsLink() {
+  const url = await getOsUrl();
+  if (!url) return;
+  const headerActions = document.querySelector('.app-header .header-actions');
+  if (!headerActions || document.getElementById('os-link')) return;
+  const link = document.createElement('a');
+  link.id = 'os-link';
+  link.className = 'icon-btn';
+  link.href = url;
+  link.title = 'Restoration OS';
+  link.textContent = '🏠';
+  headerActions.insertBefore(link, headerActions.firstChild);
+}

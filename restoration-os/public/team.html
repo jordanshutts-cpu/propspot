@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Restoration OS — Team</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .grant-pill { font-size:.7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); margin-right:4px; margin-top:4px; display:inline-block; }
+    .grants-line { margin-top:4px; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">👥 Team</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="document.getElementById('invite-modal').classList.remove('hidden')">+</button>
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="section-header">
+    <span class="section-title" id="count">Members</span>
+  </div>
+  <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
+</main>
+
+<!-- Invite modal -->
+<div id="invite-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:20px;">
+    <div class="section-header">
+      <span class="section-title">Invite Team Member</span>
+      <button class="icon-btn" style="background:#eee;color:#000;" onclick="document.getElementById('invite-modal').classList.add('hidden')">×</button>
+    </div>
+    <p class="text-sm text-muted mb-12">For inviting employees / business partners. To invite a contractor, accountant, attorney, etc., create them as a contact first then invite from the contact page.</p>
+    <form onsubmit="submitInvite(event)">
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input class="form-input" type="email" id="i-email" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input class="form-input" id="i-name">
+      </div>
+      <p class="text-xs text-muted mb-12">They will get an invite with no app access. Grant apps from the team list after they accept.</p>
+      <p id="i-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+      <div id="i-link-box" class="hidden mb-12" style="background:var(--bg);border-radius:8px;padding:12px;">
+        <p class="text-xs text-muted" id="i-link-text" style="word-break:break-all;"></p>
+      </div>
+      <button class="btn btn-primary btn-full" type="submit" id="i-btn">📨 Send Invite</button>
+    </form>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
+  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
+  <a class="nav-link active" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+  <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let me = null;
+
+  async function init(){
+    me = await requireAuth(); if (!me) return;
+    await load();
+  }
+
+  async function load(){
+    try{
+      const users = await getUsers();
+      document.getElementById('count').textContent =
+        `${users.length} ${users.length === 1 ? 'Member' : 'Members'}`;
+      const el = document.getElementById('list');
+      if (!users.length){ el.innerHTML = '<p class="text-muted text-sm">No team members yet.</p>'; return; }
+      el.innerHTML = users.map(u => {
+        const name = u.full_name || u.email;
+        const isYou = u.id === me.id;
+        const grantPills = (u.grants || []).map(g => {
+          const scopeText = g.scope?.all ? '' : (g.scope?.project_ids ? ` (${g.scope.project_ids.length})` : '');
+          return `<span class="grant-pill">${escHtml(g.app_name)} · ${escHtml(g.role)}${escHtml(scopeText)}</span>`;
+        }).join('');
+        return `
+          <div class="team-row">
+            <div class="avatar">${escHtml(name.charAt(0).toUpperCase())}</div>
+            <div class="team-info">
+              <div class="team-name">
+                ${escHtml(name)}
+                ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}
+                ${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}
+              </div>
+              <div class="team-email">${escHtml(u.email)}</div>
+              <div class="grants-line">${grantPills || '<span class="text-xs text-muted">No app access</span>'}</div>
+            </div>
+            <span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span>
+          </div>
+        `;
+      }).join('');
+    }catch(err){
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  async function submitInvite(e){
+    e.preventDefault();
+    const btn = document.getElementById('i-btn'), err = document.getElementById('i-err');
+    err.style.display = 'none';
+    showSpinner(btn, 'Sending…');
+    try{
+      const res = await inviteUser(
+        document.getElementById('i-email').value,
+        document.getElementById('i-name').value || undefined,
+        []
+      );
+      if (res.inviteLink){
+        document.getElementById('i-link-box').classList.remove('hidden');
+        document.getElementById('i-link-text').textContent = res.inviteLink;
+      } else {
+        showToast(res.message || 'Invite sent');
+        setTimeout(() => { document.getElementById('invite-modal').classList.add('hidden'); load(); }, 1200);
+      }
+      hideSpinner(btn);
+    }catch(e){
+      err.textContent = e.message; err.style.display = 'block';
+      hideSpinner(btn);
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

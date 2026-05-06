@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Restoration OS — Properties</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .prop-counts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    .pcount { font-size:.7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">🏘️ Properties</span>
+  <div class="header-actions">
+    <a class="icon-btn" href="/add-property.html" title="Add property">+</a>
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input class="form-input" type="search" id="search-input" placeholder="Search by address…" oninput="filterProps(this.value)">
+  </div>
+
+  <div class="section-header">
+    <span class="section-title" id="props-count">All Properties</span>
+    <a href="/add-property.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">+ Add</a>
+  </div>
+
+  <div id="props-list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
+  <a class="nav-link active" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
+  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+  <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let allProps = [];
+  async function init(){
+    if (!await requireAuth()) return;
+    try{
+      allProps = await getProperties();
+      render(allProps);
+    }catch(err){
+      document.getElementById('props-list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function fullAddr(p){
+    const u = p.unit ? ` #${p.unit}` : '';
+    return `${p.address_line1}${u}, ${p.city}, ${p.state} ${p.zip}`;
+  }
+
+  function render(list){
+    document.getElementById('props-count').textContent =
+      list.length === 1 ? '1 Property' : `${list.length} Properties`;
+    const el = document.getElementById('props-list');
+    if (!list.length){
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🏗️</div>
+        <p>No properties yet.</p>
+        <a href="/add-property.html" class="btn btn-primary">+ Add Property</a>
+      </div>`;
+      return;
+    }
+    el.innerHTML = list.map(p => `
+      <a class="property-card" href="/property.html?id=${p.id}">
+        <div class="property-info">
+          <div class="property-name">${escHtml(p.address_line1)}${p.unit ? ` #${escHtml(p.unit)}` : ''}</div>
+          <div class="property-address">${escHtml(p.city)}, ${escHtml(p.state)} ${escHtml(p.zip)}</div>
+          <div class="prop-counts">
+            ${p.prospect_count    ? `<span class="pcount">📥 ${p.prospect_count} prospects</span>` : ''}
+            ${p.lead_count        ? `<span class="pcount">🎯 ${p.lead_count} leads</span>` : ''}
+            ${p.opportunity_count ? `<span class="pcount">🤝 ${p.opportunity_count} opps</span>` : ''}
+            ${p.purchase_count    ? `<span class="pcount">📝 ${p.purchase_count} purchases</span>` : ''}
+            ${p.project_count     ? `<span class="pcount">🔧 ${p.project_count} projects</span>` : ''}
+          </div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  function filterProps(q){
+    q = (q || '').toLowerCase();
+    const filtered = allProps.filter(p => fullAddr(p).toLowerCase().includes(q));
+    render(filtered);
+  }
+
+  init();
+</script>
+</body>
+</html>
