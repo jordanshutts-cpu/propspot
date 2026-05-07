@@ -618,6 +618,141 @@ body {
   cursor: pointer;
 }
 
+/* ── Desktop Sidebar (≥900px) ────────────────────────────── */
+
+/* These elements live in the sidebar on desktop, hidden on mobile */
+.nav-brand   { display: none; }
+.nav-spacer  { display: none; }
+.nav-signout { display: none; }
+
+@media (min-width: 900px) {
+  :root {
+    --sidebar-width: 220px;
+    --nav-height: 0px;   /* no bottom bar → all nav-height calculations = 0 */
+  }
+
+  /* Body shifts right to make room for sidebar */
+  body {
+    padding-bottom: 0;
+    padding-left: var(--sidebar-width);
+  }
+
+  /* ── Sidebar ── */
+  .bottom-nav {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    right: auto;
+    width: var(--sidebar-width);
+    height: 100dvh;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    border-top: none;
+    border-right: 1px solid var(--border);
+    box-shadow: none;
+    padding: 0;
+    gap: 2px;
+    overflow-y: auto;
+    background: var(--surface);
+  }
+
+  /* Logo / brand at top of sidebar */
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: var(--brand);
+    letter-spacing: -.5px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  /* Spacer pushes sign-out to bottom */
+  .nav-spacer { display: block; flex: 1; }
+
+  /* Sign-out button at bottom of sidebar */
+  .nav-signout {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    margin: 0 8px 8px;
+    width: calc(100% - 16px);
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .nav-signout:hover { background: #fee2e2; color: var(--danger); }
+
+  /* Nav links as left-aligned rows */
+  .nav-link {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 11px 14px;
+    font-size: .88rem;
+    font-weight: 500;
+    border-radius: 10px;
+    margin: 0 8px;
+    width: calc(100% - 16px);
+  }
+  .nav-link .nav-icon { font-size: 1.15rem; }
+  .nav-link.active, .nav-link:hover {
+    background: var(--brand-light);
+    color: var(--brand);
+  }
+
+  /* Hide logo from top header — it's in the sidebar now */
+  .app-header .logo { display: none; }
+
+  /* Wider content area */
+  .page { max-width: 1100px; }
+
+  /* Photo grid: 4 columns */
+  .photo-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* Property card list: 2-column grid (dashboard) */
+  #properties-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  #properties-list .property-card { margin-bottom: 0; }
+
+  /* FAB — no bottom-nav offset */
+  .fab { bottom: 24px; }
+
+  /* Toast — center in the content area (not full viewport) */
+  .toast {
+    left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
+  }
+
+  /* Bottom sheets — offset left so they don't cover sidebar */
+  .sheet-overlay { left: var(--sidebar-width); }
+  .sheet         { left: var(--sidebar-width); }
+
+  /* Property card image taller on desktop */
+  .property-thumb { height: 200px; }
+
+  /* Smoother hover on cards */
+  .property-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+
+  /* Map cap height on desktop */
+  #map { max-height: 320px; }
+}
+
 /* ── Utilities ───────────────────────────────────────────── */
 .mt-8  { margin-top: 8px; }
 .mt-12 { margin-top: 12px; }
