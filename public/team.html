@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#61B746">
   <title>FieldCam — Team</title>
   <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
     .role-badge {
       display: inline-block;
@@ -83,13 +84,18 @@
 </main>
 
 <nav class="bottom-nav">
-  <a class="nav-brand" href="/dashboard.html">📸 FieldCam</a>
-  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Properties</a>
-  <a class="nav-link" href="/camera.html"><span class="nav-icon">📷</span>Camera</a>
-  <a class="nav-link" href="/import.html"><span class="nav-icon">📥</span>Import</a>
-  <a class="nav-link active" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">📸</span><span class="nav-label"> FieldCam</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+  <button class="nav-notif-item" id="nav-notif-btn" onclick="handleNavNotif()" title="Notifications">
+    <span class="nav-icon">🔔</span><span class="nav-notif-label">Notifications</span>
+    <span class="nav-notif-badge hidden" id="nav-notif-badge">0</span>
+  </button>
+  <a class="nav-link" href="/dashboard.html" title="Properties"><span class="nav-icon">🏠</span>Properties</a>
+  <a class="nav-link" href="/camera.html" title="Camera"><span class="nav-icon">📷</span>Camera</a>
+  <a class="nav-link" href="/import.html" title="Import"><span class="nav-icon">📥</span>Import</a>
+  <a class="nav-link active" href="/team.html" title="Team"><span class="nav-icon">👥</span>Team</a>
   <div class="nav-spacer"></div>
-  <button class="nav-signout" onclick="signOut()"><span class="nav-icon">🚪</span>Sign Out</button>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
 </nav>
 
 <script src="config.js"></script>

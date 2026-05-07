@@ -283,6 +283,43 @@ async function setUserRole(userId, role) {
   });
 }
 
+// ── Sidebar Collapse ─────────────────────────────────────────
+
+function toggleSidebar() {
+  const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+  const btn = document.getElementById('nav-collapse-btn');
+  if (btn) btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  btn && (btn.textContent = collapsed ? '›' : '‹');
+}
+
+// ── Sidebar Notification Bell ─────────────────────────────────
+
+function handleNavNotif() {
+  // If the notification panel exists on this page, toggle it
+  if (typeof toggleNotifPanel === 'function') {
+    toggleNotifPanel();
+  } else {
+    // Navigate to dashboard which has the full notifications UI
+    window.location.href = '/dashboard.html';
+  }
+}
+
+async function loadNavBadge() {
+  try {
+    const mentions  = await getMentions();
+    const seen      = parseInt(localStorage.getItem('fieldcam_mentions_seen') || '0', 10);
+    const unread    = mentions.filter(m => new Date(m.created_at).getTime() > seen).length;
+    const badge     = document.getElementById('nav-notif-badge');
+    const headerBadge = document.getElementById('notif-badge');  // dashboard header (if present)
+    [badge, headerBadge].forEach(el => {
+      if (!el) return;
+      if (unread > 0) { el.textContent = unread; el.classList.remove('hidden'); }
+      else            { el.classList.add('hidden'); }
+    });
+  } catch { /* silent on pages where auth is not loaded yet */ }
+}
+
 // ── Trash ─────────────────────────────────────────────────────
 
 async function getTrash(propertyId) {
@@ -321,3 +358,16 @@ async function deleteComment(commentId) {
 async function getMentions() {
   return apiFetch('/api/comments/mentions');
 }
+
+// ── Sidebar init (runs on every page) ────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Set correct collapse icon (class already applied by head script)
+  const btn = document.getElementById('nav-collapse-btn');
+  if (btn) {
+    const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
+    btn.textContent = collapsed ? '›' : '‹';
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  }
+  // Load nav notification badge (desktop sidebar bell)
+  if (getToken()) loadNavBadge();
+});

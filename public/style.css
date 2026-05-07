@@ -621,9 +621,11 @@ body {
 /* ── Desktop Sidebar (≥900px) ────────────────────────────── */
 
 /* These elements live in the sidebar on desktop, hidden on mobile */
-.nav-brand   { display: none; }
-.nav-spacer  { display: none; }
-.nav-signout { display: none; }
+.nav-brand        { display: none; }
+.nav-spacer       { display: none; }
+.nav-signout      { display: none; }
+.nav-collapse-btn { display: none; }
+.nav-notif-item   { display: none; }
 
 @media (min-width: 900px) {
   :root {
@@ -653,8 +655,13 @@ body {
     padding: 0;
     gap: 2px;
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--surface);
+    transition: width .22s ease;
   }
+
+  /* Body padding tracks sidebar width */
+  body { transition: padding-left .22s ease; }
 
   /* Logo / brand at top of sidebar */
   .nav-brand {
@@ -670,7 +677,10 @@ body {
     margin-bottom: 8px;
     text-decoration: none;
     flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
   }
+  .nav-brand .nav-label { transition: opacity .15s ease; }
 
   /* Spacer pushes sign-out to bottom */
   .nav-spacer { display: block; flex: 1; }
@@ -692,6 +702,8 @@ body {
     cursor: pointer;
     text-align: left;
     flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
   }
   .nav-signout:hover { background: #fee2e2; color: var(--danger); }
 
@@ -707,18 +719,99 @@ body {
     border-radius: 10px;
     margin: 0 8px;
     width: calc(100% - 16px);
+    white-space: nowrap;
+    overflow: hidden;
   }
-  .nav-link .nav-icon { font-size: 1.15rem; }
+  .nav-link .nav-icon { font-size: 1.15rem; flex-shrink: 0; }
   .nav-link.active, .nav-link:hover {
     background: var(--brand-light);
     color: var(--brand);
   }
+
+  /* Notification nav item (desktop sidebar only) */
+  .nav-notif-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    font-size: .88rem;
+    font-weight: 500;
+    border-radius: 10px;
+    margin: 0 8px;
+    width: calc(100% - 16px);
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .nav-notif-item:hover { background: var(--brand-light); color: var(--brand); }
+  .nav-notif-item .nav-icon { font-size: 1.15rem; flex-shrink: 0; }
+  .nav-notif-label { flex: 1; }
+  .nav-notif-badge {
+    background: #FF3B30;
+    color: #fff;
+    border-radius: 100px;
+    padding: 1px 6px;
+    font-size: .68rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    transition: opacity .15s;
+  }
+  .nav-notif-badge.hidden { display: none; }
+
+  /* ── Collapse toggle button ── */
+  .nav-collapse-btn {
+    position: fixed;
+    top: 22px;
+    left: calc(var(--sidebar-width) - 12px);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    color: var(--text-muted);
+    font-size: .75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    transition: left .22s ease, background .15s, color .15s, border-color .15s;
+    line-height: 1;
+  }
+  .nav-collapse-btn:hover {
+    background: var(--brand);
+    color: #fff;
+    border-color: var(--brand);
+  }
+
+  /* ── Collapsed state ── */
+  html.sidebar-collapsed { --sidebar-width: 64px; }
+
+  html.sidebar-collapsed .nav-label          { opacity: 0; width: 0; overflow: hidden; }
+  html.sidebar-collapsed .nav-brand          { justify-content: center; padding: 20px 0 16px; gap: 0; }
+  html.sidebar-collapsed .nav-link           { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px; gap: 0; }
+  html.sidebar-collapsed .nav-link .nav-icon { font-size: 1.3rem; }
+  html.sidebar-collapsed .nav-notif-item     { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px; gap: 0; }
+  html.sidebar-collapsed .nav-notif-item .nav-icon { font-size: 1.3rem; }
+  html.sidebar-collapsed .nav-notif-label    { display: none; }
+  html.sidebar-collapsed .nav-notif-badge    { display: none; }
+  html.sidebar-collapsed .nav-signout        { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px 8px; gap: 0; font-size: 0; }
+  html.sidebar-collapsed .nav-signout .nav-icon { font-size: 1.15rem; }
 
   /* Hide logo from top header — it's in the sidebar now */
   .app-header .logo { display: none; }
 
   /* Hide header sign-out on desktop — it's in the sidebar */
   .header-signout { display: none; }
+
+  /* Hide header notif bell on desktop — it's in the sidebar */
+  .app-header .notif-bell { display: none; }
 
   /* Wider content area */
   .page { max-width: 1100px; }
