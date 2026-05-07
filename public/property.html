@@ -125,6 +125,28 @@
       cursor: pointer;
       color: #666;
     }
+    /* Delete button inside folder tab */
+    .folder-tab-del {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      background: rgba(0,0,0,.15);
+      color: inherit;
+      font-size: .6rem;
+      font-weight: 900;
+      line-height: 1;
+      margin-left: 4px;
+      margin-right: -2px;
+      cursor: pointer;
+      flex-shrink: 0;
+      border: none;
+      padding: 0;
+      vertical-align: middle;
+    }
+    .folder-tab.active .folder-tab-del { background: rgba(255,255,255,.3); color: #fff; }
+    .folder-tab-del:hover { background: #FF3B30 !important; color: #fff !important; }
 
     /* ── Dark sheet (shared by folder/share/access) ── */
     .sheet-overlay {
@@ -672,9 +694,9 @@
 
   <div class="sheet-label">Quick Templates</div>
   <div class="template-btns">
-    <button class="template-btn" onclick="applyTemplate('Renovation')">🔨 Renovation</button>
     <button class="template-btn" onclick="applyTemplate('Inspection')">🔍 Inspection</button>
-    <button class="template-btn" onclick="applyTemplate('Commercial')">🏢 Commercial</button>
+    <button class="template-btn" onclick="applyTemplate('Renovation')">🔨 Renovation</button>
+    <button class="template-btn" onclick="applyTemplate('Listing Photos')">📸 Listing Photos</button>
   </div>
 
   <div class="sheet-label">Custom Folder</div>
@@ -746,9 +768,9 @@
   let allPhotosCount = 0;
 
   const TEMPLATES = {
-    Renovation: ['Before', 'During', 'After', 'Permits', 'Materials'],
-    Inspection:  ['Exterior', 'Interior', 'Electrical', 'Plumbing', 'HVAC'],
-    Commercial:  ['Storefront', 'Interior', 'Mechanical', 'Electrical', 'Permits']
+    Inspection:     ['Exterior', 'Interior', 'Electrical', 'Plumbing', 'HVAC'],
+    Renovation:     ['Before', 'During', 'After', 'Permits', 'Materials'],
+    'Listing Photos': ['Exterior', 'Interior', 'Kitchen', 'Bedrooms', 'Outdoor']
   };
 
   // ── Init ────────────────────────────────────────────────────────
@@ -813,6 +835,8 @@
         <button class="folder-tab ${currentFolder === f.id ? 'active' : ''}"
                 id="ftab-${f.id}" onclick="selectFolder('${f.id}')">
           ${escHtml(f.name)} (${f.photo_count || 0})
+          <span class="folder-tab-del" onclick="confirmDeleteFolder('${f.id}', '${escHtml(f.name).replace(/'/g,"\\'")}', event)"
+                title="Delete folder">✕</span>
         </button>`);
     });
     tabs.push(`<button class="folder-tab-add" onclick="openFolderSheet()" title="Add folder">+</button>`);
@@ -1084,6 +1108,23 @@
       await loadPhotos(currentFolder);
       closeFolderSheet();
       showToast(`${templateName} folders created`);
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
+
+  async function confirmDeleteFolder(folderId, folderName, e) {
+    e.stopPropagation(); // don't also select the folder
+    if (!confirm(`Delete folder "${folderName}"?\n\nPhotos inside will become unassigned — they won't be deleted.`)) return;
+    try {
+      await deleteFolder(folderId);
+      // If we were viewing this folder, go back to All
+      if (currentFolder === folderId) {
+        currentFolder = null;
+        document.getElementById('section-title').textContent = 'All Photos';
+        updateCameraLinks();
+      }
+      await loadFolders();
+      await loadPhotos(currentFolder);
+      showToast(`Folder "${folderName}" deleted`);
     } catch (err) { showToast('Failed: ' + err.message, 'error'); }
   }
 
