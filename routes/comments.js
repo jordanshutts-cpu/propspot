@@ -5,6 +5,42 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
+// ── GET /api/comments/mentions — comments that @mention the current user ──
+router.get('/mentions', async (req, res) => {
+  try {
+    // Get current user's name to search for
+    const { rows: me } = await query(
+      'SELECT full_name FROM users WHERE id = $1', [req.userId]
+    );
+    const fullName = me[0]?.full_name;
+    if (!fullName) return res.json([]);
+
+    const { rows } = await query(`
+      SELECT
+        c.*,
+        u.full_name  AS commenter_name,
+        u.email      AS commenter_email,
+        ph.url       AS photo_url,
+        ph.id        AS photo_id,
+        prop.id      AS property_id,
+        prop.name    AS property_name
+      FROM comments c
+      JOIN users      u    ON u.id    = c.user_id
+      JOIN photos     ph   ON ph.id   = c.photo_id
+      JOIN properties prop ON prop.id = ph.property_id
+      WHERE c.body ILIKE '%@' || $1 || '%'
+        AND c.user_id != $2
+      ORDER BY c.created_at DESC
+      LIMIT 50
+    `, [fullName, req.userId]);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Mentions fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch mentions' });
+  }
+});
+
 // ── GET /api/comments?photo_id=xxx ────────────────────────────
 router.get('/', async (req, res) => {
   const { photo_id } = req.query;

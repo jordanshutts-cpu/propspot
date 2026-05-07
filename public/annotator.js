@@ -73,6 +73,8 @@ function openAnnotator(source, onSave, onCancel) {
       <button class="ann-btn ann-active" id="ann-t-text"   onclick="_annTool('text')">T&nbsp;Text</button>
       <button class="ann-btn"            id="ann-t-circle" onclick="_annTool('circle')">○&nbsp;Circle</button>
       <button class="ann-btn"            id="ann-t-arrow"  onclick="_annTool('arrow')">↗&nbsp;Arrow</button>
+      <button class="ann-btn"            id="ann-t-check"  onclick="_annTool('check')"  style="color:#30D158;border-color:#30D158;">✓&nbsp;Check</button>
+      <button class="ann-btn"            id="ann-t-cross"  onclick="_annTool('cross')"  style="color:#FF3B30;border-color:#FF3B30;">✕&nbsp;Mark</button>
       <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;margin:0 2px;">
         <div class="ann-color-dot ann-color-sel" data-c="#FF3B30" style="background:#FF3B30"  onclick="_annColor('#FF3B30')"></div>
         <div class="ann-color-dot"               data-c="#FFD60A" style="background:#FFD60A"  onclick="_annColor('#FFD60A')"></div>
@@ -174,6 +176,29 @@ function openAnnotator(source, onSave, onCancel) {
       ctx.strokeText(a.text, a.x, a.y);
       ctx.fillStyle = a.color;
       ctx.fillText(a.text, a.x, a.y);
+
+    } else if (a.type === 'check') {
+      // Bold green checkmark — click-to-place
+      const s = fs() * 1.1;
+      ctx.strokeStyle = '#30D158';
+      ctx.lineWidth   = lw() * 2;
+      ctx.lineCap = ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x - s * 0.45, a.y);
+      ctx.lineTo(a.x - s * 0.05, a.y + s * 0.38);
+      ctx.lineTo(a.x + s * 0.55, a.y - s * 0.45);
+      ctx.stroke();
+
+    } else if (a.type === 'cross') {
+      // Bold red X — click-to-place
+      const s = fs() * 0.55;
+      ctx.strokeStyle = '#FF3B30';
+      ctx.lineWidth   = lw() * 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(a.x - s, a.y - s); ctx.lineTo(a.x + s, a.y + s);
+      ctx.moveTo(a.x + s, a.y - s); ctx.lineTo(a.x - s, a.y + s);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -197,7 +222,9 @@ function openAnnotator(source, onSave, onCancel) {
   canvas.addEventListener('touchend',   pUp,   { passive: false });
 
   function pDown(e) {
-    if (tool === 'text') { showTextInput(xy(e), e); return; }
+    if (tool === 'text')  { showTextInput(xy(e), e); return; }
+    if (tool === 'check') { e.preventDefault(); const p = xy(e); annotations.push({ type:'check', x:p.x, y:p.y, color:'#30D158' }); redraw(); return; }
+    if (tool === 'cross') { e.preventDefault(); const p = xy(e); annotations.push({ type:'cross', x:p.x, y:p.y, color:'#FF3B30' }); redraw(); return; }
     e.preventDefault();
     const p = xy(e); sx = p.x; sy = p.y; drawing = true;
   }
@@ -253,8 +280,14 @@ function openAnnotator(source, onSave, onCancel) {
   window._annTool = t => {
     tool = t;
     document.querySelectorAll('#ann-bar .ann-btn[id^="ann-t-"]').forEach(b => b.classList.remove('ann-active'));
-    document.getElementById(`ann-t-${t}`)?.classList.add('ann-active');
-    canvas.style.cursor = t === 'text' ? 'text' : 'crosshair';
+    const btn = document.getElementById(`ann-t-${t}`);
+    if (btn) {
+      btn.classList.add('ann-active');
+      // Check/cross keep their signature colors even when active
+      if (t === 'check') { btn.style.background = '#30D158'; btn.style.borderColor = '#30D158'; btn.style.color = '#fff'; }
+      if (t === 'cross') { btn.style.background = '#FF3B30'; btn.style.borderColor = '#FF3B30'; btn.style.color = '#fff'; }
+    }
+    canvas.style.cursor = 'crosshair';
   };
 
   window._annColor = c => {

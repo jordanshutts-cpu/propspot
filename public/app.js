@@ -299,3 +299,7 @@ async function postComment(photoId, body) {
 async function deleteComment(commentId) {
   return apiFetch(`/api/comments/${commentId}`, { method: 'DELETE' });
 }
+
+async function getMentions() {
+  return apiFetch('/api/comments/mentions');
+}

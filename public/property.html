@@ -257,18 +257,25 @@
       margin-top: 12px; line-height: 1.4;
     }
 
-    /* Create share area */
-    .share-create-row {
-      display: flex; gap: 8px; margin-bottom: 14px;
-    }
-    .share-create-row button {
-      flex: 1; padding: 11px 8px;
-      border-radius: 10px; border: none;
+    /* Create share buttons (one per row) */
+    .share-create-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: none;
       background: #2c2c2e;
-      color: #fff; font-size: .85rem; font-weight: 600;
+      color: #fff;
+      font-size: .88rem;
+      font-weight: 600;
+      text-align: left;
       cursor: pointer;
+      margin-bottom: 8px;
     }
-    .share-create-row button:active { background: #3a3a3c; }
+    .share-create-btn:active { background: #3a3a3c; }
+    .share-create-btn .scb-icon { font-size: 1rem; flex-shrink: 0; }
 
     /* header action buttons */
     .header-actions { display: flex; gap: 6px; align-items: center; }
@@ -683,12 +690,10 @@
   <div class="sheet-handle"></div>
   <div class="sheet-title">🔗 Share</div>
 
-  <div class="share-create-row">
-    <button onclick="doCreateShareLink(false)">🏠 Share whole property</button>
-    <button id="share-folder-btn" onclick="doCreateShareLink(true)" style="display:none;">📁 Share this folder</button>
-  </div>
+  <div class="sheet-label">Create Link</div>
+  <div id="share-create-options" style="margin-bottom:4px;"></div>
 
-  <div class="sheet-label">Existing Links</div>
+  <div class="sheet-label" style="margin-top:14px;">Existing Links</div>
   <div id="share-links-list">
     <p style="color:rgba(255,255,255,.4);font-size:.83rem;">No share links yet.</p>
   </div>
@@ -737,6 +742,9 @@
   let selectionMode = false;
   let selectedIds   = new Set();
 
+  // Track total "All" photo count separately so folder tabs show correct count
+  let allPhotosCount = 0;
+
   const TEMPLATES = {
     Renovation: ['Before', 'During', 'After', 'Permits', 'Materials'],
     Inspection:  ['Exterior', 'Interior', 'Electrical', 'Plumbing', 'HVAC'],
@@ -754,9 +762,7 @@
 
     if (isAdmin) document.getElementById('access-btn').style.display = '';
 
-    const camUrl = `/camera.html?property_id=${PROP_ID}`;
-    document.getElementById('take-photo-btn').href = camUrl;
-    document.getElementById('fab-camera').href     = camUrl;
+    updateCameraLinks();
 
     await loadProperty();
     await loadFolders();
@@ -789,19 +795,19 @@
     } catch (err) { showToast('Failed to load folders', 'error'); }
   }
 
+  // Update Add Photo button + FAB to include current folder so camera pre-selects it
+  function updateCameraLinks() {
+    const folderParam = currentFolder ? `&folder_id=${currentFolder}` : '';
+    const camUrl = `/camera.html?property_id=${PROP_ID}${folderParam}`;
+    document.getElementById('take-photo-btn').href = camUrl;
+    document.getElementById('fab-camera').href     = camUrl;
+  }
+
   function renderFolderTabs() {
-    const totalPhotos = photos.length;
-    const allCount = folders.reduce((s, f) => s + (f.photo_count || 0), totalPhotos);
-
-    // "All" tab count = photos.length (full unfiltered list)
-    // Individual tabs use folder.photo_count from server
     const tabsEl = document.getElementById('folder-tabs');
-    const allPhotosCount = photos.length; // already loaded when this runs after loadPhotos
-
     const tabs = [`
       <button class="folder-tab ${currentFolder === null ? 'active' : ''}"
               onclick="selectFolder(null)">All (${allPhotosCount})</button>`];
-
     folders.forEach(f => {
       tabs.push(`
         <button class="folder-tab ${currentFolder === f.id ? 'active' : ''}"
@@ -809,7 +815,6 @@
           ${escHtml(f.name)} (${f.photo_count || 0})
         </button>`);
     });
-
     tabs.push(`<button class="folder-tab-add" onclick="openFolderSheet()" title="Add folder">+</button>`);
     tabsEl.innerHTML = tabs.join('');
   }
@@ -819,6 +824,7 @@
     const folderObj = folders.find(f => f.id === id);
     document.getElementById('section-title').textContent =
       id === null ? 'All Photos' : (folderObj ? folderObj.name : 'Photos');
+    updateCameraLinks();   // keep Add Photo / FAB in sync with active folder
     await loadPhotos(id);
   }
 
@@ -826,24 +832,9 @@
   async function loadPhotos(folderId) {
     try {
       photos = await getPhotos(PROP_ID, folderId);
+      if (folderId === null) allPhotosCount = photos.length;  // cache total for "All" tab label
       renderPhotos();
-      // Refresh folder tabs with updated "All" count when showing all
-      if (folderId === null) {
-        // Re-render tabs using total photos count
-        const tabsEl = document.getElementById('folder-tabs');
-        const tabs = [`
-          <button class="folder-tab ${currentFolder === null ? 'active' : ''}"
-                  onclick="selectFolder(null)">All (${photos.length})</button>`];
-        folders.forEach(f => {
-          tabs.push(`
-            <button class="folder-tab ${currentFolder === f.id ? 'active' : ''}"
-                    id="ftab-${f.id}" onclick="selectFolder('${f.id}')">
-              ${escHtml(f.name)} (${f.photo_count || 0})
-            </button>`);
-        });
-        tabs.push(`<button class="folder-tab-add" onclick="openFolderSheet()" title="Add folder">+</button>`);
-        tabsEl.innerHTML = tabs.join('');
-      }
+      renderFolderTabs();  // always re-render so active tab reflects currentFolder
     } catch (err) { showToast('Failed to load photos', 'error'); }
   }
 
@@ -859,10 +850,11 @@
     wrap._sorted = sorted;
 
     if (sorted.length === 0) {
+      const folderParam = currentFolder ? `&folder_id=${currentFolder}` : '';
       wrap.innerHTML = `<div class="empty-state">
         <div class="empty-icon">📷</div>
         <p>No photos yet${currentFolder ? ' in this folder' : ' for this property'}.</p>
-        <a href="/camera.html?property_id=${PROP_ID}" class="btn btn-primary">Take First Photo</a>
+        <a href="/camera.html?property_id=${PROP_ID}${folderParam}" class="btn btn-primary">Take First Photo</a>
       </div>`;
       return;
     }
@@ -1097,13 +1089,21 @@
 
   // ── Share Sheet ─────────────────────────────────────────────────
   async function openShareSheet() {
-    // Show "Share this folder" button only if a folder is selected
-    const folderBtn = document.getElementById('share-folder-btn');
-    folderBtn.style.display = currentFolder ? '' : 'none';
-    if (currentFolder) {
-      const f = folders.find(x => x.id === currentFolder);
-      folderBtn.textContent = `📁 Share "${f ? f.name : 'folder'}"`;
-    }
+    // Build "Create Link" buttons: whole property + every folder
+    const optsEl = document.getElementById('share-create-options');
+    const shareOptions = [
+      { folderId: null, label: property?.name || 'Whole property', icon: '🏠' },
+      ...folders.map(f => ({ folderId: f.id, label: f.name, icon: '📁' }))
+    ];
+    optsEl.innerHTML = shareOptions.map(o => {
+      const safeName = escHtml(o.label);
+      const fId = o.folderId || '';
+      return `<button class="share-create-btn" onclick="doCreateShareLink('${fId}', '${safeName}')">
+        <span class="scb-icon">${o.icon}</span>
+        <span>Share "${safeName}"</span>
+      </button>`;
+    }).join('');
+
     await refreshShareLinks();
     openSheet('share-sheet');
   }
@@ -1135,13 +1135,9 @@
     }
   }
 
-  async function doCreateShareLink(forFolder) {
-    const folderId = forFolder ? currentFolder : null;
-    const label    = forFolder
-      ? (folders.find(f => f.id === currentFolder)?.name || null)
-      : null;
+  async function doCreateShareLink(folderId, label) {
     try {
-      await createShareLink(PROP_ID, folderId, label);
+      await createShareLink(PROP_ID, folderId || null, label || null);
       await refreshShareLinks();
       showToast('Share link created!');
     } catch (err) { showToast('Failed: ' + err.message, 'error'); }
