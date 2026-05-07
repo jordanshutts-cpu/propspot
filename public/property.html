@@ -575,9 +575,8 @@
   <button class="back-btn" onclick="history.back()">‹</button>
   <span class="header-title" id="prop-title">Property</span>
   <div class="header-actions">
-    <button class="icon-btn" onclick="openShareSheet()" title="Share">🔗</button>
-    <button class="icon-btn" id="access-btn" onclick="openAccessSheet()" title="Access" style="display:none;">🔒</button>
-    <button class="icon-btn" onclick="toggleSort()" title="Sort">↕️</button>
+    <button class="icon-btn" onclick="openShareSheet()" title="Share">📤</button>
+    <button class="icon-btn" id="access-btn" onclick="openAccessSheet()" title="Access" style="display:none;">👤</button>
   </div>
 </header>
 
@@ -610,7 +609,7 @@
     <span class="section-title" id="section-title">All Photos</span>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="select-mode-btn" id="select-btn" onclick="toggleSelectionMode()">Select</button>
-      <span class="text-muted text-sm" id="sort-label" onclick="toggleSort()" style="cursor:pointer;">Newest first ↕</span>
+      <span class="text-muted text-sm" id="sort-label" onclick="toggleSort()" style="cursor:pointer;user-select:none;">Newest first</span>
     </div>
   </div>
 
@@ -926,7 +925,7 @@
 
   function toggleSort() {
     sortNewest = !sortNewest;
-    document.getElementById('sort-label').textContent = sortNewest ? 'Newest first ↕' : 'Oldest first ↕';
+    document.getElementById('sort-label').textContent = sortNewest ? 'Newest first' : 'Oldest first';
     renderPhotos();
   }
 
