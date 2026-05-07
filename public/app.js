@@ -283,6 +283,24 @@ async function setUserRole(userId, role) {
   });
 }
 
+// ── Trash ─────────────────────────────────────────────────────
+
+async function getTrash(propertyId) {
+  return apiFetch(`/api/trash/${propertyId}`);
+}
+
+async function restoreFromTrash(photoId) {
+  return apiFetch(`/api/trash/${photoId}/restore`, { method: 'POST' });
+}
+
+async function permanentlyDeletePhoto(photoId) {
+  return apiFetch(`/api/trash/${photoId}`, { method: 'DELETE' });
+}
+
+async function emptyTrash(propertyId) {
+  return apiFetch(`/api/trash/empty/${propertyId}`, { method: 'DELETE' });
+}
+
 // ── Comments ──────────────────────────────────────────────────
 
 async function getComments(photoId) {

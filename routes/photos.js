@@ -46,6 +46,7 @@ router.get('/:propertyId', async (req, res) => {
       LEFT JOIN users   u ON u.id  = ph.uploaded_by
       LEFT JOIN folders f ON f.id  = ph.folder_id
       WHERE ph.property_id = $1
+        AND ph.deleted_at IS NULL
     `;
     const params = [req.params.propertyId];
     if (folder_id) {
@@ -175,7 +176,7 @@ router.patch('/:id/folder', async (req, res) => {
   }
 });
 
-// ── DELETE /api/photos/:id ─────────────────────────────────────
+// ── DELETE /api/photos/:id  (soft-delete → moves to trash) ────
 router.delete('/:id', async (req, res) => {
   try {
     const { rows } = await query(
@@ -188,31 +189,26 @@ router.delete('/:id', async (req, res) => {
 
     const photo = rows[0];
 
-    // Delete from Cloudinary
-    if (photo.cloudinary_id) {
-      const resourceType = photo.media_type === 'video' ? 'video' : 'image';
-      await cloudinary.uploader.destroy(photo.cloudinary_id, { resource_type: resourceType }).catch(e =>
-        console.warn('Cloudinary delete warning:', e.message)
+    // Soft-delete only — move to trash (Cloudinary asset kept)
+    await query('UPDATE photos SET deleted_at = NOW() WHERE id = $1', [photo.id]);
+
+    // Update property cover if this was the cover photo
+    const { rows: remaining } = await query(
+      `SELECT url FROM photos WHERE property_id = $1 AND deleted_at IS NULL
+       AND (media_type IS NULL OR media_type = 'image') ORDER BY taken_at DESC LIMIT 1`,
+      [photo.property_id]
+    );
+    if (photo.url) {
+      await query(
+        'UPDATE properties SET cover_url = $1, updated_at = NOW() WHERE id = $2 AND cover_url = $3',
+        [remaining[0]?.url || null, photo.property_id, photo.url]
       );
     }
 
-    // Delete from DB
-    await query('DELETE FROM photos WHERE id = $1', [req.params.id]);
-
-    // Update property cover to next most recent image (skip videos)
-    const { rows: remaining } = await query(
-      `SELECT url FROM photos WHERE property_id = $1 AND (media_type IS NULL OR media_type = 'image') ORDER BY taken_at DESC LIMIT 1`,
-      [photo.property_id]
-    );
-    await query(
-      'UPDATE properties SET cover_url = $1, updated_at = NOW() WHERE id = $2',
-      [remaining[0]?.url || null, photo.property_id]
-    );
-
-    res.json({ success: true });
+    res.json({ success: true, trashed: true });
   } catch (err) {
-    console.error('Photo delete error:', err);
-    res.status(500).json({ error: 'Failed to delete photo' });
+    console.error('Photo trash error:', err);
+    res.status(500).json({ error: 'Failed to move photo to trash' });
   }
 });
 

@@ -28,6 +28,7 @@ app.use('/api/share',      require('./routes/share'));
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/properties', require('./routes/properties'));
 app.use('/api/photos',     require('./routes/photos'));
+app.use('/api/trash',      require('./routes/trash'));
 app.use('/api/team',       require('./routes/team'));
 app.use('/api/folders',    require('./routes/folders'));
 app.use('/api/access',     require('./routes/access'));

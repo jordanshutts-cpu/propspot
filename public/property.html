@@ -299,6 +299,30 @@
     .share-create-btn:active { background: #3a3a3c; }
     .share-create-btn .scb-icon { font-size: 1rem; flex-shrink: 0; }
 
+    /* ── Trash tab ── */
+    .folder-tab.trash-tab {
+      border-color: rgba(255,59,48,.35);
+      color: #FF3B30;
+    }
+    .folder-tab.trash-tab.active {
+      background: #FF3B30;
+      border-color: #FF3B30;
+      color: #fff;
+    }
+    /* Trash lightbox restore button */
+    .lb-restore-btn { background: #61B746; color: #fff; }
+    .lb-perm-delete-btn { background: rgba(255,59,48,.15); color: #FF3B30; }
+    /* Empty-trash link in section header */
+    .empty-trash-btn {
+      font-size: .75rem;
+      color: #FF3B30;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 4px;
+      font-weight: 600;
+    }
+
     /* header action buttons */
     .header-actions { display: flex; gap: 6px; align-items: center; }
     .icon-btn {
@@ -608,6 +632,7 @@
   <div class="section-header" style="padding: 0 16px 6px;">
     <span class="section-title" id="section-title">All Photos</span>
     <div style="display:flex;gap:8px;align-items:center;">
+      <button id="empty-trash-btn" class="empty-trash-btn" onclick="confirmEmptyTrash()" style="display:none;">Empty Trash</button>
       <button class="select-mode-btn" id="select-btn" onclick="toggleSelectionMode()">Select</button>
       <span class="text-muted text-sm" id="sort-label" onclick="toggleSort()" style="cursor:pointer;user-select:none;">Newest first</span>
     </div>
@@ -645,12 +670,16 @@
     <video class="lightbox-video" id="lightbox-video" controls playsinline></video>
     <div class="lightbox-meta" id="lightbox-meta"></div>
     <div class="lightbox-actions">
+      <!-- Normal mode -->
       <button id="lb-annotate-btn" class="lb-annotate-btn" onclick="annotateCurrentPhoto()">✏️ Annotate</button>
       <button class="lb-move-btn" id="lb-move-btn" onclick="toggleMoveDropdown(event)">
         📁 Move
         <div class="lb-move-dropdown" id="lb-move-dropdown"></div>
       </button>
-      <button class="lb-delete-btn" onclick="deleteCurrentPhoto()">🗑 Delete</button>
+      <button class="lb-delete-btn" id="lb-delete-btn" onclick="deleteCurrentPhoto()">🗑 Trash</button>
+      <!-- Trash mode -->
+      <button class="lb-restore-btn lb-annotate-btn" id="lb-restore-btn" onclick="restoreCurrentPhoto()" style="display:none;">♻️ Restore</button>
+      <button class="lb-perm-delete-btn lb-delete-btn" id="lb-perm-delete-btn" onclick="permanentlyDeleteCurrentPhoto()" style="display:none;">🗑 Delete Forever</button>
     </div>
   </div>
 
@@ -678,8 +707,9 @@
 <div class="bulk-bar" id="bulk-bar">
   <span class="bulk-count" id="bulk-count">Tap photos to select</span>
   <button class="bulk-btn bulk-btn-all"    onclick="selectAllPhotos()">All</button>
-  <button class="bulk-btn bulk-btn-move"   id="bulk-move-btn"   onclick="openBulkMoveSheet()" disabled>📁 Move</button>
-  <button class="bulk-btn bulk-btn-delete" id="bulk-delete-btn" onclick="bulkDelete()"         disabled>🗑 Delete</button>
+  <button class="bulk-btn bulk-btn-move"   id="bulk-move-btn"    onclick="openBulkMoveSheet()" disabled>📁 Move</button>
+  <button class="bulk-btn bulk-btn-move"   id="bulk-restore-btn" onclick="bulkRestore()"       disabled style="display:none;">♻️ Restore</button>
+  <button class="bulk-btn bulk-btn-delete" id="bulk-delete-btn"  onclick="bulkDelete()"        disabled>🗑 Delete</button>
   <button class="bulk-btn bulk-btn-cancel" onclick="exitSelectionMode()">✕</button>
 </div>
 
@@ -765,6 +795,9 @@
 
   // Track total "All" photo count separately so folder tabs show correct count
   let allPhotosCount = 0;
+  // Trash
+  let trashCount = 0;
+  const TRASH_KEY = '__trash__';
 
   const TEMPLATES = {
     Inspection:       ['Exterior', 'Interior', 'Electrical', 'Plumbing', 'HVAC'],
@@ -789,6 +822,7 @@
     await loadFolders();
     await loadPhotos(null);
     getTeamMembers().then(m => { teamMembers = m; }).catch(() => {});
+    loadTrashCount();
   }
 
   // ── Property ────────────────────────────────────────────────────
@@ -839,26 +873,49 @@
         </button>`);
     });
     tabs.push(`<button class="folder-tab-add" onclick="openFolderSheet()" title="Add folder">+</button>`);
+    // Trash tab — always last
+    const trashActive = currentFolder === TRASH_KEY;
+    tabs.push(`<button class="folder-tab trash-tab ${trashActive ? 'active' : ''}"
+        onclick="selectFolder('${TRASH_KEY}')">🗑 Trash${trashCount > 0 ? ` (${trashCount})` : ''}</button>`);
     tabsEl.innerHTML = tabs.join('');
   }
 
   async function selectFolder(id) {
     currentFolder = id;
+    const isTrash  = id === TRASH_KEY;
     const folderObj = folders.find(f => f.id === id);
     document.getElementById('section-title').textContent =
-      id === null ? 'All Photos' : (folderObj ? folderObj.name : 'Photos');
-    updateCameraLinks();   // keep Add Photo / FAB in sync with active folder
+      id === null ? 'All Photos' : isTrash ? 'Trash' : (folderObj ? folderObj.name : 'Photos');
+    document.getElementById('empty-trash-btn').style.display = isTrash && trashCount > 0 ? '' : 'none';
+    document.getElementById('sort-label').style.display      = isTrash ? 'none' : '';
+    // Hide camera shortcuts in trash view
+    const camLinks = [document.getElementById('take-photo-btn'), document.getElementById('fab-camera')];
+    camLinks.forEach(el => { if (el) el.style.display = isTrash ? 'none' : ''; });
+    if (!isTrash) updateCameraLinks();
     await loadPhotos(id);
   }
 
   // ── Photos ──────────────────────────────────────────────────────
   async function loadPhotos(folderId) {
     try {
-      photos = await getPhotos(PROP_ID, folderId);
-      if (folderId === null) allPhotosCount = photos.length;  // cache total for "All" tab label
+      if (folderId === TRASH_KEY) {
+        photos = await getTrash(PROP_ID);
+        trashCount = photos.length;
+      } else {
+        photos = await getPhotos(PROP_ID, folderId);
+        if (folderId === null) allPhotosCount = photos.length;
+      }
       renderPhotos();
       renderFolderTabs();  // always re-render so active tab reflects currentFolder
     } catch (err) { showToast('Failed to load photos', 'error'); }
+  }
+
+  async function loadTrashCount() {
+    try {
+      const t = await getTrash(PROP_ID);
+      trashCount = t.length;
+      renderFolderTabs();
+    } catch { /* silent */ }
   }
 
   function renderPhotos() {
@@ -873,12 +930,20 @@
     wrap._sorted = sorted;
 
     if (sorted.length === 0) {
-      const folderParam = currentFolder ? `&folder_id=${currentFolder}` : '';
-      wrap.innerHTML = `<div class="empty-state">
-        <div class="empty-icon">📷</div>
-        <p>No photos yet${currentFolder ? ' in this folder' : ' for this property'}.</p>
-        <a href="/camera.html?property_id=${PROP_ID}${folderParam}" class="btn btn-primary">Take First Photo</a>
-      </div>`;
+      const isTrash = currentFolder === TRASH_KEY;
+      if (isTrash) {
+        wrap.innerHTML = `<div class="empty-state">
+          <div class="empty-icon">🗑</div>
+          <p>Trash is empty.</p>
+        </div>`;
+      } else {
+        const folderParam = currentFolder ? `&folder_id=${currentFolder}` : '';
+        wrap.innerHTML = `<div class="empty-state">
+          <div class="empty-icon">📷</div>
+          <p>No photos yet${currentFolder ? ' in this folder' : ' for this property'}.</p>
+          <a href="/camera.html?property_id=${PROP_ID}${folderParam}" class="btn btn-primary">Take First Photo</a>
+        </div>`;
+      }
       return;
     }
 
@@ -935,10 +1000,11 @@
     currentIdx   = idx;
     currentPhoto = sorted[idx];
 
-    const isVideo = currentPhoto.media_type === 'video';
-    const imgEl   = document.getElementById('lightbox-img');
-    const vidEl   = document.getElementById('lightbox-video');
-    const annBtn  = document.getElementById('lb-annotate-btn');
+    const isVideo  = currentPhoto.media_type === 'video';
+    const isTrash  = currentFolder === TRASH_KEY;
+    const imgEl    = document.getElementById('lightbox-img');
+    const vidEl    = document.getElementById('lightbox-video');
+    const annBtn   = document.getElementById('lb-annotate-btn');
 
     if (isVideo) {
       imgEl.style.display = 'none';
@@ -948,8 +1014,14 @@
     } else {
       vidEl.style.display = 'none'; vidEl.pause?.(); vidEl.src = '';
       imgEl.style.display = ''; imgEl.src = currentPhoto.url;
-      annBtn.style.display = '';
+      annBtn.style.display = isTrash ? 'none' : '';
     }
+
+    // Swap action buttons for trash vs normal mode
+    document.getElementById('lb-move-btn').style.display        = isTrash ? 'none' : '';
+    document.getElementById('lb-delete-btn').style.display      = isTrash ? 'none' : '';
+    document.getElementById('lb-restore-btn').style.display     = isTrash ? '' : 'none';
+    document.getElementById('lb-perm-delete-btn').style.display = isTrash ? '' : 'none';
 
     document.getElementById('lightbox-meta').innerHTML = `
       <strong>${escHtml(currentPhoto.uploader_name || 'Team member')}</strong> &middot;
@@ -1068,15 +1140,61 @@
   async function deleteCurrentPhoto() {
     if (!currentPhoto) return;
     const label = currentPhoto.media_type === 'video' ? 'video' : 'photo';
-    if (!confirm(`Delete this ${label}? This cannot be undone.`)) return;
+    if (!confirm(`Move this ${label} to trash?`)) return;
     try {
       await deletePhoto(currentPhoto);
       photos = photos.filter(p => p.id !== currentPhoto.id);
+      trashCount++;
       closeLightbox();
       renderPhotos();
+      renderFolderTabs();
       await loadFolders();
-      showToast('Photo deleted');
-    } catch (err) { showToast('Failed to delete: ' + err.message, 'error'); }
+      showToast('Moved to Trash');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
+
+  async function restoreCurrentPhoto() {
+    if (!currentPhoto) return;
+    try {
+      await restoreFromTrash(currentPhoto.id);
+      photos = photos.filter(p => p.id !== currentPhoto.id);
+      trashCount = Math.max(0, trashCount - 1);
+      closeLightbox();
+      renderPhotos();
+      renderFolderTabs();
+      showToast('Photo restored!');
+    } catch (err) { showToast('Failed to restore: ' + err.message, 'error'); }
+  }
+
+  async function permanentlyDeleteCurrentPhoto() {
+    if (!currentPhoto) return;
+    const label = currentPhoto.media_type === 'video' ? 'video' : 'photo';
+    if (!confirm(`Permanently delete this ${label}? This cannot be undone.`)) return;
+    try {
+      await permanentlyDeletePhoto(currentPhoto.id);
+      photos = photos.filter(p => p.id !== currentPhoto.id);
+      trashCount = Math.max(0, trashCount - 1);
+      closeLightbox();
+      renderPhotos();
+      renderFolderTabs();
+      document.getElementById('empty-trash-btn').style.display = trashCount > 0 ? '' : 'none';
+      showToast('Permanently deleted');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+  }
+
+  async function confirmEmptyTrash() {
+    if (!trashCount) return;
+    if (!confirm(`Permanently delete all ${trashCount} item${trashCount !== 1 ? 's' : ''} in trash? This cannot be undone.`)) return;
+    try {
+      showToast('Emptying trash…');
+      await emptyTrash(PROP_ID);
+      photos    = [];
+      trashCount = 0;
+      renderPhotos();
+      renderFolderTabs();
+      document.getElementById('empty-trash-btn').style.display = 'none';
+      showToast('Trash emptied');
+    } catch (err) { showToast('Failed: ' + err.message, 'error'); }
   }
 
   // ── Folder Sheet ────────────────────────────────────────────────
@@ -1355,33 +1473,83 @@
   }
 
   function updateBulkBar() {
-    const n = selectedIds.size;
+    const n       = selectedIds.size;
+    const inTrash = currentFolder === TRASH_KEY;
     document.getElementById('bulk-count').textContent =
       n === 0 ? 'Tap photos to select' : `${n} selected`;
-    document.getElementById('bulk-move-btn').disabled   = n === 0;
-    document.getElementById('bulk-delete-btn').disabled = n === 0;
+    document.getElementById('bulk-move-btn').style.display    = inTrash ? 'none' : '';
+    document.getElementById('bulk-restore-btn').style.display = inTrash ? '' : 'none';
+    document.getElementById('bulk-move-btn').disabled    = n === 0;
+    document.getElementById('bulk-restore-btn').disabled = n === 0;
+    document.getElementById('bulk-delete-btn').disabled  = n === 0;
+    document.getElementById('bulk-delete-btn').textContent = inTrash ? '🗑 Delete Forever' : '🗑 Delete';
   }
 
-  // Bulk delete
+  // Bulk delete (soft-delete normally; permanent in trash view)
   async function bulkDelete() {
+    const ids   = [...selectedIds];
+    if (!ids.length) return;
+    const n     = ids.length;
+    const label = `${n} photo${n !== 1 ? 's' : ''}`;
+    const inTrash = currentFolder === TRASH_KEY;
+
+    if (inTrash) {
+      if (!confirm(`Permanently delete ${label}? This cannot be undone.`)) return;
+      showToast(`Deleting ${label}…`);
+      try {
+        await Promise.all(ids.map(id => permanentlyDeletePhoto(id)));
+        photos    = photos.filter(p => !ids.includes(p.id));
+        trashCount = Math.max(0, trashCount - n);
+        exitSelectionMode();
+        renderPhotos();
+        renderFolderTabs();
+        document.getElementById('empty-trash-btn').style.display = trashCount > 0 ? '' : 'none';
+        showToast(`${label} permanently deleted`);
+      } catch (err) {
+        showToast('Some photos could not be deleted', 'error');
+        await loadPhotos(currentFolder);
+        exitSelectionMode();
+      }
+    } else {
+      if (!confirm(`Move ${label} to trash?`)) return;
+      showToast(`Moving ${label} to trash…`);
+      try {
+        await Promise.all(ids.map(id => {
+          const p = photos.find(x => x.id === id);
+          return p ? deletePhoto(p) : Promise.resolve();
+        }));
+        photos    = photos.filter(p => !ids.includes(p.id));
+        trashCount += n;
+        exitSelectionMode();
+        renderPhotos();
+        renderFolderTabs();
+        await loadFolders();
+        showToast(`${label} moved to trash`);
+      } catch (err) {
+        showToast('Some photos could not be moved to trash', 'error');
+        await loadPhotos(currentFolder);
+        exitSelectionMode();
+      }
+    }
+  }
+
+  // Bulk restore (trash mode only)
+  async function bulkRestore() {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    const label = `${ids.length} photo${ids.length !== 1 ? 's' : ''}`;
-    if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
-
-    showToast(`Deleting ${label}…`);
+    const n   = ids.length;
+    showToast(`Restoring ${n} photo${n !== 1 ? 's' : ''}…`);
     try {
-      await Promise.all(ids.map(id => {
-        const p = photos.find(x => x.id === id);
-        return p ? deletePhoto(p) : Promise.resolve();
-      }));
-      photos = photos.filter(p => !ids.includes(p.id));
+      await Promise.all(ids.map(id => restoreFromTrash(id)));
+      photos    = photos.filter(p => !ids.includes(p.id));
+      trashCount = Math.max(0, trashCount - n);
       exitSelectionMode();
       renderPhotos();
-      await loadFolders();
-      showToast(`${label} deleted`);
+      renderFolderTabs();
+      document.getElementById('empty-trash-btn').style.display = trashCount > 0 ? '' : 'none';
+      showToast(`${n} photo${n !== 1 ? 's' : ''} restored`);
     } catch (err) {
-      showToast('Some photos could not be deleted', 'error');
+      showToast('Failed to restore some photos', 'error');
       await loadPhotos(currentFolder);
       exitSelectionMode();
     }
