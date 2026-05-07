@@ -10,7 +10,7 @@ app.use(cors({ origin: process.env.APP_URL || '*', credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ── API Routes ─────────────────────────────────────────────────
+// ── API Routes ────────────────────────────────────────────────────
 app.use('/api/auth',              require('./routes/auth'));
 app.use('/api/users',             require('./routes/users'));
 app.use('/api/apps',              require('./routes/apps'));
@@ -24,19 +24,20 @@ app.use('/api/contacts',          require('./routes/contacts'));
 app.use('/api/property-contacts', require('./routes/property-contacts'));
 app.use('/api/activity',          require('./routes/activity'));
 app.use('/api/os',                require('./routes/authz'));
+app.use('/api/admin',             require('./routes/admin'));
 
-// ── Health Check ───────────────────────────────────────────────
+// ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', service: 'restoration-os', timestamp: new Date().toISOString() })
 );
 
-// ── Static Frontend ────────────────────────────────────────────
+// ── Static Frontend ────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ── Start ──────────────────────────────────────────────────────
+// ── Start ───────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT) || 3000;
 
 initDb()
