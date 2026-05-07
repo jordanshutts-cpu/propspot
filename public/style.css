@@ -717,6 +717,9 @@ body {
   /* Hide logo from top header — it's in the sidebar now */
   .app-header .logo { display: none; }
 
+  /* Hide header sign-out on desktop — it's in the sidebar */
+  .header-signout { display: none; }
+
   /* Wider content area */
   .page { max-width: 1100px; }
 
