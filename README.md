@@ -1,173 +1,87 @@
-# 📸 FieldCam — Setup Guide
+# FieldCam
 
-Field photo management for renovation contractors.
-Runs on **Railway** with a PostgreSQL database and Cloudinary photo storage.
+Field photo capture for the **Prop Spot** OS.
 
----
+FieldCam is a satellite app — not a standalone service. Sign-in, user
+management, properties, and contacts all live in Prop Spot. FieldCam's
+job is the camera/photo flow: capture, GPS tag, upload to Cloudinary,
+write a row into Prop Spot's `photos` table.
 
-## Architecture
-
-```
-Browser (HTML/CSS/JS)
-      ↕  fetch() + JWT
-Express Server  ──→  Railway PostgreSQL  (users, properties, photos)
-      ↕
-    Cloudinary  (photo storage + CDN)
-```
-
----
-
-## Setup (20 minutes)
-
-### Step 1 — Create a Cloudinary Account (free)
-
-1. Go to **[https://cloudinary.com](https://cloudinary.com)** → Sign up free
-2. From your dashboard, copy:
-   - **Cloud Name**
-   - **API Key**
-   - **API Secret**
-
-### Step 2 — Create a Railway Account
-
-1. Go to **[https://railway.app](https://railway.app)** → Sign up with GitHub
-2. Click **New Project** → **Empty Project**
-3. Click **+ Add a Service** → **Database** → **PostgreSQL**
-   - Railway auto-provisions a Postgres database and gives you `DATABASE_URL`
-
-### Step 3 — Deploy FieldCam to Railway
-
-**Option A — GitHub (recommended, enables auto-deploy):**
-1. Push this folder to a new GitHub repo
-2. In Railway: **+ Add a Service** → **GitHub Repo** → select your repo
-3. Railway detects `package.json` and deploys automatically
-
-**Option B — Railway CLI:**
-```bash
-npm install -g @railway/cli
-railway login
-railway link          # link to your project
-railway up            # deploy
-```
-
-### Step 4 — Set Environment Variables in Railway
-
-In your Railway service → **Variables** tab, add:
-
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | Auto-filled by Railway when you add Postgres |
-| `JWT_SECRET` | Any long random string (32+ chars) |
-| `JWT_EXPIRES_IN` | `30d` |
-| `CLOUDINARY_CLOUD_NAME` | From Cloudinary dashboard |
-| `CLOUDINARY_API_KEY` | From Cloudinary dashboard |
-| `CLOUDINARY_API_SECRET` | From Cloudinary dashboard |
-| `APP_URL` | Your Railway public URL (e.g. `https://fieldcam-production.up.railway.app`) |
-
-**Optional — Email invites (Gmail example):**
-
-| Variable | Value |
-|---|---|
-| `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
-| `SMTP_USER` | `you@gmail.com` |
-| `SMTP_PASS` | Your Gmail App Password |
-| `FROM_EMAIL` | `FieldCam <you@gmail.com>` |
-
-> If SMTP is not configured, invite links are shown in the UI for manual sharing.
-
-### Step 5 — Get Your Live URL
-
-- In Railway → your service → **Settings** → **Networking** → **Generate Domain**
-- Your app is live at `https://your-app.railway.app`
-- Share this URL with your team!
-
----
-
-## Inviting Your Team
-
-1. Open the app → **Team** tab (👥)
-2. Enter their email and click **Send Invite**
-3. They get an email (or you copy the link manually)
-4. They click the link → set a password → they're in
-
----
-
-## Connecting to Your Partners' Railway Projects
-
-Since everything is on Railway with standard REST APIs, connecting is straightforward:
-
-1. **Share API endpoints** — your partners can call `https://your-app.railway.app/api/...`
-2. **Add API keys** — create a shared `API_KEY` env var for service-to-service auth
-3. **Private networking** — Railway projects in the same organization can communicate
-   via Railway's private network (`http://fieldcam.railway.internal`)
-
-Ask your partners for their Railway project's internal hostname and we can wire up the integration.
-
----
-
-## File Structure
+## How it connects
 
 ```
-FieldCam/
-├── server.js              Express entry point — serves API + static files
-├── package.json
-├── railway.toml           Railway deployment config
-├── .env.example           Copy to .env for local development
-├── .gitignore
-│
-├── db/
-│   ├── index.js           PostgreSQL pool + schema runner
-│   └── schema.sql         Table definitions (auto-run on startup)
-│
-├── middleware/
-│   └── auth.js            JWT verification middleware
-│
-├── routes/
-│   ├── auth.js            POST /api/auth/* (signup, login, invite, accept-invite)
-│   ├── properties.js      GET/POST/PATCH/DELETE /api/properties
-│   ├── photos.js          GET/POST/DELETE /api/photos (Cloudinary upload)
-│   └── team.js            GET /api/team
-│
-└── public/                Frontend (served as static files by Express)
-    ├── index.html          Login / Sign Up
-    ├── dashboard.html      Properties list with GPS nearby detection
-    ├── property.html       Photo gallery per property
-    ├── camera.html         Live camera + GPS photo capture
-    ├── add-property.html   Add property with one-tap GPS pin
-    ├── team.html           Invite & manage team
-    ├── accept-invite.html  Invite acceptance page (linked in invite emails)
-    ├── app.js              Shared fetch() API client + utilities
-    ├── config.js           API base URL config
-    └── style.css           Mobile-first UI styles
+                       Prop Spot Postgres
+                              ▲
+            ┌─────────────────┴────────────────┐
+            │                                  │
+   ┌────────┴────────┐                ┌────────┴────────┐
+   │  Prop Spot      │                │  FieldCam       │
+   │  (the OS)       │                │  (this service) │
+   │                 │                │                 │
+   │  os.propspot.io │                │  fieldcam.…     │
+   └─────────────────┘                └─────────────────┘
+            ▲                                  ▲
+            └─── same JWT_SECRET ──────────────┘
 ```
 
----
+- `DATABASE_URL` points at Prop Spot's Postgres.
+- `JWT_SECRET` is byte-identical to Prop Spot's so any token issued at
+  the OS works here.
+- Users sign in at Prop Spot, click the FieldCam tile, get deep-linked
+  here with `?token=…`; `public/app.js` consumes the token.
+- Anything FieldCam needs to know about a user (full_name, email,
+  grants) it asks Prop Spot via `/api/me` (proxied to `/api/os/me`).
 
-## Local Development
+## What lives here
+
+```
+server.js              Express entry — mounts /api/properties, /api/photos,
+                       /api/health, /api/config, and the /api/me proxy.
+middleware/auth.js     16 lines: verify JWT, set req.userId.
+db/index.js            Postgres pool + query() wrapper. No schema runner —
+                       Prop Spot owns the DDL.
+lib/address.js         Copy of Prop Spot's address normalizer.
+routes/properties.js   Reads/writes Prop Spot's properties table. Exposes
+                       FieldCam-shaped `name` and `address` aliases so the
+                       UI HTML stays unchanged.
+routes/photos.js       Cloudinary upload + Prop Spot photos table.
+public/                Camera, dashboard, property gallery, add-property,
+                       import. The `/index.html` page just bounces to
+                       Prop Spot for sign-in.
+```
+
+## Local development
 
 ```bash
-# 1. Install Node.js from https://nodejs.org (LTS version)
-# 2. Install dependencies
 npm install
-
-# 3. Copy and fill in environment variables
 cp .env.example .env
-# Edit .env with your Cloudinary keys and a local Postgres URL
+# Fill in: DATABASE_URL (Prop Spot's), JWT_SECRET, Cloudinary keys,
+# OS_URL (Prop Spot's public URL)
 
-# 4. Run the server
-npm run dev     # uses nodemon for auto-restart
-# OR
-npm start       # plain node
-
-# 5. Open http://localhost:3000
+npm run dev    # nodemon
 ```
 
----
+You'll need Prop Spot running too (or at least reachable at `OS_URL`)
+for `/api/me` and the sign-in redirect.
 
-## Tips for Field Use
+## Deploy
 
-- **Bookmark** `https://your-app.railway.app` on your phone's home screen
-- The camera page **auto-highlights** the nearest property (within 300m)
-- Photos store the **exact GPS coordinates** of where they were taken
-- Workers can add **notes** to each photo (e.g. "north wall framing done")
-- Invited users show as **Invited** in the team list until they set a password
+Push to GitHub → Railway redeploys. Required env vars on the FieldCam
+Railway service:
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | Reference Prop Spot's Postgres: `${{Postgres.DATABASE_URL}}` from the Prop Spot project |
+| `JWT_SECRET` | Identical to Prop Spot's |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Photo storage |
+| `OS_URL` | Public URL of Prop Spot |
+| `OS_INTERNAL_URL` | Railway-internal Prop Spot hostname (optional, faster) |
+| `APP_URL` | This service's public URL |
+| `GOOGLE_MAPS_API_KEY` | Frontend map rendering |
+
+## Tips for field use
+
+- Bookmark this URL on your phone's home screen.
+- The camera page auto-highlights the nearest property (within 300m).
+- Photos store the exact GPS coordinates of where they were taken.
+- Workers can add notes to each photo ("north wall framing done").
