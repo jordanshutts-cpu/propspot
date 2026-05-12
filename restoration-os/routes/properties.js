@@ -25,7 +25,8 @@ router.get('/', async (req, res) => {
              (SELECT COUNT(*) FROM leads         WHERE property_id = p.id)::int AS lead_count,
              (SELECT COUNT(*) FROM opportunities WHERE property_id = p.id)::int AS opportunity_count,
              (SELECT COUNT(*) FROM purchases     WHERE property_id = p.id)::int AS purchase_count,
-             (SELECT COUNT(*) FROM projects      WHERE property_id = p.id)::int AS project_count
+             (SELECT COUNT(*) FROM projects      WHERE property_id = p.id)::int AS project_count,
+             (SELECT COUNT(*) FROM photos        WHERE property_id = p.id)::int AS photo_count
         FROM properties p
         LEFT JOIN users u ON u.id = p.created_by
        ORDER BY p.created_at DESC
@@ -48,7 +49,7 @@ router.get('/:id', async (req, res) => {
     `, [req.params.id]);
     if (!pRows[0]) return res.status(404).json({ error: 'Property not found' });
 
-    const [prospects, leads, opps, purchases, projects, contacts] = await Promise.all([
+    const [prospects, leads, opps, purchases, projects, contacts, photos] = await Promise.all([
       query('SELECT * FROM prospects     WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
       query('SELECT * FROM leads         WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
       query('SELECT * FROM opportunities WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
@@ -58,7 +59,12 @@ router.get('/:id', async (req, res) => {
                FROM property_contacts pc
                JOIN contacts c ON c.id = pc.contact_id
               WHERE pc.property_id = $1
-              ORDER BY pc.is_primary DESC, c.full_name`, [req.params.id])
+              ORDER BY pc.is_primary DESC, c.full_name`, [req.params.id]),
+      query(`SELECT ph.*, u.full_name AS uploader_name
+               FROM photos ph
+               LEFT JOIN users u ON u.id = ph.uploaded_by
+              WHERE ph.property_id = $1
+              ORDER BY ph.taken_at DESC`, [req.params.id])
     ]);
 
     res.json({
@@ -68,7 +74,8 @@ router.get('/:id', async (req, res) => {
       opportunities: opps.rows,
       purchases: purchases.rows,
       projects: projects.rows,
-      contacts: contacts.rows
+      contacts: contacts.rows,
+      photos: photos.rows
     });
   } catch (err) {
     console.error(err);
@@ -81,7 +88,7 @@ router.post('/', async (req, res) => {
   const err = badAddressBody(req.body);
   if (err) return res.status(400).json({ error: err });
 
-  const { address_line1, unit, city, state, zip, parcel_id, lat, lng, notes } = req.body;
+  const { address_line1, unit, city, state, zip, parcel_id, lat, lng, notes, display_name } = req.body;
   const normalized = normalizeAddress({ address_line1, unit, city, state, zip });
 
   try {
@@ -102,8 +109,8 @@ router.post('/', async (req, res) => {
 
     const { rows } = await query(`
       INSERT INTO properties
-        (address_line1, unit, city, state, zip, normalized_address, parcel_id, lat, lng, notes, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        (address_line1, unit, city, state, zip, normalized_address, parcel_id, lat, lng, notes, display_name, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `, [
       address_line1.trim(),
@@ -116,6 +123,7 @@ router.post('/', async (req, res) => {
       lat ? parseFloat(lat) : null,
       lng ? parseFloat(lng) : null,
       notes?.trim() || null,
+      display_name?.trim() || null,
       req.userId
     ]);
 
@@ -133,7 +141,7 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/properties/:id
 router.patch('/:id', async (req, res) => {
-  const allowed = ['address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url'];
+  const allowed = ['address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name'];
   const sets = [];
   const vals = [];
   let i = 1;

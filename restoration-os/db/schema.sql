@@ -226,7 +226,7 @@ CREATE INDEX IF NOT EXISTS projects_kind_idx     ON projects(kind);
 CREATE TABLE IF NOT EXISTS activity (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  entity_type   TEXT NOT NULL,        -- property | prospect | lead | opportunity | purchase | project | contact | user | grant
+  entity_type   TEXT NOT NULL,        -- property | prospect | lead | opportunity | purchase | project | contact | user | grant | photo
   entity_id     UUID,
   action        TEXT NOT NULL,        -- created | updated | promoted | linked | unlinked | invited | accepted | granted | revoked | status_changed
   payload       JSONB,
@@ -235,6 +235,26 @@ CREATE TABLE IF NOT EXISTS activity (
 CREATE INDEX IF NOT EXISTS activity_entity_idx ON activity(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS activity_created_idx ON activity(created_at DESC);
 CREATE INDEX IF NOT EXISTS activity_actor_idx   ON activity(actor_user_id);
+
+-- ── Photos (FieldCam-owned data, Prop Spot-hosted) ──────────────────────────
+-- FieldCam reads/writes this table directly via the shared DATABASE_URL.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS display_name TEXT;
+
+CREATE TABLE IF NOT EXISTS photos (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id     UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  uploaded_by     UUID REFERENCES users(id) ON DELETE SET NULL,
+  url             TEXT NOT NULL,
+  cloudinary_id   TEXT,
+  lat             DOUBLE PRECISION,
+  lng             DOUBLE PRECISION,
+  notes           TEXT,
+  taken_at        TIMESTAMPTZ DEFAULT NOW(),
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS photos_property_id_idx ON photos(property_id);
+CREATE INDEX IF NOT EXISTS photos_taken_at_idx    ON photos(taken_at DESC);
+CREATE INDEX IF NOT EXISTS photos_uploader_idx    ON photos(uploaded_by);
 
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$

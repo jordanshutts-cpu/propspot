@@ -1,8 +1,16 @@
 require('dotenv').config();
-const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
+const express    = require('express');
+const cors       = require('cors');
+const path       = require('path');
+const cloudinary = require('cloudinary').v2;
 const { initDb } = require('./db');
+
+// ── Cloudinary config (used by /api/photos) ─────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 
@@ -15,6 +23,7 @@ app.use('/api/auth',              require('./routes/auth'));
 app.use('/api/users',             require('./routes/users'));
 app.use('/api/apps',              require('./routes/apps'));
 app.use('/api/properties',        require('./routes/properties'));
+app.use('/api/photos',            require('./routes/photos'));
 app.use('/api/prospects',         require('./routes/prospects'));
 app.use('/api/leads',             require('./routes/leads'));
 app.use('/api/opportunities',     require('./routes/opportunities'));
@@ -30,6 +39,14 @@ app.use('/api/admin',             require('./routes/admin'));
 app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', service: 'restoration-os', timestamp: new Date().toISOString() })
 );
+
+// ── Public config (non-secret keys for authenticated frontend) ────
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+    osUrl:            process.env.APP_URL || ''
+  });
+});
 
 // ── Static Frontend ────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
