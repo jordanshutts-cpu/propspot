@@ -125,16 +125,8 @@ async function deletePhoto(photo) {
   return apiFetch(`/api/photos/${photo.id}`, { method: 'DELETE' });
 }
 
-async function getTeamMembers() {
-  return apiFetch('/api/team');
-}
-
-async function inviteUser(email, fullName) {
-  return apiFetch('/api/auth/invite', {
-    method: 'POST',
-    body: JSON.stringify({ email, fullName })
-  });
-}
+// Team / invite management lives in Prop Spot. Use injectOsLink() / getOsUrl()
+// to deep-link users into the OS for those flows.
 
 function getCurrentPosition(options = {}) {
   return new Promise((resolve, reject) => {

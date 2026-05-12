@@ -54,7 +54,7 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
 
   const { propertyId } = req.params;
-  const { lat, lng, notes, os_property_id } = req.body;
+  const { lat, lng, notes } = req.body;
 
   try {
     // Confirm property exists
@@ -72,12 +72,11 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
     // Save metadata to DB
     const { rows } = await query(`
       INSERT INTO photos
-        (property_id, os_property_id, uploaded_by, url, cloudinary_id, lat, lng, notes, taken_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        (property_id, uploaded_by, url, cloudinary_id, lat, lng, notes, taken_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       RETURNING *
     `, [
       propertyId,
-      os_property_id || null,
       req.userId,
       result.secure_url,
       result.public_id,
