@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "migrate-from-fieldcam": "node scripts/migrate-from-fieldcam.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
