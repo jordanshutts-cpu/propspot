@@ -82,7 +82,9 @@ function splitParenthetical(text) {
 
   for (const original of ADDRESSES) {
     try {
-      const { address: cleaned, annotation } = splitParenthetical(original);
+      // Strip any trailing parenthetical like "(POOL)" — these are field
+      // notes the team scribbled, not part of the canonical address.
+      const { address: cleaned } = splitParenthetical(original);
       const parsed = parseFreetextAddress(cleaned);
       if (!parsed.ok) report.properties.parse_failed++;
 
@@ -98,10 +100,7 @@ function splitParenthetical(text) {
         continue;
       }
 
-      const noteParts = [];
-      if (annotation)    noteParts.push(annotation);
-      if (!parsed.ok)    noteParts.push(`[bulk-added] Original: ${original}`);
-      const notes = noteParts.length ? noteParts.join('\n') : null;
+      const notes = parsed.ok ? null : `[bulk-added] Original: ${original}`;
 
       const { rows: ins } = await db.query(`
         INSERT INTO properties
@@ -110,7 +109,7 @@ function splitParenthetical(text) {
         RETURNING id
       `, [parsed.address_line1, parsed.city, parsed.state, parsed.zip, normalized, notes]);
 
-      console.log(`CREATED ${ins[0].id}  ${parsed.address_line1}, ${parsed.city}, ${parsed.state} ${parsed.zip}${annotation ? ' ('+annotation+')' : ''}`);
+      console.log(`CREATED ${ins[0].id}  ${parsed.address_line1}, ${parsed.city}, ${parsed.state} ${parsed.zip}`);
       report.properties.created++;
     } catch (err) {
       console.error(`ERROR   ${original}  →  ${err.message}`);
