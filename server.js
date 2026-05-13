@@ -22,12 +22,18 @@ app.use(express.urlencoded({ extended: true }));
 
 // ── API Routes ─────────────────────────────────────────────────
 // Auth + user management live in Prop Spot. FieldCam only owns the
-// photo-capture flow.
+// photo / folder / comment / share / trash flows.
+// Share must mount before any auth-checking routes so public GETs work.
+app.use('/api/share',      require('./routes/share'));
 app.use('/api/properties', require('./routes/properties'));
 app.use('/api/photos',     require('./routes/photos'));
+app.use('/api/trash',      require('./routes/trash'));
+app.use('/api/folders',    require('./routes/folders'));
+app.use('/api/access',     require('./routes/access'));
+app.use('/api/comments',   require('./routes/comments'));
 
-// /api/me — thin pass-through to Prop Spot's /api/os/me so the existing
-// frontend (app.js requireAuth() calls /api/auth/me) keeps working.
+// /api/me — pass-through to Prop Spot. Lets the existing frontend
+// (which calls /api/auth/me on load) keep working unchanged.
 const OS_URL = process.env.OS_INTERNAL_URL || process.env.OS_URL || '';
 app.get(['/api/me', '/api/auth/me'], async (req, res) => {
   const header = req.headers.authorization;
@@ -36,7 +42,7 @@ app.get(['/api/me', '/api/auth/me'], async (req, res) => {
   try {
     const r = await fetch(OS_URL + '/api/os/me', { headers: { Authorization: header } });
     res.status(r.status).json(await r.json());
-  } catch (err) {
+  } catch {
     res.status(502).json({ error: 'Prop Spot unreachable' });
   }
 });
@@ -46,7 +52,7 @@ app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', service: 'fieldcam', timestamp: new Date().toISOString() })
 );
 
-// ── Public config (serves non-secret keys to authenticated frontend) ──
+// ── Public config (non-secret keys for authenticated frontend) ─
 app.get('/api/config', (req, res) => {
   res.json({
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',

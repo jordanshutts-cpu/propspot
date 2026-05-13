@@ -236,10 +236,24 @@ CREATE INDEX IF NOT EXISTS activity_entity_idx ON activity(entity_type, entity_i
 CREATE INDEX IF NOT EXISTS activity_created_idx ON activity(created_at DESC);
 CREATE INDEX IF NOT EXISTS activity_actor_idx   ON activity(actor_user_id);
 
--- ── Photos (FieldCam-owned data, Prop Spot-hosted) ──────────────────────────
--- FieldCam reads/writes this table directly via the shared DATABASE_URL.
+-- ── FieldCam-owned data (lives in Prop Spot's DB) ───────────────────────────
+-- FieldCam reads/writes these tables directly via the shared DATABASE_URL.
+
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS display_name TEXT;
 
+-- Folders ────────────────────────────────────────────────────────────────────
+-- Per-property organization (e.g. "Before", "After", "Inspection").
+CREATE TABLE IF NOT EXISTS folders (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  sort_order  INT  DEFAULT 0,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS folders_property_idx ON folders(property_id);
+
+-- Photos ─────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS photos (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id     UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -252,9 +266,57 @@ CREATE TABLE IF NOT EXISTS photos (
   taken_at        TIMESTAMPTZ DEFAULT NOW(),
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS folder_id  UUID REFERENCES folders(id) ON DELETE SET NULL;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS photos_property_id_idx ON photos(property_id);
 CREATE INDEX IF NOT EXISTS photos_taken_at_idx    ON photos(taken_at DESC);
 CREATE INDEX IF NOT EXISTS photos_uploader_idx    ON photos(uploaded_by);
+CREATE INDEX IF NOT EXISTS photos_folder_idx      ON photos(folder_id);
+CREATE INDEX IF NOT EXISTS photos_deleted_at_idx  ON photos(deleted_at);
+
+-- users.role — admin/member. Owners are auto-promoted to admin so FieldCam's
+-- existing role checks keep working without a separate sync step.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'member';
+UPDATE users SET role = 'admin' WHERE is_owner = TRUE AND role <> 'admin';
+
+-- property_access — restrict properties to a named subset of users. A property
+-- with zero rows here is org-public (subject to the fieldcam app grant);
+-- one or more rows lock it down.
+CREATE TABLE IF NOT EXISTS property_access (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id  UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  access_level TEXT NOT NULL DEFAULT 'view',
+  granted_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(property_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS property_access_user_idx     ON property_access(user_id);
+CREATE INDEX IF NOT EXISTS property_access_property_idx ON property_access(property_id);
+
+-- share_links — public read-only URLs for a property (or folder within).
+CREATE TABLE IF NOT EXISTS share_links (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token       TEXT UNIQUE NOT NULL,
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  folder_id   UUID REFERENCES folders(id) ON DELETE CASCADE,
+  label       TEXT,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS share_links_property_idx ON share_links(property_id);
+
+-- comments — per-photo discussion with @mention support (resolved against
+-- users.full_name in routes/comments.js).
+CREATE TABLE IF NOT EXISTS comments (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  photo_id   UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS comments_photo_id_idx ON comments(photo_id);
 
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$

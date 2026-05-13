@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#61B746">
   <title>FieldCam — Properties</title>
   <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <!-- Leaflet map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -75,6 +76,106 @@
       margin-bottom: 16px;
       border: 1.5px dashed var(--border);
     }
+
+    /* ── Notification bell ── */
+    .notif-bell { position: relative; }
+    .notif-badge {
+      position: absolute;
+      top: -4px; right: -4px;
+      background: #FF3B30;
+      color: #fff;
+      font-size: .6rem;
+      font-weight: 800;
+      border-radius: 100px;
+      padding: 1px 5px;
+      min-width: 16px;
+      text-align: center;
+      line-height: 14px;
+      border: 1.5px solid #61B746;
+    }
+
+    /* Notification panel (slides down from top) */
+    .notif-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 190;
+    }
+    .notif-panel {
+      position: fixed;
+      top: var(--header-height);
+      right: 8px;
+      width: min(360px, calc(100vw - 16px));
+      background: #1c1c1e;
+      border-radius: 14px;
+      z-index: 200;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      max-height: calc(100dvh - var(--header-height) - 80px);
+      display: flex;
+      flex-direction: column;
+    }
+    .notif-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 10px;
+      color: #fff;
+      font-weight: 700;
+      font-size: .95rem;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      flex-shrink: 0;
+    }
+    #notif-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .notif-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .notif-item:hover { background: rgba(255,255,255,.04); }
+    .notif-item.unread { background: rgba(97,183,70,.07); }
+    .notif-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: #3a3a3c;
+      color: #fff;
+      font-size: .85rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-text {
+      color: #f0f0f0;
+      font-size: .82rem;
+      line-height: 1.35;
+      margin-bottom: 2px;
+    }
+    .notif-text strong { color: #fff; }
+    .notif-sub {
+      color: rgba(255,255,255,.35);
+      font-size: .72rem;
+    }
+    .notif-preview {
+      color: rgba(255,255,255,.5);
+      font-size: .78rem;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .notif-empty {
+      color: rgba(255,255,255,.3);
+      font-size: .85rem;
+      text-align: center;
+      padding: 28px 16px;
+    }
   </style>
 </head>
 <body>
@@ -82,9 +183,23 @@
 <header class="app-header">
   <span class="logo">📸 FieldCam</span>
   <div class="header-actions">
-    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+    <button class="icon-btn notif-bell" id="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+      🔔<span class="notif-badge hidden" id="notif-badge">0</span>
+    </button>
+    <a class="icon-btn" href="/team.html" title="Team">👥</a>
+    <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
   </div>
 </header>
+
+<!-- Notification panel -->
+<div class="notif-overlay hidden" id="notif-overlay" onclick="closeNotifPanel()"></div>
+<div class="notif-panel hidden" id="notif-panel">
+  <div class="notif-header">
+    <span>🔔 Mentions</span>
+    <button onclick="closeNotifPanel()" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;">✕</button>
+  </div>
+  <div id="notif-list"><div class="notif-empty">Loading…</div></div>
+</div>
 
 <main class="page">
 
@@ -134,9 +249,18 @@
 <a class="fab" href="/camera.html" title="Take Photo">📷</a>
 
 <nav class="bottom-nav">
-  <a class="nav-link active" href="/dashboard.html"><span class="nav-icon">🏠</span>Properties</a>
-  <a class="nav-link" href="/camera.html"><span class="nav-icon">📷</span>Camera</a>
-  <a class="nav-link" href="/import.html"><span class="nav-icon">📥</span>Import</a>
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">📸</span><span class="nav-label"> FieldCam</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+  <button class="nav-notif-item" id="nav-notif-btn" onclick="handleNavNotif()" title="Notifications">
+    <span class="nav-icon">🔔</span><span class="nav-notif-label">Notifications</span>
+    <span class="nav-notif-badge hidden" id="nav-notif-badge">0</span>
+  </button>
+  <a class="nav-link active" href="/dashboard.html" title="Properties"><span class="nav-icon">🏠</span>Properties</a>
+  <a class="nav-link" href="/camera.html" title="Camera"><span class="nav-icon">📷</span>Camera</a>
+  <a class="nav-link" href="/import.html" title="Import"><span class="nav-icon">📥</span>Import</a>
+  <a class="nav-link" href="/team.html" title="Team"><span class="nav-icon">👥</span>Team</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
 </nav>
 
 <script src="config.js"></script>
@@ -263,13 +387,83 @@
     }
   }
 
+  // ── Notifications / @mentions ─────────────────────────────────
+  const SEEN_KEY = 'fieldcam_mentions_seen';
+
+  async function loadMentions() {
+    try {
+      const mentions = await getMentions();
+      const lastSeen = parseInt(localStorage.getItem(SEEN_KEY) || '0');
+      const unread   = mentions.filter(m => new Date(m.created_at).getTime() > lastSeen);
+
+      // Badge
+      const badge = document.getElementById('notif-badge');
+      if (unread.length > 0) {
+        badge.textContent = unread.length > 9 ? '9+' : unread.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      // Render list
+      const listEl = document.getElementById('notif-list');
+      if (!mentions.length) {
+        listEl.innerHTML = '<div class="notif-empty">No mentions yet.<br>When someone @tags you in a comment it will appear here.</div>';
+        return;
+      }
+
+      listEl.innerHTML = mentions.map(m => {
+        const name     = m.commenter_name || m.commenter_email || 'Someone';
+        const initials = name[0].toUpperCase();
+        const isUnread = new Date(m.created_at).getTime() > lastSeen;
+        const when     = formatDate(m.created_at);
+        const preview  = m.body.length > 60 ? m.body.substring(0, 60) + '…' : m.body;
+        return `<a class="notif-item${isUnread ? ' unread' : ''}"
+                   href="/property.html?id=${m.property_id}"
+                   onclick="markSeen()">
+          <div class="notif-avatar">${escHtml(initials)}</div>
+          <div class="notif-body">
+            <div class="notif-text">
+              <strong>${escHtml(name)}</strong> mentioned you on <strong>${escHtml(m.property_name)}</strong>
+            </div>
+            <div class="notif-preview">${escHtml(preview)}</div>
+            <div class="notif-sub">${escHtml(when)}</div>
+          </div>
+        </a>`;
+      }).join('');
+    } catch (_) {}
+  }
+
+  function markSeen() {
+    localStorage.setItem(SEEN_KEY, Date.now().toString());
+    document.getElementById('notif-badge').classList.add('hidden');
+  }
+
+  function toggleNotifPanel() {
+    const panel   = document.getElementById('notif-panel');
+    const overlay = document.getElementById('notif-overlay');
+    const isOpen  = !panel.classList.contains('hidden');
+    if (isOpen) {
+      closeNotifPanel();
+    } else {
+      panel.classList.remove('hidden');
+      overlay.classList.remove('hidden');
+      markSeen();
+    }
+  }
+
+  function closeNotifPanel() {
+    document.getElementById('notif-panel').classList.add('hidden');
+    document.getElementById('notif-overlay').classList.add('hidden');
+  }
+
   // ── Properties ────────────────────────────────────────────────
   async function init() {
     const user = await requireAuth();
     if (!user) return;
-    injectOsLink();
     await loadProperties();
     detectNearby();
+    loadMentions();   // load notification count in background
   }
 
   async function loadProperties() {
@@ -277,9 +471,37 @@
       allProperties = await getProperties();
       renderProperties(allProperties);
       initMap(allProperties);
+      // Geocode any properties with an address but no GPS (runs in background)
+      geocodeMissingGPS(allProperties);
     } catch (err) {
       document.getElementById('properties-list').innerHTML =
         `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  async function geocodeMissingGPS(properties) {
+    const missing = properties.filter(p => !p.lat && p.address);
+    if (!missing.length) return;
+    let config;
+    try { config = await apiFetch('/api/config'); } catch(_) { return; }
+    const key = config.googleMapsApiKey;
+    if (!key) return;
+
+    for (const prop of missing) {
+      try {
+        const r = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(prop.address)}&key=${key}`
+        );
+        const d = await r.json();
+        if (d.results?.[0]) {
+          const { lat, lng } = d.results[0].geometry.location;
+          // Save to DB so it won't need geocoding again
+          await updateProperty(prop.id, { lat, lng }).catch(() => {});
+          // Update local copy and refresh map
+          prop.lat = lat; prop.lng = lng;
+          initMap(allProperties);
+        }
+      } catch(_) {}
     }
   }
 
