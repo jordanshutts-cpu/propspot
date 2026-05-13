@@ -511,14 +511,21 @@
 <script src="annotator.js"></script>
 <script>
   const params      = new URLSearchParams(location.search);
-  const PRESET_PROP = params.get('property_id');
+  const PRESET_PROP   = params.get('property_id');
+  // Maintenance deep-link: skip folder/property pickers, attach each uploaded
+  // photo to a maintenance visit, then bounce back to the caller.
+  const PRESET_FOLDER = params.get('folder');
+  const VISIT_ID      = params.get('visit');
+  const VISIT_KIND    = params.get('kind');
+  const ATTACH_URL    = params.get('attachUrl');
+  const RETURN_TO     = params.get('returnTo');
 
   let stream = null, facingMode = 'environment';
   let torchOn = false, torchSupported = false;
   let currentZoom = 1, zoomMin = 1, zoomMax = 5, hardwareZoom = false;
   let queue = [];
   let selectedPropId = PRESET_PROP || null;
-  let selectedFolderId = null;
+  let selectedFolderId = PRESET_FOLDER || null;
   let allProps = [];
   let allFolders = [];
   let userLat = null, userLng = null;
@@ -778,9 +785,25 @@
       lbl.textContent      = `Uploading ${i + 1} of ${total}…`;
       fill.style.width     = `${(i / total) * 100}%`;
       try {
-        await uploadPhoto({ file: queue[i].file, propertyId: selectedPropId,
-                            lat: userLat, lng: userLng, notes,
-                            folderId: selectedFolderId });
+        const uploaded = await uploadPhoto({
+          file: queue[i].file, propertyId: selectedPropId,
+          lat: userLat, lng: userLng, notes,
+          folderId: selectedFolderId
+        });
+        // Maintenance deep-link: attach this photo to the visit so it shows
+        // up under "Before"/"After"/"Exterior" on the stop page.
+        if (ATTACH_URL && uploaded?.id) {
+          try {
+            await fetch(ATTACH_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + getToken()
+              },
+              body: JSON.stringify({ photo_id: uploaded.id, kind: VISIT_KIND || null })
+            });
+          } catch (e) { console.warn('attach to visit failed:', e); }
+        }
         done++;
       } catch (e) { failed++; console.error(e); }
     }
@@ -799,9 +822,14 @@
       fill.style.width   = '0%';
       btn.disabled       = false;
       if (failed === 0) {
-        // Return to wherever the user came from (property page, dashboard, etc.).
-        // Fall back to the property detail page if there's no history (e.g., the
-        // user deep-linked into camera.html directly).
+        // Maintenance / satellite caller specified an exact return URL.
+        if (RETURN_TO) {
+          window.location.href = RETURN_TO;
+          return;
+        }
+        // Otherwise: back to wherever the user came from (property page,
+        // dashboard, etc.). Fall back to the property detail page if there's
+        // no history (e.g., the user deep-linked into camera.html directly).
         if (history.length > 1) history.back();
         else window.location.href = `/property.html?id=${selectedPropId}`;
       }

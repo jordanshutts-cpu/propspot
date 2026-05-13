@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Maintenance — Stop</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .access { padding:14px; border-radius:12px; background:#f9fafb; margin-bottom:14px; }
+    .access .row { display:flex; justify-content:space-between; padding:4px 0; }
+    .access .code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:18px; font-weight:600; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+    .task-row { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+    .task-row input { width:22px; height:22px; }
+    .photo-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+    .photo-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; background:#f3f4f6; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; }
+    .pill.pending { background:#f3f4f6; color:#374151; }
+    .pill.on_site { background:#dcfce7; color:#166534; }
+    .pill.completed { background:#dbeafe; color:#1e3a8a; }
+    .pill.skipped { background:#fee2e2; color:#991b1b; }
+  </style>
+</head>
+<body>
+<header class="app-header">
+  <button class="back-btn" onclick="location.href='/worker.html'">‹</button>
+  <span class="header-title" id="hTitle">Stop</span>
+  <div class="header-actions"><span class="pill" id="hStatus">…</span></div>
+</header>
+
+<main class="page" id="root">
+  <p class="text-muted">Loading…</p>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const visitId = params.get('visit');
+  let visit = null;
+  let cfg = null;
+
+  init();
+
+  async function init() {
+    const user = await requireAuth();
+    if (!user) return;
+    if (!visitId) { document.getElementById('root').innerHTML = '<p>Missing ?visit= id.</p>'; return; }
+    cfg = await getConfig().catch(() => ({}));
+    await load();
+    // Poll for status updates from the geofence on worker.html.
+    setInterval(load, 15_000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+  }
+
+  async function load() {
+    try { visit = await getVisit(visitId); }
+    catch (err) { document.getElementById('root').innerHTML = '<p>' + escapeHtml(err.message) + '</p>'; return; }
+    render();
+  }
+
+  function render() {
+    document.getElementById('hTitle').textContent = visit.property_name || 'Stop';
+    const pill = document.getElementById('hStatus');
+    pill.textContent = visit.status.replace('_', ' ');
+    pill.className = 'pill ' + visit.status;
+
+    const fc = cfg.fieldcamUrl || '';
+    const me = location.origin + '/stop.html?visit=' + encodeURIComponent(visit.id);
+    const photoBtn = (kind, label) => {
+      if (!fc || !visit.weekly_folder_id) return `<button class="btn" disabled title="Arrive first to enable photo capture">📷 ${label}</button>`;
+      const url = `${fc}/camera.html?token=${encodeURIComponent(getToken())}` +
+                  `&property_id=${encodeURIComponent(visit.property_id)}` +
+                  `&folder=${encodeURIComponent(visit.weekly_folder_id)}` +
+                  `&visit=${encodeURIComponent(visit.id)}` +
+                  `&kind=${encodeURIComponent(kind)}` +
+                  `&attachUrl=${encodeURIComponent(location.origin + '/api/visits/' + visit.id + '/attach-photo')}` +
+                  `&returnTo=${encodeURIComponent(me)}`;
+      return `<a class="btn primary" href="${url}">📷 ${label}</a>`;
+    };
+
+    document.getElementById('root').innerHTML = `
+      <div class="access">
+        <div class="row"><strong>Address</strong><span>${escapeHtml(addressLine(visit))}</span></div>
+        <div class="row"><strong>Lockbox</strong><span class="code">${escapeHtml(visit.lockbox_code || '—')}</span></div>
+        <div class="row"><strong>Gate</strong><span class="code">${escapeHtml(visit.gate_code || '—')}</span></div>
+        ${visit.access_notes ? `<div style="margin-top:8px;"><strong>Notes:</strong> ${escapeHtml(visit.access_notes)}</div>` : ''}
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="${mapsDeepLinkUrl(visit.lat, visit.lng)}" target="_blank" rel="noopener">📍 Open in Maps</a>
+        ${visit.arrived_at ? '' : '<button class="btn primary" id="arriveBtn">I\\'m here</button>'}
+        ${visit.arrived_at && !visit.departed_at ? '<button class="btn primary" id="departBtn">Done — depart</button>' : ''}
+        ${visit.departed_at ? '' : '<button class="btn" id="skipBtn">Skip</button>'}
+      </div>
+
+      <h3>Tasks</h3>
+      <div id="tasks">${
+        (visit.tasks || []).length === 0
+          ? '<p class="text-muted">No tasks for this stop.</p>'
+          : visit.tasks.map(t => `
+              <label class="task-row">
+                <input type="checkbox" data-task="${t.id}" ${t.done ? 'checked' : ''}>
+                <span>${escapeHtml(t.label)}${t.required ? ' *' : ''}</span>
+              </label>
+            `).join('')
+      }</div>
+
+      <h3>Photos</h3>
+      <div class="actions">
+        ${photoBtn('before',   'Before')}
+        ${photoBtn('after',    'After')}
+        ${photoBtn('exterior', 'Exterior')}
+      </div>
+      <div class="photo-grid">${
+        (visit.photos || []).map(p => `<img src="${p.url}" alt="${escapeHtml(p.kind || '')}">`).join('')
+      }</div>
+    `;
+
+    document.querySelectorAll('[data-task]').forEach(cb => {
+      cb.addEventListener('change', async (e) => {
+        try { await toggleTask(e.target.dataset.task, e.target.checked); }
+        catch (err) { alert(err.message); e.target.checked = !e.target.checked; }
+      });
+    });
+    const arrB = document.getElementById('arriveBtn');
+    if (arrB) arrB.onclick = async () => {
+      try {
+        const pos = await getCurrentPosition().catch(() => null);
+        await arrive(visit.id, pos?.coords.latitude, pos?.coords.longitude, 'manual');
+        await load();
+      } catch (err) { alert(err.message); }
+    };
+    const depB = document.getElementById('departBtn');
+    if (depB) depB.onclick = async () => {
+      try { await depart(visit.id, 'manual'); await load(); }
+      catch (err) { alert(err.message); }
+    };
+    const skipB = document.getElementById('skipBtn');
+    if (skipB) skipB.onclick = async () => {
+      const reason = prompt('Reason (optional):') ?? '';
+      try { await skipVisit(visit.id, reason); location.href = '/worker.html'; }
+      catch (err) { alert(err.message); }
+    };
+  }
+
+  function addressLine(v) {
+    return [v.address_line1, v.city, v.state, v.zip].filter(Boolean).join(', ');
+  }
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+</script>
+</body>
+</html>

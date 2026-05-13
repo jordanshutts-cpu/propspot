@@ -318,6 +318,114 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 CREATE INDEX IF NOT EXISTS comments_photo_id_idx ON comments(photo_id);
 
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║  Maintenance satellite app                                               ║
+-- ║  Weekly mowing routes, GPS time + mileage tracking, photo capture        ║
+-- ║  delegated to FieldCam. Lives in /maintenance.                           ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+-- Maintenance worker flag + per-property access info.
+ALTER TABLE users      ADD COLUMN IF NOT EXISTS is_maintenance_worker BOOLEAN DEFAULT FALSE;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS lockbox_code TEXT;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS gate_code    TEXT;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS access_notes TEXT;
+
+-- maintenance_schedules — per-property cadence. projects.last_mowed_at remains
+-- the "last serviced" source of truth; this table owns the planning side only.
+CREATE TABLE IF NOT EXISTS maintenance_schedules (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id   UUID NOT NULL UNIQUE REFERENCES properties(id) ON DELETE CASCADE,
+  cadence       TEXT NOT NULL DEFAULT 'weekly',     -- weekly|biweekly|monthly|custom
+  custom_days   INT,
+  preferred_dow INT,                                -- 0=Sun..6=Sat
+  next_due_at   TIMESTAMPTZ,
+  active        BOOLEAN DEFAULT TRUE,
+  default_tasks JSONB DEFAULT '[]'::jsonb,          -- [{label,required}]
+  assigned_to   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS maint_sched_due_idx ON maintenance_schedules(next_due_at) WHERE active = TRUE;
+
+-- maintenance_routes — one row per (worker, day).
+CREATE TABLE IF NOT EXISTS maintenance_routes (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  assigned_to   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  route_date    DATE NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'planned',    -- planned|in_progress|completed|abandoned
+  started_at    TIMESTAMPTZ,
+  ended_at      TIMESTAMPTZ,
+  total_minutes INT DEFAULT 0,
+  total_miles   NUMERIC(8,2) DEFAULT 0,
+  start_lat     DOUBLE PRECISION,
+  start_lng     DOUBLE PRECISION,
+  notes         TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(assigned_to, route_date)
+);
+
+-- maintenance_visits — one row per (route, property) stop.
+CREATE TABLE IF NOT EXISTS maintenance_visits (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_id         UUID NOT NULL REFERENCES maintenance_routes(id) ON DELETE CASCADE,
+  property_id      UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  assigned_to      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sequence         INT  NOT NULL DEFAULT 0,
+  status           TEXT NOT NULL DEFAULT 'pending', -- pending|en_route|on_site|completed|skipped
+  arrived_at       TIMESTAMPTZ,
+  departed_at      TIMESTAMPTZ,
+  duration_minutes INT,
+  miles_to_here    NUMERIC(8,2),
+  arrival_method   TEXT,                            -- geofence|manual
+  departure_method TEXT,
+  weekly_folder_id UUID REFERENCES folders(id) ON DELETE SET NULL,
+  notes            TEXT,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS maint_visits_route_idx    ON maintenance_visits(route_id, sequence);
+CREATE INDEX IF NOT EXISTS maint_visits_property_idx ON maintenance_visits(property_id);
+
+-- maintenance_tasks — instantiated from maintenance_schedules.default_tasks
+-- at route-generation time.
+CREATE TABLE IF NOT EXISTS maintenance_tasks (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  visit_id   UUID NOT NULL REFERENCES maintenance_visits(id) ON DELETE CASCADE,
+  label      TEXT NOT NULL,
+  required   BOOLEAN DEFAULT FALSE,
+  done       BOOLEAN DEFAULT FALSE,
+  done_at    TIMESTAMPTZ,
+  sort_order INT DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS maint_tasks_visit_idx ON maintenance_tasks(visit_id);
+
+-- visit_photos — link a visit to a Cloudinary asset already in photos.
+CREATE TABLE IF NOT EXISTS visit_photos (
+  visit_id UUID NOT NULL REFERENCES maintenance_visits(id) ON DELETE CASCADE,
+  photo_id UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+  kind     TEXT,                                    -- before|after|exterior
+  PRIMARY KEY (visit_id, photo_id)
+);
+
+-- route_pings — raw GPS samples for mileage + audit.
+CREATE TABLE IF NOT EXISTS route_pings (
+  id          BIGSERIAL PRIMARY KEY,
+  route_id    UUID NOT NULL REFERENCES maintenance_routes(id) ON DELETE CASCADE,
+  lat         DOUBLE PRECISION NOT NULL,
+  lng         DOUBLE PRECISION NOT NULL,
+  accuracy_m  REAL,
+  speed_mps   REAL,
+  recorded_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS route_pings_route_idx ON route_pings(route_id, recorded_at);
+
+-- Register the maintenance satellite in the apps registry. base_url is
+-- patched in by ops after the first Railway deploy.
+INSERT INTO apps (slug, name, description, enabled)
+VALUES ('maintenance', 'Maintenance',
+        'Weekly mowing routes, time + mileage tracking, photo capture via FieldCam',
+        TRUE)
+ON CONFLICT (slug) DO NOTHING;
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -327,7 +435,8 @@ DO $$
 DECLARE t TEXT;
 BEGIN
   FOR t IN SELECT unnest(ARRAY[
-    'properties','contacts','prospects','leads','opportunities','purchases','projects'
+    'properties','contacts','prospects','leads','opportunities','purchases','projects',
+    'maintenance_schedules'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maintenance — redirecting</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <p class="text-muted text-sm">Loading…</p>
+  <noscript><p>JavaScript is required to use Maintenance.</p></noscript>
+</div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  // SSO token (if any) has already been consumed by app.js. If we have one,
+  // head to worker.html. Otherwise bounce to Prop Spot to sign in; it will
+  // deep-link back here with ?token=.
+  (async () => {
+    if (getToken()) {
+      window.location.replace('/worker.html');
+      return;
+    }
+    const cfg = await getConfig().catch(() => ({}));
+    const os = cfg.propspotUrl || '';
+    if (!os) {
+      document.querySelector('.text-muted').textContent =
+        'PROPSPOT_URL not configured. Ask an admin.';
+      return;
+    }
+    const back = encodeURIComponent(location.origin + '/worker.html');
+    window.location.replace(os + '/index.html?return_to=' + back);
+  })();
+</script>
+</body>
+</html>

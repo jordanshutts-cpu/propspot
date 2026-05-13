@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Maintenance — Today's Route</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .stop-card { display:flex; gap:12px; padding:14px; border:1px solid var(--border, #e5e7eb); border-radius:12px; margin-bottom:10px; background:#fff; }
+    .stop-card.active { border-color:var(--brand, #61B746); box-shadow:0 0 0 2px rgba(97,183,70,.15); }
+    .stop-card .seq { font-weight:700; min-width:28px; text-align:center; color:var(--brand,#61B746); }
+    .stop-card .body { flex:1; min-width:0; }
+    .stop-card .name { font-weight:600; }
+    .stop-card .addr { color:#6b7280; font-size:14px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; }
+    .pill.pending   { background:#f3f4f6; color:#374151; }
+    .pill.en_route  { background:#fef3c7; color:#92400e; }
+    .pill.on_site   { background:#dcfce7; color:#166534; }
+    .pill.completed { background:#dbeafe; color:#1e3a8a; }
+    .pill.skipped   { background:#fee2e2; color:#991b1b; }
+    .summary { padding:14px; border-radius:12px; background:#f9fafb; margin-bottom:14px; }
+    .summary .row { display:flex; justify-content:space-between; padding:2px 0; }
+    .actions { display:flex; gap:8px; margin-bottom:14px; }
+  </style>
+</head>
+<body>
+<header class="app-header">
+  <span class="header-title">Today's Route</span>
+  <div class="header-actions">
+    <button class="icon-btn" id="signOutBtn" title="Sign out">⎋</button>
+  </div>
+</header>
+
+<main class="page">
+  <div id="empty" style="display:none;">
+    <p>No route scheduled for today.</p>
+    <button class="btn primary" id="generateBtn">Generate this week's route</button>
+  </div>
+
+  <div id="route" style="display:none;">
+    <div class="summary">
+      <div class="row"><span>Stops</span><span id="sumStops">—</span></div>
+      <div class="row"><span>Status</span><span id="sumStatus">—</span></div>
+      <div class="row"><span>Total miles</span><span id="sumMiles">—</span></div>
+      <div class="row"><span>Total hours</span><span id="sumHours">—</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="startBtn">▶ Start Day</button>
+      <button class="btn"         id="endBtn"   style="display:none;">⏹ End Day</button>
+    </div>
+    <div id="stops"></div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let route = null, visits = [], tracker = null, user = null;
+
+  document.getElementById('signOutBtn').onclick = signOut;
+  document.getElementById('generateBtn').onclick = onGenerate;
+  document.getElementById('startBtn').onclick   = onStart;
+  document.getElementById('endBtn').onclick     = onEnd;
+
+  init();
+
+  async function init() {
+    user = await requireAuth();
+    if (!user) return;
+    if (!user.is_owner && !user.is_maintenance_worker) {
+      document.querySelector('main').innerHTML =
+        '<p class="text-muted">This account does not have maintenance access.</p>';
+      return;
+    }
+    await load();
+  }
+
+  async function load() {
+    const data = await getTodayRoute().catch(err => { alert(err.message); return null; });
+    if (!data || !data.route) { showEmpty(); return; }
+    route  = data.route;
+    visits = data.visits || [];
+    render();
+  }
+
+  function showEmpty() {
+    document.getElementById('empty').style.display  = '';
+    document.getElementById('route').style.display  = 'none';
+  }
+
+  function render() {
+    document.getElementById('empty').style.display = 'none';
+    document.getElementById('route').style.display = '';
+    document.getElementById('sumStops').textContent  = visits.length;
+    document.getElementById('sumStatus').textContent = route.status;
+    document.getElementById('sumMiles').textContent  = Number(route.total_miles || 0).toFixed(1) + ' mi';
+    document.getElementById('sumHours').textContent  = (Number(route.total_minutes || 0) / 60).toFixed(1) + ' h';
+
+    const inProgress = route.status === 'in_progress';
+    document.getElementById('startBtn').style.display = inProgress ? 'none' : '';
+    document.getElementById('endBtn').style.display   = inProgress ? '' : 'none';
+
+    const html = visits.map(v => `
+      <a class="stop-card ${v.status === 'on_site' || v.status === 'en_route' ? 'active' : ''}"
+         href="/stop.html?visit=${v.id}">
+        <div class="seq">${v.sequence + 1}</div>
+        <div class="body">
+          <div class="name">${escapeHtml(v.property_name || 'Untitled')}</div>
+          <div class="addr">${escapeHtml(addressLine(v))}</div>
+          <div style="margin-top:4px;"><span class="pill ${v.status}">${v.status.replace('_',' ')}</span></div>
+        </div>
+      </a>
+    `).join('');
+    document.getElementById('stops').innerHTML = html || '<p class="text-muted">No stops in this route.</p>';
+  }
+
+  async function onGenerate() {
+    let pos = null;
+    try { pos = await getCurrentPosition(); } catch { /* allow without GPS */ }
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      await generateRoute({
+        date: today,
+        assigned_to: user.id,
+        start_lat: pos?.coords.latitude,
+        start_lng: pos?.coords.longitude
+      });
+      await load();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function onStart() {
+    let pos = null;
+    try { pos = await getCurrentPosition(); }
+    catch (err) { if (!confirm('Could not get location. Start without it?')) return; }
+    await startRoute(route.id, pos?.coords.latitude ?? null, pos?.coords.longitude ?? null);
+    await load();
+
+    tracker = new MaintenanceTracker({
+      routeId: route.id,
+      visits,
+      onUpdate: ({ arrived, departed }) => { if (arrived || departed) load(); },
+      onError:  err => console.warn('tracker:', err)
+    });
+    await tracker.start();
+    window.addEventListener('beforeunload', () => tracker?.stop());
+  }
+
+  async function onEnd() {
+    if (!confirm('End the day? This freezes totals and stops GPS tracking.')) return;
+    tracker?.stop();
+    await endRoute(route.id);
+    await load();
+  }
+
+  function addressLine(v) {
+    return [v.address_line1, v.city, v.state, v.zip].filter(Boolean).join(', ');
+  }
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+</script>
+</body>
+</html>

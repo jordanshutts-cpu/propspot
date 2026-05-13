@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maintenance — Payroll</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:8px 6px; text-align:right; border-bottom:1px solid #f3f4f6; }
+    th:first-child, td:first-child { text-align:left; }
+    tfoot td { font-weight:600; border-top:2px solid #e5e7eb; }
+    .filters { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+    label { font-size:14px; color:#6b7280; }
+  </style>
+</head>
+<body>
+<header class="app-header">
+  <button class="back-btn" onclick="location.href='/worker.html'">‹</button>
+  <span class="header-title">Payroll</span>
+</header>
+
+<main class="page">
+  <div class="filters">
+    <label>Week starting <input type="date" id="weekStart"></label>
+    <span id="workerFilter" style="display:none;">
+      <label>Worker <select id="workerSelect"></select></label>
+    </span>
+    <button class="btn" id="reloadBtn">Reload</button>
+    <button class="btn" id="csvBtn">Download CSV</button>
+  </div>
+
+  <table id="grid">
+    <thead>
+      <tr><th>Date</th><th>Properties</th><th>Skipped</th><th>Hours</th><th>Miles</th></tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr><td>Total</td><td id="tProps">0</td><td id="tSkip">0</td><td id="tHours">0.0</td><td id="tMiles">0.0</td></tr>
+    </tfoot>
+  </table>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let user = null;
+
+  init();
+
+  async function init() {
+    user = await requireAuth();
+    if (!user) return;
+
+    document.getElementById('weekStart').value = mondayOf(new Date()).toISOString().slice(0, 10);
+    document.getElementById('reloadBtn').onclick = load;
+    document.getElementById('csvBtn').onclick    = onCsv;
+
+    if (user.is_owner) {
+      // For v1: leave the worker filter free-form. Admin can paste a worker id
+      // (matches the rest of Prop Spot's admin tooling, which is still UUID-based).
+      document.getElementById('workerFilter').style.display = '';
+      const sel = document.getElementById('workerSelect');
+      const inp = document.createElement('input');
+      inp.placeholder = 'worker user id (UUID)';
+      inp.style.minWidth = '260px';
+      sel.replaceWith(inp); inp.id = 'workerSelect';
+    }
+    await load();
+  }
+
+  let lastPayload = null;
+  async function load() {
+    const weekStart = document.getElementById('weekStart').value;
+    const wf = document.getElementById('workerSelect');
+    const assigned = wf?.value ? wf.value.trim() : '';
+    try {
+      lastPayload = await getPayroll(weekStart, assigned || undefined);
+      render(lastPayload);
+    } catch (err) { alert(err.message); }
+  }
+
+  function render(p) {
+    const tb = document.querySelector('#grid tbody');
+    tb.innerHTML = (p.days || []).map(d => `
+      <tr>
+        <td>${escapeHtml(d.route_date.slice(0,10))}</td>
+        <td>${d.properties_serviced}</td>
+        <td>${d.properties_skipped}</td>
+        <td>${(Number(d.total_minutes) / 60).toFixed(1)}</td>
+        <td>${Number(d.total_miles).toFixed(1)}</td>
+      </tr>
+    `).join('');
+    document.getElementById('tProps').textContent = p.totals.properties_serviced;
+    document.getElementById('tSkip').textContent  = p.totals.properties_skipped;
+    document.getElementById('tHours').textContent = (p.totals.total_minutes / 60).toFixed(1);
+    document.getElementById('tMiles').textContent = p.totals.total_miles.toFixed(1);
+  }
+
+  function onCsv() {
+    if (!lastPayload) return;
+    const rows = [['date','properties','skipped','hours','miles']];
+    for (const d of lastPayload.days || []) {
+      rows.push([
+        d.route_date.slice(0,10),
+        d.properties_serviced,
+        d.properties_skipped,
+        (Number(d.total_minutes) / 60).toFixed(2),
+        Number(d.total_miles).toFixed(2)
+      ]);
+    }
+    rows.push([
+      'TOTAL',
+      lastPayload.totals.properties_serviced,
+      lastPayload.totals.properties_skipped,
+      (lastPayload.totals.total_minutes / 60).toFixed(2),
+      lastPayload.totals.total_miles.toFixed(2)
+    ]);
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `maintenance-payroll-${lastPayload.weekStart}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function mondayOf(d) {
+    const dt = new Date(d);
+    const day = dt.getUTCDay() || 7;
+    if (day !== 1) dt.setUTCDate(dt.getUTCDate() - (day - 1));
+    dt.setUTCHours(0, 0, 0, 0);
+    return dt;
+  }
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maintenance — Admin</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .sched-card { padding:12px; border:1px solid #e5e7eb; border-radius:12px; margin-bottom:10px; }
+    .sched-card h4 { margin:0 0 8px; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    label.field { display:block; font-size:13px; color:#6b7280; }
+    label.field input, label.field select, label.field textarea {
+      width:100%; padding:6px; border:1px solid #e5e7eb; border-radius:8px; font: inherit;
+    }
+    .row-actions { display:flex; gap:8px; margin-top:8px; align-items:center; }
+    .muted { color:#6b7280; font-size:13px; }
+  </style>
+</head>
+<body>
+<header class="app-header">
+  <button class="back-btn" onclick="location.href='/worker.html'">‹</button>
+  <span class="header-title">Maintenance Admin</span>
+</header>
+
+<main class="page" id="root">
+  <p class="text-muted">Loading…</p>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let cfg = null;
+
+  init();
+
+  async function init() {
+    const user = await requireAuth();
+    if (!user) return;
+    if (!user.is_owner) {
+      document.getElementById('root').innerHTML = '<p class="text-muted">Admin only.</p>';
+      return;
+    }
+    cfg = await getConfig().catch(() => ({}));
+    await load();
+  }
+
+  // Pull every property from Prop Spot + every existing schedule from here, then
+  // render an editor row per property.
+  async function load() {
+    const psUrl = cfg.propspotUrl || '';
+    if (!psUrl) {
+      document.getElementById('root').innerHTML = '<p>PROPSPOT_URL not configured.</p>'; return;
+    }
+
+    let properties = [];
+    try {
+      const r = await fetch(psUrl + '/api/properties', {
+        headers: { Authorization: 'Bearer ' + getToken() }
+      });
+      properties = await r.json();
+    } catch (err) {
+      document.getElementById('root').innerHTML =
+        '<p>Could not load properties from Prop Spot. Check CORS / login.</p>';
+      return;
+    }
+
+    const schedules = await listSchedules().catch(() => []);
+    const byProp = Object.fromEntries(schedules.map(s => [s.property_id, s]));
+
+    document.getElementById('root').innerHTML = properties.map(p => {
+      const s = byProp[p.id] || {};
+      const tasks = Array.isArray(s.default_tasks)
+        ? s.default_tasks.map(t => (t.required ? '*' : '') + t.label).join(', ')
+        : '';
+      const name = (p.display_name && p.display_name.trim()) || p.address_line1 || p.name || '—';
+      const addr = [p.address_line1, p.city, p.state, p.zip].filter(Boolean).join(', ');
+      return `
+        <div class="sched-card" data-prop="${p.id}">
+          <h4>${escapeHtml(name)}</h4>
+          <div class="muted">${escapeHtml(addr)}</div>
+          <div class="grid2" style="margin-top:8px;">
+            <label class="field">Cadence
+              <select data-k="cadence">
+                <option value="weekly"   ${s.cadence==='weekly'?'selected':''}>Weekly</option>
+                <option value="biweekly" ${s.cadence==='biweekly'?'selected':''}>Bi-weekly</option>
+                <option value="monthly"  ${s.cadence==='monthly'?'selected':''}>Monthly</option>
+                <option value="custom"   ${s.cadence==='custom'?'selected':''}>Custom days</option>
+              </select>
+            </label>
+            <label class="field">Custom days
+              <input type="number" min="1" data-k="custom_days" value="${s.custom_days ?? ''}">
+            </label>
+            <label class="field">Preferred day-of-week
+              <select data-k="preferred_dow">
+                <option value=""  ${s.preferred_dow==null?'selected':''}>Any</option>
+                <option value="1" ${s.preferred_dow===1?'selected':''}>Monday</option>
+                <option value="2" ${s.preferred_dow===2?'selected':''}>Tuesday</option>
+                <option value="3" ${s.preferred_dow===3?'selected':''}>Wednesday</option>
+                <option value="4" ${s.preferred_dow===4?'selected':''}>Thursday</option>
+                <option value="5" ${s.preferred_dow===5?'selected':''}>Friday</option>
+                <option value="6" ${s.preferred_dow===6?'selected':''}>Saturday</option>
+                <option value="0" ${s.preferred_dow===0?'selected':''}>Sunday</option>
+              </select>
+            </label>
+            <label class="field">Assigned worker (user UUID)
+              <input data-k="assigned_to" value="${s.assigned_to || ''}" placeholder="user id">
+            </label>
+            <label class="field" style="grid-column:span 2;">Default tasks (comma-separated; prefix * for required)
+              <input data-k="tasks_csv" value="${escapeHtml(tasks)}" placeholder="*Mow, Photo exterior, Empty trash">
+            </label>
+            <label class="field">Active
+              <select data-k="active">
+                <option value="true"  ${s.active!==false?'selected':''}>Active</option>
+                <option value="false" ${s.active===false?'selected':''}>Paused</option>
+              </select>
+            </label>
+            <label class="field">Lockbox
+              <input data-k="lockbox_code" value="${escapeHtml(p.lockbox_code || '')}">
+            </label>
+            <label class="field">Gate code
+              <input data-k="gate_code" value="${escapeHtml(p.gate_code || '')}">
+            </label>
+            <label class="field" style="grid-column:span 2;">Access notes
+              <textarea data-k="access_notes" rows="2">${escapeHtml(p.access_notes || '')}</textarea>
+            </label>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" data-save="${p.id}">Save</button>
+            <span class="muted" data-status="${p.id}"></span>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p class="text-muted">No properties yet.</p>';
+
+    document.querySelectorAll('[data-save]').forEach(btn => {
+      btn.addEventListener('click', () => save(btn.dataset.save));
+    });
+  }
+
+  async function save(propertyId) {
+    const card = document.querySelector(`[data-prop="${propertyId}"]`);
+    const val  = k => card.querySelector(`[data-k="${k}"]`)?.value;
+
+    const cadence       = val('cadence');
+    const custom_days   = parseInt(val('custom_days')) || null;
+    const preferred_dow = val('preferred_dow') === '' ? null : parseInt(val('preferred_dow'));
+    const assigned_to   = val('assigned_to').trim() || null;
+    const active        = val('active') === 'true';
+    const tasks_csv     = val('tasks_csv');
+
+    const default_tasks = tasks_csv.split(',').map(t => t.trim()).filter(Boolean).map(t => {
+      const required = t.startsWith('*');
+      return { label: required ? t.slice(1).trim() : t, required };
+    });
+
+    const status = card.querySelector(`[data-status]`);
+    status.textContent = 'Saving…';
+
+    try {
+      // 1) Property-side fields (lockbox, gate, access_notes) → Prop Spot.
+      const psUrl = cfg.propspotUrl;
+      await fetch(psUrl + '/api/properties/' + propertyId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
+        body: JSON.stringify({
+          lockbox_code: val('lockbox_code') || null,
+          gate_code:    val('gate_code')    || null,
+          access_notes: val('access_notes') || null
+        })
+      });
+
+      // 2) Maintenance schedule → us.
+      await upsertSchedule(propertyId, {
+        cadence, custom_days, preferred_dow, assigned_to, active, default_tasks
+      });
+
+      status.textContent = 'Saved ✓';
+      setTimeout(() => status.textContent = '', 2000);
+    } catch (err) {
+      status.textContent = 'Failed: ' + err.message;
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+</script>
+</body>
+</html>

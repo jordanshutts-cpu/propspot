@@ -141,7 +141,7 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/properties/:id
 router.patch('/:id', async (req, res) => {
-  const allowed = ['address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name'];
+  const allowed = ['address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','lockbox_code','gate_code','access_notes'];
   const sets = [];
   const vals = [];
   let i = 1;
