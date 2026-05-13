@@ -33,7 +33,6 @@ app.use('/api/contacts',          require('./routes/contacts'));
 app.use('/api/property-contacts', require('./routes/property-contacts'));
 app.use('/api/activity',          require('./routes/activity'));
 app.use('/api/os',                require('./routes/authz'));
-app.use('/api/admin',             require('./routes/admin'));
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
