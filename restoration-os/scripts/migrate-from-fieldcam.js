@@ -16,7 +16,7 @@
 
 require('dotenv').config();
 const { Pool } = require('pg');
-const { normalizeAddress } = require('../lib/address');
+const { normalizeAddress, parseFreetextAddress } = require('../lib/address');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -40,30 +40,6 @@ const propertyMap = new Map();  // fcPropertyId → osPropertyId
 let orphanBucketId = null;      // synthetic property for photos with no parent
 
 function log(...args) { console.log('  ', ...args); }
-
-// "123 Main St, Springfield, IL 62701" → { address_line1, city, state, zip, ok }
-// On parse failure: dumps freetext into address_line1, placeholders elsewhere.
-function parseFreetextAddress(text) {
-  if (!text || !text.trim()) {
-    return { address_line1: '(unknown)', city: 'UNKNOWN', state: 'XX', zip: '00000', ok: false };
-  }
-  const raw = text.trim();
-  const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
-  if (parts.length >= 3) {
-    const last = parts[parts.length - 1];
-    const m = last.match(/^([A-Za-z]{2})\s+(\d{5})(?:-\d{4})?$/);
-    if (m) {
-      return {
-        address_line1: parts[0],
-        city:          parts[parts.length - 2],
-        state:         m[1].toUpperCase(),
-        zip:           m[2],
-        ok: true
-      };
-    }
-  }
-  return { address_line1: raw.slice(0, 200), city: 'UNKNOWN', state: 'XX', zip: '00000', ok: false };
-}
 
 async function fieldcamAppId() {
   const { rows } = await os.query(`SELECT id FROM apps WHERE slug = 'fieldcam'`);
