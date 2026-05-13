@@ -11,7 +11,7 @@ router.use(requireAuth);
 // without page edits.
 const SELECT_WITH_ALIASES = `
   SELECT p.*,
-         p.display_name AS name,
+         COALESCE(NULLIF(p.display_name, ''), p.address_line1) AS name,
          NULLIF(CONCAT_WS(', ',
            NULLIF(p.address_line1, ''),
            NULLIF(p.city, ''),

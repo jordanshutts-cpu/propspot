@@ -317,9 +317,10 @@
   }
 
   function filterProperties(q) {
+    const needle = q.toLowerCase();
     const filtered = allProperties.filter(p =>
-      p.name.toLowerCase().includes(q.toLowerCase()) ||
-      (p.address || '').toLowerCase().includes(q.toLowerCase())
+      (p.name    || '').toLowerCase().includes(needle) ||
+      (p.address || '').toLowerCase().includes(needle)
     );
     renderProperties(filtered);
     syncMapToList(filtered);
