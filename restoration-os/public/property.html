@@ -89,9 +89,11 @@
     let html = `
       <div class="card mb-16">
         <div class="card-body">
-          <div class="property-name">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
+          ${property.display_name ? `<div class="property-name">${escHtml(property.display_name)}</div>` : ''}
+          <div class="${property.display_name ? 'property-address' : 'property-name'}">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
           <div class="property-address">${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}</div>
           ${property.parcel_id ? `<div class="text-muted text-xs mt-8">Parcel: ${escHtml(property.parcel_id)}</div>` : ''}
+          ${property.notes ? `<div class="property-notes mt-8" style="white-space:pre-wrap;font-size:.85rem;color:var(--text);background:var(--brand-light);padding:8px 10px;border-radius:6px;">${escHtml(property.notes)}</div>` : ''}
         </div>
       </div>
     `;
