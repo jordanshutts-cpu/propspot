@@ -9,8 +9,24 @@
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
-    .prop-counts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
-    .pcount { font-size:.7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; }
+    .prop-counts { display:flex; gap:4px; flex-wrap:wrap; }
+    .pcount { font-size:.68rem; padding:2px 7px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; white-space:nowrap; }
+
+    .prop-table-wrap { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow-x:auto; }
+    .prop-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+    .prop-table thead th {
+      text-align:left; font-weight:700; font-size:.72rem; letter-spacing:.04em;
+      text-transform:uppercase; color:var(--text-muted);
+      padding:12px 14px; background:var(--bg); border-bottom:1px solid var(--border);
+      position:sticky; top:0;
+    }
+    .prop-table tbody tr { border-bottom:1px solid var(--border); transition:background .12s; cursor:pointer; }
+    .prop-table tbody tr:last-child { border-bottom:none; }
+    .prop-table tbody tr:hover { background:var(--brand-light); }
+    .prop-table td { padding:12px 14px; vertical-align:middle; }
+    .prop-table td.addr     { font-weight:600; color:var(--text); }
+    .prop-table td.location { color:var(--text-muted); font-size:.85rem; white-space:nowrap; }
+    .prop-table td.pipeline { min-width:160px; }
   </style>
 </head>
 <body>
@@ -80,21 +96,36 @@
       </div>`;
       return;
     }
-    el.innerHTML = list.map(p => `
-      <a class="property-card" href="/property.html?id=${p.id}">
-        <div class="property-info">
-          <div class="property-name">${escHtml(p.address_line1)}${p.unit ? ` #${escHtml(p.unit)}` : ''}</div>
-          <div class="property-address">${escHtml(p.city)}, ${escHtml(p.state)} ${escHtml(p.zip)}</div>
-          <div class="prop-counts">
-            ${p.prospect_count    ? `<span class="pcount">📥 ${p.prospect_count} prospects</span>` : ''}
-            ${p.lead_count        ? `<span class="pcount">🎯 ${p.lead_count} leads</span>` : ''}
-            ${p.opportunity_count ? `<span class="pcount">🤝 ${p.opportunity_count} opps</span>` : ''}
-            ${p.purchase_count    ? `<span class="pcount">📝 ${p.purchase_count} purchases</span>` : ''}
-            ${p.project_count     ? `<span class="pcount">🔧 ${p.project_count} projects</span>` : ''}
-          </div>
-        </div>
-      </a>
-    `).join('');
+    el.innerHTML = `
+      <div class="prop-table-wrap">
+        <table class="prop-table">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Location</th>
+              <th>Pipeline</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map(p => `
+              <tr onclick="location.href='/property.html?id=${p.id}'">
+                <td class="addr">${escHtml(p.address_line1)}${p.unit ? ` #${escHtml(p.unit)}` : ''}</td>
+                <td class="location">${escHtml(p.city)}, ${escHtml(p.state)} ${escHtml(p.zip)}</td>
+                <td class="pipeline">
+                  <div class="prop-counts">
+                    ${p.prospect_count    ? `<span class="pcount">📥 ${p.prospect_count}</span>` : ''}
+                    ${p.lead_count        ? `<span class="pcount">🎯 ${p.lead_count}</span>` : ''}
+                    ${p.opportunity_count ? `<span class="pcount">🤝 ${p.opportunity_count}</span>` : ''}
+                    ${p.purchase_count    ? `<span class="pcount">📝 ${p.purchase_count}</span>` : ''}
+                    ${p.project_count     ? `<span class="pcount">🔧 ${p.project_count}</span>` : ''}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   function filterProps(q){
