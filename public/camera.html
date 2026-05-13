@@ -698,7 +698,13 @@
       prog.style.display = 'none';
       fill.style.width   = '0%';
       btn.disabled       = false;
-      if (failed === 0) window.location.href = `/property.html?id=${selectedPropId}`;
+      if (failed === 0) {
+        // Return to wherever the user came from (property page, dashboard, etc.).
+        // Fall back to the property detail page if there's no history (e.g., the
+        // user deep-linked into camera.html directly).
+        if (history.length > 1) history.back();
+        else window.location.href = `/property.html?id=${selectedPropId}`;
+      }
     }, 1200);
   }
 
