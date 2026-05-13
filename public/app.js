@@ -6,6 +6,22 @@
 const TOKEN_KEY = 'fieldcam_token';
 const USER_KEY  = 'fieldcam_user';
 
+// SSO handoff: if Prop Spot deep-linked us with ?token=…, consume it
+// before any other code runs and clean it out of the URL bar. Must
+// stay above the storage helpers so the inline script in index.html
+// sees the freshly-stored token when it calls getToken().
+(function consumeSsoToken() {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (!token) return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.removeItem(USER_KEY);
+  params.delete('token');
+  const qs = params.toString();
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+})();
+
 // ── Auth Storage ─────────────────────────────────────────────
 
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
