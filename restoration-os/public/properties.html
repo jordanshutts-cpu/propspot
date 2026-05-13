@@ -103,6 +103,7 @@
             <tr>
               <th>Address</th>
               <th>Location</th>
+              <th>Status</th>
               <th>Pipeline</th>
             </tr>
           </thead>
@@ -111,6 +112,7 @@
               <tr onclick="location.href='/property.html?id=${p.id}'">
                 <td class="addr">${escHtml(p.address_line1)}${p.unit ? ` #${escHtml(p.unit)}` : ''}</td>
                 <td class="location">${escHtml(p.city)}, ${escHtml(p.state)} ${escHtml(p.zip)}</td>
+                <td>${propertyStatusBadge(p.status)}</td>
                 <td class="pipeline">
                   <div class="prop-counts">
                     ${p.prospect_count    ? `<span class="pcount">📥 ${p.prospect_count}</span>` : ''}

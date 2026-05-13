@@ -509,6 +509,16 @@ body {
 .badge-green { background: #dcfce7; color: #15803d; }
 .badge-red   { background: #fee2e2; color: #b91c1c; }
 
+/* Property status badge (colors set inline per-status) */
+.status-badge {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+
 /* ── Nearby Banner ───────────────────────────────────────── */
 .nearby-banner {
   background: linear-gradient(135deg, var(--brand), #86d468);

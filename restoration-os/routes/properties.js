@@ -88,7 +88,7 @@ router.post('/', async (req, res) => {
   const err = badAddressBody(req.body);
   if (err) return res.status(400).json({ error: err });
 
-  const { address_line1, unit, city, state, zip, parcel_id, lat, lng, notes, display_name } = req.body;
+  const { address_line1, unit, city, state, zip, parcel_id, lat, lng, notes, display_name, status } = req.body;
   const normalized = normalizeAddress({ address_line1, unit, city, state, zip });
 
   try {
@@ -109,8 +109,8 @@ router.post('/', async (req, res) => {
 
     const { rows } = await query(`
       INSERT INTO properties
-        (address_line1, unit, city, state, zip, normalized_address, parcel_id, lat, lng, notes, display_name, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        (address_line1, unit, city, state, zip, normalized_address, parcel_id, lat, lng, notes, display_name, status, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, 'purchasing'), $13)
       RETURNING *
     `, [
       address_line1.trim(),
@@ -124,6 +124,7 @@ router.post('/', async (req, res) => {
       lng ? parseFloat(lng) : null,
       notes?.trim() || null,
       display_name?.trim() || null,
+      status?.trim() || null,
       req.userId
     ]);
 
@@ -141,7 +142,7 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/properties/:id
 router.patch('/:id', async (req, res) => {
-  const allowed = ['address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name'];
+  const allowed = ['address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','status'];
   const sets = [];
   const vals = [];
   let i = 1;

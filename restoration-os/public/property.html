@@ -92,6 +92,13 @@
           ${property.display_name ? `<div class="property-name">${escHtml(property.display_name)}</div>` : ''}
           <div class="${property.display_name ? 'property-address' : 'property-name'}">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
           <div class="property-address">${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <label class="text-muted text-xs" for="status-select" style="font-weight:600;">Status:</label>
+            <select id="status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeStatus(this.value)">
+              ${PROPERTY_STATUSES.map(([k, label]) => `<option value="${k}"${property.status === k ? ' selected' : ''}>${label}</option>`).join('')}
+            </select>
+            ${propertyStatusBadge(property.status)}
+          </div>
           ${property.parcel_id ? `<div class="text-muted text-xs mt-8">Parcel: ${escHtml(property.parcel_id)}</div>` : ''}
           ${property.notes ? `<div class="property-notes mt-8" style="white-space:pre-wrap;font-size:.85rem;color:var(--text);background:var(--brand-light);padding:8px 10px;border-radius:6px;">${escHtml(property.notes)}</div>` : ''}
         </div>
@@ -136,6 +143,16 @@
     </div>`;
 
     document.getElementById('page').innerHTML = html;
+  }
+
+  async function changeStatus(newStatus){
+    try {
+      await updateProperty(id, { status: newStatus });
+      showToast('Status updated');
+      await load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
   }
 
   async function deleteThisProperty(){

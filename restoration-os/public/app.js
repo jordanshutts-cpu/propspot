@@ -156,6 +156,26 @@ function escHtml(s) {
   );
 }
 
+// Property-level status across the overall lifecycle.
+// Tuple shape: [value, label, text-color, background-color]
+const PROPERTY_STATUSES = [
+  ['purchasing', 'Purchasing', '#92400e', '#fef3c7'],   // amber
+  ['renovating', 'Renovating', '#1e40af', '#dbeafe'],   // blue
+  ['selling',    'Selling',    '#6b21a8', '#ede9fe'],   // violet
+  ['renting',    'Renting',    '#075985', '#e0f2fe'],   // sky
+  ['rented',     'Rented',     '#15803d', '#dcfce7'],   // green
+  ['dropped',    'Dropped',    '#6b7280', '#f3f4f6']    // gray
+];
+function propertyStatusLabel(s) {
+  const f = PROPERTY_STATUSES.find(([k]) => k === s);
+  return f ? f[1] : (s || '—');
+}
+function propertyStatusBadge(s) {
+  const f = PROPERTY_STATUSES.find(([k]) => k === s);
+  if (!f) return `<span class="status-badge">—</span>`;
+  return `<span class="status-badge" style="color:${f[2]};background:${f[3]};">${f[1]}</span>`;
+}
+
 const CONTACT_TYPES = [
   ['seller','Seller'],
   ['buyer','Buyer'],
