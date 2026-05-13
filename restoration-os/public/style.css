@@ -137,6 +137,147 @@ body {
 .nav-link.active { color: var(--brand); }
 .nav-link:hover  { color: var(--brand); }
 
+/* These elements live in the sidebar on desktop, hidden on mobile */
+.nav-brand        { display: none; }
+.nav-spacer       { display: none; }
+.nav-signout      { display: none; }
+.nav-collapse-btn { display: none; }
+
+/* ── Desktop Sidebar (≥900px) ────────────────────────────── */
+@media (min-width: 900px) {
+  :root {
+    --sidebar-width: 220px;
+    --nav-height: 0px;
+  }
+
+  body {
+    padding-bottom: 0;
+    padding-left: var(--sidebar-width);
+    transition: padding-left .22s ease;
+  }
+
+  .bottom-nav {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    right: auto;
+    width: var(--sidebar-width);
+    height: 100dvh;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    border-top: none;
+    border-right: 1px solid var(--border);
+    box-shadow: none;
+    padding: 0;
+    gap: 2px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--surface);
+    transition: width .22s ease;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: var(--brand);
+    letter-spacing: -.5px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    text-decoration: none;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .nav-brand .nav-label { transition: opacity .15s ease; }
+
+  .nav-spacer { display: block; flex: 1; }
+
+  .nav-signout {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    margin: 0 8px 8px;
+    width: calc(100% - 16px);
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .nav-signout:hover { background: #fee2e2; color: var(--danger); }
+
+  .nav-link {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 11px 14px;
+    font-size: .88rem;
+    font-weight: 500;
+    border-radius: 10px;
+    margin: 0 8px;
+    width: calc(100% - 16px);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .nav-link .nav-icon { font-size: 1.15rem; flex-shrink: 0; }
+  .nav-link.active, .nav-link:hover {
+    background: var(--brand-light);
+    color: var(--brand);
+  }
+
+  .nav-collapse-btn {
+    position: fixed;
+    top: 22px;
+    left: calc(var(--sidebar-width) - 12px);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    color: var(--text-muted);
+    font-size: .75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    transition: left .22s ease, background .15s, color .15s, border-color .15s;
+    line-height: 1;
+  }
+  .nav-collapse-btn:hover {
+    background: var(--brand);
+    color: #fff;
+    border-color: var(--brand);
+  }
+
+  html.sidebar-collapsed { --sidebar-width: 64px; }
+  html.sidebar-collapsed .nav-label          { opacity: 0; width: 0; overflow: hidden; }
+  html.sidebar-collapsed .nav-brand          { justify-content: center; padding: 20px 0 16px; gap: 0; }
+  html.sidebar-collapsed .nav-link           { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px; gap: 0; }
+  html.sidebar-collapsed .nav-link .nav-icon { font-size: 1.3rem; }
+  html.sidebar-collapsed .nav-signout        { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px 8px; gap: 0; font-size: 0; }
+  html.sidebar-collapsed .nav-signout .nav-icon { font-size: 1.15rem; }
+
+  /* Hide logo from top header — it's in the sidebar now */
+  .app-header .logo { display: none; }
+  .header-signout   { display: none; }
+
+  .page { max-width: 1100px; }
+}
+
 /* ── Page / Content ──────────────────────────────────────── */
 .page { padding: 16px; max-width: 600px; margin: 0 auto; }
 

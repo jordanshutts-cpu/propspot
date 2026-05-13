@@ -49,6 +49,16 @@ async function requireAuth() {
 
 async function signOut() { clearToken(); window.location.href = '/index.html'; }
 
+function toggleSidebar() {
+  const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+  const btn = document.getElementById('nav-collapse-btn');
+  if (btn) {
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    btn.textContent = collapsed ? '›' : '‹';
+  }
+}
+
 async function getCurrentUser() {
   return getCachedUser() || apiFetch('/api/auth/me');
 }

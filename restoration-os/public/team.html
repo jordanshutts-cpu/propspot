@@ -7,6 +7,7 @@
   <title>Prop Spot — Team</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
     .grant-pill { font-size:.7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); margin-right:4px; margin-top:4px; display:inline-block; }
     .grants-line { margin-top:4px; }
@@ -18,7 +19,7 @@
   <span class="logo">👥 Team</span>
   <div class="header-actions">
     <button class="icon-btn" onclick="document.getElementById('invite-modal').classList.remove('hidden')">+</button>
-    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+    <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
   </div>
 </header>
 
@@ -56,11 +57,15 @@
 </div>
 
 <nav class="bottom-nav">
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🏘️</span><span class="nav-label"> Prop Spot</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
   <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
   <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
   <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
   <a class="nav-link active" href="/team.html"><span class="nav-icon">👥</span>Team</a>
   <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
 </nav>
 
 <script src="config.js"></script>

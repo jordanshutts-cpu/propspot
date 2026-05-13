@@ -7,6 +7,7 @@
   <title>Prop Spot — Dashboard</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
     .pipeline-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
     .stage-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px; text-decoration: none; color: var(--text); transition: transform .15s; }
@@ -30,7 +31,7 @@
 <header class="app-header">
   <span class="logo"><img src="logo.png" class="logo-img" alt="">Prop Spot</span>
   <div class="header-actions">
-    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+    <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
   </div>
 </header>
 
@@ -53,11 +54,15 @@
 </main>
 
 <nav class="bottom-nav">
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🏘️</span><span class="nav-label"> Prop Spot</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
   <a class="nav-link active" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
   <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
   <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
   <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
   <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
 </nav>
 
 <script src="config.js"></script>
