@@ -128,8 +128,19 @@ async function migrateUsers() {
 }
 
 async function migrateProperties() {
+  // Some FieldCam DBs predate the os_property_id column. Probe and adapt.
+  const { rows: cols } = await fc.query(`
+    SELECT column_name FROM information_schema.columns
+     WHERE table_name = 'properties'
+  `);
+  const colSet = new Set(cols.map(c => c.column_name));
+  const hasOsPropertyId = colSet.has('os_property_id');
+
+  const selectCols = ['id', 'name', 'address', 'notes', 'lat', 'lng', 'cover_url', 'created_by', 'created_at'];
+  if (hasOsPropertyId) selectCols.push('os_property_id');
+
   const { rows: fcProps } = await fc.query(`
-    SELECT id, name, address, notes, lat, lng, cover_url, created_by, os_property_id, created_at
+    SELECT ${selectCols.join(', ')}
       FROM properties
      ORDER BY created_at
   `);
@@ -137,7 +148,7 @@ async function migrateProperties() {
   for (const p of fcProps) {
     try {
       // Already linked to a Prop Spot property?
-      if (p.os_property_id) {
+      if (hasOsPropertyId && p.os_property_id) {
         const { rows: hit } = await os.query(
           `SELECT id FROM properties WHERE id = $1`, [p.os_property_id]
         );
