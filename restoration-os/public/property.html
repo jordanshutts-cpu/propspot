@@ -130,7 +130,24 @@
         : '<div class="text-muted text-xs">No photos yet. Upload via the FieldCam app.</div>'}
     </div>`;
 
+    html += `<div class="stage-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:20px;">
+      <button class="btn btn-danger btn-full" onclick="deleteThisProperty()">🗑️ Delete Property</button>
+      <p class="text-muted text-xs" style="text-align:center;margin-top:8px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
+    </div>`;
+
     document.getElementById('page').innerHTML = html;
+  }
+
+  async function deleteThisProperty(){
+    const label = property.display_name || property.address_line1;
+    if (!confirm(`Delete "${label}"?\n\nThis permanently removes the property and ALL attached records (prospects, leads, opportunities, purchases, projects, photos, contact links). It cannot be undone.`)) return;
+    try {
+      await deleteProperty(id);
+      showToast('Property deleted');
+      setTimeout(() => { window.location.href = '/properties.html'; }, 600);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
   }
 
   function openLightbox(idx){

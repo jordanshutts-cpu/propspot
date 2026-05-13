@@ -66,6 +66,8 @@ async function getCurrentUser() {
 async function getProperties()         { return apiFetch('/api/properties'); }
 async function getProperty(id)         { return apiFetch(`/api/properties/${id}`); }
 async function createProperty(p)       { return apiFetch('/api/properties', { method: 'POST', body: JSON.stringify(p) }); }
+async function updateProperty(id, p)   { return apiFetch(`/api/properties/${id}`, { method: 'PATCH', body: JSON.stringify(p) }); }
+async function deleteProperty(id)      { return apiFetch(`/api/properties/${id}`, { method: 'DELETE' }); }
 
 async function getContacts(params = {}) {
   const qs = new URLSearchParams(params).toString();
