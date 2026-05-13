@@ -38,4 +38,40 @@ async function sendInviteEmail({ to, inviteLink, inviterName, appsList }) {
   return true;
 }
 
-module.exports = { sendInviteEmail };
+async function sendPasswordResetEmail({ to, resetLink }) {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+    console.log('No SMTP configured — password reset link:', resetLink);
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+  });
+
+  await transporter.sendMail({
+    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@restorationhomes.app>',
+    to,
+    subject: 'Reset your Prop Spot password',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#111827;">
+        <h2 style="color:#61B746;">Reset your password</h2>
+        <p>Click the button below to choose a new password. This link expires in 1 hour.</p>
+        <p>
+          <a href="${resetLink}"
+             style="display:inline-block;background:#61B746;color:#fff;padding:12px 28px;
+                    border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0;">
+            Reset Password
+          </a>
+        </p>
+        <p style="color:#6b7280;font-size:12px;">
+          If you didn't request this, you can safely ignore this email — your password won't change.
+        </p>
+      </div>`
+  });
+  return true;
+}
+
+module.exports = { sendInviteEmail, sendPasswordResetEmail };

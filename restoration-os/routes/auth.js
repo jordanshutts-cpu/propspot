@@ -4,7 +4,7 @@ const crypto  = require('crypto');
 const { query, pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { signToken, safeUser } = require('../lib/jwt');
-const { sendInviteEmail } = require('../lib/email');
+const { sendInviteEmail, sendPasswordResetEmail } = require('../lib/email');
 const { logActivity } = require('../lib/activity');
 const { recomputeScopeForUser } = require('../lib/scope');
 
@@ -241,6 +241,84 @@ router.post('/accept-invite', async (req, res) => {
   } catch (err) {
     console.error('Accept invite error:', err);
     res.status(500).json({ error: 'Failed to accept invite' });
+  }
+});
+
+// ── POST /api/auth/forgot-password ──────────────────────────────
+// Generates a 1-hour reset token and emails a link. Always returns 200
+// regardless of whether the email exists, to avoid leaking which
+// accounts are real.
+router.post('/forgot-password', async (req, res) => {
+  const email = (req.body.email || '').toLowerCase().trim();
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const { rows } = await query(
+      `SELECT id, email FROM users WHERE email = $1 AND password_hash IS NOT NULL`,
+      [email]
+    );
+
+    if (rows[0]) {
+      const token   = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await query(
+        `UPDATE users SET invite_token = $1, invite_expires = $2 WHERE id = $3`,
+        [token, expires, rows[0].id]
+      );
+
+      const appUrl    = process.env.APP_URL || 'http://localhost:3000';
+      const resetLink = `${appUrl}/reset-password.html?token=${token}`;
+      await sendPasswordResetEmail({ to: rows[0].email, resetLink });
+
+      await logActivity({
+        actorUserId: rows[0].id, entityType: 'user', entityId: rows[0].id,
+        action: 'password_reset_requested', payload: { email: rows[0].email }
+      });
+    }
+
+    // Always succeed — don't leak whether the email is registered.
+    res.json({ message: 'If an account exists for that email, a reset link is on its way.' });
+  } catch (err) {
+    console.error('Forgot-password error:', err);
+    res.status(500).json({ error: 'Could not process request' });
+  }
+});
+
+// ── POST /api/auth/reset-password ───────────────────────────────
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Token and password required' });
+  if (password.length < 6)  return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  try {
+    const { rows } = await query(
+      `SELECT * FROM users WHERE invite_token = $1 AND invite_expires > NOW()`,
+      [token]
+    );
+    if (!rows[0]) return res.status(400).json({ error: 'Reset link is invalid or has expired' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const { rows: updated } = await query(
+      `UPDATE users
+          SET password_hash  = $1,
+              invite_token   = NULL,
+              invite_expires = NULL
+        WHERE id = $2
+        RETURNING *`,
+      [hash, rows[0].id]
+    );
+    const user = updated[0];
+
+    await logActivity({
+      actorUserId: user.id, entityType: 'user', entityId: user.id,
+      action: 'password_reset', payload: { email: user.email }
+    });
+
+    const jwtToken = signToken(user.id, user.email);
+    res.json({ token: jwtToken, user: safeUser(user) });
+  } catch (err) {
+    console.error('Reset-password error:', err);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
