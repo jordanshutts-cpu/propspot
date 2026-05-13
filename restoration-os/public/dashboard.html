@@ -45,6 +45,14 @@
     <div class="stage-card"><div class="stage-icon">🏷️</div><div class="stage-count" id="c-listed">–</div><div class="stage-label">Listed / Rented</div></div>
   </div>
 
+  <div class="section-header" style="margin-top:24px;"><span class="section-title">Holdings Desk</span></div>
+  <div class="pipeline-grid" id="holdings-grid">
+    <a class="stage-card" href="/holdings.html"><div class="stage-icon">💵</div><div class="stage-count" id="h-monthly">–</div><div class="stage-label">Monthly Carry</div></a>
+    <a class="stage-card" href="/holdings.html?filter=due-7d"><div class="stage-icon">📅</div><div class="stage-count" id="h-due-week">–</div><div class="stage-label">Due ≤ 7 days</div></a>
+    <a class="stage-card" href="/holdings.html?filter=overdue"><div class="stage-icon">⚠️</div><div class="stage-count" id="h-overdue">–</div><div class="stage-label">Overdue</div></a>
+    <a class="stage-card" href="/holdings.html"><div class="stage-icon">📂</div><div class="stage-count" id="h-active">–</div><div class="stage-label">Active Items</div></a>
+  </div>
+
   <div class="section-header" style="margin-top:24px;"><span class="section-title">Your Apps</span></div>
   <div class="apps-grid" id="apps-grid"><p class="text-muted text-sm">Loading…</p></div>
 
@@ -55,6 +63,7 @@
 <nav class="bottom-nav">
   <a class="nav-link active" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
   <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" href="/holdings.html"><span class="nav-icon">💼</span>Holdings</a>
   <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
   <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
   <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
@@ -65,7 +74,17 @@
 <script>
   async function init(){
     const me = await requireAuth(); if (!me) return;
-    await Promise.all([loadPipeline(), loadApps(me), loadActivity()]);
+    await Promise.all([loadPipeline(), loadHoldings(), loadApps(me), loadActivity()]);
+  }
+
+  async function loadHoldings(){
+    try{
+      const s = await getHoldingsSummary();
+      document.getElementById('h-monthly').textContent  = '$' + Math.round(s.monthly_carry || 0).toLocaleString('en-US');
+      document.getElementById('h-due-week').textContent = s.due_this_week ?? 0;
+      document.getElementById('h-overdue').textContent  = s.overdue ?? 0;
+      document.getElementById('h-active').textContent   = s.active_count ?? 0;
+    }catch(e){ console.error(e); }
   }
 
   async function loadPipeline(){

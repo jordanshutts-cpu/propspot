@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Holdings Desk</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+    .chip { font-size:.78rem; padding:6px 10px; border-radius:100px; background:var(--surface); color:var(--text-muted); border:1px solid var(--border); cursor:pointer; user-select:none; }
+    .chip.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .holding-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 14px; margin-bottom:8px; display:block; text-decoration:none; color:var(--text); }
+    .holding-card .row1 { display:flex; align-items:center; gap:10px; }
+    .holding-card .cat-icon { font-size:1.4rem; }
+    .holding-card .h-name { font-weight:700; font-size:.95rem; }
+    .holding-card .h-prop { font-size:.78rem; color:var(--text-muted); margin-top:2px; }
+    .holding-card .row2 { display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px; flex-wrap:wrap; }
+    .holding-card .h-money { font-weight:600; font-size:.9rem; }
+    .holding-card .h-freq { font-size:.72rem; color:var(--text-muted); margin-left:4px; }
+    .holding-card .h-contact { font-size:.72rem; color:var(--text-muted); margin-top:2px; }
+    .badge-due { font-size:.7rem; padding:2px 8px; border-radius:100px; font-weight:600; }
+    .badge-danger { background:#fee2e2; color:#b91c1c; }
+    .badge-warn   { background:#fef3c7; color:#92400e; }
+    .badge-ok     { background:var(--brand-light); color:var(--brand); }
+    .badge-muted  { background:var(--border); color:var(--text-muted); }
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:flex-end; justify-content:center; }
+    .modal { background:var(--surface); border-radius:var(--radius) var(--radius) 0 0; padding:18px; width:100%; max-width:480px; max-height:92vh; overflow-y:auto; }
+    .modal h3 { margin:0 0 12px; font-size:1.05rem; }
+    .form-group { margin-bottom:12px; }
+    .form-label { display:block; font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">💼 Holdings Desk</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="openAddModal()" title="Add holding">+</button>
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="filter-row" id="cat-chips"></div>
+  <div class="filter-row" id="due-chips"></div>
+
+  <div class="section-header">
+    <span class="section-title" id="count-label">All Holdings</span>
+    <button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;" onclick="openAddModal()">+ Add</button>
+  </div>
+
+  <div id="list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
+  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link active" href="/holdings.html"><span class="nav-icon">💼</span>Holdings</a>
+  <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
+  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
+  <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let allItems = [];
+  let catFilter = 'all';
+  let dueFilter = 'all';
+  let allProperties = [];
+
+  async function init(){
+    if (!await requireAuth()) return;
+    const qp = new URLSearchParams(location.search);
+    const f = qp.get('filter');
+    if (f === 'overdue')  dueFilter = 'overdue';
+    if (f === 'due-7d')   dueFilter = 'due-7d';
+    if (f === 'due-30d')  dueFilter = 'due-30d';
+    if (qp.get('category') && HOLDING_CATEGORIES.some(([k]) => k === qp.get('category'))) {
+      catFilter = qp.get('category');
+    }
+    renderChips();
+    try {
+      [allItems, allProperties] = await Promise.all([ getHoldings(), getProperties() ]);
+      render();
+    } catch (err) {
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderChips(){
+    const catEl = document.getElementById('cat-chips');
+    catEl.innerHTML = [['all','All', '📋'], ...HOLDING_CATEGORIES].map(([k, label, icon]) =>
+      `<span class="chip ${catFilter === k ? 'active' : ''}" onclick="setCat('${k}')">${icon} ${escHtml(label)}</span>`
+    ).join('');
+    const dueEl = document.getElementById('due-chips');
+    const dueChips = [
+      ['all',       'All'],
+      ['overdue',   '⚠️ Overdue'],
+      ['due-7d',    'Due ≤ 7d'],
+      ['due-30d',   'Due ≤ 30d']
+    ];
+    dueEl.innerHTML = dueChips.map(([k, label]) =>
+      `<span class="chip ${dueFilter === k ? 'active' : ''}" onclick="setDue('${k}')">${escHtml(label)}</span>`
+    ).join('');
+  }
+
+  function setCat(c){ catFilter = c; renderChips(); render(); }
+  function setDue(d){ dueFilter = d; renderChips(); render(); }
+
+  function passesDue(item){
+    if (dueFilter === 'all') return true;
+    if (!item.next_due_date) return false;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due = new Date(item.next_due_date); due.setHours(0,0,0,0);
+    const diff = Math.round((due - today) / 86400000);
+    if (dueFilter === 'overdue') return diff < 0;
+    if (dueFilter === 'due-7d')  return diff >= 0 && diff <= 7;
+    if (dueFilter === 'due-30d') return diff >= 0 && diff <= 30;
+    return true;
+  }
+
+  function render(){
+    const filtered = allItems.filter(i =>
+      (catFilter === 'all' || i.category === catFilter) && passesDue(i)
+    );
+    document.getElementById('count-label').textContent =
+      filtered.length === 1 ? '1 Holding' : `${filtered.length} Holdings`;
+    const el = document.getElementById('list');
+    if (!filtered.length){
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">💼</div>
+        <p>No holdings match.</p>
+        <button class="btn btn-primary" onclick="openAddModal()">+ Add Holding</button>
+      </div>`;
+      return;
+    }
+    el.innerHTML = filtered.map(i => {
+      const badge = holdingDueBadge(i.next_due_date, i.reminder_days_before);
+      const propLabel = i.property_display_name || i.property_address || '—';
+      return `<a class="holding-card" href="/holdings-item.html?id=${i.id}">
+        <div class="row1">
+          <div class="cat-icon">${escHtml(holdingCategoryIcon(i.category))}</div>
+          <div style="flex:1;">
+            <div class="h-name">${escHtml(i.name)}</div>
+            <div class="h-prop">${escHtml(propLabel)}${i.property_city ? ' · ' + escHtml(i.property_city) + ', ' + escHtml(i.property_state || '') : ''}</div>
+          </div>
+        </div>
+        <div class="row2">
+          <div>
+            ${i.amount != null ? `<span class="h-money">${formatMoney(i.amount)}</span><span class="h-freq">/ ${escHtml(holdingFrequencyLabel(i.frequency))}</span>` : `<span class="h-freq">${escHtml(holdingFrequencyLabel(i.frequency))}</span>`}
+            ${i.vendor ? `<div class="h-contact">${escHtml(i.vendor)}${i.contact_name ? ' · 👤 ' + escHtml(i.contact_name) : ''}</div>` : (i.contact_name ? `<div class="h-contact">👤 ${escHtml(i.contact_name)}</div>` : '')}
+          </div>
+          <span class="badge-due ${badge.cls}">${escHtml(badge.label)}</span>
+        </div>
+      </a>`;
+    }).join('');
+  }
+
+  // ── Add modal ─────────────────────────────────────────────────────────
+  function openAddModal(prefillPropertyId){
+    if (!allProperties.length){
+      if (confirm('No properties yet. Add one first?')) location.href = '/add-property.html';
+      return;
+    }
+    const propOpts = allProperties.map(p =>
+      `<option value="${p.id}" ${prefillPropertyId === p.id ? 'selected' : ''}>${escHtml(p.address_line1)}${p.unit ? ' #' + escHtml(p.unit) : ''}, ${escHtml(p.city)}</option>`
+    ).join('');
+    const catOpts = HOLDING_CATEGORIES.map(([k, label, icon]) =>
+      `<option value="${k}">${icon} ${escHtml(label)}</option>`
+    ).join('');
+    const freqOpts = HOLDING_FREQUENCIES.map(([k, label]) =>
+      `<option value="${k}" ${k === 'monthly' ? 'selected' : ''}>${escHtml(label)}</option>`
+    ).join('');
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+      <h3>Add Holding</h3>
+      <form id="add-form">
+        <div class="form-group"><label class="form-label">Property</label>
+          <select class="form-input" name="property_id" required>${propOpts}</select></div>
+        <div class="form-group"><label class="form-label">Category</label>
+          <select class="form-input" name="category" required>${catOpts}</select></div>
+        <div class="form-group"><label class="form-label">Name / Label</label>
+          <input class="form-input" name="name" placeholder="e.g. City Power & Water" required></div>
+        <div class="form-group"><label class="form-label">Vendor / Provider</label>
+          <input class="form-input" name="vendor" placeholder="e.g. Duke Energy"></div>
+        <div class="form-group"><label class="form-label">Account #</label>
+          <input class="form-input" name="account_number"></div>
+        <div class="form-group" style="display:flex;gap:8px;">
+          <div style="flex:1;"><label class="form-label">Amount</label>
+            <input class="form-input" name="amount" type="number" step="0.01" placeholder="0.00"></div>
+          <div style="flex:1;"><label class="form-label">Frequency</label>
+            <select class="form-input" name="frequency">${freqOpts}</select></div>
+        </div>
+        <div class="form-group"><label class="form-label">Next Due Date</label>
+          <input class="form-input" name="next_due_date" type="date"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="add-submit">Add</button>
+        </div>
+      </form>
+    </div>`;
+    bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+    document.body.appendChild(bg);
+    document.getElementById('add-form').addEventListener('submit', submitAdd);
+  }
+
+  function closeModal(){
+    document.querySelectorAll('.modal-bg').forEach(el => el.remove());
+  }
+
+  async function submitAdd(ev){
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+    const body = Object.fromEntries(fd.entries());
+    if (body.amount === '') delete body.amount;
+    else body.amount = Number(body.amount);
+    if (body.next_due_date === '') delete body.next_due_date;
+    const btn = document.getElementById('add-submit');
+    showSpinner(btn, 'Adding…');
+    try {
+      const created = await createHolding(body);
+      showToast('Holding added');
+      closeModal();
+      location.href = `/holdings-item.html?id=${created.id}`;
+    } catch (e) {
+      hideSpinner(btn);
+      showToast(e.message, 'error');
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
