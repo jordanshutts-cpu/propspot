@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Maintenance — Work Order</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">←</button>
+  <span class="header-title" id="wo-title-h">Work order</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page" id="main">
+  <p class="text-muted text-sm">Loading…</p>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🛠️</span><span class="nav-label"> Maintenance</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">📋</span>Work Orders</a>
+  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" id="nav-os" href="#"><span class="nav-icon">🏠</span>Prop Spot</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
+</nav>
+
+<!-- Edit modal -->
+<div class="modal-backdrop" id="modal-edit">
+  <div class="modal">
+    <div class="modal-title">Edit work order</div>
+    <form onsubmit="submitEdit(event)">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="e-title" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="e-description"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="e-category">
+            <option value="">— select —</option>
+            <option value="plumbing">🚿 Plumbing</option>
+            <option value="electrical">💡 Electrical</option>
+            <option value="hvac">❄️ HVAC</option>
+            <option value="roofing">🏠 Roofing</option>
+            <option value="landscaping">🌳 Landscaping</option>
+            <option value="cleaning">🧹 Cleaning</option>
+            <option value="appliance">🔌 Appliance</option>
+            <option value="pest">🐜 Pest control</option>
+            <option value="general">🛠️ General</option>
+            <option value="other">📋 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="e-priority">
+            <option value="low">Low</option>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Assign to</label>
+          <select class="form-select" id="e-assigned_contact_id">
+            <option value="">— unassigned —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scheduled for</label>
+          <input class="form-input" id="e-scheduled_for" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cost ($)</label>
+        <input class="form-input" id="e-cost" type="number" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Internal notes</label>
+        <textarea class="form-textarea" id="e-notes"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="e-save">Save</button>
+      </div>
+      <button type="button" class="btn btn-danger btn-full mt-12" onclick="confirmDelete()">Delete this work order</button>
+      <p id="e-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const woId = new URLSearchParams(location.search).get('id');
+  let wo = null;
+  let propertyContacts = [];
+
+  async function init(){
+    if (!woId) { location.href = '/dashboard.html'; return; }
+    if (!await requireAuth()) return;
+    document.getElementById('nav-os').href = await getOsUrl() || '#';
+    await load();
+  }
+
+  async function load() {
+    try {
+      wo = await getWorkOrder(woId);
+      // load contacts for the property (for the assign dropdown)
+      try {
+        const prop = await getProperty(wo.property_id);
+        propertyContacts = prop.contacts || [];
+      } catch { propertyContacts = []; }
+
+      render();
+    } catch (e) {
+      document.getElementById('main').innerHTML = `<p class="text-muted">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  function render() {
+    document.getElementById('wo-title-h').textContent = wo.title;
+    const propAddr = `${wo.address_line1}${wo.unit ? ' #'+wo.unit : ''}, ${wo.city || ''}, ${wo.state || ''} ${wo.zip || ''}`;
+    document.getElementById('main').innerHTML = `
+      <div class="card priority-${wo.priority}" style="border-left:6px solid ${
+        wo.priority === 'urgent' ? 'var(--danger)' :
+        wo.priority === 'high'   ? 'var(--amber)'  :
+        wo.priority === 'normal' ? 'var(--brand)'  : 'var(--text-muted)'
+      };">
+        <div class="card-body">
+          <div class="flex-between gap-8" style="flex-wrap:wrap;">
+            <h2 style="font-size:1.1rem;margin:0;">${escHtml(wo.title)}</h2>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <span class="badge ${priorityBadgeClass(wo.priority)}">${priorityLabel(wo.priority)}</span>
+              <span class="badge ${statusBadgeClass(wo.status)}">${statusLabel(wo.status)}</span>
+              ${wo.category ? `<span class="badge badge-grey">${categoryIcon(wo.category)} ${escHtml(categoryLabel(wo.category))}</span>` : ''}
+            </div>
+          </div>
+          ${wo.description ? `<div class="text-sm mt-12" style="white-space:pre-wrap;">${escHtml(wo.description)}</div>` : ''}
+          <div class="text-sm text-muted mt-12">
+            🏠 <a href="/property.html?id=${wo.property_id}">${escHtml(wo.display_name || wo.address_line1)}</a><br>
+            <span style="margin-left:18px;">${escHtml(propAddr)}</span>
+          </div>
+          <div class="text-sm text-muted mt-12" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div>👤 Assigned: ${wo.assigned_name ? `<strong>${escHtml(wo.assigned_name)}</strong>` : '<em>unassigned</em>'}</div>
+            <div>📅 Scheduled: ${wo.scheduled_for ? `<strong>${formatDate(wo.scheduled_for)}</strong>` : '<em>not set</em>'}</div>
+            <div>🧑 Reported by: ${escHtml(wo.reported_by_name || '—')}</div>
+            <div>💰 Cost: ${formatMoney(wo.cost_cents)}</div>
+            <div>🕒 Opened: ${formatDate(wo.created_at)}</div>
+            ${wo.completed_at ? `<div>✅ Completed: ${formatDate(wo.completed_at)}</div>` : ''}
+          </div>
+          ${wo.assigned_phone || wo.assigned_email ? `
+            <div class="text-sm mt-12">
+              ${wo.assigned_phone ? `📞 <a href="tel:${escHtml(wo.assigned_phone)}">${escHtml(wo.assigned_phone)}</a>` : ''}
+              ${wo.assigned_email ? ` &nbsp; ✉️ <a href="mailto:${escHtml(wo.assigned_email)}">${escHtml(wo.assigned_email)}</a>` : ''}
+            </div>` : ''}
+          <div class="status-row mt-16">
+            ${['open','scheduled','in_progress','completed','cancelled'].map(s => `
+              <button class="status-btn ${wo.status === s ? 'active' : ''}" onclick="setStatus('${s}')">${statusLabel(s)}</button>
+            `).join('')}
+          </div>
+          <div class="modal-actions" style="margin-top:8px;">
+            <button class="btn btn-secondary" onclick="openEdit()">✏️ Edit</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header"><span class="section-title">Updates</span></div>
+      <div class="card"><div class="card-body" id="updates-thread"></div></div>
+      <form class="card" onsubmit="submitUpdate(event)">
+        <div class="card-body">
+          <textarea class="form-textarea" id="new-update" placeholder="Add a note (visible to everyone with access to this work order)…" required></textarea>
+          <button class="btn btn-primary btn-sm mt-12" type="submit">Post update</button>
+        </div>
+      </form>
+    `;
+
+    renderUpdates();
+  }
+
+  function renderUpdates() {
+    const el = document.getElementById('updates-thread');
+    if (!wo.updates?.length) {
+      el.innerHTML = `<p class="text-muted text-sm">No updates yet.</p>`;
+      return;
+    }
+    el.innerHTML = wo.updates.map(u => `
+      <div class="update-row">
+        <span class="update-author">${escHtml(u.author_name || 'Someone')}</span>
+        <span class="update-time">${relativeTime(u.created_at)}</span>
+        <div class="update-body">${escHtml(u.body)}</div>
+      </div>
+    `).join('');
+  }
+
+  async function submitUpdate(e) {
+    e.preventDefault();
+    const ta = document.getElementById('new-update');
+    const body = ta.value.trim();
+    if (!body) return;
+    try {
+      const u = await postUpdate(woId, body);
+      wo.updates.push(u);
+      ta.value = '';
+      renderUpdates();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function setStatus(status) {
+    if (status === wo.status) return;
+    try {
+      await updateWorkOrder(woId, { status });
+      showToast('Status updated');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  function openEdit() {
+    document.getElementById('e-title').value       = wo.title || '';
+    document.getElementById('e-description').value = wo.description || '';
+    document.getElementById('e-category').value    = wo.category || '';
+    document.getElementById('e-priority').value    = wo.priority || 'normal';
+    document.getElementById('e-scheduled_for').value = wo.scheduled_for ? wo.scheduled_for.split('T')[0] : '';
+    document.getElementById('e-cost').value = centsToDollars(wo.cost_cents);
+    document.getElementById('e-notes').value = wo.notes || '';
+
+    const sel = document.getElementById('e-assigned_contact_id');
+    sel.innerHTML = '<option value="">— unassigned —</option>' +
+      propertyContacts.map(c => `<option value="${c.id}" ${c.id === wo.assigned_contact_id ? 'selected' : ''}>${escHtml(c.full_name)}${c.company ? ' — '+escHtml(c.company) : ''}</option>`).join('');
+
+    document.getElementById('e-error').style.display = 'none';
+    document.getElementById('modal-edit').classList.add('open');
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  async function submitEdit(e) {
+    e.preventDefault();
+    const body = {
+      title:       document.getElementById('e-title').value,
+      description: document.getElementById('e-description').value,
+      category:    document.getElementById('e-category').value,
+      priority:    document.getElementById('e-priority').value,
+      assigned_contact_id: document.getElementById('e-assigned_contact_id').value || null,
+      scheduled_for: document.getElementById('e-scheduled_for').value || null,
+      cost_cents:  dollarsToCents(document.getElementById('e-cost').value),
+      notes:       document.getElementById('e-notes').value
+    };
+    const err = document.getElementById('e-error'); err.style.display = 'none';
+    const btn = document.getElementById('e-save');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+    try {
+      await updateWorkOrder(woId, body);
+      closeModal('modal-edit');
+      showToast('Saved');
+      await load();
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Save';
+    }
+  }
+
+  async function confirmDelete() {
+    if (!confirm('Delete this work order? Updates will be deleted too.')) return;
+    try {
+      await deleteWorkOrder(woId);
+      showToast('Deleted');
+      window.location.href = '/dashboard.html';
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  init();
+</script>
+</body>
+</html>

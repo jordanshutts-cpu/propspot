@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Maintenance — Properties</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">🏘️ Properties</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <p class="text-sm text-muted mb-16">Pick a property to see its work orders.</p>
+  <div id="list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🛠️</span><span class="nav-label"> Maintenance</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">📋</span>Work Orders</a>
+  <a class="nav-link active" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" id="nav-os" href="#"><span class="nav-icon">🏠</span>Prop Spot</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
+</nav>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  async function init(){
+    if (!await requireAuth()) return;
+    document.getElementById('nav-os').href = await getOsUrl() || '#';
+    try {
+      const props = await getProperties();
+      const el = document.getElementById('list');
+      if (!props.length) {
+        el.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No properties in scope.</p></div>`;
+        return;
+      }
+      el.innerHTML = props.map(p => {
+        const urgentBadge = p.urgent_count > 0 ? `<span class="badge badge-red">${p.urgent_count} urgent</span>` : '';
+        const openBadge   = p.open_count   > 0 ? `<span class="badge badge-amber">${p.open_count} open</span>` : '';
+        const allClear    = p.open_count === 0 ? `<span class="badge badge-green">All clear</span>` : '';
+        return `
+          <a class="row-card" href="/property.html?id=${p.id}">
+            <div class="row-card-icon">🏠</div>
+            <div class="row-card-body">
+              <div class="row-card-title">${escHtml(propertyDisplay(p))}</div>
+              <div class="row-card-sub">${escHtml(p.address_line1)} · ${escHtml(p.city || '')}, ${escHtml(p.state || '')}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+              ${urgentBadge}${openBadge}${allClear}
+            </div>
+          </a>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('list').innerHTML = `<p class="text-muted">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+  init();
+</script>
+</body>
+</html>
