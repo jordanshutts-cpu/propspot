@@ -1,7 +1,7 @@
 {
-  "name": "restoration-os",
+  "name": "propspot-os",
   "version": "1.0.0",
-  "description": "Restoration Homes — central operating system (identity, deals, contacts, apps registry)",
+  "description": "Prop Spot — central operating system (identity, deals, contacts, apps registry)",
   "main": "server.js",
   "engines": {
     "node": ">=18"

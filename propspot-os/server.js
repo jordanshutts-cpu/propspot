@@ -37,14 +37,15 @@ app.use('/api/os',                require('./routes/authz'));
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
-  res.json({ status: 'ok', service: 'restoration-os', timestamp: new Date().toISOString() })
+  res.json({ status: 'ok', service: 'propspot-os', timestamp: new Date().toISOString() })
 );
 
 // ── Public config (non-secret keys for authenticated frontend) ────
 app.get('/api/config', (req, res) => {
   res.json({
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
-    osUrl:            process.env.APP_URL || ''
+    osUrl:            process.env.APP_URL || '',
+    holdingsUrl:      process.env.HOLDINGS_URL || ''
   });
 });
 
