@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Maintenance — Property</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">←</button>
+  <span class="header-title" id="prop-title">Property</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="card"><div class="card-body" id="prop-meta"></div></div>
+
+  <div class="section-header">
+    <span class="section-title">Work orders</span>
+    <button class="btn btn-primary btn-sm" onclick="openCreate()">+ New</button>
+  </div>
+  <div id="orders-list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🛠️</span><span class="nav-label"> Maintenance</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">📋</span>Work Orders</a>
+  <a class="nav-link active" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" id="nav-os" href="#"><span class="nav-icon">🏠</span>Prop Spot</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
+</nav>
+
+<div class="modal-backdrop" id="modal-create">
+  <div class="modal">
+    <div class="modal-title">New work order</div>
+    <form onsubmit="submitCreate(event)">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="c-title" placeholder="e.g. Kitchen sink leaking" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="c-description"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="c-category">
+            <option value="">— select —</option>
+            <option value="plumbing">🚿 Plumbing</option>
+            <option value="electrical">💡 Electrical</option>
+            <option value="hvac">❄️ HVAC</option>
+            <option value="roofing">🏠 Roofing</option>
+            <option value="landscaping">🌳 Landscaping</option>
+            <option value="cleaning">🧹 Cleaning</option>
+            <option value="appliance">🔌 Appliance</option>
+            <option value="pest">🐜 Pest control</option>
+            <option value="general">🛠️ General</option>
+            <option value="other">📋 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="c-priority">
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Assign to</label>
+          <select class="form-select" id="c-assigned_contact_id">
+            <option value="">— unassigned —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scheduled for</label>
+          <input class="form-input" id="c-scheduled_for" type="date">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="c-save">Create</button>
+      </div>
+      <p id="c-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const propId = new URLSearchParams(location.search).get('id');
+  let property = null;
+
+  async function init(){
+    if (!propId) { location.href = '/properties.html'; return; }
+    if (!await requireAuth()) return;
+    document.getElementById('nav-os').href = await getOsUrl() || '#';
+    await load();
+  }
+
+  async function load(){
+    try {
+      property = await getProperty(propId);
+      document.getElementById('prop-title').textContent = propertyDisplay(property);
+      document.getElementById('prop-meta').innerHTML = `
+        <div><strong>${escHtml(propertyDisplay(property))}</strong></div>
+        <div class="text-sm text-muted">${escHtml(property.address_line1)}${property.unit ? ' #'+escHtml(property.unit) : ''}, ${escHtml(property.city || '')}, ${escHtml(property.state || '')} ${escHtml(property.zip || '')}</div>
+      `;
+      // Populate assignment dropdown with contacts
+      const sel = document.getElementById('c-assigned_contact_id');
+      sel.innerHTML = '<option value="">— unassigned —</option>' +
+        (property.contacts || []).map(c => `<option value="${c.id}">${escHtml(c.full_name)}${c.company ? ' — '+escHtml(c.company) : ''}${c.type === 'contractor' ? ' 🛠️' : ''}</option>`).join('');
+
+      renderOrders(property.work_orders || []);
+    } catch (e) {
+      document.getElementById('orders-list').innerHTML = `<p class="text-muted">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  function renderOrders(rows) {
+    const el = document.getElementById('orders-list');
+    if (!rows.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎉</div><p>No work orders yet.</p></div>`;
+      return;
+    }
+    el.innerHTML = rows.map(o => `
+      <a class="row-card priority-${o.priority} status-${o.status}" href="/work-order.html?id=${o.id}">
+        <div class="row-card-icon">${categoryIcon(o.category)}</div>
+        <div class="row-card-body">
+          <div class="flex-between" style="gap:8px;">
+            <div class="row-card-title">${escHtml(o.title)}</div>
+            <span class="badge ${statusBadgeClass(o.status)}">${statusLabel(o.status)}</span>
+          </div>
+          <div class="row-card-meta">
+            <span class="badge ${priorityBadgeClass(o.priority)}">${priorityLabel(o.priority)}</span>
+            ${o.category ? `<span>${escHtml(categoryLabel(o.category))}</span>` : ''}
+            ${o.assigned_name ? `<span>👤 ${escHtml(o.assigned_name)}</span>` : ''}
+            ${o.scheduled_for ? `<span>📅 ${formatDate(o.scheduled_for)}</span>` : ''}
+            ${o.cost_cents != null ? `<span>${formatMoney(o.cost_cents)}</span>` : ''}
+          </div>
+        </div>
+      </a>`).join('');
+  }
+
+  function openCreate() {
+    document.getElementById('c-title').value = '';
+    document.getElementById('c-description').value = '';
+    document.getElementById('c-category').value = '';
+    document.getElementById('c-priority').value = 'normal';
+    document.getElementById('c-assigned_contact_id').value = '';
+    document.getElementById('c-scheduled_for').value = '';
+    document.getElementById('c-error').style.display = 'none';
+    document.getElementById('modal-create').classList.add('open');
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  async function submitCreate(e) {
+    e.preventDefault();
+    const body = {
+      property_id:  propId,
+      title:        document.getElementById('c-title').value,
+      description:  document.getElementById('c-description').value,
+      category:     document.getElementById('c-category').value,
+      priority:     document.getElementById('c-priority').value,
+      assigned_contact_id: document.getElementById('c-assigned_contact_id').value || null,
+      scheduled_for: document.getElementById('c-scheduled_for').value || null
+    };
+    const err = document.getElementById('c-error'); err.style.display = 'none';
+    const btn = document.getElementById('c-save');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+    try {
+      const wo = await createWorkOrder(body);
+      window.location.href = '/work-order.html?id=' + wo.id;
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+      btn.disabled = false; btn.innerHTML = 'Create';
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

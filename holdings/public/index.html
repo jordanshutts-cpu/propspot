@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Holdings Desk — redirecting</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <p class="text-muted text-sm">Redirecting to Prop Spot to sign in…</p>
+  <noscript><p>JavaScript is required. Visit <a id="fallback" href="#">Prop Spot</a>.</p></noscript>
+</div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  // SSO handoff already happened in app.js if ?token= was present.
+  if (getToken()) {
+    window.location.href = '/dashboard.html';
+  } else {
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      const os = cfg.osUrl || '';
+      if (!os) {
+        document.querySelector('.text-muted').textContent =
+          'OS_URL not configured. Ask an admin.';
+        return;
+      }
+      const back = encodeURIComponent(location.origin + '/dashboard.html');
+      window.location.href = os + '/index.html?return_to=' + back;
+    });
+  }
+</script>
+</body>
+</html>

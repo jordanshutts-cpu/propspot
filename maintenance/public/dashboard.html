@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Maintenance — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">🛠️ Maintenance</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num is-bad" id="stat-urgent">–</div><div class="stat-label">Urgent</div></div>
+    <div class="stat-card"><div class="stat-num is-warn" id="stat-open">–</div><div class="stat-label">Open</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-scheduled">–</div><div class="stat-label">Scheduled</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-progress">–</div><div class="stat-label">In progress</div></div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">Work orders</span>
+    <button class="btn btn-primary btn-sm" onclick="openCreate()">+ New</button>
+  </div>
+
+  <div class="pills" id="filter-pills">
+    <button class="pill active" data-f="active">Active</button>
+    <button class="pill"        data-f="open">Open</button>
+    <button class="pill"        data-f="scheduled">Scheduled</button>
+    <button class="pill"        data-f="in_progress">In progress</button>
+    <button class="pill"        data-f="completed">Completed</button>
+    <button class="pill"        data-f="urgent">🚨 Urgent</button>
+  </div>
+
+  <div id="list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🛠️</span><span class="nav-label"> Maintenance</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+  <a class="nav-link active" href="/dashboard.html"><span class="nav-icon">📋</span>Work Orders</a>
+  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" id="nav-os" href="#"><span class="nav-icon">🏠</span>Prop Spot</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
+</nav>
+
+<!-- Create modal -->
+<div class="modal-backdrop" id="modal-create">
+  <div class="modal">
+    <div class="modal-title">New work order</div>
+    <form onsubmit="submitCreate(event)">
+      <div class="form-group">
+        <label class="form-label">Property *</label>
+        <select class="form-select" id="c-property_id" required></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="c-title" placeholder="e.g. Kitchen sink leaking" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="c-description"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="c-category">
+            <option value="">— select —</option>
+            <option value="plumbing">🚿 Plumbing</option>
+            <option value="electrical">💡 Electrical</option>
+            <option value="hvac">❄️ HVAC</option>
+            <option value="roofing">🏠 Roofing</option>
+            <option value="landscaping">🌳 Landscaping</option>
+            <option value="cleaning">🧹 Cleaning</option>
+            <option value="appliance">🔌 Appliance</option>
+            <option value="pest">🐜 Pest control</option>
+            <option value="general">🛠️ General</option>
+            <option value="other">📋 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-select" id="c-priority">
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Scheduled for</label>
+        <input class="form-input" id="c-scheduled_for" type="date">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="c-save">Create</button>
+      </div>
+      <p id="c-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let propertiesCache = [];
+  let allOrders = [];
+  let currentFilter = 'active';
+
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+    document.getElementById('nav-os').href = await getOsUrl() || '#';
+    const grant = (me.grants || []).find(g => g.slug === 'maintenance');
+    if (!grant) {
+      document.querySelector('main').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🔒</div>
+          <p><strong>No access to Maintenance</strong></p>
+          <p>Ask an owner of Prop Spot to grant you access.</p>
+        </div>`;
+      return;
+    }
+
+    await Promise.all([loadOrders(), loadProperties()]);
+
+    document.querySelectorAll('.pill').forEach(p => p.addEventListener('click', () => {
+      document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      currentFilter = p.dataset.f;
+      render();
+    }));
+  }
+
+  async function loadOrders() {
+    try {
+      // Fetch all (not just active) so the stats and Completed pill work.
+      allOrders = await getWorkOrders();
+      computeStats();
+      render();
+    } catch (e) {
+      document.getElementById('list').innerHTML = `<p class="text-muted">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  async function loadProperties() {
+    try {
+      propertiesCache = await getProperties();
+      const sel = document.getElementById('c-property_id');
+      sel.innerHTML = '<option value="">Select a property…</option>' +
+        propertiesCache.map(p => `<option value="${p.id}">${escHtml(propertyDisplay(p))} — ${escHtml(p.city || '')}, ${escHtml(p.state || '')}</option>`).join('');
+    } catch (e) { console.error(e); }
+  }
+
+  function computeStats() {
+    const open      = allOrders.filter(o => o.status === 'open').length;
+    const scheduled = allOrders.filter(o => o.status === 'scheduled').length;
+    const progress  = allOrders.filter(o => o.status === 'in_progress').length;
+    const urgent    = allOrders.filter(o => o.priority === 'urgent' && ['open','scheduled','in_progress'].includes(o.status)).length;
+    document.getElementById('stat-urgent').textContent    = urgent;
+    document.getElementById('stat-open').textContent      = open;
+    document.getElementById('stat-scheduled').textContent = scheduled;
+    document.getElementById('stat-progress').textContent  = progress;
+  }
+
+  function render() {
+    let rows = allOrders;
+    if (currentFilter === 'active') {
+      rows = rows.filter(o => ['open','scheduled','in_progress'].includes(o.status));
+    } else if (currentFilter === 'urgent') {
+      rows = rows.filter(o => o.priority === 'urgent' && o.status !== 'completed' && o.status !== 'cancelled');
+    } else {
+      rows = rows.filter(o => o.status === currentFilter);
+    }
+    const el = document.getElementById('list');
+    if (!rows.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎉</div><p>Nothing here.</p></div>`;
+      return;
+    }
+    el.innerHTML = rows.map(o => `
+      <a class="row-card priority-${o.priority} status-${o.status}" href="/work-order.html?id=${o.id}">
+        <div class="row-card-icon">${categoryIcon(o.category)}</div>
+        <div class="row-card-body">
+          <div class="flex-between" style="gap:8px;">
+            <div class="row-card-title">${escHtml(o.title)}</div>
+            <span class="badge ${statusBadgeClass(o.status)}">${statusLabel(o.status)}</span>
+          </div>
+          <div class="row-card-sub">${escHtml(o.display_name || o.address_line1)} · ${escHtml(o.city || '')}, ${escHtml(o.state || '')}</div>
+          <div class="row-card-meta">
+            <span class="badge ${priorityBadgeClass(o.priority)}">${priorityLabel(o.priority)}</span>
+            ${o.category ? `<span>${escHtml(categoryLabel(o.category))}</span>` : ''}
+            ${o.assigned_name ? `<span>👤 ${escHtml(o.assigned_name)}</span>` : ''}
+            ${o.scheduled_for ? `<span>📅 ${formatDate(o.scheduled_for)}</span>` : ''}
+            ${o.update_count > 0 ? `<span>💬 ${o.update_count}</span>` : ''}
+          </div>
+        </div>
+      </a>`).join('');
+  }
+
+  function openCreate() {
+    document.getElementById('c-property_id').value = '';
+    document.getElementById('c-title').value = '';
+    document.getElementById('c-description').value = '';
+    document.getElementById('c-category').value = '';
+    document.getElementById('c-priority').value = 'normal';
+    document.getElementById('c-scheduled_for').value = '';
+    document.getElementById('c-error').style.display = 'none';
+    document.getElementById('modal-create').classList.add('open');
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  async function submitCreate(e) {
+    e.preventDefault();
+    const body = {
+      property_id:  document.getElementById('c-property_id').value,
+      title:        document.getElementById('c-title').value,
+      description:  document.getElementById('c-description').value,
+      category:     document.getElementById('c-category').value,
+      priority:     document.getElementById('c-priority').value,
+      scheduled_for: document.getElementById('c-scheduled_for').value || null
+    };
+    const err = document.getElementById('c-error'); err.style.display = 'none';
+    const btn = document.getElementById('c-save');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+    try {
+      const wo = await createWorkOrder(body);
+      window.location.href = '/work-order.html?id=' + wo.id;
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+      btn.disabled = false; btn.innerHTML = 'Create';
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -318,6 +318,107 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 CREATE INDEX IF NOT EXISTS comments_photo_id_idx ON comments(photo_id);
 
+-- ── Holdings Desk satellite (per-property recurring obligations) ───────────
+-- Owned by Prop Spot; read/written by the holdings.propspot.io app via
+-- the shared DATABASE_URL (Model A).
+CREATE TABLE IF NOT EXISTS holdings (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL,        -- utility | insurance | tax | mortgage | license | hoa
+  label         TEXT NOT NULL,        -- "Duke Energy", "State Farm Homeowners", etc.
+  vendor        TEXT,
+  account_no    TEXT,
+  contact_id    UUID REFERENCES contacts(id) ON DELETE SET NULL,
+  amount_cents  INTEGER,              -- expected payment amount (per cadence)
+  cadence       TEXT DEFAULT 'monthly', -- monthly | quarterly | semiannual | annual | one_time
+  due_day       INTEGER,              -- day of month due (1-31), for monthly
+  next_due_at   DATE,                 -- the next bill date
+  last_paid_at  DATE,
+  is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+  auto_pay      BOOLEAN NOT NULL DEFAULT FALSE,
+  notes         TEXT,
+  created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'holdings_kind_check'
+  ) THEN
+    ALTER TABLE holdings ADD CONSTRAINT holdings_kind_check
+      CHECK (kind IN ('utility','insurance','tax','mortgage','license','hoa'));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'holdings_cadence_check'
+  ) THEN
+    ALTER TABLE holdings ADD CONSTRAINT holdings_cadence_check
+      CHECK (cadence IN ('monthly','quarterly','semiannual','annual','one_time'));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS holdings_property_idx ON holdings(property_id);
+CREATE INDEX IF NOT EXISTS holdings_kind_idx     ON holdings(kind);
+CREATE INDEX IF NOT EXISTS holdings_due_idx      ON holdings(next_due_at) WHERE is_active = TRUE;
+
+-- Payment history (one row per actual payment recorded against a holding).
+CREATE TABLE IF NOT EXISTS holding_payments (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  holding_id    UUID NOT NULL REFERENCES holdings(id) ON DELETE CASCADE,
+  paid_on       DATE NOT NULL,
+  amount_cents  INTEGER,
+  method        TEXT,                 -- "ACH", "Check #1234", "Auto-pay", etc.
+  notes         TEXT,
+  recorded_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS holding_payments_holding_idx ON holding_payments(holding_id);
+CREATE INDEX IF NOT EXISTS holding_payments_paid_idx    ON holding_payments(paid_on DESC);
+
+-- ── Maintenance satellite (work-order tracking) ─────────────────────────────
+-- Owned by Prop Spot; read/written by the maintenance.propspot.io app via
+-- the shared DATABASE_URL (Model A).
+CREATE TABLE IF NOT EXISTS work_orders (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id     UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  title           TEXT NOT NULL,
+  description     TEXT,
+  category        TEXT,                 -- plumbing | electrical | hvac | roofing | landscaping | cleaning | appliance | general | other
+  priority        TEXT NOT NULL DEFAULT 'normal',   -- low | normal | high | urgent
+  status          TEXT NOT NULL DEFAULT 'open',     -- open | scheduled | in_progress | completed | cancelled
+  assigned_contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
+  reported_by     UUID REFERENCES users(id) ON DELETE SET NULL,
+  scheduled_for   DATE,
+  completed_at    TIMESTAMPTZ,
+  cost_cents      INTEGER,
+  notes           TEXT,
+  created_by      UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_orders_priority_check') THEN
+    ALTER TABLE work_orders ADD CONSTRAINT work_orders_priority_check
+      CHECK (priority IN ('low','normal','high','urgent'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_orders_status_check') THEN
+    ALTER TABLE work_orders ADD CONSTRAINT work_orders_status_check
+      CHECK (status IN ('open','scheduled','in_progress','completed','cancelled'));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS work_orders_property_idx ON work_orders(property_id);
+CREATE INDEX IF NOT EXISTS work_orders_status_idx   ON work_orders(status);
+CREATE INDEX IF NOT EXISTS work_orders_priority_idx ON work_orders(priority);
+CREATE INDEX IF NOT EXISTS work_orders_scheduled_idx ON work_orders(scheduled_for);
+
+-- Updates / comment thread on a work order.
+CREATE TABLE IF NOT EXISTS work_order_updates (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_order_id  UUID NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+  user_id        UUID REFERENCES users(id) ON DELETE SET NULL,
+  body           TEXT NOT NULL,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS work_order_updates_wo_idx ON work_order_updates(work_order_id);
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -327,7 +428,8 @@ DO $$
 DECLARE t TEXT;
 BEGIN
   FOR t IN SELECT unnest(ARRAY[
-    'properties','contacts','prospects','leads','opportunities','purchases','projects'
+    'properties','contacts','prospects','leads','opportunities','purchases','projects',
+    'holdings','work_orders'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||

@@ -33,29 +33,60 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
+  // Build a deep-link that hands off the OS-issued JWT to the satellite app.
+  function appLaunchUrl(baseUrl){
+    if (!baseUrl) return null;
+    const token = getToken();
+    if (!token) return baseUrl;
+    const sep = baseUrl.includes('?') ? '&' : '?';
+    return baseUrl + sep + 'token=' + encodeURIComponent(token);
+  }
+
   async function init(){
-    if (!await requireAuth()) return;
+    const me = await requireAuth(); if (!me) return;
     try{
       const apps = await getApps();
+      const grants = {};
+      (me.grants || []).forEach(g => { grants[g.slug] = g; });
+
       const el = document.getElementById('list');
-      el.innerHTML = apps.map(a => `
-        <div class="team-row">
+      el.innerHTML = apps.map(a => {
+        const launch    = appLaunchUrl(a.base_url);
+        const hasAccess = !!grants[a.slug];
+        const clickable = launch && hasAccess;
+        const rowOpen = clickable
+          ? `<a class="team-row team-row-link" href="${escHtml(launch)}">`
+          : `<div class="team-row${a.base_url ? ' team-row-disabled' : ''}" ${
+              !hasAccess && a.base_url ? `title="You don't have access to ${escHtml(a.name)} — ask an owner."` : ''
+            }>`;
+        const rowClose = clickable ? '</a>' : '</div>';
+        const badge = !hasAccess
+          ? `<span class="badge badge-red">No access</span>`
+          : `<span class="badge">${a.user_count} ${a.user_count === 1 ? 'user' : 'users'}</span>`;
+
+        return `${rowOpen}
           <div class="avatar" style="background:#fff;color:var(--brand);font-size:1.2rem;border:2px solid var(--brand);">
             ${escHtml(a.icon || '🧩')}
           </div>
           <div class="team-info">
             <div class="team-name">${escHtml(a.name)}</div>
             <div class="team-email">${escHtml(a.description || a.slug)}</div>
-            ${a.base_url ? `<div class="text-xs"><a href="${escHtml(a.base_url)}" target="_blank">${escHtml(a.base_url)}</a></div>` : ''}
+            ${a.base_url ? `<div class="text-xs text-muted">${escHtml(a.base_url)}</div>` : `<div class="text-xs text-muted">Not deployed yet</div>`}
           </div>
-          <span class="badge">${a.user_count} ${a.user_count === 1 ? 'user' : 'users'}</span>
-        </div>
-      `).join('');
+          ${badge}
+        ${rowClose}`;
+      }).join('');
     }catch(err){
       document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
   init();
 </script>
+<style>
+  .team-row-link { color: inherit; text-decoration: none; cursor: pointer; transition: background .12s; }
+  .team-row-link:hover, .team-row-link:focus { background: var(--brand-light); }
+  .team-row-link:active { background: #e0eed8; }
+  .team-row-disabled { opacity: .6; cursor: not-allowed; }
+</style>
 </body>
 </html>

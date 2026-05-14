@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Holdings Desk — Property</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">←</button>
+  <span class="header-title" id="prop-title">Property</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="card"><div class="card-body" id="prop-meta"></div></div>
+
+  <div class="section-header">
+    <span class="section-title">Holdings on this property</span>
+    <button class="btn btn-primary btn-sm" onclick="openCreate()">+ Add</button>
+  </div>
+  <div id="holdings-list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<nav class="bottom-nav">
+  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">💼</span><span class="nav-label"> Holdings</span></a>
+  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">📋</span>Holdings</a>
+  <a class="nav-link active" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
+  <a class="nav-link" id="nav-os" href="#"><span class="nav-icon">🏠</span>Prop Spot</a>
+  <div class="nav-spacer"></div>
+  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
+</nav>
+
+<!-- Holding edit modal (same fields as dashboard.html) -->
+<div class="modal-backdrop" id="modal-edit">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add holding</div>
+    <form id="h-form" onsubmit="submitHolding(event)">
+      <input type="hidden" id="h-id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Kind *</label>
+          <select class="form-select" id="h-kind" required>
+            <option value="utility">⚡ Utility</option>
+            <option value="insurance">🛡️ Insurance</option>
+            <option value="tax">🏛️ Tax</option>
+            <option value="mortgage">🏦 Mortgage</option>
+            <option value="license">📜 License</option>
+            <option value="hoa">🏘️ HOA</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cadence</label>
+          <select class="form-select" id="h-cadence">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="semiannual">Every 6 months</option>
+            <option value="annual">Annual</option>
+            <option value="one_time">One-time</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Label *</label>
+        <input class="form-input" id="h-label" placeholder="e.g. Duke Energy electric" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Vendor</label>
+          <input class="form-input" id="h-vendor">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Account #</label>
+          <input class="form-input" id="h-account_no">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount ($)</label>
+          <input class="form-input" id="h-amount" type="number" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Next due</label>
+          <input class="form-input" id="h-next_due_at" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact</label>
+        <select class="form-select" id="h-contact_id">
+          <option value="">— none —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="h-auto_pay"> Auto-pay enabled
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="h-notes"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="h-save">Save</button>
+      </div>
+      <p id="h-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    </form>
+    <div id="h-extra" class="hidden" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+      <button class="btn btn-secondary btn-full" onclick="openPay()">💵 Record payment</button>
+      <button class="btn btn-danger btn-full mt-12" onclick="confirmDelete()">Delete this holding</button>
+      <div id="payment-history" class="mt-16"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Pay modal -->
+<div class="modal-backdrop" id="modal-pay">
+  <div class="modal">
+    <div class="modal-title">Record payment</div>
+    <form onsubmit="submitPayment(event)">
+      <input type="hidden" id="p-holding_id">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Paid on *</label>
+          <input class="form-input" id="p-paid_on" type="date" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount ($)</label>
+          <input class="form-input" id="p-amount" type="number" step="0.01">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Method</label>
+        <input class="form-input" id="p-method" placeholder="ACH, Check #1234…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="p-notes"></textarea>
+      </div>
+      <p class="text-xs text-muted">Recording a payment rolls <strong>Next due</strong> forward by cadence.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-pay')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const propId = new URLSearchParams(location.search).get('id');
+  let property = null;
+
+  async function init(){
+    if (!propId) { location.href = '/properties.html'; return; }
+    if (!await requireAuth()) return;
+    document.getElementById('nav-os').href = await getOsUrl() || '#';
+    await load();
+  }
+
+  async function load(){
+    try {
+      property = await getProperty(propId);
+      document.getElementById('prop-title').textContent = propertyDisplay(property);
+      document.getElementById('prop-meta').innerHTML = `
+        <div><strong>${escHtml(propertyDisplay(property))}</strong></div>
+        <div class="text-sm text-muted">${escHtml(property.address_line1)}${property.unit ? ' #'+escHtml(property.unit) : ''}, ${escHtml(property.city || '')}, ${escHtml(property.state || '')} ${escHtml(property.zip || '')}</div>
+      `;
+      // populate contact select
+      const sel = document.getElementById('h-contact_id');
+      sel.innerHTML = '<option value="">— none —</option>' +
+        (property.contacts || []).map(c => `<option value="${c.id}">${escHtml(c.full_name)}${c.company ? ' — '+escHtml(c.company) : ''}</option>`).join('');
+
+      renderHoldings(property.holdings || []);
+    } catch (e) {
+      document.getElementById('holdings-list').innerHTML = `<p class="text-muted">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  function renderHoldings(rows) {
+    const el = document.getElementById('holdings-list');
+    if (!rows.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No holdings yet.</p></div>`;
+      return;
+    }
+    // Group by kind
+    const grouped = {};
+    rows.forEach(h => { (grouped[h.kind] = grouped[h.kind] || []).push(h); });
+    let html = '';
+    for (const [kind, label, icon] of [
+      ['utility','Utilities','⚡'],['insurance','Insurance','🛡️'],
+      ['tax','Taxes','🏛️'],['mortgage','Mortgage','🏦'],
+      ['license','Licenses','📜'],['hoa','HOA','🏘️']
+    ]) {
+      if (!grouped[kind]) continue;
+      html += `<div class="section-header" style="margin-top:18px;"><span class="section-title">${icon} ${label}</span></div>`;
+      html += grouped[kind].map(h => {
+        const status = dueStatus(h.next_due_at);
+        return `
+          <a class="row-card" href="#" onclick="openEdit('${h.id}');return false;" style="${h.is_active ? '' : 'opacity:.55;'}">
+            <div class="row-card-body">
+              <div class="row-card-title">${escHtml(h.label)}</div>
+              <div class="row-card-meta">
+                <span>${escHtml(cadenceLabel(h.cadence))}</span>
+                <span>${formatMoney(h.amount_cents)}</span>
+                <span>Next: ${formatDate(h.next_due_at)}</span>
+                ${h.contact_name ? `<span>👤 ${escHtml(h.contact_name)}</span>` : ''}
+                ${h.auto_pay ? '<span>🔁 Auto-pay</span>' : ''}
+              </div>
+            </div>
+            <span class="badge ${status.cls}">${h.is_active ? status.label : 'Inactive'}</span>
+          </a>`;
+      }).join('');
+    }
+    el.innerHTML = html;
+  }
+
+  function openCreate() {
+    document.getElementById('modal-title').textContent = 'Add holding';
+    document.getElementById('h-id').value = '';
+    document.getElementById('h-kind').value = 'utility';
+    document.getElementById('h-cadence').value = 'monthly';
+    document.getElementById('h-label').value = '';
+    document.getElementById('h-vendor').value = '';
+    document.getElementById('h-account_no').value = '';
+    document.getElementById('h-amount').value = '';
+    document.getElementById('h-next_due_at').value = '';
+    document.getElementById('h-contact_id').value = '';
+    document.getElementById('h-auto_pay').checked = false;
+    document.getElementById('h-notes').value = '';
+    document.getElementById('h-extra').classList.add('hidden');
+    document.getElementById('payment-history').innerHTML = '';
+    document.getElementById('h-error').style.display = 'none';
+    document.getElementById('modal-edit').classList.add('open');
+  }
+
+  async function openEdit(id) {
+    try {
+      const h = await getHolding(id);
+      document.getElementById('modal-title').textContent = 'Edit holding';
+      document.getElementById('h-id').value = h.id;
+      document.getElementById('h-kind').value = h.kind;
+      document.getElementById('h-cadence').value = h.cadence || 'monthly';
+      document.getElementById('h-label').value = h.label || '';
+      document.getElementById('h-vendor').value = h.vendor || '';
+      document.getElementById('h-account_no').value = h.account_no || '';
+      document.getElementById('h-amount').value = centsToDollars(h.amount_cents);
+      document.getElementById('h-next_due_at').value = h.next_due_at ? h.next_due_at.split('T')[0] : '';
+      document.getElementById('h-contact_id').value = h.contact_id || '';
+      document.getElementById('h-auto_pay').checked = !!h.auto_pay;
+      document.getElementById('h-notes').value = h.notes || '';
+      document.getElementById('h-extra').classList.remove('hidden');
+      document.getElementById('h-error').style.display = 'none';
+
+      const ph = document.getElementById('payment-history');
+      if (h.payments?.length) {
+        ph.innerHTML = `<div class="section-title text-sm mb-8">Recent payments</div>` +
+          h.payments.slice(0,8).map(p => `
+            <div class="text-sm" style="border-bottom:1px solid var(--border);padding:6px 0;">
+              <strong>${formatDate(p.paid_on)}</strong> · ${formatMoney(p.amount_cents)} ${p.method ? '· '+escHtml(p.method) : ''}
+              ${p.notes ? `<div class="text-xs text-muted">${escHtml(p.notes)}</div>` : ''}
+            </div>`).join('');
+      } else {
+        ph.innerHTML = '';
+      }
+      document.getElementById('modal-edit').classList.add('open');
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  async function submitHolding(e) {
+    e.preventDefault();
+    const id = document.getElementById('h-id').value;
+    const body = {
+      property_id: propId,
+      kind:        document.getElementById('h-kind').value,
+      cadence:     document.getElementById('h-cadence').value,
+      label:       document.getElementById('h-label').value,
+      vendor:      document.getElementById('h-vendor').value,
+      account_no:  document.getElementById('h-account_no').value,
+      amount_cents: dollarsToCents(document.getElementById('h-amount').value),
+      next_due_at: document.getElementById('h-next_due_at').value || null,
+      contact_id:  document.getElementById('h-contact_id').value || null,
+      auto_pay:    document.getElementById('h-auto_pay').checked,
+      notes:       document.getElementById('h-notes').value
+    };
+    const err = document.getElementById('h-error'); err.style.display = 'none';
+    const btn = document.getElementById('h-save');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+    try {
+      if (id) await updateHolding(id, body);
+      else    await createHolding(body);
+      closeModal('modal-edit');
+      showToast('Saved');
+      await load();
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Save';
+    }
+  }
+
+  function openPay() {
+    const id = document.getElementById('h-id').value;
+    if (!id) return;
+    document.getElementById('p-holding_id').value = id;
+    document.getElementById('p-paid_on').value = new Date().toISOString().slice(0,10);
+    document.getElementById('p-amount').value = document.getElementById('h-amount').value;
+    document.getElementById('p-method').value = '';
+    document.getElementById('p-notes').value = '';
+    document.getElementById('modal-pay').classList.add('open');
+  }
+
+  async function submitPayment(e) {
+    e.preventDefault();
+    try {
+      await recordPayment({
+        holding_id: document.getElementById('p-holding_id').value,
+        paid_on:    document.getElementById('p-paid_on').value,
+        amount_cents: dollarsToCents(document.getElementById('p-amount').value),
+        method:     document.getElementById('p-method').value,
+        notes:      document.getElementById('p-notes').value
+      });
+      closeModal('modal-pay'); closeModal('modal-edit');
+      showToast('Payment recorded');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function confirmDelete() {
+    const id = document.getElementById('h-id').value;
+    if (!id) return;
+    if (!confirm('Delete this holding and its payment history?')) return;
+    try {
+      await deleteHolding(id);
+      closeModal('modal-edit');
+      showToast('Deleted');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  init();
+</script>
+</body>
+</html>
