@@ -16,7 +16,7 @@ async function sendInviteEmail({ to, inviteLink, inviterName, appsList }) {
   const apps = (appsList || []).map(a => `<li>${a}</li>`).join('') || '<li>Prop Spot</li>';
 
   await transporter.sendMail({
-    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@restorationhomes.app>',
+    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@propspot.io>',
     to,
     subject: `${inviterName} invited you to Prop Spot`,
     html: `
@@ -52,7 +52,7 @@ async function sendPasswordResetEmail({ to, resetLink }) {
   });
 
   await transporter.sendMail({
-    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@restorationhomes.app>',
+    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@propspot.io>',
     to,
     subject: 'Reset your Prop Spot password',
     html: `

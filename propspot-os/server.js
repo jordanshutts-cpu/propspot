@@ -37,7 +37,7 @@ app.use('/api/os',                require('./routes/authz'));
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
-  res.json({ status: 'ok', service: 'restoration-os', timestamp: new Date().toISOString() })
+  res.json({ status: 'ok', service: 'propspot-os', timestamp: new Date().toISOString() })
 );
 
 // ── Public config (non-secret keys for authenticated frontend) ────

@@ -128,7 +128,7 @@ re-migrated.
 After a week of stable operation:
 
 - [ ] Delete FieldCam's old Postgres service from Railway.
-- [ ] Delete `restoration-os/routes/admin.js` (the
+- [ ] Delete `propspot-os/routes/admin.js` (the
       `/api/admin/migrate-fieldcam` endpoint is now obsolete).
       Remove the mount in `server.js`. Commit + redeploy Prop Spot.
 - [ ] Archive `FIELDCAM_DATABASE_URL` from Prop Spot's Railway env.

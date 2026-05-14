@@ -1,12 +1,12 @@
 # Prop Spot
 
-Central operating system for **Restoration Homes**.
+The central operating system.
 
 Prop Spot owns the canonical database: identity & SSO, properties,
 contacts, the deal pipeline (prospects → leads → opportunities →
 purchases → projects), the apps registry, and the photos table. Every
-satellite app (FieldCam today; underwriting, accounting, etc. later)
-reads and writes that single Postgres.
+satellite app (FieldCam, Holdings Desk, Maintenance, etc.) reads and
+writes that single Postgres.
 
 Satellite apps authenticate against Prop Spot's JWT and reference rows
 by the canonical OS UUID.
@@ -33,7 +33,7 @@ the OS itself:
 
 1. Provision Postgres on Railway, set `DATABASE_URL`, `JWT_SECRET`,
    `BOOTSTRAP_OWNER_EMAIL`, `APP_URL`, Cloudinary creds, optional SMTP.
-2. Deploy this folder (`restoration-os/`) as a Railway service.
+2. Deploy this folder (`propspot-os/`) as a Railway service.
 3. Generate domain (we use `os.propspot.io`).
 4. Sign up with the bootstrap email → you become owner.
 
