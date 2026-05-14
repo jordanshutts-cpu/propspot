@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#61B746">
-  <title>Prop Spot — Holdings Desk</title>
+  <title>Holdings Desk</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
   <style>
@@ -35,6 +35,7 @@
 <body>
 
 <header class="app-header">
+  <a class="back-btn" id="back-to-os" href="#" title="Back to Prop Spot">‹</a>
   <span class="logo">💼 Holdings Desk</span>
   <div class="header-actions">
     <button class="icon-btn" onclick="openAddModal()" title="Add holding">+</button>
@@ -54,15 +55,6 @@
   <div id="list"><p class="text-muted text-sm">Loading…</p></div>
 </main>
 
-<nav class="bottom-nav">
-  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
-  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
-  <a class="nav-link active" href="/holdings.html"><span class="nav-icon">💼</span>Holdings</a>
-  <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
-  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
-  <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
-</nav>
-
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
@@ -73,6 +65,7 @@
 
   async function init(){
     if (!await requireAuth()) return;
+    document.getElementById('back-to-os').href = await osLink('/dashboard.html');
     const qp = new URLSearchParams(location.search);
     const f = qp.get('filter');
     if (f === 'overdue')  dueFilter = 'overdue';
@@ -140,7 +133,7 @@
     el.innerHTML = filtered.map(i => {
       const badge = holdingDueBadge(i.next_due_date, i.reminder_days_before);
       const propLabel = i.property_display_name || i.property_address || '—';
-      return `<a class="holding-card" href="/holdings-item.html?id=${i.id}">
+      return `<a class="holding-card" href="/item.html?id=${i.id}">
         <div class="row1">
           <div class="cat-icon">${escHtml(holdingCategoryIcon(i.category))}</div>
           <div style="flex:1;">
@@ -162,12 +155,13 @@
   // ── Add modal ─────────────────────────────────────────────────────────
   function openAddModal(prefillPropertyId){
     if (!allProperties.length){
-      if (confirm('No properties yet. Add one first?')) location.href = '/add-property.html';
+      if (confirm('No properties yet. Add one in Prop Spot first?')) bounceToOs();
       return;
     }
-    const propOpts = allProperties.map(p =>
-      `<option value="${p.id}" ${prefillPropertyId === p.id ? 'selected' : ''}>${escHtml(p.address_line1)}${p.unit ? ' #' + escHtml(p.unit) : ''}, ${escHtml(p.city)}</option>`
-    ).join('');
+    const propOpts = allProperties.map(p => {
+      const label = p.display_name || p.address_line1;
+      return `<option value="${p.id}" ${prefillPropertyId === p.id ? 'selected' : ''}>${escHtml(label)}${p.unit ? ' #' + escHtml(p.unit) : ''}, ${escHtml(p.city)}</option>`;
+    }).join('');
     const catOpts = HOLDING_CATEGORIES.map(([k, label, icon]) =>
       `<option value="${k}">${icon} ${escHtml(label)}</option>`
     ).join('');
@@ -225,7 +219,7 @@
       const created = await createHolding(body);
       showToast('Holding added');
       closeModal();
-      location.href = `/holdings-item.html?id=${created.id}`;
+      location.href = `/item.html?id=${created.id}`;
     } catch (e) {
       hideSpinner(btn);
       showToast(e.message, 'error');

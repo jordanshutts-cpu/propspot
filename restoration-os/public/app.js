@@ -114,33 +114,51 @@ async function getActivity(params = {}) {
 }
 
 // ── Holdings Desk ──────────────────────────────────────────────────────
-async function getHoldings(params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  return apiFetch(`/api/holdings/items${qs ? '?' + qs : ''}`);
-}
-async function getHolding(id)            { return apiFetch(`/api/holdings/items/${id}`); }
-async function createHolding(p)          { return apiFetch('/api/holdings/items', { method: 'POST', body: JSON.stringify(p) }); }
-async function updateHolding(id, p)      { return apiFetch(`/api/holdings/items/${id}`, { method: 'PATCH', body: JSON.stringify(p) }); }
-async function deleteHolding(id)         { return apiFetch(`/api/holdings/items/${id}`, { method: 'DELETE' }); }
-async function markHoldingPaid(id, body = {}) {
-  return apiFetch(`/api/holdings/items/${id}/mark-paid`, { method: 'POST', body: JSON.stringify(body) });
-}
+// All write operations and the full management UI live in the satellite
+// at holdings.propspot.io. Prop Spot keeps a read-only summary endpoint
+// for the dashboard tile and reads the embedded property-page section
+// directly from the property's GET /:id response (holdings_items field).
 async function getHoldingsSummary()      { return apiFetch('/api/holdings/summary'); }
-async function getUpcomingHoldings(days = 14) {
-  return apiFetch(`/api/holdings/upcoming-due?days=${encodeURIComponent(days)}`);
-}
-async function createHoldingPayment(p)   { return apiFetch('/api/holdings/payments', { method: 'POST', body: JSON.stringify(p) }); }
-async function updateHoldingPayment(id, p){ return apiFetch(`/api/holdings/payments/${id}`, { method: 'PATCH', body: JSON.stringify(p) }); }
-async function deleteHoldingPayment(id)  { return apiFetch(`/api/holdings/payments/${id}`, { method: 'DELETE' }); }
-async function uploadHoldingDocument(itemId, file, fields = {}) {
-  const fd = new FormData();
-  fd.append('file', file);
-  for (const [k, v] of Object.entries(fields)) {
-    if (v !== undefined && v !== null && v !== '') fd.append(k, v);
+
+// Resolve the satellite URL once per page so links can be set synchronously.
+let _holdingsUrlCache = null;
+async function getHoldingsUrl() {
+  if (_holdingsUrlCache !== null) return _holdingsUrlCache;
+  try {
+    const cfg = await apiFetch('/api/config');
+    _holdingsUrlCache = cfg.holdingsUrl || '';
+  } catch {
+    _holdingsUrlCache = '';
   }
-  return apiFetch(`/api/holdings/items/${itemId}/documents`, { method: 'POST', body: fd });
+  return _holdingsUrlCache;
 }
-async function deleteHoldingDocument(id) { return apiFetch(`/api/holdings/documents/${id}`, { method: 'DELETE' }); }
+// Build a Holdings Desk link with the current token appended for SSO handoff.
+async function holdingsLink(path = '/') {
+  const base = await getHoldingsUrl();
+  if (!base) return '#';
+  const token = getToken();
+  const sep = (base + path).includes('?') ? '&' : '?';
+  return base.replace(/\/$/, '') + path + sep + 'token=' + encodeURIComponent(token);
+}
+
+// Walks the page and fills in href for every anchor tagged with
+// data-app="holdings". Optional data-holdings-path overrides the default '/'.
+// Run on every page after requireAuth(); cheap to call (single config fetch).
+async function wireHoldingsLinks() {
+  if (!getToken()) return;
+  const anchors = document.querySelectorAll('a[data-app="holdings"]');
+  if (!anchors.length) return;
+  for (const a of anchors) {
+    a.href = await holdingsLink(a.dataset.holdingsPath || '/');
+  }
+}
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { wireHoldingsLinks(); });
+  } else {
+    wireHoldingsLinks();
+  }
+}
 
 const HOLDING_CATEGORIES = [
   ['utility',           'Utility',           '💡'],

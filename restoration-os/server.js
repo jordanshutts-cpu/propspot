@@ -44,7 +44,8 @@ app.get('/api/health', (req, res) =>
 app.get('/api/config', (req, res) => {
   res.json({
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
-    osUrl:            process.env.APP_URL || ''
+    osUrl:            process.env.APP_URL || '',
+    holdingsUrl:      process.env.HOLDINGS_URL || ''
   });
 });
 
