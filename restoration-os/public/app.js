@@ -113,6 +113,68 @@ async function getActivity(params = {}) {
   return apiFetch(`/api/activity${qs ? '?' + qs : ''}`);
 }
 
+// ── Holdings Desk ──────────────────────────────────────────────────────
+async function getHoldings(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return apiFetch(`/api/holdings/items${qs ? '?' + qs : ''}`);
+}
+async function getHolding(id)            { return apiFetch(`/api/holdings/items/${id}`); }
+async function createHolding(p)          { return apiFetch('/api/holdings/items', { method: 'POST', body: JSON.stringify(p) }); }
+async function updateHolding(id, p)      { return apiFetch(`/api/holdings/items/${id}`, { method: 'PATCH', body: JSON.stringify(p) }); }
+async function deleteHolding(id)         { return apiFetch(`/api/holdings/items/${id}`, { method: 'DELETE' }); }
+async function markHoldingPaid(id, body = {}) {
+  return apiFetch(`/api/holdings/items/${id}/mark-paid`, { method: 'POST', body: JSON.stringify(body) });
+}
+async function getHoldingsSummary()      { return apiFetch('/api/holdings/summary'); }
+async function getUpcomingHoldings(days = 14) {
+  return apiFetch(`/api/holdings/upcoming-due?days=${encodeURIComponent(days)}`);
+}
+async function createHoldingPayment(p)   { return apiFetch('/api/holdings/payments', { method: 'POST', body: JSON.stringify(p) }); }
+async function updateHoldingPayment(id, p){ return apiFetch(`/api/holdings/payments/${id}`, { method: 'PATCH', body: JSON.stringify(p) }); }
+async function deleteHoldingPayment(id)  { return apiFetch(`/api/holdings/payments/${id}`, { method: 'DELETE' }); }
+async function uploadHoldingDocument(itemId, file, fields = {}) {
+  const fd = new FormData();
+  fd.append('file', file);
+  for (const [k, v] of Object.entries(fields)) {
+    if (v !== undefined && v !== null && v !== '') fd.append(k, v);
+  }
+  return apiFetch(`/api/holdings/items/${itemId}/documents`, { method: 'POST', body: fd });
+}
+async function deleteHoldingDocument(id) { return apiFetch(`/api/holdings/documents/${id}`, { method: 'DELETE' }); }
+
+const HOLDING_CATEGORIES = [
+  ['utility',           'Utility',           '💡'],
+  ['insurance',         'Insurance',         '🛡️'],
+  ['property_tax',      'Property Tax',      '🏛️'],
+  ['mortgage',          'Mortgage',          '🏦'],
+  ['business_license',  'Business License',  '📜'],
+  ['hoa',               'HOA',               '🏘️']
+];
+const HOLDING_FREQUENCIES = [
+  ['monthly',    'Monthly'],
+  ['quarterly',  'Quarterly'],
+  ['semiannual', 'Semiannual'],
+  ['annual',     'Annual'],
+  ['one_time',   'One-time'],
+  ['variable',   'Variable']
+];
+
+function holdingCategoryLabel(cat) { const r = HOLDING_CATEGORIES.find(([k]) => k === cat); return r ? r[1] : cat; }
+function holdingCategoryIcon(cat)  { const r = HOLDING_CATEGORIES.find(([k]) => k === cat); return r ? r[2] : '📋'; }
+function holdingFrequencyLabel(f)  { const r = HOLDING_FREQUENCIES.find(([k]) => k === f); return r ? r[1] : f; }
+
+// Returns { cls, label } for a next_due_date badge.
+function holdingDueBadge(nextDueDate, daysBefore = 7) {
+  if (!nextDueDate) return { cls: 'badge-muted', label: 'No due date' };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(nextDueDate); due.setHours(0, 0, 0, 0);
+  const diff = Math.round((due - today) / 86400000);
+  if (diff < 0)  return { cls: 'badge-danger',  label: `Overdue ${Math.abs(diff)}d` };
+  if (diff === 0) return { cls: 'badge-danger', label: 'Due today' };
+  if (diff <= daysBefore) return { cls: 'badge-warn', label: `Due in ${diff}d` };
+  return { cls: 'badge-ok', label: `Due ${formatDate(nextDueDate)}` };
+}
+
 function showToast(message, type = 'success') {
   const existing = document.getElementById('ros-toast');
   if (existing) existing.remove();

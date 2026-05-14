@@ -236,6 +236,91 @@ CREATE INDEX IF NOT EXISTS projects_property_idx ON projects(property_id);
 CREATE INDEX IF NOT EXISTS projects_status_idx   ON projects(status);
 CREATE INDEX IF NOT EXISTS projects_kind_idx     ON projects(kind);
 
+-- ── Holdings Desk ─────────────────────────────────────────────────────────
+-- Per-property system of record for recurring obligations: utilities, insurance,
+-- property taxes, mortgages, business licenses, HOA. Each item captures the
+-- provider/account, linked propspot contact, billing cadence, and free-form
+-- category-specific extras in `details` JSONB. Payments and documents are
+-- first-class children so a receipt PDF can be attached to a specific payment.
+CREATE TABLE IF NOT EXISTS holdings_items (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id          UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  category             TEXT NOT NULL,            -- utility | insurance | property_tax | mortgage | business_license | hoa
+  name                 TEXT NOT NULL,
+  -- Provider / account info
+  vendor               TEXT,
+  account_number       TEXT,
+  provider_phone       TEXT,
+  provider_email       TEXT,
+  provider_website     TEXT,
+  provider_portal_url  TEXT,
+  provider_address     TEXT,
+  contact_id           UUID REFERENCES contacts(id) ON DELETE SET NULL,
+  -- Money / cadence
+  amount               NUMERIC(12,2),
+  frequency            TEXT NOT NULL DEFAULT 'monthly',  -- monthly | quarterly | semiannual | annual | one_time | variable
+  next_due_date        DATE,
+  start_date           DATE,
+  end_date             DATE,
+  -- State
+  status               TEXT NOT NULL DEFAULT 'active',   -- active | paused | closed
+  auto_pay             BOOLEAN NOT NULL DEFAULT FALSE,
+  reminder_enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+  reminder_days_before INT NOT NULL DEFAULT 7,
+  -- Extensible
+  details              JSONB NOT NULL DEFAULT '{}'::jsonb,
+  notes                TEXT,
+  created_by           UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS holdings_items_property_idx ON holdings_items(property_id);
+CREATE INDEX IF NOT EXISTS holdings_items_category_idx ON holdings_items(category);
+CREATE INDEX IF NOT EXISTS holdings_items_due_idx      ON holdings_items(next_due_date);
+CREATE INDEX IF NOT EXISTS holdings_items_status_idx   ON holdings_items(status);
+CREATE INDEX IF NOT EXISTS holdings_items_contact_idx  ON holdings_items(contact_id);
+
+CREATE TABLE IF NOT EXISTS holdings_payments (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id             UUID NOT NULL REFERENCES holdings_items(id) ON DELETE CASCADE,
+  property_id         UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  amount              NUMERIC(12,2) NOT NULL,
+  paid_on             DATE NOT NULL,
+  covers_period_start DATE,
+  covers_period_end   DATE,
+  method              TEXT,             -- ach | check | card | cash | autopay | other
+  reference           TEXT,             -- check#, confirmation#
+  notes               TEXT,
+  created_by          UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS holdings_payments_item_idx     ON holdings_payments(item_id);
+CREATE INDEX IF NOT EXISTS holdings_payments_property_idx ON holdings_payments(property_id);
+CREATE INDEX IF NOT EXISTS holdings_payments_paid_idx     ON holdings_payments(paid_on DESC);
+
+CREATE TABLE IF NOT EXISTS holdings_documents (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_id       UUID NOT NULL REFERENCES holdings_items(id) ON DELETE CASCADE,
+  payment_id    UUID REFERENCES holdings_payments(id) ON DELETE SET NULL,
+  property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  label         TEXT,
+  doc_type      TEXT,                     -- policy | declarations | statement | bill | receipt | certificate | other
+  url           TEXT NOT NULL,
+  cloudinary_id TEXT NOT NULL,
+  mime_type     TEXT,
+  size_bytes    BIGINT,
+  valid_from    DATE,
+  valid_to      DATE,
+  notes         TEXT,
+  created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS holdings_documents_item_idx     ON holdings_documents(item_id);
+CREATE INDEX IF NOT EXISTS holdings_documents_payment_idx  ON holdings_documents(payment_id);
+CREATE INDEX IF NOT EXISTS holdings_documents_property_idx ON holdings_documents(property_id);
+
 -- ── Activity log ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS activity (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -341,7 +426,8 @@ DO $$
 DECLARE t TEXT;
 BEGIN
   FOR t IN SELECT unnest(ARRAY[
-    'properties','contacts','prospects','leads','opportunities','purchases','projects'
+    'properties','contacts','prospects','leads','opportunities','purchases','projects',
+    'holdings_items','holdings_payments','holdings_documents'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||

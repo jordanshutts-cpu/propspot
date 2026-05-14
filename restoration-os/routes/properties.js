@@ -49,7 +49,7 @@ router.get('/:id', async (req, res) => {
     `, [req.params.id]);
     if (!pRows[0]) return res.status(404).json({ error: 'Property not found' });
 
-    const [prospects, leads, opps, purchases, projects, contacts, photos] = await Promise.all([
+    const [prospects, leads, opps, purchases, projects, contacts, photos, holdings] = await Promise.all([
       query('SELECT * FROM prospects     WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
       query('SELECT * FROM leads         WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
       query('SELECT * FROM opportunities WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
@@ -64,7 +64,12 @@ router.get('/:id', async (req, res) => {
                FROM photos ph
                LEFT JOIN users u ON u.id = ph.uploaded_by
               WHERE ph.property_id = $1
-              ORDER BY ph.taken_at DESC`, [req.params.id])
+              ORDER BY ph.taken_at DESC`, [req.params.id]),
+      query(`SELECT i.*, c.full_name AS contact_name
+               FROM holdings_items i
+               LEFT JOIN contacts c ON c.id = i.contact_id
+              WHERE i.property_id = $1
+              ORDER BY i.next_due_date NULLS LAST, i.created_at DESC`, [req.params.id])
     ]);
 
     res.json({
@@ -75,7 +80,8 @@ router.get('/:id', async (req, res) => {
       purchases: purchases.rows,
       projects: projects.rows,
       contacts: contacts.rows,
-      photos: photos.rows
+      photos: photos.rows,
+      holdings_items: holdings.rows
     });
   } catch (err) {
     console.error(err);

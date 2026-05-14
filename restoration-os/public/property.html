@@ -112,6 +112,30 @@
       </div>`;
     }
 
+    const holdings = property.holdings_items || [];
+    html += `<div class="stage-section">
+      <h3>💼 Holdings <span class="text-muted text-xs" style="font-weight:400;">(${holdings.length})</span>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addHolding()">+ Add</button>
+      </h3>
+      ${holdings.length
+        ? holdings.map(h => {
+            const badge = holdingDueBadge(h.next_due_date, h.reminder_days_before);
+            const amt = h.amount != null ? `${formatMoney(h.amount)} / ${escHtml(holdingFrequencyLabel(h.frequency))}` : escHtml(holdingFrequencyLabel(h.frequency));
+            return `<a class="pipe-row" href="/holdings-item.html?id=${h.id}" style="text-decoration:none;color:inherit;">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                <div style="font-size:1.2rem;">${escHtml(holdingCategoryIcon(h.category))}</div>
+                <div style="flex:1;">
+                  <div>${escHtml(h.name)}</div>
+                  <div class="meta">${amt}${h.vendor ? ' · ' + escHtml(h.vendor) : ''}${h.contact_name ? ' · 👤 ' + escHtml(h.contact_name) : ''}</div>
+                </div>
+              </div>
+              <span class="status-pill" style="background:${badge.cls === 'badge-danger' ? '#fee2e2' : badge.cls === 'badge-warn' ? '#fef3c7' : 'var(--brand-light)'}; color:${badge.cls === 'badge-danger' ? '#b91c1c' : badge.cls === 'badge-warn' ? '#92400e' : 'var(--brand)'};">${escHtml(badge.label)}</span>
+            </a>`;
+          }).join('')
+        : '<div class="text-muted text-xs">None yet.</div>'
+      }
+    </div>`;
+
     html += `<div class="stage-section">
       <h3>📇 Contacts<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addContactLink()">+ Link</button></h3>
       ${property.contacts.length
@@ -232,6 +256,55 @@
       await promotePipelineRecord(stage, recordId, body);
       showToast('Promoted'); await load();
     } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  function addHolding(){
+    const catOpts = HOLDING_CATEGORIES.map(([k, label, icon]) =>
+      `<option value="${k}">${icon} ${escHtml(label)}</option>`
+    ).join('');
+    const freqOpts = HOLDING_FREQUENCIES.map(([k, label]) =>
+      `<option value="${k}" ${k === 'monthly' ? 'selected' : ''}>${escHtml(label)}</option>`
+    ).join('');
+    const bg = document.createElement('div');
+    bg.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:flex-end;justify-content:center;';
+    bg.innerHTML = `<div style="background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:18px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;" onclick="event.stopPropagation()">
+      <h3 style="margin:0 0 12px;font-size:1.05rem;">Add Holding</h3>
+      <form id="add-holding-form">
+        <div style="margin-bottom:10px;"><label style="font-size:.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Category</label>
+          <select class="form-input" name="category" required>${catOpts}</select></div>
+        <div style="margin-bottom:10px;"><label style="font-size:.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Name / Label</label>
+          <input class="form-input" name="name" placeholder="e.g. State Farm HO-3" required></div>
+        <div style="margin-bottom:10px;"><label style="font-size:.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Vendor</label>
+          <input class="form-input" name="vendor" placeholder="Provider company"></div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;"><label style="font-size:.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Amount</label>
+            <input class="form-input" name="amount" type="number" step="0.01"></div>
+          <div style="flex:1;"><label style="font-size:.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Frequency</label>
+            <select class="form-input" name="frequency">${freqOpts}</select></div>
+        </div>
+        <div style="margin-bottom:12px;"><label style="font-size:.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Next Due Date</label>
+          <input class="form-input" name="next_due_date" type="date"></div>
+        <div style="display:flex;justify-content:flex-end;gap:6px;">
+          <button type="button" class="btn btn-secondary" onclick="this.closest('div[style*=fixed]').remove()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>`;
+    bg.addEventListener('click', (e) => { if (e.target === bg) bg.remove(); });
+    document.body.appendChild(bg);
+    document.getElementById('add-holding-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      const body = { property_id: id };
+      for (const [k, v] of fd.entries()) if (v !== '') body[k] = v;
+      if (body.amount) body.amount = Number(body.amount);
+      try {
+        await createHolding(body);
+        bg.remove();
+        showToast('Holding added');
+        await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    });
   }
 
   async function addContactLink(){
