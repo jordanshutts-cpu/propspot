@@ -23,18 +23,8 @@
   <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
 </main>
 
-<nav class="bottom-nav">
-  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🏘️</span><span class="nav-label"> Prop Spot</span></a>
-  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
-  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
-  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
-  <a class="nav-link" data-app="holdings" href="#"><span class="nav-icon">💼</span>Holdings</a>
-  <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
-  <a class="nav-link" href="/team.html"><span class="nav-icon">👥</span>Team</a>
-  <a class="nav-link active" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
-  <div class="nav-spacer"></div>
-  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
-</nav>
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'apps';</script>
 
 <script src="config.js"></script>
 <script src="app.js"></script>

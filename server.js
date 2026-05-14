@@ -56,7 +56,10 @@ app.get('/api/health', (req, res) =>
 app.get('/api/config', (req, res) => {
   res.json({
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
-    osUrl:            process.env.OS_URL || ''
+    osUrl:            process.env.OS_URL          || '',
+    holdingsUrl:      process.env.HOLDINGS_URL    || '',
+    maintenanceUrl:   process.env.MAINTENANCE_URL || '',
+    fieldcamUrl:      process.env.FIELDCAM_URL    || ''
   });
 });
 

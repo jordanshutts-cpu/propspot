@@ -264,11 +264,18 @@ body {
   }
 
   html.sidebar-collapsed { --sidebar-width: 64px; }
-  html.sidebar-collapsed .nav-label          { opacity: 0; width: 0; overflow: hidden; }
+  /* Hide every label-bearing span (and any bare text inside nav rows)
+     when the sidebar is collapsed. Icons remain visible. */
+  html.sidebar-collapsed .nav-label,
+  html.sidebar-collapsed .nav-brand .nav-label,
+  html.sidebar-collapsed .nav-link  .nav-label,
+  html.sidebar-collapsed .nav-signout .nav-label { display: none; }
+  html.sidebar-collapsed .nav-link,
+  html.sidebar-collapsed .nav-signout            { font-size: 0; }
   html.sidebar-collapsed .nav-brand          { justify-content: center; padding: 20px 0 16px; gap: 0; }
   html.sidebar-collapsed .nav-link           { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px; gap: 0; }
   html.sidebar-collapsed .nav-link .nav-icon { font-size: 1.3rem; }
-  html.sidebar-collapsed .nav-signout        { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px 8px; gap: 0; font-size: 0; }
+  html.sidebar-collapsed .nav-signout        { justify-content: center; padding: 12px 0; width: calc(100% - 8px); margin: 0 4px 8px; gap: 0; }
   html.sidebar-collapsed .nav-signout .nav-icon { font-size: 1.15rem; }
 
   /* Hide logo from top header — it's in the sidebar now */

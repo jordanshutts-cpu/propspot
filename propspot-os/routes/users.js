@@ -13,7 +13,8 @@ router.get('/', async (req, res) => {
              (u.password_hash IS NOT NULL) AS is_active,
              COALESCE(json_agg(
                json_build_object(
-                 'app_slug', a.slug, 'app_name', a.name, 'role', ag.role, 'scope', ag.scope
+                 'app_id', a.id, 'app_slug', a.slug, 'slug', a.slug,
+                 'app_name', a.name, 'role', ag.role, 'scope', ag.scope
                ) ORDER BY a.name
              ) FILTER (WHERE a.id IS NOT NULL), '[]') AS grants
         FROM users u

@@ -11,6 +11,25 @@
   <style>
     .grant-pill { font-size:.7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); margin-right:4px; margin-top:4px; display:inline-block; }
     .grants-line { margin-top:4px; }
+    .team-row { cursor: pointer; transition: background .12s; }
+    .team-row:hover { background: var(--brand-light); }
+
+    .app-toggle {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; margin-bottom: 6px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      cursor: pointer; background: var(--surface);
+    }
+    .app-toggle:hover { border-color: var(--brand); }
+    .app-toggle.checked { border-color: var(--brand); background: var(--brand-light); }
+    .app-toggle .app-icon { font-size: 1.3rem; }
+    .app-toggle .app-name { flex: 1; font-weight: 600; font-size: .9rem; }
+    .app-toggle .app-desc { font-size: .7rem; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+    .app-toggle input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; }
+
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px; }
+    .modal-backdrop.open { display: flex; }
+    .modal-card { background:#fff; border-radius:14px; max-width:480px; width:100%; padding:20px; max-height:90vh; overflow-y:auto; }
   </style>
 </head>
 <body>
@@ -18,7 +37,7 @@
 <header class="app-header">
   <span class="logo">👥 Team</span>
   <div class="header-actions">
-    <button class="icon-btn" onclick="document.getElementById('invite-modal').classList.remove('hidden')">+</button>
+    <button class="icon-btn" onclick="openInvite()" title="Invite team member">+</button>
     <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
   </div>
 </header>
@@ -26,17 +45,20 @@
 <main class="page">
   <div class="section-header">
     <span class="section-title" id="count">Members</span>
+    <button class="btn btn-primary btn-sm" onclick="openInvite()">+ Invite</button>
   </div>
+  <p class="text-xs text-muted mb-16">Tap a member to manage their app access.</p>
   <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
 </main>
 
-<div id="invite-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:20px;">
+<!-- Invite modal -->
+<div id="invite-modal" class="modal-backdrop">
+  <div class="modal-card">
     <div class="section-header">
       <span class="section-title">Invite Team Member</span>
-      <button class="icon-btn" style="background:#eee;color:#000;" onclick="document.getElementById('invite-modal').classList.add('hidden')">×</button>
+      <button class="icon-btn" style="background:#eee;color:#000;" onclick="closeModal('invite-modal')">×</button>
     </div>
-    <p class="text-sm text-muted mb-12">For inviting employees / business partners. To invite a contractor, accountant, attorney, etc., create them as a contact first then invite from the contact page.</p>
+    <p class="text-sm text-muted mb-12">For employees / business partners. To invite a contractor or vendor, create them as a contact first and invite from there.</p>
     <form onsubmit="submitInvite(event)">
       <div class="form-group">
         <label class="form-label">Email *</label>
@@ -46,96 +68,226 @@
         <label class="form-label">Full Name</label>
         <input class="form-input" id="i-name">
       </div>
-      <p class="text-xs text-muted mb-12">They will get an invite with no app access. Grant apps from the team list after they accept.</p>
+      <div class="form-group">
+        <label class="form-label">App access</label>
+        <p class="text-xs text-muted mb-8">Check the apps they should be able to use. You can change this later.</p>
+        <div id="i-apps"></div>
+      </div>
       <p id="i-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
       <div id="i-link-box" class="hidden mb-12" style="background:var(--bg);border-radius:8px;padding:12px;">
-        <p class="text-xs text-muted" id="i-link-text" style="word-break:break-all;"></p>
+        <p class="text-xs text-muted mb-8">No email server configured. Send them this invite link:</p>
+        <p class="text-xs" id="i-link-text" style="word-break:break-all;"></p>
       </div>
       <button class="btn btn-primary btn-full" type="submit" id="i-btn">📨 Send Invite</button>
     </form>
   </div>
 </div>
 
-<nav class="bottom-nav">
-  <a class="nav-brand" href="/dashboard.html"><span class="nav-icon">🏘️</span><span class="nav-label"> Prop Spot</span></a>
-  <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
-  <a class="nav-link" href="/dashboard.html"><span class="nav-icon">🏠</span>Home</a>
-  <a class="nav-link" href="/properties.html"><span class="nav-icon">🏘️</span>Properties</a>
-  <a class="nav-link" data-app="holdings" href="#"><span class="nav-icon">💼</span>Holdings</a>
-  <a class="nav-link" href="/contacts.html"><span class="nav-icon">📇</span>Contacts</a>
-  <a class="nav-link active" href="/team.html"><span class="nav-icon">👥</span>Team</a>
-  <a class="nav-link" href="/apps.html"><span class="nav-icon">🧩</span>Apps</a>
-  <div class="nav-spacer"></div>
-  <button class="nav-signout" onclick="signOut()" title="Sign Out"><span class="nav-icon">🚪</span>Sign Out</button>
-</nav>
+<!-- Manage grants modal -->
+<div id="grants-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <div class="section-header">
+      <span class="section-title">Manage Access</span>
+      <button class="icon-btn" style="background:#eee;color:#000;" onclick="closeModal('grants-modal')">×</button>
+    </div>
+    <div id="g-user" class="text-sm mb-12"></div>
+    <p class="text-xs text-muted mb-8">Check the apps this user should be able to use. Changes save instantly.</p>
+    <div id="g-apps"></div>
+    <p id="g-err" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    <p id="g-status" class="text-xs text-muted mt-12"></p>
+  </div>
+</div>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'team';</script>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
   let me = null;
+  let allApps = [];
+  let allUsers = [];
 
   async function init(){
     me = await requireAuth(); if (!me) return;
-    await load();
+    await Promise.all([loadUsers(), loadApps()]);
   }
 
-  async function load(){
-    try{
-      const users = await getUsers();
+  async function loadApps() {
+    try {
+      allApps = await getApps();
+    } catch (e) {
+      console.error(e);
+      allApps = [];
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      allUsers = await getUsers();
       document.getElementById('count').textContent =
-        `${users.length} ${users.length === 1 ? 'Member' : 'Members'}`;
-      const el = document.getElementById('list');
-      if (!users.length){ el.innerHTML = '<p class="text-muted text-sm">No team members yet.</p>'; return; }
-      el.innerHTML = users.map(u => {
-        const name = u.full_name || u.email;
-        const isYou = u.id === me.id;
-        const grantPills = (u.grants || []).map(g => {
-          const scopeText = g.scope?.all ? '' : (g.scope?.project_ids ? ` (${g.scope.project_ids.length})` : '');
-          return `<span class="grant-pill">${escHtml(g.app_name)} · ${escHtml(g.role)}${escHtml(scopeText)}</span>`;
-        }).join('');
-        return `
-          <div class="team-row">
-            <div class="avatar">${escHtml(name.charAt(0).toUpperCase())}</div>
-            <div class="team-info">
-              <div class="team-name">
-                ${escHtml(name)}
-                ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}
-                ${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}
-              </div>
-              <div class="team-email">${escHtml(u.email)}</div>
-              <div class="grants-line">${grantPills || '<span class="text-xs text-muted">No app access</span>'}</div>
-            </div>
-            <span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span>
-          </div>
-        `;
-      }).join('');
-    }catch(err){
+        `${allUsers.length} ${allUsers.length === 1 ? 'Member' : 'Members'}`;
+      renderUsers();
+    } catch (err) {
       document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
 
-  async function submitInvite(e){
+  function renderUsers() {
+    const el = document.getElementById('list');
+    if (!allUsers.length) { el.innerHTML = '<p class="text-muted text-sm">No team members yet.</p>'; return; }
+    el.innerHTML = allUsers.map(u => {
+      const name = u.full_name || u.email;
+      const isYou = u.id === me.id;
+      const grantPills = (u.grants || []).map(g => {
+        const scopeText = g.scope?.all ? '' : (g.scope?.project_ids ? ` (${g.scope.project_ids.length})` : '');
+        return `<span class="grant-pill">${escHtml(g.app_name)} · ${escHtml(g.role)}${escHtml(scopeText)}</span>`;
+      }).join('');
+      return `
+        <div class="team-row" onclick="openGrants('${u.id}')">
+          <div class="avatar">${escHtml(name.charAt(0).toUpperCase())}</div>
+          <div class="team-info">
+            <div class="team-name">
+              ${escHtml(name)}
+              ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}
+              ${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}
+            </div>
+            <div class="team-email">${escHtml(u.email)}</div>
+            <div class="grants-line">${grantPills || '<span class="text-xs text-muted">No app access — click to grant</span>'}</div>
+          </div>
+          <span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  // ── Invite modal ─────────────────────────────────────────────
+  function openInvite() {
+    document.getElementById('i-email').value = '';
+    document.getElementById('i-name').value  = '';
+    document.getElementById('i-err').style.display = 'none';
+    document.getElementById('i-link-box').classList.add('hidden');
+    const wrap = document.getElementById('i-apps');
+    wrap.innerHTML = allApps.length ? allApps.map(a => `
+      <label class="app-toggle" data-app-id="${a.id}">
+        <input type="checkbox" data-app-id="${a.id}" onchange="this.closest('.app-toggle').classList.toggle('checked', this.checked)">
+        <span class="app-icon">${escHtml(a.icon || '🧩')}</span>
+        <div style="flex:1;">
+          <div class="app-name">${escHtml(a.name)}</div>
+          <div class="app-desc">${escHtml(a.description || a.slug)}</div>
+        </div>
+      </label>
+    `).join('') : '<p class="text-xs text-muted">No apps registered.</p>';
+    document.getElementById('invite-modal').classList.add('open');
+  }
+
+  async function submitInvite(e) {
     e.preventDefault();
     const btn = document.getElementById('i-btn'), err = document.getElementById('i-err');
     err.style.display = 'none';
     showSpinner(btn, 'Sending…');
-    try{
+    const selectedAppIds = Array.from(document.querySelectorAll('#i-apps input[type=checkbox]:checked'))
+      .map(cb => cb.dataset.appId);
+    const app_grants = selectedAppIds.map(app_id => ({
+      app_id,
+      role: 'member',
+      scope: { all: true }
+    }));
+    try {
       const res = await inviteUser(
         document.getElementById('i-email').value,
         document.getElementById('i-name').value || undefined,
-        []
+        app_grants
       );
-      if (res.inviteLink){
+      if (res.inviteLink) {
         document.getElementById('i-link-box').classList.remove('hidden');
         document.getElementById('i-link-text').textContent = res.inviteLink;
       } else {
         showToast(res.message || 'Invite sent');
-        setTimeout(() => { document.getElementById('invite-modal').classList.add('hidden'); load(); }, 1200);
+        setTimeout(() => { closeModal('invite-modal'); loadUsers(); }, 1200);
       }
       hideSpinner(btn);
-    }catch(e){
+    } catch (e) {
       err.textContent = e.message; err.style.display = 'block';
       hideSpinner(btn);
+    }
+  }
+
+  // ── Grants modal ────────────────────────────────────────────
+  let currentGrantsUserId = null;
+
+  function openGrants(userId) {
+    const u = allUsers.find(x => x.id === userId);
+    if (!u) return;
+    currentGrantsUserId = userId;
+    const name = u.full_name || u.email;
+    const isYou = u.id === me.id;
+
+    document.getElementById('g-user').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:8px;">
+        <div class="avatar" style="width:40px;height:40px;font-size:1rem;">${escHtml(name.charAt(0).toUpperCase())}</div>
+        <div style="flex:1;">
+          <div class="team-name">${escHtml(name)} ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}</div>
+          <div class="team-email">${escHtml(u.email)}</div>
+        </div>
+      </div>`;
+
+    const grantedAppIds = new Set();
+    const grantBySlug = {};
+    (u.grants || []).forEach(g => {
+      if (g.app_id) grantedAppIds.add(g.app_id);
+      if (g.slug)   grantBySlug[g.slug] = g;
+    });
+
+    document.getElementById('g-apps').innerHTML = allApps.length ? allApps.map(a => {
+      const has = grantedAppIds.has(a.id) || !!grantBySlug[a.slug];
+      const lockedSelfOwner = isYou && u.is_owner;
+      return `
+        <label class="app-toggle ${has ? 'checked' : ''}" data-app-id="${a.id}">
+          <input type="checkbox" data-app-id="${a.id}" ${has ? 'checked' : ''} ${lockedSelfOwner ? 'disabled' : ''}
+                 onchange="toggleGrant(this)">
+          <span class="app-icon">${escHtml(a.icon || '🧩')}</span>
+          <div style="flex:1;">
+            <div class="app-name">${escHtml(a.name)}</div>
+            <div class="app-desc">${escHtml(a.description || a.slug)}</div>
+          </div>
+        </label>
+      `;
+    }).join('') : '<p class="text-xs text-muted">No apps registered.</p>';
+
+    document.getElementById('g-err').style.display = 'none';
+    document.getElementById('g-status').textContent = '';
+    document.getElementById('grants-modal').classList.add('open');
+  }
+
+  async function toggleGrant(cb) {
+    const appId  = cb.dataset.appId;
+    const userId = currentGrantsUserId;
+    const wrap   = cb.closest('.app-toggle');
+    const status = document.getElementById('g-status');
+    const err    = document.getElementById('g-err');
+    err.style.display = 'none';
+    cb.disabled = true;
+    status.textContent = cb.checked ? 'Granting…' : 'Revoking…';
+    try {
+      if (cb.checked) {
+        await grantAppAccess(appId, userId, { role: 'member', scope: { all: true } });
+        wrap.classList.add('checked');
+      } else {
+        await revokeAppAccess(appId, userId);
+        wrap.classList.remove('checked');
+      }
+      status.textContent = 'Saved ✓';
+      await loadUsers();
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+      status.textContent = '';
+      cb.checked = !cb.checked;
+      wrap.classList.toggle('checked', cb.checked);
+    } finally {
+      cb.disabled = false;
     }
   }
 

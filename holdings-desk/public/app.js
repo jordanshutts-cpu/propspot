@@ -208,3 +208,109 @@ async function osLink(path) {
   const sep = path.includes('?') ? '&' : '?';
   return base + path + sep + 'token=' + encodeURIComponent(token);
 }
+
+// ── Unified satellite + OS nav (shared across propspot-os, holdings-desk,
+//    maintenance, fieldcam). Each anchor with data-app="holdings|
+//    maintenance|fieldcam" is wired to that satellite's URL with the
+//    SSO token; data-osnav="dashboard|properties|contacts|team|apps"
+//    is wired to the OS URL. Set window.NAV_CURRENT to highlight the
+//    active item. ─────────────────────────────────────────────────────
+let _navCfgCache = null;
+async function _loadNavConfig() {
+  if (_navCfgCache) return _navCfgCache;
+  try {
+    const r = await fetch(API_BASE + '/api/config');
+    _navCfgCache = await r.json() || {};
+  } catch { _navCfgCache = {}; }
+  return _navCfgCache;
+}
+function _isCurrentOrigin(url) {
+  if (!url) return false;
+  try { return new URL(url).origin === location.origin; }
+  catch { return false; }
+}
+function _appendToken(url) {
+  const token = getToken();
+  if (!token) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return url + sep + 'token=' + encodeURIComponent(token);
+}
+async function wireUnifiedNav() {
+  if (!getToken()) return;
+  const cfg = await _loadNavConfig();
+  const APP_URLS = {
+    holdings:    cfg.holdingsUrl    || '',
+    maintenance: cfg.maintenanceUrl || '',
+    fieldcam:    cfg.fieldcamUrl    || ''
+  };
+  document.querySelectorAll('[data-app]').forEach(a => {
+    const slug = a.dataset.app;
+    const base = APP_URLS[slug];
+    if (!base) { a.style.display = 'none'; return; }
+    const path = a.dataset.appPath || '/';
+    a.href = _isCurrentOrigin(base)
+      ? path
+      : _appendToken(base.replace(/\/$/, '') + path);
+  });
+  const osBase = cfg.osUrl || '';
+  document.querySelectorAll('[data-osnav]').forEach(a => {
+    const page = a.dataset.osnav;
+    const path = (page === 'dashboard' || page === '') ? '/dashboard.html' : '/' + page + '.html';
+    if (!osBase) { a.href = path; return; }
+    a.href = _isCurrentOrigin(osBase)
+      ? path
+      : _appendToken(osBase.replace(/\/$/, '') + path);
+  });
+  const active = window.NAV_CURRENT;
+  if (active) {
+    document.querySelectorAll('.nav-link').forEach(a => {
+      const slug = a.dataset.app || a.dataset.osnav;
+      if (slug === active) a.classList.add('active');
+    });
+  }
+}
+function renderUnifiedNav() {
+  const navEl = document.getElementById('nav');
+  if (!navEl) return;
+  navEl.innerHTML = `
+    <a class="nav-brand" data-osnav="dashboard" href="#">
+      <span class="nav-icon">🏘️</span><span class="nav-label">Prop Spot</span>
+    </a>
+    <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+    <a class="nav-link" data-osnav="dashboard" href="#"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></a>
+    <a class="nav-link" data-osnav="properties" href="#"><span class="nav-icon">🏘️</span><span class="nav-label">Properties</span></a>
+    <a class="nav-link" data-app="holdings" href="#"><span class="nav-icon">💼</span><span class="nav-label">Holdings</span></a>
+    <a class="nav-link" data-app="maintenance" href="#"><span class="nav-icon">🛠️</span><span class="nav-label">Maintenance</span></a>
+    <a class="nav-link" data-app="fieldcam" href="#"><span class="nav-icon">📸</span><span class="nav-label">FieldCam</span></a>
+    <a class="nav-link" data-osnav="contacts" href="#"><span class="nav-icon">📇</span><span class="nav-label">Contacts</span></a>
+    <a class="nav-link" data-osnav="team" href="#"><span class="nav-icon">👥</span><span class="nav-label">Team</span></a>
+    <div class="nav-spacer"></div>
+    <button class="nav-signout" onclick="signOut()" title="Sign Out">
+      <span class="nav-icon">🚪</span><span class="nav-label">Sign Out</span>
+    </button>
+  `;
+  const btn = document.getElementById('nav-collapse-btn');
+  if (btn) {
+    const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
+    btn.textContent = collapsed ? '›' : '‹';
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  }
+  wireUnifiedNav();
+}
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { renderUnifiedNav(); });
+  } else {
+    renderUnifiedNav();
+  }
+}
+
+function toggleSidebar() {
+  const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+  const btn = document.getElementById('nav-collapse-btn');
+  if (btn) {
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    btn.textContent = collapsed ? '›' : '‹';
+  }
+}

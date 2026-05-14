@@ -50,7 +50,10 @@ app.get('/api/health', (req, res) =>
 // ── Public config (non-secret values for the frontend) ────────
 app.get('/api/config', (req, res) => {
   res.json({
-    osUrl: process.env.OS_URL || ''
+    osUrl:          process.env.OS_URL          || '',
+    holdingsUrl:    process.env.HOLDINGS_URL    || '',
+    maintenanceUrl: process.env.MAINTENANCE_URL || '',
+    fieldcamUrl:    process.env.FIELDCAM_URL    || ''
   });
 });
 

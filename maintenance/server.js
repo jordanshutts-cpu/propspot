@@ -34,7 +34,12 @@ app.get('/api/health', (req, res) =>
 );
 
 app.get('/api/config', (req, res) => {
-  res.json({ osUrl: process.env.OS_URL || '' });
+  res.json({
+    osUrl:          process.env.OS_URL          || '',
+    holdingsUrl:    process.env.HOLDINGS_URL    || '',
+    maintenanceUrl: process.env.MAINTENANCE_URL || '',
+    fieldcamUrl:    process.env.FIELDCAM_URL    || ''
+  });
 });
 
 app.use(express.static(path.join(__dirname, 'public')));

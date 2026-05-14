@@ -120,43 +120,150 @@ async function getActivity(params = {}) {
 // directly from the property's GET /:id response (holdings_items field).
 async function getHoldingsSummary()      { return apiFetch('/api/holdings/summary'); }
 
-// Resolve the satellite URL once per page so links can be set synchronously.
-let _holdingsUrlCache = null;
-async function getHoldingsUrl() {
-  if (_holdingsUrlCache !== null) return _holdingsUrlCache;
+// ── Unified satellite + OS nav wiring ──────────────────────────────
+// Each anchor with data-app="holdings|maintenance|fieldcam" gets wired
+// to that satellite's URL with the current SSO token appended. Each
+// data-osnav="dashboard|properties|contacts|team|apps" gets wired to
+// the OS URL. Set window.NAV_CURRENT to highlight the active item.
+let _navCfgCache = null;
+async function _loadNavConfig() {
+  if (_navCfgCache) return _navCfgCache;
   try {
     const cfg = await apiFetch('/api/config');
-    _holdingsUrlCache = cfg.holdingsUrl || '';
-  } catch {
-    _holdingsUrlCache = '';
-  }
-  return _holdingsUrlCache;
-}
-// Build a Holdings Desk link with the current token appended for SSO handoff.
-async function holdingsLink(path = '/') {
-  const base = await getHoldingsUrl();
-  if (!base) return '#';
-  const token = getToken();
-  const sep = (base + path).includes('?') ? '&' : '?';
-  return base.replace(/\/$/, '') + path + sep + 'token=' + encodeURIComponent(token);
+    _navCfgCache = cfg || {};
+  } catch { _navCfgCache = {}; }
+  return _navCfgCache;
 }
 
-// Walks the page and fills in href for every anchor tagged with
-// data-app="holdings". Optional data-holdings-path overrides the default '/'.
-// Run on every page after requireAuth(); cheap to call (single config fetch).
-async function wireHoldingsLinks() {
+function _isCurrentOrigin(url) {
+  if (!url) return false;
+  try { return new URL(url).origin === location.origin; }
+  catch { return false; }
+}
+
+function _appendToken(url) {
+  const token = getToken();
+  if (!token) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return url + sep + 'token=' + encodeURIComponent(token);
+}
+
+// Back-compat: old code called holdingsLink(path) directly.
+async function holdingsLink(path = '/') {
+  const cfg = await _loadNavConfig();
+  const base = cfg.holdingsUrl;
+  if (!base) return '#';
+  if (_isCurrentOrigin(base)) return path;
+  return _appendToken(base.replace(/\/$/, '') + path);
+}
+
+async function wireUnifiedNav() {
   if (!getToken()) return;
-  const anchors = document.querySelectorAll('a[data-app="holdings"]');
-  if (!anchors.length) return;
-  for (const a of anchors) {
-    a.href = await holdingsLink(a.dataset.holdingsPath || '/');
+  const cfg = await _loadNavConfig();
+
+  const APP_URLS = {
+    holdings:    cfg.holdingsUrl    || '',
+    maintenance: cfg.maintenanceUrl || '',
+    fieldcam:    cfg.fieldcamUrl    || ''
+  };
+
+  // data-app="<slug>" — link to a satellite app
+  document.querySelectorAll('[data-app]').forEach(a => {
+    const slug = a.dataset.app;
+    const base = APP_URLS[slug];
+    if (!base) {
+      a.style.display = 'none';   // satellite URL not configured — hide the entry
+      return;
+    }
+    const path = a.dataset.appPath || '/';
+    a.href = _isCurrentOrigin(base)
+      ? path
+      : _appendToken(base.replace(/\/$/, '') + path);
+  });
+
+  // data-osnav="<page>" — link to an OS page (dashboard/properties/contacts/team/apps)
+  const osBase = cfg.osUrl || '';
+  document.querySelectorAll('[data-osnav]').forEach(a => {
+    const page = a.dataset.osnav;
+    const path = (page === 'dashboard' || page === '') ? '/dashboard.html' : '/' + page + '.html';
+    if (!osBase) {
+      // No OS_URL configured — assume we're on OS itself, use relative path.
+      a.href = path;
+      return;
+    }
+    a.href = _isCurrentOrigin(osBase)
+      ? path
+      : _appendToken(osBase.replace(/\/$/, '') + path);
+  });
+
+  // Highlight the active nav-link
+  const active = window.NAV_CURRENT;
+  if (active) {
+    document.querySelectorAll('.nav-link').forEach(a => {
+      const slug = a.dataset.app || a.dataset.osnav;
+      if (slug === active) a.classList.add('active');
+    });
   }
 }
+
+// Inject the canonical nav HTML into <nav id="nav"></nav> on the page,
+// then wire all links. Each page should set window.NAV_CURRENT = '<key>'
+// before calling, where key matches the data-app or data-osnav of the
+// item to highlight (dashboard | properties | holdings | maintenance |
+// fieldcam | contacts | team).
+function renderUnifiedNav() {
+  const navEl = document.getElementById('nav');
+  if (!navEl) return;
+  navEl.innerHTML = `
+    <a class="nav-brand" data-osnav="dashboard" href="#">
+      <span class="nav-icon">🏘️</span><span class="nav-label">Prop Spot</span>
+    </a>
+    <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+    <a class="nav-link" data-osnav="dashboard" href="#">
+      <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+    </a>
+    <a class="nav-link" data-osnav="properties" href="#">
+      <span class="nav-icon">🏘️</span><span class="nav-label">Properties</span>
+    </a>
+    <a class="nav-link" data-app="holdings" href="#">
+      <span class="nav-icon">💼</span><span class="nav-label">Holdings</span>
+    </a>
+    <a class="nav-link" data-app="maintenance" href="#">
+      <span class="nav-icon">🛠️</span><span class="nav-label">Maintenance</span>
+    </a>
+    <a class="nav-link" data-app="fieldcam" href="#">
+      <span class="nav-icon">📸</span><span class="nav-label">FieldCam</span>
+    </a>
+    <a class="nav-link" data-osnav="contacts" href="#">
+      <span class="nav-icon">📇</span><span class="nav-label">Contacts</span>
+    </a>
+    <a class="nav-link" data-osnav="team" href="#">
+      <span class="nav-icon">👥</span><span class="nav-label">Team</span>
+    </a>
+    <div class="nav-spacer"></div>
+    <button class="nav-signout" onclick="signOut()" title="Sign Out">
+      <span class="nav-icon">🚪</span><span class="nav-label">Sign Out</span>
+    </button>
+  `;
+  // Restore collapse-button icon to match the current state.
+  const btn = document.getElementById('nav-collapse-btn');
+  if (btn) {
+    const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
+    btn.textContent = collapsed ? '›' : '‹';
+    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  }
+  wireUnifiedNav();
+}
+
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { wireHoldingsLinks(); });
+    document.addEventListener('DOMContentLoaded', () => {
+      renderUnifiedNav();
+      wireUnifiedNav();   // also wire any pre-existing nav (back-compat)
+    });
   } else {
-    wireHoldingsLinks();
+    renderUnifiedNav();
+    wireUnifiedNav();
   }
 }
 
