@@ -20,7 +20,11 @@ router.get('/', async (req, res) => {
   try {
     const { rows } = await query(`
       SELECT p.*,
-             u.full_name AS created_by_name,
+             u.full_name  AS created_by_name,
+             lc.full_name AS lender_name,
+             sc.full_name AS seller_name,
+             oc.full_name AS owner_name,
+             ac.full_name AS acquisition_agent_name,
              (SELECT COUNT(*) FROM prospects     WHERE property_id = p.id)::int AS prospect_count,
              (SELECT COUNT(*) FROM leads         WHERE property_id = p.id)::int AS lead_count,
              (SELECT COUNT(*) FROM opportunities WHERE property_id = p.id)::int AS opportunity_count,
@@ -28,13 +32,43 @@ router.get('/', async (req, res) => {
              (SELECT COUNT(*) FROM projects      WHERE property_id = p.id)::int AS project_count,
              (SELECT COUNT(*) FROM photos        WHERE property_id = p.id)::int AS photo_count
         FROM properties p
-        LEFT JOIN users u ON u.id = p.created_by
+        LEFT JOIN users    u  ON u.id  = p.created_by
+        LEFT JOIN contacts lc ON lc.id = p.lender_contact_id
+        LEFT JOIN contacts sc ON sc.id = p.seller_contact_id
+        LEFT JOIN contacts oc ON oc.id = p.owner_contact_id
+        LEFT JOIN contacts ac ON ac.id = p.acquisition_agent_contact_id
        ORDER BY p.created_at DESC
     `);
     res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch properties' });
+  }
+});
+
+// POST /api/properties/resolve-owner — find or create an owner contact.
+// Body: { name }. Returns { id, full_name, created } so the edit form can
+// turn a typed name into a contact_id without making the user navigate
+// to /contacts.html first.
+router.post('/resolve-owner', async (req, res) => {
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'name required' });
+  try {
+    const { rows: existing } = await query(
+      `SELECT id, full_name FROM contacts
+        WHERE type = 'owner' AND LOWER(full_name) = LOWER($1) LIMIT 1`,
+      [name]
+    );
+    if (existing[0]) return res.json({ ...existing[0], created: false });
+    const { rows: ins } = await query(
+      `INSERT INTO contacts (type, full_name, created_by)
+       VALUES ('owner', $1, $2) RETURNING id, full_name`,
+      [name, req.userId]
+    );
+    res.status(201).json({ ...ins[0], created: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to resolve owner' });
   }
 });
 
@@ -45,11 +79,15 @@ router.get('/:id', async (req, res) => {
       SELECT p.*,
              u.full_name  AS created_by_name,
              lc.full_name AS lender_name,
-             sc.full_name AS seller_name
+             sc.full_name AS seller_name,
+             oc.full_name AS owner_name,
+             ac.full_name AS acquisition_agent_name
         FROM properties p
         LEFT JOIN users    u  ON u.id  = p.created_by
         LEFT JOIN contacts lc ON lc.id = p.lender_contact_id
         LEFT JOIN contacts sc ON sc.id = p.seller_contact_id
+        LEFT JOIN contacts oc ON oc.id = p.owner_contact_id
+        LEFT JOIN contacts ac ON ac.id = p.acquisition_agent_contact_id
        WHERE p.id = $1
     `, [req.params.id]);
     if (!pRows[0]) return res.status(404).json({ error: 'Property not found' });
@@ -177,9 +215,13 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   const allowed = [
     'address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','status',
-    'owner','county','tms','lockbox_code',
+    'owner','owner_contact_id','county','tms','lockbox_code',
     'purchase_date','purchase_price','sold_date','sold_price',
-    'lender_contact_id','seller_contact_id'
+    'lender_contact_id','seller_contact_id','acquisition_agent_contact_id',
+    'strategy','property_type','data_source','conversion_method',
+    'bridge_origination_fee','loan_servicing_fee','reno_holdback','total_borrowed',
+    'purchase_loan_amount','lender_arv','interest_rate','reno_budget','reno_spent',
+    'reno_draws_received','uw_arv'
   ];
   const sets = [];
   const vals = [];

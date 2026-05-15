@@ -108,7 +108,7 @@
         { key: 'zip',            label: 'ZIP',            width: 80,  render: r => escHtml(r.zip || '') },
         { key: 'county',         label: 'County',         width: 120, render: r => escHtml(r.county || '') },
         { key: 'status',         label: 'Status',         width: 110, render: r => propertyStatusBadge(r.status), sortValue: r => r.status },
-        { key: 'owner',          label: 'Owner',          width: 140, render: r => escHtml(r.owner || '') },
+        { key: 'owner',          label: 'Owner',          width: 140, render: r => escHtml(r.owner_name || r.owner || '') },
         { key: 'tms',            label: 'TMS',            width: 110, render: r => escHtml(r.tms || '') },
         { key: 'purchase_date',  label: 'Purchased',      width: 110, render: r => fmtDate(r.purchase_date), sortValue: r => r.purchase_date },
         { key: 'purchase_price', label: 'Purchase $',     width: 110, render: r => fmtMoney(r.purchase_price), sortValue: r => r.purchase_price },

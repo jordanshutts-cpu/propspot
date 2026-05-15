@@ -86,6 +86,8 @@ CREATE INDEX IF NOT EXISTS properties_county_idx  ON properties(county);
 CREATE INDEX IF NOT EXISTS properties_tms_idx     ON properties(tms);
 
 -- Operator-facing fields imported from the legacy spreadsheet.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS owner_contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS properties_owner_contact_idx ON properties(owner_contact_id);
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS strategy             TEXT;          -- Fix N' Flip | LTR | STR | Wholesale | Wholetail | LTR Fund I
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS property_type        TEXT;          -- SFH | Mobile | etc.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS data_source          TEXT;          -- Referral | FC | PPL | MLS | PPC | Wholesaler | 8020 Data | FC - Auction
@@ -148,12 +150,13 @@ DO $$ BEGIN
     CREATE TYPE contact_type AS ENUM (
       'seller','buyer','lender','contractor','inspector','property_manager',
       'utility_company','buyer_agent','listing_agent','closing_attorney',
-      'accountant','acquisition_agent','other'
+      'accountant','acquisition_agent','owner','other'
     );
   END IF;
 END $$;
--- Idempotent enum extension (PG12+). Must be outside a transaction.
+-- Idempotent enum extensions (PG12+). Must be outside a transaction.
 ALTER TYPE contact_type ADD VALUE IF NOT EXISTS 'acquisition_agent';
+ALTER TYPE contact_type ADD VALUE IF NOT EXISTS 'owner';
 
 CREATE TABLE IF NOT EXISTS contacts (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

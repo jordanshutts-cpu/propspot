@@ -324,7 +324,14 @@
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div class="form-group"><label class="form-label">Owner</label>
-              <input class="form-input" id="ed-owner" value="${escHtml(property.owner || '')}"></div>
+              <input class="form-input" id="ed-owner" list="ed-owner-list" autocomplete="off"
+                     placeholder="Pick or type a new owner"
+                     value="${escHtml(property.owner_name || property.owner || '')}">
+              <datalist id="ed-owner-list">
+                ${allContacts.filter(c => c.type === 'owner').map(c => `<option value="${escHtml(c.full_name)}">`).join('')}
+              </datalist>
+              <div class="text-xs text-muted" style="margin-top:4px;">Typing a new name will create an Owner contact.</div>
+            </div>
             <div class="form-group"><label class="form-label">County</label>
               <input class="form-input" id="ed-county" value="${escHtml(property.county || '')}"></div>
           </div>
@@ -382,7 +389,7 @@
       city:               document.getElementById('ed-city').value,
       state:              document.getElementById('ed-state').value,
       zip:                document.getElementById('ed-zip').value,
-      owner:              document.getElementById('ed-owner').value || null,
+      // owner is resolved to a contact_id below before submitting
       county:             document.getElementById('ed-county').value || null,
       tms:                document.getElementById('ed-tms').value || null,
       parcel_id:          document.getElementById('ed-parcel_id').value || null,
@@ -396,6 +403,18 @@
       notes:              document.getElementById('ed-notes').value || null
     };
     try {
+      // Resolve the typed owner name → contact_id (creates a contact if new).
+      const ownerNameTyped = (document.getElementById('ed-owner').value || '').trim();
+      if (ownerNameTyped) {
+        const resolved = await apiFetch('/api/properties/resolve-owner', {
+          method: 'POST', body: JSON.stringify({ name: ownerNameTyped })
+        });
+        body.owner_contact_id = resolved.id;
+        body.owner            = resolved.full_name;   // keep the legacy text in sync too
+      } else {
+        body.owner_contact_id = null;
+        body.owner            = null;
+      }
       await updateProperty(id, body);
       document.getElementById('edit-details-modal').remove();
       showToast('Saved');
