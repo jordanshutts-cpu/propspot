@@ -147,13 +147,13 @@
     const holdings = property.holdings_items || [];
     html += `<div class="stage-section">
       <h3>💼 Holdings <span class="text-muted text-xs" style="font-weight:400;">(${holdings.length})</span>
-        <a class="btn btn-secondary" data-app="holdings" data-holdings-path="/" href="#" style="padding:4px 10px;font-size:.7rem;margin-left:auto;text-decoration:none;">Manage ↗</a>
+        <a class="btn btn-secondary" data-app="holdings" data-app-path="/" href="#" style="padding:4px 10px;font-size:.7rem;margin-left:auto;text-decoration:none;">Manage ↗</a>
       </h3>
       ${holdings.length
         ? holdings.map(h => {
             const badge = holdingDueBadge(h.next_due_date, h.reminder_days_before);
             const amt = h.amount != null ? `${formatMoney(h.amount)} / ${escHtml(holdingFrequencyLabel(h.frequency))}` : escHtml(holdingFrequencyLabel(h.frequency));
-            return `<a class="pipe-row" data-app="holdings" data-holdings-path="/item.html?id=${h.id}" href="#" style="text-decoration:none;color:inherit;">
+            return `<a class="pipe-row" data-app="holdings" data-app-path="/item.html?id=${h.id}" href="#" style="text-decoration:none;color:inherit;">
               <div style="display:flex;align-items:center;gap:10px;flex:1;">
                 <div style="font-size:1.2rem;">${escHtml(holdingCategoryIcon(h.category))}</div>
                 <div style="flex:1;">
@@ -164,7 +164,7 @@
               <span class="status-pill" style="background:${badge.cls === 'badge-danger' ? '#fee2e2' : badge.cls === 'badge-warn' ? '#fef3c7' : 'var(--brand-light)'}; color:${badge.cls === 'badge-danger' ? '#b91c1c' : badge.cls === 'badge-warn' ? '#92400e' : 'var(--brand)'};">${escHtml(badge.label)}</span>
             </a>`;
           }).join('')
-        : '<div class="text-muted text-xs">None yet. <a data-app="holdings" data-holdings-path="/" href="#">Add one in Holdings Desk ↗</a></div>'
+        : '<div class="text-muted text-xs">None yet. <a data-app="holdings" data-app-path="/" href="#">Add one in Holdings Desk ↗</a></div>'
       }
     </div>`;
 
@@ -209,7 +209,7 @@
     </div>`;
 
     document.getElementById('page').innerHTML = html;
-    wireHoldingsLinks();
+    wireUnifiedNav();   // re-wire the freshly-rendered data-app links
     loadFiles();
   }
 
