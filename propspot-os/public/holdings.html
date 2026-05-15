@@ -40,7 +40,10 @@
 <script src="datatable.js"></script>
 <script>
   window.PAGE_TITLE     = 'Holdings';
-  window.PAGE_STATUSES  = ['renovating','renting','rented'];
+  window.PAGE_STATUSES  = [
+    'renovating','renting','rented',
+    'listed_for_rent','listed_for_sale','under_contract_buyer'
+  ];
   window.NAV_CURRENT    = 'holdings';
   // Each lifecycle page gets its own saved layout:
   window.PAGE_TABLE_KEY = window.PAGE_TABLE_KEY || ('properties:' + window.PAGE_TITLE.toLowerCase().replace(/\s+/g, '-'));
