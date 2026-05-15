@@ -26,15 +26,15 @@
     .photo-lightbox .lb-notes { position:absolute; bottom:20px; left:20px; right:20px; color:#fff; font-size:.85rem; text-align:center; }
   </style>
 </head>
-<body>
+<body class="os-newlayout">
 
-<header class="app-header">
-  <button class="back-btn" onclick="history.back()">‹</button>
-  <span class="header-title" id="hdr">Property</span>
-</header>
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
 
 <main class="page" id="page">
-  <p class="text-muted text-sm">Loading…</p>
+  <a href="javascript:history.back()" class="text-sm" style="text-decoration:none;color:var(--text-muted);">‹ Back</a>
+  <p class="text-muted text-sm mt-12">Loading…</p>
 </main>
 
 <script src="config.js"></script>
@@ -86,21 +86,53 @@
       ['🔧 Projects',      'projects',      property.projects]
     ];
 
+    const dateFmt = d => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const fields = [
+      ['Owner',          property.owner],
+      ['County',         property.county],
+      ['TMS',            property.tms],
+      ['Parcel ID',      property.parcel_id],
+      ['Lockbox code',   property.lockbox_code],
+      ['Status',         propertyStatusLabel(property.status)],
+      ['Purchase date',  dateFmt(property.purchase_date)],
+      ['Purchase price', property.purchase_price != null ? formatMoney(property.purchase_price) : '—'],
+      ['Sold date',      dateFmt(property.sold_date)],
+      ['Sold price',     property.sold_price != null ? formatMoney(property.sold_price) : '—'],
+      ['Lender',         property.lender_name || '—'],
+      ['Seller',         property.seller_name || '—'],
+    ];
     let html = `
       <div class="card mb-16">
         <div class="card-body">
-          ${property.display_name ? `<div class="property-name">${escHtml(property.display_name)}</div>` : ''}
-          <div class="${property.display_name ? 'property-address' : 'property-name'}">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
-          <div class="property-address">${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
-            <label class="text-muted text-xs" for="status-select" style="font-weight:600;">Status:</label>
+          <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
+            <div>
+              ${property.display_name ? `<div class="property-name">${escHtml(property.display_name)}</div>` : ''}
+              <div class="${property.display_name ? 'property-address' : 'property-name'}">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
+              <div class="property-address">${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              ${propertyStatusBadge(property.status)}
+              <button class="btn btn-secondary" style="padding:6px 12px;font-size:.82rem;" onclick="openEditDetails()">✏️ Edit</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;margin-top:14px;font-size:.85rem;">
+            ${fields.map(([label, value]) => `
+              <div>
+                <div class="text-muted text-xs" style="font-weight:600;letter-spacing:.02em;">${escHtml(label)}</div>
+                <div style="margin-top:2px;">${value && value !== '—' ? escHtml(value) : '<span class="text-muted">—</span>'}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;">
+            <label class="text-muted text-xs" for="status-select" style="font-weight:600;">Change status:</label>
             <select id="status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeStatus(this.value)">
               ${PROPERTY_STATUSES.map(([k, label]) => `<option value="${k}"${property.status === k ? ' selected' : ''}>${label}</option>`).join('')}
             </select>
-            ${propertyStatusBadge(property.status)}
           </div>
-          ${property.parcel_id ? `<div class="text-muted text-xs mt-8">Parcel: ${escHtml(property.parcel_id)}</div>` : ''}
-          ${property.notes ? `<div class="property-notes mt-8" style="white-space:pre-wrap;font-size:.85rem;color:var(--text);background:var(--brand-light);padding:8px 10px;border-radius:6px;">${escHtml(property.notes)}</div>` : ''}
+
+          ${property.notes ? `<div class="property-notes mt-12" style="white-space:pre-wrap;font-size:.85rem;color:var(--text);background:var(--brand-light);padding:10px 12px;border-radius:8px;">${escHtml(property.notes)}</div>` : ''}
         </div>
       </div>
     `;
@@ -177,6 +209,127 @@
       await load();
     } catch (e) {
       showToast(e.message, 'error');
+    }
+  }
+
+  // ── Edit-details modal ──────────────────────────────────────
+  async function openEditDetails(){
+    let allContacts = [];
+    try { allContacts = await getContacts(); } catch {}
+    const contactOptions = (selected) =>
+      `<option value="">— none —</option>` +
+      allContacts.map(c => `<option value="${c.id}"${c.id === selected ? ' selected' : ''}>${escHtml(c.full_name)}${c.company ? ' — ' + escHtml(c.company) : ''}</option>`).join('');
+
+    const dval = d => d ? d.split('T')[0] : '';
+
+    const modal = document.createElement('div');
+    modal.id = 'edit-details-modal';
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px;max-height:92vh;overflow-y:auto;">
+        <div class="section-header">
+          <span class="section-title">Edit Property</span>
+          <button class="icon-btn" style="background:#eee;color:#000;" onclick="document.getElementById('edit-details-modal').remove()">×</button>
+        </div>
+        <form id="ed-form">
+          <div class="form-group"><label class="form-label">Display name</label>
+            <input class="form-input" id="ed-display_name" value="${escHtml(property.display_name || '')}"></div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Address line 1 *</label>
+              <input class="form-input" id="ed-address_line1" required value="${escHtml(property.address_line1 || '')}"></div>
+            <div class="form-group"><label class="form-label">Unit</label>
+              <input class="form-input" id="ed-unit" value="${escHtml(property.unit || '')}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">City *</label>
+              <input class="form-input" id="ed-city" required value="${escHtml(property.city || '')}"></div>
+            <div class="form-group"><label class="form-label">State *</label>
+              <input class="form-input" id="ed-state" required value="${escHtml(property.state || '')}"></div>
+            <div class="form-group"><label class="form-label">ZIP *</label>
+              <input class="form-input" id="ed-zip" required value="${escHtml(property.zip || '')}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Owner</label>
+              <input class="form-input" id="ed-owner" value="${escHtml(property.owner || '')}"></div>
+            <div class="form-group"><label class="form-label">County</label>
+              <input class="form-input" id="ed-county" value="${escHtml(property.county || '')}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">TMS / Tax Map #</label>
+              <input class="form-input" id="ed-tms" value="${escHtml(property.tms || '')}"></div>
+            <div class="form-group"><label class="form-label">Parcel ID</label>
+              <input class="form-input" id="ed-parcel_id" value="${escHtml(property.parcel_id || '')}"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Lockbox code</label>
+            <input class="form-input" id="ed-lockbox_code" value="${escHtml(property.lockbox_code || '')}"></div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Purchase date</label>
+              <input class="form-input" type="date" id="ed-purchase_date" value="${dval(property.purchase_date)}"></div>
+            <div class="form-group"><label class="form-label">Purchase price ($)</label>
+              <input class="form-input" type="number" step="0.01" id="ed-purchase_price" value="${property.purchase_price ?? ''}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Sold date</label>
+              <input class="form-input" type="date" id="ed-sold_date" value="${dval(property.sold_date)}"></div>
+            <div class="form-group"><label class="form-label">Sold price ($)</label>
+              <input class="form-input" type="number" step="0.01" id="ed-sold_price" value="${property.sold_price ?? ''}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Lender (contact)</label>
+              <select class="form-select" id="ed-lender_contact_id">${contactOptions(property.lender_contact_id)}</select></div>
+            <div class="form-group"><label class="form-label">Seller (contact)</label>
+              <select class="form-select" id="ed-seller_contact_id">${contactOptions(property.seller_contact_id)}</select></div>
+          </div>
+          <div class="form-group"><label class="form-label">Notes</label>
+            <textarea class="form-textarea" id="ed-notes">${escHtml(property.notes || '')}</textarea></div>
+
+          <p id="ed-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('edit-details-modal').remove()">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;" id="ed-save">Save</button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('ed-form').addEventListener('submit', submitEditDetails);
+  }
+
+  async function submitEditDetails(e){
+    e.preventDefault();
+    const btn = document.getElementById('ed-save');
+    const err = document.getElementById('ed-err');
+    err.style.display = 'none';
+    showSpinner(btn, 'Saving…');
+    const body = {
+      display_name:       document.getElementById('ed-display_name').value || null,
+      address_line1:      document.getElementById('ed-address_line1').value,
+      unit:               document.getElementById('ed-unit').value || null,
+      city:               document.getElementById('ed-city').value,
+      state:              document.getElementById('ed-state').value,
+      zip:                document.getElementById('ed-zip').value,
+      owner:              document.getElementById('ed-owner').value || null,
+      county:             document.getElementById('ed-county').value || null,
+      tms:                document.getElementById('ed-tms').value || null,
+      parcel_id:          document.getElementById('ed-parcel_id').value || null,
+      lockbox_code:       document.getElementById('ed-lockbox_code').value || null,
+      purchase_date:      document.getElementById('ed-purchase_date').value || null,
+      purchase_price:     document.getElementById('ed-purchase_price').value || null,
+      sold_date:          document.getElementById('ed-sold_date').value || null,
+      sold_price:         document.getElementById('ed-sold_price').value || null,
+      lender_contact_id:  document.getElementById('ed-lender_contact_id').value || null,
+      seller_contact_id:  document.getElementById('ed-seller_contact_id').value || null,
+      notes:              document.getElementById('ed-notes').value || null
+    };
+    try {
+      await updateProperty(id, body);
+      document.getElementById('edit-details-modal').remove();
+      showToast('Saved');
+      await load();
+    } catch (e2) {
+      err.textContent = e2.message; err.style.display = 'block';
+      hideSpinner(btn);
     }
   }
 

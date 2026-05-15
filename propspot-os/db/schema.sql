@@ -69,6 +69,22 @@ CREATE TABLE IF NOT EXISTS properties (
 CREATE INDEX IF NOT EXISTS properties_parcel_idx  ON properties(parcel_id);
 CREATE INDEX IF NOT EXISTS properties_created_idx ON properties(created_at DESC);
 
+-- Operator-facing fields added later (idempotent ALTERs).
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS owner              TEXT;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS county             TEXT;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS tms                TEXT;          -- Tax Map Number
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS lockbox_code       TEXT;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS purchase_date      DATE;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS purchase_price     NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS sold_date          DATE;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS sold_price         NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS lender_contact_id  UUID REFERENCES contacts(id) ON DELETE SET NULL;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS seller_contact_id  UUID REFERENCES contacts(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS properties_lender_idx  ON properties(lender_contact_id);
+CREATE INDEX IF NOT EXISTS properties_seller_idx  ON properties(seller_contact_id);
+CREATE INDEX IF NOT EXISTS properties_county_idx  ON properties(county);
+CREATE INDEX IF NOT EXISTS properties_tms_idx     ON properties(tms);
+
 -- Property-level status across the overall lifecycle. Distinct from
 -- per-record statuses in prospects/leads/opportunities/purchases/projects
 -- (this is the rollup of "what is the property currently doing").

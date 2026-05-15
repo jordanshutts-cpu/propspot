@@ -42,9 +42,14 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { rows: pRows } = await query(`
-      SELECT p.*, u.full_name AS created_by_name
+      SELECT p.*,
+             u.full_name  AS created_by_name,
+             lc.full_name AS lender_name,
+             sc.full_name AS seller_name
         FROM properties p
-        LEFT JOIN users u ON u.id = p.created_by
+        LEFT JOIN users    u  ON u.id  = p.created_by
+        LEFT JOIN contacts lc ON lc.id = p.lender_contact_id
+        LEFT JOIN contacts sc ON sc.id = p.seller_contact_id
        WHERE p.id = $1
     `, [req.params.id]);
     if (!pRows[0]) return res.status(404).json({ error: 'Property not found' });
@@ -94,14 +99,16 @@ router.post('/', async (req, res) => {
   const err = badAddressBody(req.body);
   if (err) return res.status(400).json({ error: err });
 
-  const { address_line1, unit, city, state, zip, parcel_id, lat, lng, notes, display_name, status } = req.body;
+  const {
+    address_line1, unit, city, state, zip, parcel_id, lat, lng, notes,
+    display_name, status,
+    owner, county, tms, lockbox_code,
+    purchase_date, purchase_price, sold_date, sold_price,
+    lender_contact_id, seller_contact_id
+  } = req.body;
   const normalized = normalizeAddress({ address_line1, unit, city, state, zip });
 
   try {
-    // Pre-check for an existing property; the UNIQUE on normalized_address
-    // is a hard backstop but we want to return the existing row to the caller
-    // so the UI can offer to "add a new prospect to this property" instead of
-    // bouncing the user.
     const { rows: existing } = await query(
       'SELECT * FROM properties WHERE normalized_address = $1',
       [normalized]
@@ -115,8 +122,18 @@ router.post('/', async (req, res) => {
 
     const { rows } = await query(`
       INSERT INTO properties
-        (address_line1, unit, city, state, zip, normalized_address, parcel_id, lat, lng, notes, display_name, status, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, 'purchasing'), $13)
+        (address_line1, unit, city, state, zip, normalized_address, parcel_id, lat, lng, notes,
+         display_name, status,
+         owner, county, tms, lockbox_code,
+         purchase_date, purchase_price, sold_date, sold_price,
+         lender_contact_id, seller_contact_id,
+         created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+              $11,COALESCE($12,'purchasing'),
+              $13,$14,$15,$16,
+              $17,$18,$19,$20,
+              $21,$22,
+              $23)
       RETURNING *
     `, [
       address_line1.trim(),
@@ -131,6 +148,16 @@ router.post('/', async (req, res) => {
       notes?.trim() || null,
       display_name?.trim() || null,
       status?.trim() || null,
+      owner?.trim() || null,
+      county?.trim() || null,
+      tms?.trim() || null,
+      lockbox_code?.trim() || null,
+      purchase_date || null,
+      purchase_price != null && purchase_price !== '' ? parseFloat(purchase_price) : null,
+      sold_date || null,
+      sold_price != null && sold_price !== '' ? parseFloat(sold_price) : null,
+      lender_contact_id || null,
+      seller_contact_id || null,
       req.userId
     ]);
 
@@ -148,7 +175,12 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/properties/:id
 router.patch('/:id', async (req, res) => {
-  const allowed = ['address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','status'];
+  const allowed = [
+    'address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','status',
+    'owner','county','tms','lockbox_code',
+    'purchase_date','purchase_price','sold_date','sold_price',
+    'lender_contact_id','seller_contact_id'
+  ];
   const sets = [];
   const vals = [];
   let i = 1;
