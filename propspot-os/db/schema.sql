@@ -73,13 +73,14 @@ CREATE INDEX IF NOT EXISTS properties_created_idx ON properties(created_at DESC)
 -- per-record statuses in prospects/leads/opportunities/purchases/projects
 -- (this is the rollup of "what is the property currently doing").
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'purchasing';
+-- Drop and recreate the status check so we can add new states ('sold')
+-- without leaving a stale, incomplete constraint behind. Idempotent.
 DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'properties_status_check'
-  ) THEN
-    ALTER TABLE properties ADD CONSTRAINT properties_status_check
-      CHECK (status IN ('purchasing','renovating','selling','renting','rented','dropped'));
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'properties_status_check') THEN
+    ALTER TABLE properties DROP CONSTRAINT properties_status_check;
   END IF;
+  ALTER TABLE properties ADD CONSTRAINT properties_status_check
+    CHECK (status IN ('purchasing','renovating','selling','renting','rented','sold','dropped'));
 END $$;
 CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
 

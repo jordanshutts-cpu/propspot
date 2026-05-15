@@ -279,9 +279,10 @@ function renderTopHeader() {
   if (!el) return;
   el.innerHTML = `
     <nav class="top-nav-links">
-      <a class="top-nav-link" href="/purchases.html"     data-osnav="purchases">Purchases</a>
+      <a class="top-nav-link" href="/acquisitions.html"  data-osnav="acquisitions">Acquisitions</a>
       <a class="top-nav-link" href="/holdings.html"      data-osnav="holdings">Holdings</a>
       <a class="top-nav-link" href="/dispositions.html"  data-osnav="dispositions">Dispositions</a>
+      <a class="top-nav-link" href="/closed.html"        data-osnav="closed">Closed</a>
     </nav>
     <form class="top-nav-search" onsubmit="submitTopSearch(event)">
       <span class="search-icon">🔍</span>
@@ -641,12 +642,13 @@ function escHtml(s) {
 // Property-level status across the overall lifecycle.
 // Tuple shape: [value, label, text-color, background-color]
 const PROPERTY_STATUSES = [
-  ['purchasing', 'Purchasing', '#92400e', '#fef3c7'],   // amber
-  ['renovating', 'Renovating', '#1e40af', '#dbeafe'],   // blue
-  ['selling',    'Selling',    '#6b21a8', '#ede9fe'],   // violet
-  ['renting',    'Renting',    '#075985', '#e0f2fe'],   // sky
-  ['rented',     'Rented',     '#15803d', '#dcfce7'],   // green
-  ['dropped',    'Dropped',    '#6b7280', '#f3f4f6']    // gray
+  ['purchasing', 'Purchasing', '#92400e', '#fef3c7'],   // amber  → Acquisitions
+  ['renovating', 'Renovating', '#1e40af', '#dbeafe'],   // blue   → Holdings
+  ['renting',    'Renting',    '#075985', '#e0f2fe'],   // sky    → Holdings
+  ['rented',     'Rented',     '#15803d', '#dcfce7'],   // green  → Holdings
+  ['selling',    'Selling',    '#6b21a8', '#ede9fe'],   // violet → Dispositions
+  ['sold',       'Sold',       '#1e293b', '#e2e8f0'],   // slate  → Closed
+  ['dropped',    'Dropped',    '#6b7280', '#f3f4f6']    // gray   → Closed
 ];
 function propertyStatusLabel(s) {
   const f = PROPERTY_STATUSES.find(([k]) => k === s);
