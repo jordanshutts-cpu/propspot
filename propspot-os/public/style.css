@@ -504,6 +504,51 @@ body.os-newlayout .page         { max-width: 1200px; padding: 24px; }
   --apps-rail-width: 64px;
 }
 
+/* ── DataTable (sortable, resizable, reorderable) ──────────── */
+.dt-wrap { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
+.dt-table { width: 100%; border-collapse: collapse; font-size: .88rem; table-layout: fixed; }
+.dt-table thead th {
+  position: relative;
+  text-align: left; font-weight: 700; font-size: .72rem; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-muted);
+  padding: 12px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  white-space: nowrap;
+}
+.dt-table th.dt-sortable .dt-th-label { cursor: pointer; }
+.dt-table th.dt-sortable .dt-th-label:hover { color: var(--brand-dark); }
+.dt-table th.dt-dragging { opacity: .4; }
+.dt-table th.dt-drop-target { background: var(--brand-light); color: var(--brand-dark); }
+.dt-table .dt-resize {
+  position: absolute; top: 0; right: -3px; width: 6px; height: 100%;
+  cursor: col-resize; z-index: 5;
+}
+.dt-table .dt-resize:hover, .dt-table .dt-resize:active {
+  background: var(--brand);
+}
+.dt-table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; cursor: pointer; }
+.dt-table tbody tr:last-child { border-bottom: none; }
+.dt-table tbody tr:hover { background: var(--brand-light); }
+.dt-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-table .dt-empty {
+  text-align: center; color: var(--text-muted); font-style: italic;
+  padding: 36px 14px;
+}
+.dt-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.dt-reset-btn {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: .78rem; padding: 4px 8px; border-radius: 6px;
+}
+.dt-reset-btn:hover { background: var(--bg); color: var(--text); }
+
 /* ── Page / Content ──────────────────────────────────────── */
 .page { padding: 16px; max-width: 600px; margin: 0 auto; }
 
