@@ -193,6 +193,16 @@
         : '<div class="text-muted text-xs">No photos yet. Upload via the FieldCam app.</div>'}
     </div>`;
 
+    html += `<div class="stage-section">
+      <h3>📎 Files <span class="text-muted text-xs" style="font-weight:400;" id="files-count"></span>
+        <label class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;cursor:pointer;">
+          + Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)">
+        </label>
+      </h3>
+      <div id="files-list" class="text-muted text-xs">Loading…</div>
+      <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>
+    </div>`;
+
     html += `<div class="stage-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:20px;">
       <button class="btn btn-danger btn-full" onclick="deleteThisProperty()">🗑️ Delete Property</button>
       <p class="text-muted text-xs" style="text-align:center;margin-top:8px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
@@ -200,6 +210,69 @@
 
     document.getElementById('page').innerHTML = html;
     wireHoldingsLinks();
+    loadFiles();
+  }
+
+  // ── Files (PDFs, deeds, inspection reports) ──────────────────
+  async function loadFiles(){
+    try {
+      const files = await getPropertyFiles(id);
+      const el = document.getElementById('files-list');
+      const cnt = document.getElementById('files-count');
+      if (cnt) cnt.textContent = `(${files.length})`;
+      if (!files.length) {
+        el.innerHTML = 'No files yet. Click <strong>Upload</strong> to add one (max 20MB).';
+        return;
+      }
+      el.innerHTML = files.map(f => {
+        const sizeKb = f.size_bytes ? Math.round(f.size_bytes / 1024) : null;
+        const ext = (f.filename.split('.').pop() || '').toLowerCase();
+        const icon = ['pdf'].includes(ext) ? '📄'
+                   : ['doc','docx','txt','rtf'].includes(ext) ? '📝'
+                   : ['xls','xlsx','csv'].includes(ext) ? '📊'
+                   : ['png','jpg','jpeg','gif','webp','heic'].includes(ext) ? '🖼️'
+                   : '📎';
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:1.2rem;">${icon}</span>
+            <div style="flex:1;min-width:0;">
+              <div><a href="${escHtml(f.url)}" target="_blank" rel="noopener" style="font-weight:600;color:var(--text);text-decoration:none;">${escHtml(f.filename)}</a></div>
+              <div class="meta">${sizeKb != null ? sizeKb + ' KB · ' : ''}${formatDate(f.created_at)}${f.uploaded_by_name ? ' · ' + escHtml(f.uploaded_by_name) : ''}</div>
+            </div>
+            <button class="icon-btn" style="background:rgba(239,68,68,.15);color:var(--danger);" onclick="confirmDeleteFile('${f.id}','${escHtml(f.filename).replace(/'/g, '&#39;')}')" title="Delete">×</button>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('files-list').innerHTML = `<span style="color:var(--danger);">Error: ${escHtml(e.message)}</span>`;
+    }
+  }
+
+  async function handleFileUpload(e){
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { showToast('File is over 20MB limit', 'error'); e.target.value = ''; return; }
+    const prog = document.getElementById('files-progress');
+    prog.style.display = 'block';
+    prog.textContent = `Uploading ${file.name}…`;
+    try {
+      await uploadPropertyFile(id, file);
+      prog.style.display = 'none';
+      e.target.value = '';
+      showToast('Uploaded');
+      await loadFiles();
+    } catch (err) {
+      prog.style.display = 'none';
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function confirmDeleteFile(fileId, filename){
+    if (!confirm(`Delete "${filename}"? This cannot be undone.`)) return;
+    try {
+      await deletePropertyFile(fileId);
+      showToast('Deleted');
+      await loadFiles();
+    } catch (e) { showToast(e.message, 'error'); }
   }
 
   async function changeStatus(newStatus){

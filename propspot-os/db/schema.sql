@@ -85,6 +85,22 @@ CREATE INDEX IF NOT EXISTS properties_seller_idx  ON properties(seller_contact_i
 CREATE INDEX IF NOT EXISTS properties_county_idx  ON properties(county);
 CREATE INDEX IF NOT EXISTS properties_tms_idx     ON properties(tms);
 
+-- ── Property files (PDFs, deeds, inspection reports, etc.) ─────────────
+-- Stored in Cloudinary; we keep just the metadata + URL here.
+CREATE TABLE IF NOT EXISTS property_files (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id   UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  filename      TEXT NOT NULL,
+  url           TEXT NOT NULL,
+  cloudinary_id TEXT,
+  mime_type     TEXT,
+  size_bytes    INTEGER,
+  uploaded_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS property_files_property_idx ON property_files(property_id);
+CREATE INDEX IF NOT EXISTS property_files_created_idx  ON property_files(created_at DESC);
+
 -- Property-level status across the overall lifecycle. Distinct from
 -- per-record statuses in prospects/leads/opportunities/purchases/projects
 -- (this is the rollup of "what is the property currently doing").

@@ -113,6 +113,19 @@ async function getActivity(params = {}) {
   return apiFetch(`/api/activity${qs ? '?' + qs : ''}`);
 }
 
+// ── Property files ─────────────────────────────────────────────
+async function getPropertyFiles(propertyId) {
+  return apiFetch(`/api/property-files/${propertyId}`);
+}
+async function uploadPropertyFile(propertyId, file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  return apiFetch(`/api/property-files/${propertyId}`, { method: 'POST', body: fd });
+}
+async function deletePropertyFile(fileId) {
+  return apiFetch(`/api/property-files/file/${fileId}`, { method: 'DELETE' });
+}
+
 // ── Holdings Desk ──────────────────────────────────────────────────────
 // All write operations and the full management UI live in the satellite
 // at holdings.propspot.io. Prop Spot keeps a read-only summary endpoint
