@@ -614,6 +614,7 @@
         <span class="badge" id="photo-badge">0 photos</span>
       </div>
       <p class="text-muted text-sm" id="prop-address"></p>
+      <div id="prop-status-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;"></div>
       <p class="text-muted text-sm mt-8" id="prop-notes"></p>
       <div class="flex gap-8 mt-12">
         <a id="take-photo-btn" href="#" class="btn btn-primary" style="flex:1;padding:10px;">📷 Add Photo</a>
@@ -831,12 +832,22 @@
       document.getElementById('prop-name').textContent    = property.name;
       document.getElementById('prop-address').textContent = property.address || '';
       document.getElementById('prop-notes').textContent   = property.notes   || '';
+      const statusRow = document.getElementById('prop-status-row');
+      statusRow.innerHTML =
+        (property.status ? propertyStatusBadge(property.status) : '') +
+        (property.lockbox_code
+          ? ` <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:100px;background:var(--brand-light);color:var(--brand);font-size:.72rem;font-weight:600;cursor:pointer;" onclick="copyLockbox()" title="Tap to copy">🔒 ${escHtml(property.lockbox_code)}</span>`
+          : '');
     } catch (err) { showToast('Failed to load property', 'error'); }
   }
 
   function copyAddress() {
     if (property?.address)
       navigator.clipboard.writeText(property.address).then(() => showToast('Address copied!'));
+  }
+  function copyLockbox() {
+    if (property?.lockbox_code)
+      navigator.clipboard.writeText(property.lockbox_code).then(() => showToast('Lockbox code copied!'));
   }
 
   // ── Folders ─────────────────────────────────────────────────────

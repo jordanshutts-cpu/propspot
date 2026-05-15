@@ -474,3 +474,27 @@ if (typeof window !== 'undefined') {
     renderUnifiedNav();
   }
 }
+
+// ── Property status helpers (mirrors propspot-os/app.js) ─────
+const PROPERTY_STATUSES = [
+  ['purchasing',           'Purchasing',         '#92400e', '#fef3c7'],
+  ['renovating',           'Renovating',         '#1e40af', '#dbeafe'],
+  ['renting',              'Renting',            '#075985', '#e0f2fe'],
+  ['rented',               'Rented',             '#15803d', '#dcfce7'],
+  ['listed_for_rent',      'Listed for Rent',    '#0c4a6e', '#bae6fd'],
+  ['selling',              'Selling',            '#6b21a8', '#ede9fe'],
+  ['listed_for_sale',      'Listed on MLS',      '#581c87', '#e9d5ff'],
+  ['under_contract_buyer', 'UC with Buyer',      '#9d174d', '#fce7f3'],
+  ['sold',                 'Sold',               '#1e293b', '#e2e8f0'],
+  ['assigned',             'Assigned',           '#0f172a', '#cbd5e1'],
+  ['dropped',              'Dropped',            '#6b7280', '#f3f4f6']
+];
+function propertyStatusLabel(s) {
+  const f = PROPERTY_STATUSES.find(([k]) => k === s);
+  return f ? f[1] : (s || '—');
+}
+function propertyStatusBadge(s) {
+  const f = PROPERTY_STATUSES.find(([k]) => k === s);
+  if (!f) return '';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:100px;font-size:.7rem;font-weight:600;color:${f[2]};background:${f[3]};">${f[1]}</span>`;
+}

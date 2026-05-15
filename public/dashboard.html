@@ -519,11 +519,15 @@
       return `<a class="property-card" href="/property.html?id=${p.id}">
         ${thumb}
         <div class="property-info">
-          <div class="property-name">${escHtml(p.name)}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="property-name" style="flex:1;min-width:0;">${escHtml(p.name)}</div>
+            ${p.status ? propertyStatusBadge(p.status) : ''}
+          </div>
           <div class="property-address">${escHtml(p.address || '')}</div>
           <div class="property-meta">
             <span>📷 ${cnt} photo${cnt !== 1 ? 's' : ''}</span>
             ${p.lat ? '<span>📍 GPS set</span>' : ''}
+            ${p.lockbox_code ? `<span title="Lockbox code">🔒 ${escHtml(p.lockbox_code)}</span>` : ''}
           </div>
         </div>
       </a>`;
