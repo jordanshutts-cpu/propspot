@@ -1,5 +1,4 @@
-
-    a.style.display = "";// ============================================================
+// ============================================================
 //  FieldCam — Shared Frontend Utilities
 //  Uses fetch() + JWT auth against our Railway/Express backend.
 // ============================================================
@@ -421,6 +420,7 @@ async function wireUnifiedNav() {
     a.href = _isCurrentOrigin(base)
       ? path
       : _appendToken(base.replace(/\/$/, '') + path);
+    a.style.display = '';
   });
   const osBase = cfg.osUrl || '';
   document.querySelectorAll('[data-osnav]').forEach(a => {

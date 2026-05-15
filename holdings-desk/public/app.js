@@ -1,5 +1,4 @@
-
-    a.style.display = "";// ============================================================
+// ============================================================
 //  Holdings Desk — Frontend Utilities
 //  SSO with Prop Spot via the shared 'ros_token' localStorage key.
 //  Auth check proxies to Prop Spot's /api/os/me through our /api/me.
@@ -252,6 +251,7 @@ async function wireUnifiedNav() {
     a.href = _isCurrentOrigin(base)
       ? path
       : _appendToken(base.replace(/\/$/, '') + path);
+    a.style.display = '';
   });
   const osBase = cfg.osUrl || '';
   document.querySelectorAll('[data-osnav]').forEach(a => {

@@ -1,5 +1,4 @@
-
-    a.style.display = "";// ============================================================
+// ============================================================
 //  Maintenance — Shared Frontend Utilities
 // ============================================================
 
@@ -231,6 +230,7 @@ async function wireUnifiedNav() {
     a.href = _isCurrentOrigin(base)
       ? path
       : _appendToken(base.replace(/\/$/, '') + path);
+    a.style.display = '';
   });
   const osBase = cfg.osUrl || '';
   document.querySelectorAll('[data-osnav]').forEach(a => {
