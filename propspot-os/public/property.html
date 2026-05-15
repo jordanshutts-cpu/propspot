@@ -52,7 +52,7 @@
   async function load(){
     try{
       property = await getProperty(id);
-      document.getElementById('hdr').textContent = property.address_line1;
+      document.title = (property.display_name || property.address_line1) + ' — Prop Spot';
       render();
     }catch(err){
       document.getElementById('page').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
