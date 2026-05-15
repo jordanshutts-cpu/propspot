@@ -32,6 +32,7 @@ app.use('/api/projects',          require('./routes/projects'));
 app.use('/api/contacts',          require('./routes/contacts'));
 app.use('/api/property-contacts', require('./routes/property-contacts'));
 app.use('/api/property-files',    require('./routes/property-files'));
+app.use('/api/admin/import',      require('./routes/admin-import'));
 app.use('/api/holdings',          require('./routes/holdings'));
 app.use('/api/activity',          require('./routes/activity'));
 app.use('/api/os',                require('./routes/authz'));

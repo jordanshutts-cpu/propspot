@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Import CSV</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .drop-zone {
+      border: 2px dashed var(--border); border-radius: 12px;
+      padding: 40px 24px; text-align: center;
+      background: var(--surface); transition: border-color .15s, background .15s;
+      cursor: pointer;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--brand); background: var(--brand-light);
+    }
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .report-stat { background: var(--surface); border-radius: 10px; padding: 14px; box-shadow: var(--shadow); text-align: center; }
+    .report-num { font-size: 1.6rem; font-weight: 800; color: var(--brand); }
+    .report-num.is-warn { color: #f59e0b; }
+    .report-num.is-bad  { color: var(--danger); }
+    .report-label { font-size: .72rem; color: var(--text-muted); margin-top: 4px; }
+    .skip-list { background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); padding: 14px; margin-bottom: 12px; max-height: 320px; overflow-y: auto; }
+    .skip-row { font-size: .82rem; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+    .skip-row:last-child { border-bottom: none; }
+    .skip-row .row-num { color: var(--text-muted); font-size: .72rem; }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="section-header">
+    <span class="section-title">Import properties from CSV</span>
+  </div>
+  <p class="text-sm text-muted mb-16">
+    Upload your legacy spreadsheet to enrich existing properties with operational data
+    (status, strategy, lender, financials, etc.). Only properties whose addresses already
+    exist in Prop Spot will be updated. Unmatched rows are reported, not created.
+  </p>
+
+  <label class="drop-zone" id="drop-zone">
+    <div style="font-size:2.4rem;">📥</div>
+    <div style="font-weight:700;margin-top:8px;">Click to choose a CSV — or drop one here</div>
+    <div class="text-xs text-muted mt-12">Max 5 MB. Owner-only.</div>
+    <input type="file" id="csv-input" accept=".csv,text/csv" style="display:none;">
+  </label>
+
+  <div id="status" class="text-sm text-muted mt-16" style="display:none;"></div>
+  <div id="report" style="display:none;margin-top:24px;"></div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  window.NAV_CURRENT = 'dashboard';   // no top-nav match; show dashboard active
+
+  async function init(){
+    const me = await requireAuth(); if (!me) return;
+    if (!me.is_owner) {
+      document.querySelector('main').innerHTML =
+        '<div class="empty-state"><div class="empty-icon">🔒</div><p>Owner-only page.</p></div>';
+      return;
+    }
+
+    const dz = document.getElementById('drop-zone');
+    const inp = document.getElementById('csv-input');
+    dz.addEventListener('click', () => inp.click());
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('dragover');
+      if (e.dataTransfer.files.length) submitFile(e.dataTransfer.files[0]);
+    });
+    inp.addEventListener('change', () => {
+      if (inp.files.length) submitFile(inp.files[0]);
+    });
+  }
+
+  async function submitFile(file){
+    const status = document.getElementById('status');
+    const report = document.getElementById('report');
+    status.style.display = 'block';
+    report.style.display = 'none';
+    status.textContent = `Uploading ${file.name} (${(file.size/1024).toFixed(1)} KB)…`;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await apiFetch('/api/admin/import/properties', { method: 'POST', body: fd });
+      status.style.display = 'none';
+      renderReport(r);
+    } catch (e) {
+      status.innerHTML = `<span style="color:var(--danger);">Error: ${escHtml(e.message)}</span>`;
+    }
+  }
+
+  function renderReport(r){
+    const report = document.getElementById('report');
+    let html = `
+      <div class="section-header"><span class="section-title">Import Report</span></div>
+      <div class="report-grid">
+        <div class="report-stat"><div class="report-num">${r.total_csv_rows}</div><div class="report-label">CSV data rows</div></div>
+        <div class="report-stat"><div class="report-num">${r.unique_addresses}</div><div class="report-label">Unique addresses</div></div>
+        <div class="report-stat"><div class="report-num">${r.matched_updated}</div><div class="report-label">Updated</div></div>
+        <div class="report-stat"><div class="report-num is-warn">${r.skipped_not_found.length}</div><div class="report-label">Not in Prop Spot</div></div>
+        <div class="report-stat"><div class="report-num is-bad">${r.skipped_parse_fail.length}</div><div class="report-label">Address parse failed</div></div>
+        <div class="report-stat"><div class="report-num">${r.contacts_created.lenders}</div><div class="report-label">Lender contacts touched</div></div>
+        <div class="report-stat"><div class="report-num">${r.contacts_created.agents}</div><div class="report-label">Acq. agent contacts touched</div></div>
+      </div>
+    `;
+
+    if (r.skipped_not_found.length) {
+      html += `<div class="section-header" style="margin-top:16px;"><span class="section-title">Not found in Prop Spot (${r.skipped_not_found.length})</span></div>
+        <p class="text-xs text-muted mb-8">These CSV addresses don't match any existing property. Add them via <a href="/add-property.html">+ Add Property</a> first, then re-upload to fill in their data.</p>
+        <div class="skip-list">
+          ${r.skipped_not_found.map(s => `<div class="skip-row"><span class="row-num">row ${s.row}</span> · ${escHtml(s.address)}</div>`).join('')}
+        </div>`;
+    }
+
+    if (r.skipped_parse_fail.length) {
+      html += `<div class="section-header" style="margin-top:16px;"><span class="section-title">Address parse failed (${r.skipped_parse_fail.length})</span></div>
+        <p class="text-xs text-muted mb-8">These rows had addresses we couldn't read (missing zip, garbled format, etc.). Fix in the CSV and re-upload.</p>
+        <div class="skip-list">
+          ${r.skipped_parse_fail.map(s => `<div class="skip-row"><span class="row-num">row ${s.row}</span> · ${escHtml(s.address)} <span class="text-muted">— ${escHtml(s.reason)}</span></div>`).join('')}
+        </div>`;
+    }
+
+    report.innerHTML = html;
+    report.style.display = 'block';
+  }
+
+  init();
+</script>
+</body>
+</html>

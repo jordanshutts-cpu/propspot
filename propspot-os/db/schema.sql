@@ -85,6 +85,29 @@ CREATE INDEX IF NOT EXISTS properties_seller_idx  ON properties(seller_contact_i
 CREATE INDEX IF NOT EXISTS properties_county_idx  ON properties(county);
 CREATE INDEX IF NOT EXISTS properties_tms_idx     ON properties(tms);
 
+-- Operator-facing fields imported from the legacy spreadsheet.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS strategy             TEXT;          -- Fix N' Flip | LTR | STR | Wholesale | Wholetail | LTR Fund I
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS property_type        TEXT;          -- SFH | Mobile | etc.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS data_source          TEXT;          -- Referral | FC | PPL | MLS | PPC | Wholesaler | 8020 Data | FC - Auction
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS conversion_method    TEXT;          -- Door Knocking | Cold Calling | Wholesaler | Auction | etc.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS acquisition_agent_contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL;
+
+-- Loan / financial details
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS bridge_origination_fee NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS loan_servicing_fee     NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS reno_holdback          NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS total_borrowed         NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS purchase_loan_amount   NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS lender_arv             NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS interest_rate          NUMERIC(6,4);  -- 0.1099 == 10.99%
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS reno_budget            NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS reno_spent             NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS reno_draws_received    NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS uw_arv                 NUMERIC(12,2);
+
+CREATE INDEX IF NOT EXISTS properties_strategy_idx ON properties(strategy);
+CREATE INDEX IF NOT EXISTS properties_acq_agent_idx ON properties(acquisition_agent_contact_id);
+
 -- ── Property files (PDFs, deeds, inspection reports, etc.) ─────────────
 -- Stored in Cloudinary; we keep just the metadata + URL here.
 CREATE TABLE IF NOT EXISTS property_files (
@@ -105,14 +128,16 @@ CREATE INDEX IF NOT EXISTS property_files_created_idx  ON property_files(created
 -- per-record statuses in prospects/leads/opportunities/purchases/projects
 -- (this is the rollup of "what is the property currently doing").
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'purchasing';
--- Drop and recreate the status check so we can add new states ('sold')
--- without leaving a stale, incomplete constraint behind. Idempotent.
+-- Drop and recreate the status check whenever we add new states. Idempotent.
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'properties_status_check') THEN
     ALTER TABLE properties DROP CONSTRAINT properties_status_check;
   END IF;
   ALTER TABLE properties ADD CONSTRAINT properties_status_check
-    CHECK (status IN ('purchasing','renovating','selling','renting','rented','sold','dropped'));
+    CHECK (status IN (
+      'purchasing','renovating','selling','renting','rented','sold','dropped',
+      'assigned','listed_for_rent','listed_for_sale','under_contract_buyer'
+    ));
 END $$;
 CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
 
@@ -123,10 +148,12 @@ DO $$ BEGIN
     CREATE TYPE contact_type AS ENUM (
       'seller','buyer','lender','contractor','inspector','property_manager',
       'utility_company','buyer_agent','listing_agent','closing_attorney',
-      'accountant','other'
+      'accountant','acquisition_agent','other'
     );
   END IF;
 END $$;
+-- Idempotent enum extension (PG12+). Must be outside a transaction.
+ALTER TYPE contact_type ADD VALUE IF NOT EXISTS 'acquisition_agent';
 
 CREATE TABLE IF NOT EXISTS contacts (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
