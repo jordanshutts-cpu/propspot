@@ -172,13 +172,14 @@ async function wireUnifiedNav() {
     const slug = a.dataset.app;
     const base = APP_URLS[slug];
     if (!base) {
-      a.style.display = 'none';   // satellite URL not configured — hide the entry
+      a.style.display = 'none';   // satellite URL not configured — keep hidden
       return;
     }
     const path = a.dataset.appPath || '/';
     a.href = _isCurrentOrigin(base)
       ? path
       : _appendToken(base.replace(/\/$/, '') + path);
+    a.style.display = '';   // reveal once URL confirmed
   });
 
   // data-osnav="<page>" — link to an OS page (dashboard/properties/contacts/team/apps)
@@ -225,13 +226,13 @@ function renderUnifiedNav() {
     <a class="nav-link" data-osnav="properties" href="#">
       <span class="nav-icon">🏘️</span><span class="nav-label">Properties</span>
     </a>
-    <a class="nav-link" data-app="holdings" href="#">
+    <a class="nav-link" data-app="holdings" href="#" style="display:none;">
       <span class="nav-icon">💼</span><span class="nav-label">Holdings</span>
     </a>
-    <a class="nav-link" data-app="maintenance" href="#">
+    <a class="nav-link" data-app="maintenance" href="#" style="display:none;">
       <span class="nav-icon">🛠️</span><span class="nav-label">Maintenance</span>
     </a>
-    <a class="nav-link" data-app="fieldcam" href="#">
+    <a class="nav-link" data-app="fieldcam" href="#" style="display:none;">
       <span class="nav-icon">📸</span><span class="nav-label">FieldCam</span>
     </a>
     <a class="nav-link" data-osnav="contacts" href="#">

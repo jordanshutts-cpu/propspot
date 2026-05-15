@@ -1,4 +1,5 @@
-// ============================================================
+
+    a.style.display = "";// ============================================================
 //  Maintenance — Shared Frontend Utilities
 // ============================================================
 
@@ -258,9 +259,9 @@ function renderUnifiedNav() {
     <button class="nav-collapse-btn" id="nav-collapse-btn" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
     <a class="nav-link" data-osnav="dashboard" href="#"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></a>
     <a class="nav-link" data-osnav="properties" href="#"><span class="nav-icon">🏘️</span><span class="nav-label">Properties</span></a>
-    <a class="nav-link" data-app="holdings" href="#"><span class="nav-icon">💼</span><span class="nav-label">Holdings</span></a>
-    <a class="nav-link" data-app="maintenance" href="#"><span class="nav-icon">🛠️</span><span class="nav-label">Maintenance</span></a>
-    <a class="nav-link" data-app="fieldcam" href="#"><span class="nav-icon">📸</span><span class="nav-label">FieldCam</span></a>
+    <a class="nav-link" data-app="holdings" href="#" style="display:none;"><span class="nav-icon">💼</span><span class="nav-label">Holdings</span></a>
+    <a class="nav-link" data-app="maintenance" href="#" style="display:none;"><span class="nav-icon">🛠️</span><span class="nav-label">Maintenance</span></a>
+    <a class="nav-link" data-app="fieldcam" href="#" style="display:none;"><span class="nav-icon">📸</span><span class="nav-label">FieldCam</span></a>
     <a class="nav-link" data-osnav="contacts" href="#"><span class="nav-icon">📇</span><span class="nav-label">Contacts</span></a>
     <a class="nav-link" data-osnav="team" href="#"><span class="nav-icon">👥</span><span class="nav-label">Team</span></a>
     <div class="nav-spacer"></div>
