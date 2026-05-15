@@ -9,21 +9,17 @@
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
 </head>
-<body>
+<body class="os-newlayout">
 
-<header class="app-header">
-  <span class="logo">🧩 Apps</span>
-  <div class="header-actions">
-    <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
-  </div>
-</header>
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
 
 <main class="page">
   <p class="text-sm text-muted mb-16">Apps registered with Prop Spot. Each one validates the same JWT we issue here, so users sign in once.</p>
   <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
 </main>
 
-<nav class="bottom-nav" id="nav"></nav>
 <script>window.NAV_CURRENT = 'apps';</script>
 
 <script src="config.js"></script>

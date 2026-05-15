@@ -32,15 +32,11 @@
     .modal-card { background:#fff; border-radius:14px; max-width:480px; width:100%; padding:20px; max-height:90vh; overflow-y:auto; }
   </style>
 </head>
-<body>
+<body class="os-newlayout">
 
-<header class="app-header">
-  <span class="logo">👥 Team</span>
-  <div class="header-actions">
-    <button class="icon-btn" onclick="openInvite()" title="Invite team member">+</button>
-    <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
-  </div>
-</header>
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
 
 <main class="page">
   <div class="section-header">
@@ -98,7 +94,6 @@
   </div>
 </div>
 
-<nav class="bottom-nav" id="nav"></nav>
 <script>window.NAV_CURRENT = 'team';</script>
 
 <script src="config.js"></script>

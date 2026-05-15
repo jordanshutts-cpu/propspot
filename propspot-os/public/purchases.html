@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#61B746">
-  <title>Prop Spot — Properties</title>
+  <title>Prop Spot — Purchases</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
@@ -52,12 +52,9 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  // PAGE_TITLE / PAGE_STATUSES / window.NAV_CURRENT can be set inline by the
-  // calling page (purchases/holdings/dispositions) before this script runs.
-  // Defaults below produce the original "all properties" behavior.
-  window.PAGE_TITLE     = window.PAGE_TITLE     || 'All Properties';
-  window.PAGE_STATUSES  = window.PAGE_STATUSES  || null;   // null = no filter
-  window.NAV_CURRENT    = window.NAV_CURRENT    || 'dashboard';
+  window.PAGE_TITLE     = 'Purchases';
+  window.PAGE_STATUSES  = ['purchasing'];
+  window.NAV_CURRENT    = 'purchases';
 
   let allProps = [];
   async function init(){

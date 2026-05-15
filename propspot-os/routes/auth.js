@@ -322,4 +322,36 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// ── POST /api/auth/change-password ──────────────────────────────
+// Authenticated user changes their own password. Requires current password.
+router.post('/change-password', requireAuth, async (req, res) => {
+  const { current_password, new_password } = req.body;
+  if (!current_password || !new_password) {
+    return res.status(400).json({ error: 'Current and new password required' });
+  }
+  if (new_password.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+  try {
+    const { rows } = await query(`SELECT password_hash FROM users WHERE id = $1`, [req.userId]);
+    const u = rows[0];
+    if (!u || !u.password_hash) return res.status(404).json({ error: 'User not found' });
+
+    const valid = await bcrypt.compare(current_password, u.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [hash, req.userId]);
+
+    await logActivity({
+      actorUserId: req.userId, entityType: 'user', entityId: req.userId,
+      action: 'password_changed', payload: {}
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Change-password error:', err);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
 module.exports = router;

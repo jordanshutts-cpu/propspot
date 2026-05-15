@@ -268,6 +268,168 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// ── New OS layout: top header + slim apps rail ───────────────
+// Each opt-in page sets <body class="os-newlayout"> + <header id="top-header">
+// + <aside id="apps-rail"> + <div id="user-menu" class="user-menu"> placeholders.
+// window.NAV_CURRENT (one of: purchases | holdings | dispositions | team |
+// contacts | dashboard) highlights the active top-nav item.
+
+function renderTopHeader() {
+  const el = document.getElementById('top-header');
+  if (!el) return;
+  el.innerHTML = `
+    <nav class="top-nav-links">
+      <a class="top-nav-link" href="/purchases.html"     data-osnav="purchases">Purchases</a>
+      <a class="top-nav-link" href="/holdings.html"      data-osnav="holdings">Holdings</a>
+      <a class="top-nav-link" href="/dispositions.html"  data-osnav="dispositions">Dispositions</a>
+    </nav>
+    <form class="top-nav-search" onsubmit="submitTopSearch(event)">
+      <span class="search-icon">🔍</span>
+      <input type="search" id="top-search" placeholder="Search properties…" autocomplete="off">
+    </form>
+    <div class="top-nav-icons">
+      <a class="top-nav-icon-btn" href="/contacts.html" data-osnav="contacts" title="Contacts">📇</a>
+      <a class="top-nav-icon-btn" href="/team.html"     data-osnav="team"     title="Team">👥</a>
+      <button type="button" class="top-nav-avatar" id="user-avatar"
+              onclick="toggleUserMenu(event)" title="Account">${
+                getCachedUser()?.full_name
+                  ? escHtml(getCachedUser().full_name.charAt(0).toUpperCase())
+                  : '👤'
+              }</button>
+    </div>
+  `;
+  // Highlight active section
+  const active = window.NAV_CURRENT;
+  if (active) {
+    el.querySelectorAll('[data-osnav]').forEach(a => {
+      if (a.dataset.osnav === active) a.classList.add('active');
+    });
+  }
+  // Pre-fill search box from ?q=
+  const q = new URLSearchParams(location.search).get('q');
+  if (q) document.getElementById('top-search').value = q;
+}
+
+function renderAppsRail() {
+  const el = document.getElementById('apps-rail');
+  if (!el) return;
+  el.innerHTML = `
+    <a class="apps-rail-brand" href="/dashboard.html" data-osnav="dashboard" title="Prop Spot home">
+      <img src="/logo.png" alt="Prop Spot">
+    </a>
+    <a class="apps-rail-link" data-app="fieldcam"     data-label="FieldCam"     style="display:none;" href="#">📸</a>
+    <a class="apps-rail-link" data-app="maintenance"  data-label="Maintenance"  style="display:none;" href="#">🛠️</a>
+    <a class="apps-rail-link" data-app="underwriting" data-label="Underwriting" style="display:none;" href="#">💰</a>
+    <div class="apps-rail-spacer"></div>
+  `;
+  // Wire data-app links via existing helper (it'll fetch /api/config)
+  wireUnifiedNav();
+}
+
+function renderUserMenu() {
+  const el = document.getElementById('user-menu');
+  if (!el) return;
+  const u = getCachedUser() || {};
+  el.innerHTML = `
+    <div class="user-info">
+      <div class="user-name">${escHtml(u.full_name || u.email || 'You')}</div>
+      <div class="user-email">${escHtml(u.email || '')}</div>
+    </div>
+    <button type="button" onclick="openChangePassword()">🔑 Change Password</button>
+    <div class="menu-divider"></div>
+    <button type="button" class="danger" onclick="signOut()">🚪 Sign Out</button>
+  `;
+}
+
+function toggleUserMenu(e) {
+  if (e) e.stopPropagation();
+  const el = document.getElementById('user-menu');
+  if (!el) return;
+  el.classList.toggle('open');
+}
+
+function closeUserMenuOnOutsideClick(e) {
+  const menu = document.getElementById('user-menu');
+  const avatar = document.getElementById('user-avatar');
+  if (!menu || !menu.classList.contains('open')) return;
+  if (menu.contains(e.target) || (avatar && avatar.contains(e.target))) return;
+  menu.classList.remove('open');
+}
+
+function submitTopSearch(e) {
+  e.preventDefault();
+  const q = document.getElementById('top-search').value.trim();
+  // For now: search routes to a properties list filtered by q.
+  // (purchases/holdings/dispositions also accept ?q= once we wire them).
+  window.location.href = '/properties.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+}
+
+async function openChangePassword() {
+  document.getElementById('user-menu')?.classList.remove('open');
+  let modal = document.getElementById('change-password-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'change-password-modal';
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:14px;max-width:380px;width:100%;padding:20px;">
+        <div class="section-header"><span class="section-title">Change Password</span>
+          <button class="icon-btn" style="background:#eee;color:#000;" onclick="document.getElementById('change-password-modal').remove()">×</button>
+        </div>
+        <form id="cp-form">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input class="form-input" type="password" id="cp-current" required autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password (min 6)</label>
+            <input class="form-input" type="password" id="cp-new" required minlength="6" autocomplete="new-password">
+          </div>
+          <p id="cp-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+          <button class="btn btn-primary btn-full" type="submit" id="cp-btn">Save</button>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('cp-form').addEventListener('submit', submitChangePassword);
+  } else {
+    modal.style.display = 'flex';
+  }
+}
+
+async function submitChangePassword(e) {
+  e.preventDefault();
+  const btn = document.getElementById('cp-btn');
+  const err = document.getElementById('cp-err');
+  err.style.display = 'none';
+  showSpinner(btn, 'Saving…');
+  try {
+    await apiFetch('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        current_password: document.getElementById('cp-current').value,
+        new_password:     document.getElementById('cp-new').value
+      })
+    });
+    document.getElementById('change-password-modal').remove();
+    showToast('Password changed');
+  } catch (e2) {
+    err.textContent = e2.message; err.style.display = 'block';
+    hideSpinner(btn);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  document.addEventListener('click', closeUserMenuOnOutsideClick);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      renderTopHeader(); renderAppsRail(); renderUserMenu();
+    });
+  } else {
+    renderTopHeader(); renderAppsRail(); renderUserMenu();
+  }
+}
+
 const HOLDING_CATEGORIES = [
   ['utility',           'Utility',           '💡'],
   ['insurance',         'Insurance',         '🛡️'],

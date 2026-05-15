@@ -15,15 +15,11 @@
     .has-account { background:#dcfce7; color:#15803d; }
   </style>
 </head>
-<body>
+<body class="os-newlayout">
 
-<header class="app-header">
-  <span class="logo">📇 Contacts</span>
-  <div class="header-actions">
-    <button class="icon-btn" onclick="document.getElementById('add-modal').classList.remove('hidden')">+</button>
-    <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
-  </div>
-</header>
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
 
 <main class="page">
   <div class="search-box">
@@ -68,7 +64,6 @@
   </div>
 </div>
 
-<nav class="bottom-nav" id="nav"></nav>
 <script>window.NAV_CURRENT = 'contacts';</script>
 
 <script src="config.js"></script>
