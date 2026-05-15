@@ -285,7 +285,9 @@ function renderTopHeader() {
     </nav>
     <form class="top-nav-search" onsubmit="submitTopSearch(event)">
       <span class="search-icon">🔍</span>
-      <input type="search" id="top-search" placeholder="Search properties…" autocomplete="off">
+      <input type="search" id="top-search" placeholder="Search properties, team, contacts…" autocomplete="off"
+             oninput="onSearchInput(event)" onfocus="onSearchInput(event)" onkeydown="onSearchKey(event)">
+      <div class="search-results" id="search-results"></div>
     </form>
     <div class="top-nav-icons">
       <a class="top-nav-icon-btn" href="/contacts.html" data-osnav="contacts" title="Contacts">📇</a>
@@ -359,9 +361,138 @@ function closeUserMenuOnOutsideClick(e) {
 function submitTopSearch(e) {
   e.preventDefault();
   const q = document.getElementById('top-search').value.trim();
-  // For now: search routes to a properties list filtered by q.
-  // (purchases/holdings/dispositions also accept ?q= once we wire them).
+  // Pressing Enter goes to the full filtered properties list.
+  // For instant jump-to-result, the dropdown handles individual clicks.
   window.location.href = '/properties.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+}
+
+// ── Live search across properties / users / contacts ─────────
+let _searchCache = null;
+let _searchInflight = null;
+
+async function _loadSearchData() {
+  if (_searchCache) return _searchCache;
+  if (_searchInflight) return _searchInflight;
+  _searchInflight = (async () => {
+    const [properties, users, contacts] = await Promise.all([
+      apiFetch('/api/properties').catch(() => []),
+      apiFetch('/api/users').catch(() => []),
+      apiFetch('/api/contacts').catch(() => [])
+    ]);
+    _searchCache = { properties, users, contacts };
+    _searchInflight = null;
+    return _searchCache;
+  })();
+  return _searchInflight;
+}
+
+async function onSearchInput(e) {
+  const q = e.target.value.trim().toLowerCase();
+  const resultsEl = document.getElementById('search-results');
+  if (!resultsEl) return;
+  if (!q) { resultsEl.classList.remove('open'); return; }
+
+  // Show "loading" until we have data the first time.
+  if (!_searchCache) {
+    resultsEl.innerHTML = '<div class="search-loading">Loading…</div>';
+    resultsEl.classList.add('open');
+  }
+  const data = await _loadSearchData();
+
+  // Re-read the latest query in case the user kept typing
+  const q2 = document.getElementById('top-search').value.trim().toLowerCase();
+  if (!q2) { resultsEl.classList.remove('open'); return; }
+
+  const props = (data.properties || []).filter(p => {
+    const addr = `${p.address_line1 || ''} ${p.unit || ''} ${p.city || ''} ${p.state || ''} ${p.zip || ''}`.toLowerCase();
+    const dn = (p.display_name || '').toLowerCase();
+    return addr.includes(q2) || dn.includes(q2);
+  }).slice(0, 6);
+
+  const users = (data.users || []).filter(u =>
+    (u.full_name || '').toLowerCase().includes(q2) ||
+    (u.email     || '').toLowerCase().includes(q2)
+  ).slice(0, 6);
+
+  const contacts = (data.contacts || []).filter(c =>
+    (c.full_name || '').toLowerCase().includes(q2) ||
+    (c.email     || '').toLowerCase().includes(q2) ||
+    (c.company   || '').toLowerCase().includes(q2) ||
+    (c.phone     || '').toLowerCase().includes(q2)
+  ).slice(0, 6);
+
+  let html = '';
+  if (props.length) {
+    html += '<div class="search-section"><div class="search-section-header">Properties</div>';
+    html += props.map(p => `
+      <a class="search-result" href="/property.html?id=${p.id}">
+        <span class="search-result-icon">🏠</span>
+        <div class="search-result-body">
+          <div class="search-result-title">${escHtml(p.display_name || p.address_line1)}${p.unit ? ' #' + escHtml(p.unit) : ''}</div>
+          <div class="search-result-subtitle">${escHtml([p.city, p.state, p.zip].filter(Boolean).join(', '))}</div>
+        </div>
+      </a>
+    `).join('');
+    html += '</div>';
+  }
+  if (users.length) {
+    html += '<div class="search-section"><div class="search-section-header">Team</div>';
+    html += users.map(u => `
+      <a class="search-result" href="/team.html">
+        <span class="search-result-icon">👤</span>
+        <div class="search-result-body">
+          <div class="search-result-title">${escHtml(u.full_name || u.email)}${u.is_owner ? ' · owner' : ''}</div>
+          <div class="search-result-subtitle">${escHtml(u.email || '')}</div>
+        </div>
+      </a>
+    `).join('');
+    html += '</div>';
+  }
+  if (contacts.length) {
+    html += '<div class="search-section"><div class="search-section-header">Contacts</div>';
+    html += contacts.map(c => {
+      const sub = [c.company, c.email, c.phone, contactTypeLabel ? contactTypeLabel(c.type) : c.type]
+        .filter(Boolean).join(' · ');
+      return `
+        <a class="search-result" href="/contact.html?id=${c.id}">
+          <span class="search-result-icon">📇</span>
+          <div class="search-result-body">
+            <div class="search-result-title">${escHtml(c.full_name)}</div>
+            <div class="search-result-subtitle">${escHtml(sub)}</div>
+          </div>
+        </a>
+      `;
+    }).join('');
+    html += '</div>';
+  }
+  if (!props.length && !users.length && !contacts.length) {
+    html = '<div class="search-empty">No matches.</div>';
+  } else {
+    html += '<div class="search-section" style="border-top:1px solid var(--border);">' +
+      `<a class="search-result" href="/properties.html?q=${encodeURIComponent(q2)}">` +
+        '<span class="search-result-icon">↩</span>' +
+        '<div class="search-result-body">' +
+          `<div class="search-result-title">See all properties matching "${escHtml(q2)}"</div>` +
+        '</div>' +
+      '</a></div>';
+  }
+  resultsEl.innerHTML = html;
+  resultsEl.classList.add('open');
+}
+
+function onSearchKey(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('search-results')?.classList.remove('open');
+    e.target.blur();
+  }
+}
+
+function closeSearchOnOutsideClick(e) {
+  const results = document.getElementById('search-results');
+  const search  = document.getElementById('top-search');
+  if (!results || !results.classList.contains('open')) return;
+  if (results.contains(e.target) || (search && search.contains(e.target))) return;
+  results.classList.remove('open');
 }
 
 async function openChangePassword() {
@@ -421,6 +552,7 @@ async function submitChangePassword(e) {
 
 if (typeof window !== 'undefined') {
   document.addEventListener('click', closeUserMenuOnOutsideClick);
+  document.addEventListener('click', closeSearchOnOutsideClick);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       renderTopHeader(); renderAppsRail(); renderUserMenu();
