@@ -228,8 +228,11 @@
   <div class="search-box">
     <span class="search-icon">🔍</span>
     <input class="form-input" type="search" id="search-input"
-           placeholder="Search properties…" oninput="filterProperties(this.value)">
+           placeholder="Search properties…" oninput="applyFilters()">
   </div>
+
+  <!-- Status filter pills -->
+  <div id="status-filter" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
 
   <div class="section-header">
     <span class="section-title" id="props-count">All Properties</span>
@@ -457,7 +460,8 @@
   async function loadProperties() {
     try {
       allProperties = await getProperties();
-      renderProperties(allProperties);
+      renderStatusFilter();   // build the toggle pills
+      applyFilters();         // honors saved status pref + any text in the search box
       initMap(allProperties);
       // Geocode any properties with an address but no GPS (runs in background)
       geocodeMissingGPS(allProperties);
@@ -526,15 +530,73 @@
     }).join('');
   }
 
-  function filterProperties(q) {
-    const needle = q.toLowerCase();
-    const filtered = allProperties.filter(p =>
-      (p.name    || '').toLowerCase().includes(needle) ||
-      (p.address || '').toLowerCase().includes(needle)
-    );
+  // ── Status filter (persists per-user in localStorage) ──────────
+  // [key, label, icon, on-by-default]
+  const STATUS_FILTERS = [
+    ['purchasing',           'Purchases',       '🛒', true],
+    ['renovating',           'Renovations',     '🔧', true],
+    ['listed_for_rent',      'Listed for Rent', '🏷️', true],
+    ['renting',              'Renting',         '🪧', true],
+    ['listed_for_sale',      'Listed on MLS',   '🏠', true],
+    ['selling',              'Selling',         '💰', true],
+    ['under_contract_buyer', 'UC with Buyer',   '📝', false],
+    ['rented',               'Rented',          '✅', false],
+    ['sold',                 'Sold',            '🤝', false],
+    ['assigned',             'Assigned',        '📦', false],
+    ['dropped',              'Dropped',         '🗑️', false]
+  ];
+  const FILTER_LS_KEY = 'fc_status_filter_v1';
+  let activeStatuses = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FILTER_LS_KEY));
+      if (Array.isArray(saved)) return new Set(saved);
+    } catch {}
+    return new Set(STATUS_FILTERS.filter(s => s[3]).map(s => s[0]));
+  })();
+
+  function renderStatusFilter() {
+    const el = document.getElementById('status-filter');
+    if (!el) return;
+    el.innerHTML = STATUS_FILTERS.map(([key, label, icon]) => {
+      const on = activeStatuses.has(key);
+      return `<button type="button"
+        onclick="toggleStatus('${key}')"
+        style="
+          border:1.5px solid ${on ? 'var(--brand)' : 'var(--border)'};
+          background:${on ? 'var(--brand-light)' : 'var(--surface)'};
+          color:${on ? 'var(--brand-dark)' : 'var(--text-muted)'};
+          padding:5px 10px;border-radius:100px;
+          font-size:.78rem;font-weight:600;cursor:pointer;
+          display:inline-flex;align-items:center;gap:4px;
+        ">${icon} ${escHtml(label)}</button>`;
+    }).join('');
+  }
+
+  function toggleStatus(key) {
+    if (activeStatuses.has(key)) activeStatuses.delete(key);
+    else activeStatuses.add(key);
+    try { localStorage.setItem(FILTER_LS_KEY, JSON.stringify([...activeStatuses])); } catch {}
+    renderStatusFilter();
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const filtered = allProperties.filter(p => {
+      // status: if a property has no status field at all, treat it as 'purchasing'
+      // (the schema default) so it doesn't disappear from the default view.
+      const status = p.status || 'purchasing';
+      if (!activeStatuses.has(status)) return false;
+      if (!q) return true;
+      return (p.name    || '').toLowerCase().includes(q) ||
+             (p.address || '').toLowerCase().includes(q);
+    });
     renderProperties(filtered);
     syncMapToList(filtered);
   }
+
+  // Backwards-compat for any existing inline handlers expecting filterProperties.
+  function filterProperties() { applyFilters(); }
 
   async function detectNearby() {
     try {
