@@ -453,6 +453,18 @@
       </div>
     </div>
 
+    <!-- Property indicator -->
+    <div id="prop-indicator" onclick="openSheet()" style="
+      display:flex;align-items:center;gap:6px;padding:4px 8px 6px;
+      cursor:pointer;
+    ">
+      <span style="font-size:.72rem;color:rgba(255,255,255,.45);">📍</span>
+      <span id="prop-indicator-name" style="
+        font-size:.75rem;font-weight:600;color:rgba(255,255,255,.55);
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;
+      ">Tap ⚙️ to select a property</span>
+    </div>
+
     <!-- Shutter row -->
     <div class="shutter-row">
       <button class="cam-btn" style="width:50px;height:50px;" onclick="openSheet()">⚙️</button>
@@ -468,6 +480,7 @@
     <div class="upload-progress" id="upload-progress">
       <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
       <div class="prog-lbl" id="prog-lbl">Uploading…</div>
+      <div style="text-align:center;margin-top:6px;" id="prog-view-link"></div>
     </div>
 
   </div>
@@ -762,14 +775,16 @@
     if (queue.length === 0) { showToast('Take some photos first!', 'error'); return; }
     if (!selectedPropId)    { openSheet(); showToast('Select a property first', 'error'); return; }
 
-    const btn   = document.getElementById('upload-all-btn');
-    const prog  = document.getElementById('upload-progress');
-    const fill  = document.getElementById('prog-fill');
-    const lbl   = document.getElementById('prog-lbl');
-    const notes = document.getElementById('photo-notes').value;
+    const btn      = document.getElementById('upload-all-btn');
+    const prog     = document.getElementById('upload-progress');
+    const fill     = document.getElementById('prog-fill');
+    const lbl      = document.getElementById('prog-lbl');
+    const viewLink = document.getElementById('prog-view-link');
+    const notes    = document.getElementById('photo-notes').value;
 
     btn.disabled = true;
     prog.style.display = 'block';
+    viewLink.innerHTML = '';
 
     const total = queue.length;
     let done = 0, failed = 0;
@@ -786,26 +801,33 @@
     }
 
     fill.style.width = '100%';
+    const uploadedPropId = selectedPropId; // capture before any reset
     lbl.textContent  = failed === 0
       ? `✅ All ${done} photos uploaded!`
       : `⚠️ ${done} uploaded, ${failed} failed`;
+
+    if (done > 0) {
+      // Offer a tap-to-go link instead of auto-navigating — this prevents
+      // losing a new batch the user may have already started queuing.
+      viewLink.innerHTML = `<a href="/property.html?id=${uploadedPropId}"
+        style="color:#61B746;font-size:.78rem;font-weight:600;text-decoration:none;">
+        View photos →</a>`;
+    }
 
     queue.forEach(item => URL.revokeObjectURL(item.url));
     queue = [];
     renderThumbs();
 
     setTimeout(() => {
-      prog.style.display = 'none';
-      fill.style.width   = '0%';
-      btn.disabled       = false;
-      if (failed === 0) {
-        // Return to wherever the user came from (property page, dashboard, etc.).
-        // Fall back to the property detail page if there's no history (e.g., the
-        // user deep-linked into camera.html directly).
-        if (history.length > 1) history.back();
-        else window.location.href = `/property.html?id=${selectedPropId}`;
+      // Hide progress bar only if nothing new is queued; otherwise leave it
+      // visible so user knows what already uploaded.
+      if (queue.length === 0) {
+        prog.style.display = 'none';
+        fill.style.width   = '0%';
+        viewLink.innerHTML = '';
       }
-    }, 1200);
+      btn.disabled = false;
+    }, 3000);
   }
 
   // ── Shutter dispatcher ────────────────────────────────────────
@@ -909,6 +931,12 @@
   async function loadAllProperties() {
     allProps = await getProperties();
     renderSheetProps();
+    // If a property was pre-selected (URL param or GPS will set it), show its name
+    if (selectedPropId) {
+      const prop = allProps.find(p => p.id === selectedPropId);
+      const indEl = document.getElementById('prop-indicator-name');
+      if (indEl && prop) indEl.textContent = prop.name || prop.address || 'Selected property';
+    }
   }
 
   function renderSheetProps() {
@@ -930,6 +958,10 @@
     selectedFolderId = null;
     document.querySelectorAll('.prop-opt-dark').forEach(el => el.classList.remove('selected'));
     document.getElementById(`sheet-prop-${id}`)?.classList.add('selected');
+    // Update the property indicator strip
+    const prop = allProps.find(p => p.id === id);
+    const indEl = document.getElementById('prop-indicator-name');
+    if (indEl && prop) indEl.textContent = prop.name || prop.address || 'Selected property';
     await loadFoldersForProp(id);
   }
 

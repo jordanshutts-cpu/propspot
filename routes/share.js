@@ -16,7 +16,14 @@ router.get('/:token', async (req, res) => {
 
   try {
     const { rows: linkRows } = await query(`
-      SELECT sl.*, p.name AS property_name, p.address, p.notes,
+      SELECT sl.*,
+             COALESCE(NULLIF(p.display_name, ''), p.address_line1) AS property_name,
+             NULLIF(CONCAT_WS(', ',
+               NULLIF(p.address_line1, ''),
+               NULLIF(p.city, ''),
+               CONCAT_WS(' ', NULLIF(p.state, ''), NULLIF(p.zip, ''))
+             ), '') AS address,
+             p.notes,
              f.name AS folder_name
       FROM share_links sl
       JOIN properties p ON p.id = sl.property_id
@@ -44,7 +51,7 @@ router.get('/:token', async (req, res) => {
         SELECT ph.*, f.name AS folder_name
         FROM photos ph
         LEFT JOIN folders f ON f.id = ph.folder_id
-        WHERE ph.property_id = $1 AND ph.folder_id = $2
+        WHERE ph.property_id = $1 AND ph.folder_id = $2 AND ph.deleted_at IS NULL
         ORDER BY ph.taken_at DESC
       `;
       photoParams = [link.property_id, link.folder_id];
@@ -53,7 +60,7 @@ router.get('/:token', async (req, res) => {
         SELECT ph.*, f.name AS folder_name
         FROM photos ph
         LEFT JOIN folders f ON f.id = ph.folder_id
-        WHERE ph.property_id = $1
+        WHERE ph.property_id = $1 AND ph.deleted_at IS NULL
         ORDER BY ph.taken_at DESC
       `;
       photoParams = [link.property_id];
