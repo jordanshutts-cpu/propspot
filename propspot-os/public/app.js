@@ -682,7 +682,8 @@ function propertyStatusBadge(s) {
 const ACQUISITION_STATUSES = [
   ['approved_to_close', 'Approved to Close', '#15803d', '#dcfce7'],   // green
   ['due_diligence',     'Due Diligence',     '#1e40af', '#dbeafe'],   // blue
-  ['under_contract',    'Under Contract',    '#92400e', '#fef3c7']    // amber
+  ['under_contract',    'Under Contract',    '#92400e', '#fef3c7'],   // amber
+  ['assigning',         'Assigning',         '#6b21a8', '#ede9fe']    // violet
 ];
 function acquisitionStatusLabel(s) {
   const f = ACQUISITION_STATUSES.find(([k]) => k === s);

@@ -161,7 +161,7 @@ DO $$ BEGIN
     ALTER TABLE properties DROP CONSTRAINT properties_acq_status_check;
   END IF;
   ALTER TABLE properties ADD CONSTRAINT properties_acq_status_check
-    CHECK (acquisition_status IN ('approved_to_close','due_diligence','under_contract'));
+    CHECK (acquisition_status IN ('approved_to_close','due_diligence','under_contract','assigning'));
 END $$;
 CREATE INDEX IF NOT EXISTS properties_acq_status_idx ON properties(acquisition_status);
 
