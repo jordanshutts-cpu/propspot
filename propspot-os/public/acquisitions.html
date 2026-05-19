@@ -97,28 +97,32 @@
       opacity: .45;
       transform: scale(.98);
     }
-    .kanban-card .addr {
-      font-weight: 700; font-size: .9rem;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    .kanban-card .addr-link {
+      display: block;
+      color: var(--text);
+      font-weight: 700;
+      font-size: .92rem;
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .kanban-card .addr-link:hover {
+      color: var(--brand);
+      text-decoration-color: var(--brand);
     }
     .kanban-card .meta {
       color: var(--text-muted);
       font-size: .76rem;
-      margin-top: 3px;
+      margin-top: 6px;
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
     }
     .kanban-card .meta .dot { opacity: .5; }
-    .kanban-card .open-link {
-      font-size: .72rem;
-      color: var(--brand);
-      text-decoration: none;
-      font-weight: 600;
-      margin-top: 6px;
-      display: inline-block;
-    }
-    .kanban-card .open-link:hover { text-decoration: underline; }
 
     .toast {
       position: fixed;
@@ -223,18 +227,18 @@
   function cardHtml(p){
     const ownerLine = p.owner_name || p.owner || '';
     const cityLine  = [p.city, p.state].filter(Boolean).join(', ');
-    const purchased = p.purchase_date ? fmtDate(p.purchase_date) : '';
+    const closeDate = p.purchase_date ? fmtDate(p.purchase_date) : '';
+    const addrText  = (p.address_line1 || '') + (p.unit ? ' #' + p.unit : '');
     return `
       <div class="kanban-card" draggable="true" data-id="${escHtml(p.id)}">
-        <div class="addr">${escHtml(p.address_line1 || '')}${p.unit ? ' #' + escHtml(p.unit) : ''}</div>
+        <a class="addr-link" href="/property.html?id=${encodeURIComponent(p.id)}" draggable="false" title="${escHtml(addrText)}">${escHtml(addrText)}</a>
         <div class="meta">
           ${cityLine ? `<span>${escHtml(cityLine)}</span>` : ''}
-          ${cityLine && (ownerLine || purchased) ? '<span class="dot">·</span>' : ''}
+          ${cityLine && (ownerLine || closeDate) ? '<span class="dot">·</span>' : ''}
           ${ownerLine ? `<span>${escHtml(ownerLine)}</span>` : ''}
-          ${ownerLine && purchased ? '<span class="dot">·</span>' : ''}
-          ${purchased ? `<span>Purchased ${escHtml(purchased)}</span>` : ''}
+          ${ownerLine && closeDate ? '<span class="dot">·</span>' : ''}
+          ${closeDate ? `<span>Anticipated close ${escHtml(closeDate)}</span>` : ''}
         </div>
-        <a class="open-link" href="/property.html?id=${encodeURIComponent(p.id)}">Open →</a>
       </div>
     `;
   }
