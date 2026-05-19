@@ -145,24 +145,28 @@ CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
 
 -- Sub-status for properties still in the 'purchasing' lifecycle: lets us
 -- group the Acquisitions board into Approved to Close / Due Diligence /
--- Under Contract lanes without inventing top-level statuses.
+-- Under Contract / Assigning lanes without inventing top-level statuses.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS acquisition_status TEXT NOT NULL DEFAULT 'under_contract';
 
+-- Drop the old CHECK BEFORE migrating values. The first release of this
+-- column shipped a CHECK that only allowed 'purchasing','due_diligence',
+-- 'approved_to_close'; if we leave that in place, the rename UPDATE
+-- below would violate it and break startup.
+ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_acq_status_check;
+
 -- Migrate any old 'purchasing' value (from the initial release of this
--- column) to the renamed 'under_contract' before re-applying the CHECK.
+-- column) to the renamed 'under_contract'.
 UPDATE properties SET acquisition_status = 'under_contract' WHERE acquisition_status = 'purchasing';
 
 -- Make sure the column default tracks the current canonical name (handles
 -- the case where the column already existed with the old default).
 ALTER TABLE properties ALTER COLUMN acquisition_status SET DEFAULT 'under_contract';
 
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'properties_acq_status_check') THEN
-    ALTER TABLE properties DROP CONSTRAINT properties_acq_status_check;
-  END IF;
-  ALTER TABLE properties ADD CONSTRAINT properties_acq_status_check
-    CHECK (acquisition_status IN ('approved_to_close','due_diligence','under_contract','assigning'));
-END $$;
+-- Re-apply the CHECK with the full current value list. Idempotent because
+-- we just dropped any previous version of this constraint above.
+ALTER TABLE properties ADD CONSTRAINT properties_acq_status_check
+  CHECK (acquisition_status IN ('approved_to_close','due_diligence','under_contract','assigning'));
+
 CREATE INDEX IF NOT EXISTS properties_acq_status_idx ON properties(acquisition_status);
 
 -- ── Contacts ──────────────────────────────────────────────────────────────
