@@ -169,6 +169,15 @@ ALTER TABLE properties ADD CONSTRAINT properties_acq_status_check
 
 CREATE INDEX IF NOT EXISTS properties_acq_status_idx ON properties(acquisition_status);
 
+-- Anticipated purchase / close date — set while a property is still in the
+-- Acquisitions pipeline. Kept separate from purchase_date so the projected
+-- vs actual close dates can both be tracked. purchase_date stays blank
+-- until the deal actually closes. No back-migration — existing rows keep
+-- whatever purchase_date they already had; operator fills the new field
+-- manually going forward.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS anticipated_close_date DATE;
+CREATE INDEX IF NOT EXISTS properties_antic_close_idx ON properties(anticipated_close_date);
+
 -- ── Contacts ──────────────────────────────────────────────────────────────
 -- type ENUM kept as TEXT + CHECK for forward-compat (easy to add new types).
 DO $$ BEGIN

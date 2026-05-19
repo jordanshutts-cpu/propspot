@@ -217,7 +217,7 @@ router.patch('/:id', async (req, res) => {
     'address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','status',
     'acquisition_status',
     'owner','owner_contact_id','county','tms','lockbox_code',
-    'purchase_date','purchase_price','sold_date','sold_price',
+    'purchase_date','purchase_price','anticipated_close_date','sold_date','sold_price',
     'lender_contact_id','seller_contact_id','acquisition_agent_contact_id',
     'strategy','property_type','data_source','conversion_method',
     'bridge_origination_fee','loan_servicing_fee','reno_holdback','total_borrowed',

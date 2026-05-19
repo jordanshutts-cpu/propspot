@@ -88,18 +88,19 @@
 
     const dateFmt = d => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     const fields = [
-      ['Owner',          property.owner],
-      ['County',         property.county],
-      ['TMS',            property.tms],
-      ['Parcel ID',      property.parcel_id],
-      ['Lockbox code',   property.lockbox_code],
-      ['Status',         propertyStatusLabel(property.status)],
-      ['Purchase date',  dateFmt(property.purchase_date)],
-      ['Purchase price', property.purchase_price != null ? formatMoney(property.purchase_price) : '—'],
-      ['Sold date',      dateFmt(property.sold_date)],
-      ['Sold price',     property.sold_price != null ? formatMoney(property.sold_price) : '—'],
-      ['Lender',         property.lender_name || '—'],
-      ['Seller',         property.seller_name || '—'],
+      ['Owner',                     property.owner],
+      ['County',                    property.county],
+      ['TMS',                       property.tms],
+      ['Parcel ID',                 property.parcel_id],
+      ['Lockbox code',              property.lockbox_code],
+      ['Status',                    propertyStatusLabel(property.status)],
+      ['Anticipated purchase date', dateFmt(property.anticipated_close_date)],
+      ['Purchase date',             dateFmt(property.purchase_date)],
+      ['Purchase price',            property.purchase_price != null ? formatMoney(property.purchase_price) : '—'],
+      ['Sold date',                 dateFmt(property.sold_date)],
+      ['Sold price',                property.sold_price != null ? formatMoney(property.sold_price) : '—'],
+      ['Lender',                    property.lender_name || '—'],
+      ['Seller',                    property.seller_name || '—'],
     ];
     let html = `
       <div class="card mb-16">
@@ -364,7 +365,9 @@
           <div class="form-group"><label class="form-label">Lockbox code</label>
             <input class="form-input" id="ed-lockbox_code" value="${escHtml(property.lockbox_code || '')}"></div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Anticipated purchase date</label>
+              <input class="form-input" type="date" id="ed-anticipated_close_date" value="${dval(property.anticipated_close_date)}"></div>
             <div class="form-group"><label class="form-label">Purchase date</label>
               <input class="form-input" type="date" id="ed-purchase_date" value="${dval(property.purchase_date)}"></div>
             <div class="form-group"><label class="form-label">Purchase price ($)</label>
@@ -413,9 +416,10 @@
       county:             document.getElementById('ed-county').value || null,
       tms:                document.getElementById('ed-tms').value || null,
       parcel_id:          document.getElementById('ed-parcel_id').value || null,
-      lockbox_code:       document.getElementById('ed-lockbox_code').value || null,
-      purchase_date:      document.getElementById('ed-purchase_date').value || null,
-      purchase_price:     document.getElementById('ed-purchase_price').value || null,
+      lockbox_code:            document.getElementById('ed-lockbox_code').value || null,
+      anticipated_close_date:  document.getElementById('ed-anticipated_close_date').value || null,
+      purchase_date:           document.getElementById('ed-purchase_date').value || null,
+      purchase_price:          document.getElementById('ed-purchase_price').value || null,
       sold_date:          document.getElementById('ed-sold_date').value || null,
       sold_price:         document.getElementById('ed-sold_price').value || null,
       lender_contact_id:  document.getElementById('ed-lender_contact_id').value || null,

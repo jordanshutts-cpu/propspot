@@ -227,7 +227,7 @@
   function cardHtml(p){
     const ownerLine = p.owner_name || p.owner || '';
     const cityLine  = [p.city, p.state].filter(Boolean).join(', ');
-    const closeDate = p.purchase_date ? fmtDate(p.purchase_date) : '';
+    const closeDate = p.anticipated_close_date ? fmtDate(p.anticipated_close_date) : '';
     const addrText  = (p.address_line1 || '') + (p.unit ? ' #' + p.unit : '');
     return `
       <div class="kanban-card" draggable="true" data-id="${escHtml(p.id)}">
@@ -237,7 +237,7 @@
           ${cityLine && (ownerLine || closeDate) ? '<span class="dot">·</span>' : ''}
           ${ownerLine ? `<span>${escHtml(ownerLine)}</span>` : ''}
           ${ownerLine && closeDate ? '<span class="dot">·</span>' : ''}
-          ${closeDate ? `<span>Anticipated close ${escHtml(closeDate)}</span>` : ''}
+          ${closeDate ? `<span>Anticipated purchase ${escHtml(closeDate)}</span>` : ''}
         </div>
       </div>
     `;
