@@ -677,6 +677,23 @@ function propertyStatusBadge(s) {
   return `<span class="status-badge" style="color:${f[2]};background:${f[3]};">${f[1]}</span>`;
 }
 
+// Acquisition sub-status (only meaningful when status = 'purchasing').
+// Tuple shape: [value, label, text-color, background-color]
+const ACQUISITION_STATUSES = [
+  ['approved_to_close', 'Approved to Close', '#15803d', '#dcfce7'],   // green
+  ['due_diligence',     'Due Diligence',     '#1e40af', '#dbeafe'],   // blue
+  ['under_contract',    'Under Contract',    '#92400e', '#fef3c7']    // amber
+];
+function acquisitionStatusLabel(s) {
+  const f = ACQUISITION_STATUSES.find(([k]) => k === s);
+  return f ? f[1] : (s || '—');
+}
+function acquisitionStatusBadge(s) {
+  const f = ACQUISITION_STATUSES.find(([k]) => k === s);
+  if (!f) return `<span class="status-badge">—</span>`;
+  return `<span class="status-badge" style="color:${f[2]};background:${f[3]};">${f[1]}</span>`;
+}
+
 const CONTACT_TYPES = [
   ['seller','Seller'],
   ['buyer','Buyer'],

@@ -144,15 +144,24 @@ END $$;
 CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
 
 -- Sub-status for properties still in the 'purchasing' lifecycle: lets us
--- group the Acquisitions board into Purchasing / Due Diligence / Approved
--- to Close lanes without inventing top-level statuses.
-ALTER TABLE properties ADD COLUMN IF NOT EXISTS acquisition_status TEXT NOT NULL DEFAULT 'purchasing';
+-- group the Acquisitions board into Approved to Close / Due Diligence /
+-- Under Contract lanes without inventing top-level statuses.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS acquisition_status TEXT NOT NULL DEFAULT 'under_contract';
+
+-- Migrate any old 'purchasing' value (from the initial release of this
+-- column) to the renamed 'under_contract' before re-applying the CHECK.
+UPDATE properties SET acquisition_status = 'under_contract' WHERE acquisition_status = 'purchasing';
+
+-- Make sure the column default tracks the current canonical name (handles
+-- the case where the column already existed with the old default).
+ALTER TABLE properties ALTER COLUMN acquisition_status SET DEFAULT 'under_contract';
+
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'properties_acq_status_check') THEN
     ALTER TABLE properties DROP CONSTRAINT properties_acq_status_check;
   END IF;
   ALTER TABLE properties ADD CONSTRAINT properties_acq_status_check
-    CHECK (acquisition_status IN ('purchasing','due_diligence','approved_to_close'));
+    CHECK (acquisition_status IN ('approved_to_close','due_diligence','under_contract'));
 END $$;
 CREATE INDEX IF NOT EXISTS properties_acq_status_idx ON properties(acquisition_status);
 

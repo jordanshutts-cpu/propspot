@@ -132,6 +132,16 @@
             </select>
           </div>
 
+          ${property.status === 'purchasing' ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <label class="text-muted text-xs" for="acq-status-select" style="font-weight:600;">Acquisition stage:</label>
+            <select id="acq-status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeAcquisitionStatus(this.value)">
+              ${ACQUISITION_STATUSES.map(([k, label]) => `<option value="${k}"${(property.acquisition_status || 'under_contract') === k ? ' selected' : ''}>${label}</option>`).join('')}
+            </select>
+            ${acquisitionStatusBadge(property.acquisition_status || 'under_contract')}
+          </div>
+          ` : ''}
+
           ${property.notes ? `<div class="property-notes mt-12" style="white-space:pre-wrap;font-size:.85rem;color:var(--text);background:var(--brand-light);padding:10px 12px;border-radius:8px;">${escHtml(property.notes)}</div>` : ''}
         </div>
       </div>
@@ -279,6 +289,16 @@
     try {
       await updateProperty(id, { status: newStatus });
       showToast('Status updated');
+      await load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  async function changeAcquisitionStatus(newStage){
+    try {
+      await updateProperty(id, { acquisition_status: newStage });
+      showToast('Acquisition stage updated');
       await load();
     } catch (e) {
       showToast(e.message, 'error');

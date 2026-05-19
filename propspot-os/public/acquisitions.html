@@ -171,9 +171,9 @@
   // Lane definitions — order is left → right on the board.
   // Tuple: [acquisition_status value, label, swatch color]
   const LANES = [
-    ['purchasing',        'Purchasing',         '#f59e0b'],
+    ['approved_to_close', 'Approved to Close',  '#22c55e'],
     ['due_diligence',     'Due Diligence',      '#3b82f6'],
-    ['approved_to_close', 'Approved to Close',  '#22c55e']
+    ['under_contract',    'Under Contract',     '#f59e0b']
   ];
 
   let allProps   = [];
@@ -186,9 +186,9 @@
       allProps = (Array.isArray(props) ? props : [])
         .filter(p => !window.PAGE_STATUSES || window.PAGE_STATUSES.includes(p.status));
 
-      // Default any property without a value to 'purchasing' so it shows up.
+      // Default any property without a value to 'under_contract' so it shows up.
       for (const p of allProps) {
-        if (!p.acquisition_status) p.acquisition_status = 'purchasing';
+        if (!p.acquisition_status) p.acquisition_status = 'under_contract';
       }
 
       const q = new URLSearchParams(location.search).get('q');
@@ -242,7 +242,7 @@
 
     const byLane = Object.fromEntries(LANES.map(([k]) => [k, []]));
     for (const p of list) {
-      const lane = byLane[p.acquisition_status] ? p.acquisition_status : 'purchasing';
+      const lane = byLane[p.acquisition_status] ? p.acquisition_status : 'under_contract';
       byLane[lane].push(p);
     }
 
@@ -309,7 +309,7 @@
   async function moveCard(id, newLane){
     const prop = allProps.find(p => p.id === id);
     if (!prop) return;
-    const prevLane = prop.acquisition_status || 'purchasing';
+    const prevLane = prop.acquisition_status || 'under_contract';
     if (prevLane === newLane) return;
 
     // Optimistic update — re-render immediately, revert on failure.
