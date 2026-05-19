@@ -171,13 +171,13 @@
   window.PAGE_STATUSES  = ['purchasing'];
   window.NAV_CURRENT    = 'acquisitions';
 
-  // Lane definitions — order is left → right on the board.
+  // Fixed lane order — do not reorder without Jordan's explicit ask.
   // Tuple: [acquisition_status value, label, swatch color]
   const LANES = [
-    ['approved_to_close', 'Approved to Close',  '#22c55e'],
-    ['due_diligence',     'Due Diligence',      '#3b82f6'],
     ['under_contract',    'Under Contract',     '#f59e0b'],
-    ['assigning',         'Assigning',          '#8b5cf6']
+    ['due_diligence',     'Due Diligence',      '#3b82f6'],
+    ['assigning',         'Assigning',          '#8b5cf6'],
+    ['approved_to_close', 'Approved to Close',  '#22c55e']
   ];
 
   let allProps   = [];

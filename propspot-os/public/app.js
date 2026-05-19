@@ -679,11 +679,12 @@ function propertyStatusBadge(s) {
 
 // Acquisition sub-status (only meaningful when status = 'purchasing').
 // Tuple shape: [value, label, text-color, background-color]
+// Fixed order — do not reorder without Jordan's explicit ask.
 const ACQUISITION_STATUSES = [
-  ['approved_to_close', 'Approved to Close', '#15803d', '#dcfce7'],   // green
-  ['due_diligence',     'Due Diligence',     '#1e40af', '#dbeafe'],   // blue
   ['under_contract',    'Under Contract',    '#92400e', '#fef3c7'],   // amber
-  ['assigning',         'Assigning',         '#6b21a8', '#ede9fe']    // violet
+  ['due_diligence',     'Due Diligence',     '#1e40af', '#dbeafe'],   // blue
+  ['assigning',         'Assigning',         '#6b21a8', '#ede9fe'],   // violet
+  ['approved_to_close', 'Approved to Close', '#15803d', '#dcfce7']    // green
 ];
 function acquisitionStatusLabel(s) {
   const f = ACQUISITION_STATUSES.find(([k]) => k === s);
