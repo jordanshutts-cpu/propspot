@@ -10,6 +10,131 @@
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
     .pcount { font-size:.68rem; padding:2px 7px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; white-space:nowrap; }
+
+    /* ── Kanban board ─────────────────────────────────────────── */
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(280px, 1fr));
+      gap: 16px;
+      align-items: start;
+      margin-top: 14px;
+    }
+    @media (max-width: 980px) {
+      .kanban { grid-template-columns: 1fr; }
+    }
+
+    .kanban-col {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .kanban-col.drag-over {
+      outline: 2px dashed var(--brand);
+      outline-offset: -2px;
+      background: var(--brand-light);
+    }
+    .kanban-col-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 1;
+    }
+    .kanban-col-head .swatch {
+      width: 10px; height: 10px; border-radius: 100px; flex-shrink: 0;
+    }
+    .kanban-col-head .title {
+      font-weight: 700; font-size: .92rem;
+    }
+    .kanban-col-head .count {
+      font-size: .72rem; padding: 2px 8px; border-radius: 100px;
+      background: var(--bg); color: var(--text-muted); font-weight: 600;
+      margin-left: auto;
+    }
+
+    .kanban-col-body {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .kanban-col-body .empty-lane {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: .8rem;
+      padding: 18px 8px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .kanban-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: grab;
+      transition: box-shadow .12s ease, transform .08s ease;
+      user-select: none;
+    }
+    .kanban-card:hover {
+      box-shadow: 0 4px 14px rgba(0,0,0,.08);
+    }
+    .kanban-card:active { cursor: grabbing; }
+    .kanban-card.dragging {
+      opacity: .45;
+      transform: scale(.98);
+    }
+    .kanban-card .addr {
+      font-weight: 700; font-size: .9rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .kanban-card .meta {
+      color: var(--text-muted);
+      font-size: .76rem;
+      margin-top: 3px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .kanban-card .meta .dot { opacity: .5; }
+    .kanban-card .open-link {
+      font-size: .72rem;
+      color: var(--brand);
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 6px;
+      display: inline-block;
+    }
+    .kanban-card .open-link:hover { text-decoration: underline; }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 100px;
+      font-size: .85rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+      z-index: 200;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #b91c1c; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -25,52 +150,64 @@
   </div>
 
   <div class="section-header">
-    <span class="section-title" id="props-count">All Properties</span>
+    <span class="section-title" id="props-count">Acquisitions</span>
     <div style="display:flex;gap:8px;align-items:center;">
-      <button class="dt-reset-btn" onclick="resetTableLayout()" title="Reset column order, widths, and sort">↺ Reset table</button>
       <a href="/add-property.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">+ Add</a>
     </div>
   </div>
 
-  <div id="props-list"><p class="text-muted text-sm">Loading…</p></div>
+  <div id="board"><p class="text-muted text-sm">Loading…</p></div>
 </main>
+
+<div id="toast" class="toast"></div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
-<script src="datatable.js"></script>
 <script>
   window.PAGE_TITLE     = 'Acquisitions';
   window.PAGE_STATUSES  = ['purchasing'];
   window.NAV_CURRENT    = 'acquisitions';
-  // Each lifecycle page gets its own saved layout:
-  window.PAGE_TABLE_KEY = window.PAGE_TABLE_KEY || ('properties:' + window.PAGE_TITLE.toLowerCase().replace(/\s+/g, '-'));
 
-  let allProps = [];
+  // Lane definitions — order is left → right on the board.
+  // Tuple: [acquisition_status value, label, swatch color]
+  const LANES = [
+    ['purchasing',        'Purchasing',         '#f59e0b'],
+    ['due_diligence',     'Due Diligence',      '#3b82f6'],
+    ['approved_to_close', 'Approved to Close',  '#22c55e']
+  ];
+
+  let allProps   = [];
   let scopedProps = [];
 
   async function init(){
     if (!await requireAuth()) return;
     try {
-      allProps = await getProperties();
-      if (Array.isArray(window.PAGE_STATUSES) && window.PAGE_STATUSES.length) {
-        allProps = allProps.filter(p => window.PAGE_STATUSES.includes(p.status));
+      const props = await getProperties();
+      allProps = (Array.isArray(props) ? props : [])
+        .filter(p => !window.PAGE_STATUSES || window.PAGE_STATUSES.includes(p.status));
+
+      // Default any property without a value to 'purchasing' so it shows up.
+      for (const p of allProps) {
+        if (!p.acquisition_status) p.acquisition_status = 'purchasing';
       }
+
       const q = new URLSearchParams(location.search).get('q');
       if (q) {
         document.getElementById('search-input').value = q;
         filterProps(q);
       } else {
         scopedProps = allProps;
-        render(scopedProps);
+        renderBoard(scopedProps);
       }
     } catch (err) {
-      document.getElementById('props-list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+      document.getElementById('board').innerHTML =
+        `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
 
   function fullSearchString(p){
     return [p.address_line1, p.unit, p.city, p.state, p.zip,
-            p.display_name, p.owner, p.county, p.tms,
+            p.display_name, p.owner, p.owner_name, p.county, p.tms,
             p.lender_name, p.seller_name].filter(Boolean).join(' ').toLowerCase();
   }
 
@@ -78,59 +215,132 @@
     if (!d) return '';
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
-  function fmtMoney(n) {
-    if (n == null || n === '') return '';
-    return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+  function cardHtml(p){
+    const ownerLine = p.owner_name || p.owner || '';
+    const cityLine  = [p.city, p.state].filter(Boolean).join(', ');
+    const purchased = p.purchase_date ? fmtDate(p.purchase_date) : '';
+    return `
+      <div class="kanban-card" draggable="true" data-id="${escHtml(p.id)}">
+        <div class="addr">${escHtml(p.address_line1 || '')}${p.unit ? ' #' + escHtml(p.unit) : ''}</div>
+        <div class="meta">
+          ${cityLine ? `<span>${escHtml(cityLine)}</span>` : ''}
+          ${cityLine && (ownerLine || purchased) ? '<span class="dot">·</span>' : ''}
+          ${ownerLine ? `<span>${escHtml(ownerLine)}</span>` : ''}
+          ${ownerLine && purchased ? '<span class="dot">·</span>' : ''}
+          ${purchased ? `<span>Purchased ${escHtml(purchased)}</span>` : ''}
+        </div>
+        <a class="open-link" href="/property.html?id=${encodeURIComponent(p.id)}">Open →</a>
+      </div>
+    `;
   }
 
-  function render(list){
-    const countLabel = list.length === 1 ? '1 Property' : `${list.length} Properties`;
+  function renderBoard(list){
+    const total = list.length;
     document.getElementById('props-count').textContent =
-      window.PAGE_TITLE === 'All Properties' ? countLabel : `${window.PAGE_TITLE} · ${countLabel}`;
-    const el = document.getElementById('props-list');
-    if (!list.length){
-      el.innerHTML = `<div class="empty-state">
-        <div class="empty-icon">🏗️</div>
-        <p>No properties match.</p>
-        <a href="/add-property.html" class="btn btn-primary">+ Add Property</a>
-      </div>`;
-      return;
+      `Acquisitions · ${total === 1 ? '1 Property' : total + ' Properties'}`;
+
+    const byLane = Object.fromEntries(LANES.map(([k]) => [k, []]));
+    for (const p of list) {
+      const lane = byLane[p.acquisition_status] ? p.acquisition_status : 'purchasing';
+      byLane[lane].push(p);
     }
-    renderDataTable(el, list, {
-      storageKey: window.PAGE_TABLE_KEY,
-      onRowClick: (row) => { location.href = '/property.html?id=' + row.id; },
-      defaultSort: { key: 'updated_at', dir: 'desc' },
-      columns: [
-        { key: 'address_line1', label: 'Address', width: 240,
-          render: r => `<strong>${escHtml(r.address_line1 || '')}${r.unit ? ' #' + escHtml(r.unit) : ''}</strong>` },
-        { key: 'city',           label: 'City',           width: 130, render: r => escHtml(r.city || '') },
-        { key: 'state',          label: 'State',          width: 70,  render: r => escHtml(r.state || '') },
-        { key: 'zip',            label: 'ZIP',            width: 80,  render: r => escHtml(r.zip || '') },
-        { key: 'county',         label: 'County',         width: 120, render: r => escHtml(r.county || '') },
-        { key: 'status',         label: 'Status',         width: 110, render: r => propertyStatusBadge(r.status), sortValue: r => r.status },
-        { key: 'owner',          label: 'Owner',          width: 140, render: r => escHtml(r.owner_name || r.owner || '') },
-        { key: 'tms',            label: 'TMS',            width: 110, render: r => escHtml(r.tms || '') },
-        { key: 'purchase_date',  label: 'Purchased',      width: 110, render: r => fmtDate(r.purchase_date), sortValue: r => r.purchase_date },
-        { key: 'purchase_price', label: 'Purchase $',     width: 110, render: r => fmtMoney(r.purchase_price), sortValue: r => r.purchase_price },
-        { key: 'sold_date',      label: 'Sold',           width: 110, render: r => fmtDate(r.sold_date), sortValue: r => r.sold_date },
-        { key: 'sold_price',     label: 'Sold $',         width: 110, render: r => fmtMoney(r.sold_price), sortValue: r => r.sold_price },
-        { key: 'lender_name',    label: 'Lender',         width: 130, render: r => escHtml(r.lender_name || '') },
-        { key: 'seller_name',    label: 'Seller',         width: 130, render: r => escHtml(r.seller_name || '') },
-        { key: 'updated_at',     label: 'Updated',        width: 110, render: r => fmtDate(r.updated_at), sortValue: r => r.updated_at }
-      ]
+
+    const board = document.getElementById('board');
+    board.innerHTML = `
+      <div class="kanban">
+        ${LANES.map(([key, label, color]) => `
+          <section class="kanban-col" data-lane="${key}">
+            <header class="kanban-col-head">
+              <span class="swatch" style="background:${color};"></span>
+              <span class="title">${escHtml(label)}</span>
+              <span class="count" data-count>${byLane[key].length}</span>
+            </header>
+            <div class="kanban-col-body" data-dropzone>
+              ${byLane[key].length
+                ? byLane[key].map(cardHtml).join('')
+                : '<div class="empty-lane">Drag a property here</div>'}
+            </div>
+          </section>
+        `).join('')}
+      </div>
+    `;
+
+    wireDragAndDrop();
+  }
+
+  function wireDragAndDrop(){
+    const cards = document.querySelectorAll('.kanban-card');
+    const cols  = document.querySelectorAll('.kanban-col');
+
+    cards.forEach(card => {
+      card.addEventListener('dragstart', e => {
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        document.querySelectorAll('.kanban-col.drag-over').forEach(c => c.classList.remove('drag-over'));
+      });
     });
+
+    cols.forEach(col => {
+      col.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        col.classList.add('drag-over');
+      });
+      col.addEventListener('dragleave', e => {
+        // Only clear if leaving the column entirely, not just moving over a child.
+        if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+      });
+      col.addEventListener('drop', async e => {
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        const id = e.dataTransfer.getData('text/plain');
+        const newLane = col.dataset.lane;
+        if (!id || !newLane) return;
+        await moveCard(id, newLane);
+      });
+    });
+  }
+
+  async function moveCard(id, newLane){
+    const prop = allProps.find(p => p.id === id);
+    if (!prop) return;
+    const prevLane = prop.acquisition_status || 'purchasing';
+    if (prevLane === newLane) return;
+
+    // Optimistic update — re-render immediately, revert on failure.
+    prop.acquisition_status = newLane;
+    renderBoard(scopedProps);
+
+    try {
+      await updateProperty(id, { acquisition_status: newLane });
+      const label = LANES.find(([k]) => k === newLane)?.[1] || newLane;
+      showToast(`Moved to ${label}`);
+    } catch (err) {
+      prop.acquisition_status = prevLane;
+      renderBoard(scopedProps);
+      showToast(`Couldn't save: ${err.message}`, true);
+    }
   }
 
   function filterProps(q){
     q = (q || '').toLowerCase();
-    scopedProps = allProps.filter(p => fullSearchString(p).includes(q));
-    render(scopedProps);
+    scopedProps = q ? allProps.filter(p => fullSearchString(p).includes(q)) : allProps;
+    renderBoard(scopedProps);
   }
 
-  function resetTableLayout(){
-    if (!confirm('Reset column order, widths, and sort to defaults?')) return;
-    resetDataTablePrefs(window.PAGE_TABLE_KEY);
-    render(scopedProps);
+  let toastTimer;
+  function showToast(msg, isError = false){
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('error', !!isError);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
   }
 
   init();

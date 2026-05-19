@@ -215,6 +215,7 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   const allowed = [
     'address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','status',
+    'acquisition_status',
     'owner','owner_contact_id','county','tms','lockbox_code',
     'purchase_date','purchase_price','sold_date','sold_price',
     'lender_contact_id','seller_contact_id','acquisition_agent_contact_id',

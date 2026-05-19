@@ -143,6 +143,19 @@ DO $$ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
 
+-- Sub-status for properties still in the 'purchasing' lifecycle: lets us
+-- group the Acquisitions board into Purchasing / Due Diligence / Approved
+-- to Close lanes without inventing top-level statuses.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS acquisition_status TEXT NOT NULL DEFAULT 'purchasing';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'properties_acq_status_check') THEN
+    ALTER TABLE properties DROP CONSTRAINT properties_acq_status_check;
+  END IF;
+  ALTER TABLE properties ADD CONSTRAINT properties_acq_status_check
+    CHECK (acquisition_status IN ('purchasing','due_diligence','approved_to_close'));
+END $$;
+CREATE INDEX IF NOT EXISTS properties_acq_status_idx ON properties(acquisition_status);
+
 -- ── Contacts ──────────────────────────────────────────────────────────────
 -- type ENUM kept as TEXT + CHECK for forward-compat (easy to add new types).
 DO $$ BEGIN
