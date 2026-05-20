@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Apps</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <p class="text-sm text-muted mb-16">Apps registered with Prop Spot. Each one validates the same JWT we issue here, so users sign in once.</p>
+  <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
+</main>
+
+<script>window.NAV_CURRENT = 'apps';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  // Build a deep-link that hands off the OS-issued JWT to the satellite app.
+  function appLaunchUrl(baseUrl){
+    if (!baseUrl) return null;
+    const token = getToken();
+    if (!token) return baseUrl;
+    const sep = baseUrl.includes('?') ? '&' : '?';
+    return baseUrl + sep + 'token=' + encodeURIComponent(token);
+  }
+
+  async function init(){
+    const me = await requireAuth(); if (!me) return;
+    try{
+      const apps = await getApps();
+      const grants = {};
+      (me.grants || []).forEach(g => { grants[g.slug] = g; });
+
+      const el = document.getElementById('list');
+      el.innerHTML = apps.map(a => {
+        const launch    = appLaunchUrl(a.base_url);
+        const hasAccess = !!grants[a.slug];
+        const clickable = launch && hasAccess;
+        const rowOpen = clickable
+          ? `<a class="team-row team-row-link" href="${escHtml(launch)}">`
+          : `<div class="team-row${a.base_url ? ' team-row-disabled' : ''}" ${
+              !hasAccess && a.base_url ? `title="You don't have access to ${escHtml(a.name)} — ask an owner."` : ''
+            }>`;
+        const rowClose = clickable ? '</a>' : '</div>';
+        const badge = !hasAccess
+          ? `<span class="badge badge-red">No access</span>`
+          : `<span class="badge">${a.user_count} ${a.user_count === 1 ? 'user' : 'users'}</span>`;
+
+        return `${rowOpen}
+          <div class="avatar" style="background:#fff;color:var(--brand);font-size:1.2rem;border:2px solid var(--brand);">
+            ${escHtml(a.icon || '🧩')}
+          </div>
+          <div class="team-info">
+            <div class="team-name">${escHtml(a.name)}</div>
+            <div class="team-email">${escHtml(a.description || a.slug)}</div>
+            ${a.base_url ? `<div class="text-xs text-muted">${escHtml(a.base_url)}</div>` : `<div class="text-xs text-muted">Not deployed yet</div>`}
+          </div>
+          ${badge}
+        ${rowClose}`;
+      }).join('');
+    }catch(err){
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+  init();
+</script>
+<style>
+  .team-row-link { color: inherit; text-decoration: none; cursor: pointer; transition: background .12s; }
+  .team-row-link:hover, .team-row-link:focus { background: var(--brand-light); }
+  .team-row-link:active { background: #e0eed8; }
+  .team-row-disabled { opacity: .6; cursor: not-allowed; }
+</style>
+</body>
+</html>

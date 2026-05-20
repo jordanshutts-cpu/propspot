@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Property</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .stage-section { margin-bottom: 20px; }
+    .stage-section h3 { font-size: .9rem; font-weight: 700; margin-bottom: 8px; display:flex; align-items:center; gap:8px; }
+    .pipe-row { background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 12px; margin-bottom: 6px; display:flex; align-items:center; justify-content:space-between; gap: 8px; }
+    .pipe-row .meta { font-size: .8rem; color: var(--text-muted); }
+    .status-pill { font-size: .7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; }
+    .contact-row { display:flex; gap:10px; align-items:center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .contact-row:last-child { border-bottom:none; }
+    .role-tag { font-size: .7rem; color: var(--text-muted); }
+    .photo-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+    .photo-tile { position:relative; aspect-ratio: 1/1; border-radius: 8px; overflow:hidden; background: var(--surface); cursor:pointer; }
+    .photo-tile img { width:100%; height:100%; object-fit: cover; display:block; }
+    .photo-tile .photo-meta { position:absolute; bottom:0; left:0; right:0; padding: 4px 6px; font-size:.65rem; color:#fff; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
+    .photo-lightbox { position:fixed; inset:0; background: rgba(0,0,0,.85); z-index: 1000; display:flex; align-items:center; justify-content:center; padding: 20px; }
+    .photo-lightbox img { max-width:100%; max-height:90vh; border-radius: 8px; }
+    .photo-lightbox .close-x { position:absolute; top:16px; right:20px; color:#fff; font-size:2rem; cursor:pointer; background:none; border:none; }
+    .photo-lightbox .lb-notes { position:absolute; bottom:20px; left:20px; right:20px; color:#fff; font-size:.85rem; text-align:center; }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page" id="page">
+  <a href="javascript:history.back()" class="text-sm" style="text-decoration:none;color:var(--text-muted);">‹ Back</a>
+  <p class="text-muted text-sm mt-12">Loading…</p>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get('id');
+  let property = null;
+
+  async function init(){
+    if (!await requireAuth()) return;
+    if (!id) { document.getElementById('page').innerHTML = '<p>Missing property id.</p>'; return; }
+    await load();
+  }
+
+  async function load(){
+    try{
+      property = await getProperty(id);
+      document.title = (property.display_name || property.address_line1) + ' — Prop Spot';
+      render();
+    }catch(err){
+      document.getElementById('page').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function pipeRow(stage, r){
+    const desc = {
+      prospects:    `${escHtml(r.source)} · ${escHtml(r.raw_name || '')} ${r.raw_phone ? '· ' + escHtml(r.raw_phone) : ''}`,
+      leads:        `${escHtml(r.source)} ${r.motivation_notes ? '· ' + escHtml(r.motivation_notes.slice(0,80)) : ''}`,
+      opportunities:`offer ${formatMoney(r.our_offer)} ${r.appointment_at ? '· apt ' + formatDate(r.appointment_at) : ''}`,
+      purchases:    `purchase ${formatMoney(r.purchase_price)} ${r.contract_date ? '· contract ' + formatDate(r.contract_date) : ''}`,
+      projects:     `${escHtml(r.kind)} · ${escHtml(r.status)}`
+    }[stage];
+    const canPromote = stage !== 'projects' && r.status !== 'promoted';
+    return `<div class="pipe-row">
+      <div>
+        <div>${desc || ''}</div>
+        <div class="meta">${formatDate(r.created_at)} · <span class="status-pill">${escHtml(r.status)}</span></div>
+      </div>
+      ${canPromote ? `<button class="btn btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="promote('${stage}','${r.id}')">Promote ›</button>` : ''}
+    </div>`;
+  }
+
+  function render(){
+    const sections = [
+      ['📥 Prospects',     'prospects',     property.prospects],
+      ['🎯 Leads',         'leads',         property.leads],
+      ['🤝 Opportunities', 'opportunities', property.opportunities],
+      ['📝 Purchases',     'purchases',     property.purchases],
+      ['🔧 Projects',      'projects',      property.projects]
+    ];
+
+    const dateFmt = d => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const fields = [
+      ['Owner',                     property.owner],
+      ['County',                    property.county],
+      ['TMS',                       property.tms],
+      ['Parcel ID',                 property.parcel_id],
+      ['Lockbox code',              property.lockbox_code],
+      ['Status',                    propertyStatusLabel(property.status)],
+      ['Anticipated purchase date', dateFmt(property.anticipated_close_date)],
+      ['Purchase date',             dateFmt(property.purchase_date)],
+      ['Purchase price',            property.purchase_price != null ? formatMoney(property.purchase_price) : '—'],
+      ['Sold date',                 dateFmt(property.sold_date)],
+      ['Sold price',                property.sold_price != null ? formatMoney(property.sold_price) : '—'],
+      ['Lender',                    property.lender_name || '—'],
+      ['Seller',                    property.seller_name || '—'],
+    ];
+    let html = `
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
+            <div>
+              ${property.display_name ? `<div class="property-name">${escHtml(property.display_name)}</div>` : ''}
+              <div class="${property.display_name ? 'property-address' : 'property-name'}">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
+              <div class="property-address">${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              ${propertyStatusBadge(property.status)}
+              <button class="btn btn-secondary" style="padding:6px 12px;font-size:.82rem;" onclick="openEditDetails()">✏️ Edit</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;margin-top:14px;font-size:.85rem;">
+            ${fields.map(([label, value]) => `
+              <div>
+                <div class="text-muted text-xs" style="font-weight:600;letter-spacing:.02em;">${escHtml(label)}</div>
+                <div style="margin-top:2px;">${value && value !== '—' ? escHtml(value) : '<span class="text-muted">—</span>'}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;">
+            <label class="text-muted text-xs" for="status-select" style="font-weight:600;">Change status:</label>
+            <select id="status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeStatus(this.value)">
+              ${PROPERTY_STATUSES.map(([k, label]) => `<option value="${k}"${property.status === k ? ' selected' : ''}>${label}</option>`).join('')}
+            </select>
+          </div>
+
+          ${property.status === 'purchasing' ? `
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <label class="text-muted text-xs" for="acq-status-select" style="font-weight:600;">Acquisition stage:</label>
+            <select id="acq-status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeAcquisitionStatus(this.value)">
+              ${ACQUISITION_STATUSES.map(([k, label]) => `<option value="${k}"${(property.acquisition_status || 'under_contract') === k ? ' selected' : ''}>${label}</option>`).join('')}
+            </select>
+            ${acquisitionStatusBadge(property.acquisition_status || 'under_contract')}
+          </div>
+          ` : ''}
+
+          ${property.notes ? `<div class="property-notes mt-12" style="white-space:pre-wrap;font-size:.85rem;color:var(--text);background:var(--brand-light);padding:10px 12px;border-radius:8px;">${escHtml(property.notes)}</div>` : ''}
+        </div>
+      </div>
+    `;
+
+    for (const [label, stage, rows] of sections){
+      html += `<div class="stage-section">
+        <h3>${label}<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addRecord('${stage}')">+ Add</button></h3>
+        ${rows.length ? rows.map(r => pipeRow(stage, r)).join('') : '<div class="text-muted text-xs">None yet.</div>'}
+      </div>`;
+    }
+
+    const holdings = property.holdings_items || [];
+    html += `<div class="stage-section">
+      <h3>💼 Holdings <span class="text-muted text-xs" style="font-weight:400;">(${holdings.length})</span>
+        <a class="btn btn-secondary" data-app="holdings" data-app-path="/" href="#" style="padding:4px 10px;font-size:.7rem;margin-left:auto;text-decoration:none;">Manage ↗</a>
+      </h3>
+      ${holdings.length
+        ? holdings.map(h => {
+            const badge = holdingDueBadge(h.next_due_date, h.reminder_days_before);
+            const amt = h.amount != null ? `${formatMoney(h.amount)} / ${escHtml(holdingFrequencyLabel(h.frequency))}` : escHtml(holdingFrequencyLabel(h.frequency));
+            return `<a class="pipe-row" data-app="holdings" data-app-path="/item.html?id=${h.id}" href="#" style="text-decoration:none;color:inherit;">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                <div style="font-size:1.2rem;">${escHtml(holdingCategoryIcon(h.category))}</div>
+                <div style="flex:1;">
+                  <div>${escHtml(h.name)}</div>
+                  <div class="meta">${amt}${h.vendor ? ' · ' + escHtml(h.vendor) : ''}${h.contact_name ? ' · 👤 ' + escHtml(h.contact_name) : ''}</div>
+                </div>
+              </div>
+              <span class="status-pill" style="background:${badge.cls === 'badge-danger' ? '#fee2e2' : badge.cls === 'badge-warn' ? '#fef3c7' : 'var(--brand-light)'}; color:${badge.cls === 'badge-danger' ? '#b91c1c' : badge.cls === 'badge-warn' ? '#92400e' : 'var(--brand)'};">${escHtml(badge.label)}</span>
+            </a>`;
+          }).join('')
+        : '<div class="text-muted text-xs">None yet. <a data-app="holdings" data-app-path="/" href="#">Add one in Holdings Desk ↗</a></div>'
+      }
+    </div>`;
+
+    html += `<div class="stage-section">
+      <h3>📇 Contacts<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addContactLink()">+ Link</button></h3>
+      ${property.contacts.length
+        ? property.contacts.map(c => `<div class="contact-row">
+            <div class="avatar">${escHtml(c.full_name.charAt(0).toUpperCase())}</div>
+            <div style="flex:1;">
+              <div><a href="/contact.html?id=${c.id}">${escHtml(c.full_name)}</a></div>
+              <div class="role-tag">${escHtml(c.role)}${c.is_primary ? ' · primary' : ''}</div>
+            </div>
+            <button class="icon-btn" style="background:rgba(239,68,68,.15);color:var(--danger);" onclick="unlink('${c.id}','${c.role}')" title="Unlink">×</button>
+          </div>`).join('')
+        : '<div class="text-muted text-xs">No contacts linked.</div>'}
+    </div>`;
+
+    html += `<div class="stage-section">
+      <h3>📷 Photos <span class="text-muted text-xs" style="font-weight:400;">(${property.photos.length})</span></h3>
+      ${property.photos.length
+        ? `<div class="photo-grid">${property.photos.map((ph, i) => `
+            <div class="photo-tile" onclick="openLightbox(${i})">
+              <img src="${escHtml(ph.url)}" alt="">
+              ${ph.uploader_name ? `<div class="photo-meta">${escHtml(ph.uploader_name)}</div>` : ''}
+            </div>`).join('')}</div>`
+        : '<div class="text-muted text-xs">No photos yet. Upload via the FieldCam app.</div>'}
+    </div>`;
+
+    html += `<div class="stage-section">
+      <h3>📎 Files <span class="text-muted text-xs" style="font-weight:400;" id="files-count"></span>
+        <label class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;cursor:pointer;">
+          + Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)">
+        </label>
+      </h3>
+      <div id="files-list" class="text-muted text-xs">Loading…</div>
+      <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>
+    </div>`;
+
+    html += `<div class="stage-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:20px;">
+      <button class="btn btn-danger btn-full" onclick="deleteThisProperty()">🗑️ Delete Property</button>
+      <p class="text-muted text-xs" style="text-align:center;margin-top:8px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
+    </div>`;
+
+    document.getElementById('page').innerHTML = html;
+    wireUnifiedNav();   // re-wire the freshly-rendered data-app links
+    loadFiles();
+  }
+
+  // ── Files (PDFs, deeds, inspection reports) ──────────────────
+  async function loadFiles(){
+    try {
+      const files = await getPropertyFiles(id);
+      const el = document.getElementById('files-list');
+      const cnt = document.getElementById('files-count');
+      if (cnt) cnt.textContent = `(${files.length})`;
+      if (!files.length) {
+        el.innerHTML = 'No files yet. Click <strong>Upload</strong> to add one (max 20MB).';
+        return;
+      }
+      el.innerHTML = files.map(f => {
+        const sizeKb = f.size_bytes ? Math.round(f.size_bytes / 1024) : null;
+        const ext = (f.filename.split('.').pop() || '').toLowerCase();
+        const icon = ['pdf'].includes(ext) ? '📄'
+                   : ['doc','docx','txt','rtf'].includes(ext) ? '📝'
+                   : ['xls','xlsx','csv'].includes(ext) ? '📊'
+                   : ['png','jpg','jpeg','gif','webp','heic'].includes(ext) ? '🖼️'
+                   : '📎';
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:1.2rem;">${icon}</span>
+            <div style="flex:1;min-width:0;">
+              <div><a href="${escHtml(f.url)}" target="_blank" rel="noopener" style="font-weight:600;color:var(--text);text-decoration:none;">${escHtml(f.filename)}</a></div>
+              <div class="meta">${sizeKb != null ? sizeKb + ' KB · ' : ''}${formatDate(f.created_at)}${f.uploaded_by_name ? ' · ' + escHtml(f.uploaded_by_name) : ''}</div>
+            </div>
+            <button class="icon-btn" style="background:rgba(239,68,68,.15);color:var(--danger);" onclick="confirmDeleteFile('${f.id}','${escHtml(f.filename).replace(/'/g, '&#39;')}')" title="Delete">×</button>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('files-list').innerHTML = `<span style="color:var(--danger);">Error: ${escHtml(e.message)}</span>`;
+    }
+  }
+
+  async function handleFileUpload(e){
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { showToast('File is over 20MB limit', 'error'); e.target.value = ''; return; }
+    const prog = document.getElementById('files-progress');
+    prog.style.display = 'block';
+    prog.textContent = `Uploading ${file.name}…`;
+    try {
+      await uploadPropertyFile(id, file);
+      prog.style.display = 'none';
+      e.target.value = '';
+      showToast('Uploaded');
+      await loadFiles();
+    } catch (err) {
+      prog.style.display = 'none';
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function confirmDeleteFile(fileId, filename){
+    if (!confirm(`Delete "${filename}"? This cannot be undone.`)) return;
+    try {
+      await deletePropertyFile(fileId);
+      showToast('Deleted');
+      await loadFiles();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function changeStatus(newStatus){
+    try {
+      await updateProperty(id, { status: newStatus });
+      showToast('Status updated');
+      await load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  async function changeAcquisitionStatus(newStage){
+    try {
+      await updateProperty(id, { acquisition_status: newStage });
+      showToast('Acquisition stage updated');
+      await load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  // ── Edit-details modal ──────────────────────────────────────
+  async function openEditDetails(){
+    let allContacts = [];
+    try { allContacts = await getContacts(); } catch {}
+    const contactOptions = (selected) =>
+      `<option value="">— none —</option>` +
+      allContacts.map(c => `<option value="${c.id}"${c.id === selected ? ' selected' : ''}>${escHtml(c.full_name)}${c.company ? ' — ' + escHtml(c.company) : ''}</option>`).join('');
+
+    const dval = d => d ? d.split('T')[0] : '';
+
+    const modal = document.createElement('div');
+    modal.id = 'edit-details-modal';
+    modal.className = 'modal-backdrop';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px;max-height:92vh;overflow-y:auto;">
+        <div class="section-header">
+          <span class="section-title">Edit Property</span>
+          <button class="icon-btn" style="background:#eee;color:#000;" onclick="document.getElementById('edit-details-modal').remove()">×</button>
+        </div>
+        <form id="ed-form">
+          <div class="form-group"><label class="form-label">Display name</label>
+            <input class="form-input" id="ed-display_name" value="${escHtml(property.display_name || '')}"></div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Address line 1 *</label>
+              <input class="form-input" id="ed-address_line1" required value="${escHtml(property.address_line1 || '')}"></div>
+            <div class="form-group"><label class="form-label">Unit</label>
+              <input class="form-input" id="ed-unit" value="${escHtml(property.unit || '')}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">City *</label>
+              <input class="form-input" id="ed-city" required value="${escHtml(property.city || '')}"></div>
+            <div class="form-group"><label class="form-label">State *</label>
+              <input class="form-input" id="ed-state" required value="${escHtml(property.state || '')}"></div>
+            <div class="form-group"><label class="form-label">ZIP *</label>
+              <input class="form-input" id="ed-zip" required value="${escHtml(property.zip || '')}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Owner</label>
+              <input class="form-input" id="ed-owner" list="ed-owner-list" autocomplete="off"
+                     placeholder="Pick or type a new owner"
+                     value="${escHtml(property.owner_name || property.owner || '')}">
+              <datalist id="ed-owner-list">
+                ${allContacts.filter(c => c.type === 'owner').map(c => `<option value="${escHtml(c.full_name)}">`).join('')}
+              </datalist>
+              <div class="text-xs text-muted" style="margin-top:4px;">Typing a new name will create an Owner contact.</div>
+            </div>
+            <div class="form-group"><label class="form-label">County</label>
+              <input class="form-input" id="ed-county" value="${escHtml(property.county || '')}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">TMS / Tax Map #</label>
+              <input class="form-input" id="ed-tms" value="${escHtml(property.tms || '')}"></div>
+            <div class="form-group"><label class="form-label">Parcel ID</label>
+              <input class="form-input" id="ed-parcel_id" value="${escHtml(property.parcel_id || '')}"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Lockbox code</label>
+            <input class="form-input" id="ed-lockbox_code" value="${escHtml(property.lockbox_code || '')}"></div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Anticipated purchase date</label>
+              <input class="form-input" type="date" id="ed-anticipated_close_date" value="${dval(property.anticipated_close_date)}"></div>
+            <div class="form-group"><label class="form-label">Purchase date</label>
+              <input class="form-input" type="date" id="ed-purchase_date" value="${dval(property.purchase_date)}"></div>
+            <div class="form-group"><label class="form-label">Purchase price ($)</label>
+              <input class="form-input" type="number" step="0.01" id="ed-purchase_price" value="${property.purchase_price ?? ''}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Sold date</label>
+              <input class="form-input" type="date" id="ed-sold_date" value="${dval(property.sold_date)}"></div>
+            <div class="form-group"><label class="form-label">Sold price ($)</label>
+              <input class="form-input" type="number" step="0.01" id="ed-sold_price" value="${property.sold_price ?? ''}"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label class="form-label">Lender (contact)</label>
+              <select class="form-select" id="ed-lender_contact_id">${contactOptions(property.lender_contact_id)}</select></div>
+            <div class="form-group"><label class="form-label">Seller (contact)</label>
+              <select class="form-select" id="ed-seller_contact_id">${contactOptions(property.seller_contact_id)}</select></div>
+          </div>
+          <div class="form-group"><label class="form-label">Notes</label>
+            <textarea class="form-textarea" id="ed-notes">${escHtml(property.notes || '')}</textarea></div>
+
+          <p id="ed-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('edit-details-modal').remove()">Cancel</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;" id="ed-save">Save</button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('ed-form').addEventListener('submit', submitEditDetails);
+  }
+
+  async function submitEditDetails(e){
+    e.preventDefault();
+    const btn = document.getElementById('ed-save');
+    const err = document.getElementById('ed-err');
+    err.style.display = 'none';
+    showSpinner(btn, 'Saving…');
+    const body = {
+      display_name:       document.getElementById('ed-display_name').value || null,
+      address_line1:      document.getElementById('ed-address_line1').value,
+      unit:               document.getElementById('ed-unit').value || null,
+      city:               document.getElementById('ed-city').value,
+      state:              document.getElementById('ed-state').value,
+      zip:                document.getElementById('ed-zip').value,
+      // owner is resolved to a contact_id below before submitting
+      county:             document.getElementById('ed-county').value || null,
+      tms:                document.getElementById('ed-tms').value || null,
+      parcel_id:          document.getElementById('ed-parcel_id').value || null,
+      lockbox_code:            document.getElementById('ed-lockbox_code').value || null,
+      anticipated_close_date:  document.getElementById('ed-anticipated_close_date').value || null,
+      purchase_date:           document.getElementById('ed-purchase_date').value || null,
+      purchase_price:          document.getElementById('ed-purchase_price').value || null,
+      sold_date:          document.getElementById('ed-sold_date').value || null,
+      sold_price:         document.getElementById('ed-sold_price').value || null,
+      lender_contact_id:  document.getElementById('ed-lender_contact_id').value || null,
+      seller_contact_id:  document.getElementById('ed-seller_contact_id').value || null,
+      notes:              document.getElementById('ed-notes').value || null
+    };
+    try {
+      // Resolve the typed owner name → contact_id (creates a contact if new).
+      const ownerNameTyped = (document.getElementById('ed-owner').value || '').trim();
+      if (ownerNameTyped) {
+        const resolved = await apiFetch('/api/properties/resolve-owner', {
+          method: 'POST', body: JSON.stringify({ name: ownerNameTyped })
+        });
+        body.owner_contact_id = resolved.id;
+        body.owner            = resolved.full_name;   // keep the legacy text in sync too
+      } else {
+        body.owner_contact_id = null;
+        body.owner            = null;
+      }
+      await updateProperty(id, body);
+      document.getElementById('edit-details-modal').remove();
+      showToast('Saved');
+      await load();
+    } catch (e2) {
+      err.textContent = e2.message; err.style.display = 'block';
+      hideSpinner(btn);
+    }
+  }
+
+  async function deleteThisProperty(){
+    const label = property.display_name || property.address_line1;
+    if (!confirm(`Delete "${label}"?\n\nThis permanently removes the property and ALL attached records (prospects, leads, opportunities, purchases, projects, photos, contact links). It cannot be undone.`)) return;
+    try {
+      await deleteProperty(id);
+      showToast('Property deleted');
+      setTimeout(() => { window.location.href = '/properties.html'; }, 600);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  function openLightbox(idx){
+    const ph = property.photos[idx];
+    if (!ph) return;
+    const noteText = [ph.notes, ph.taken_at ? formatDate(ph.taken_at) : null].filter(Boolean).join(' · ');
+    const box = document.createElement('div');
+    box.className = 'photo-lightbox';
+    box.innerHTML = `
+      <button class="close-x" onclick="this.parentElement.remove()">×</button>
+      <img src="${escHtml(ph.url)}" alt="">
+      ${noteText ? `<div class="lb-notes">${escHtml(noteText)}</div>` : ''}
+    `;
+    box.addEventListener('click', (e) => { if (e.target === box) box.remove(); });
+    document.body.appendChild(box);
+  }
+
+  async function addRecord(stage){
+    if (stage === 'prospects'){
+      const source = prompt('Prospect source (foreclosure_list, bankruptcy_list, probate_list, divorce_list, scraped, purchased_data):', 'foreclosure_list');
+      if (!source) return;
+      const raw_name  = prompt('Name (optional):') || '';
+      const raw_phone = prompt('Phone (optional):') || '';
+      try {
+        await createPipelineRecord('prospects', { property_id: id, source, raw_name, raw_phone });
+        showToast('Prospect added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'leads'){
+      const source = prompt('Lead source (ppl, ppc, organic_web, inbound_call, referral, prospect_response):', 'inbound_call');
+      if (!source) return;
+      try {
+        await createPipelineRecord('leads', { property_id: id, source });
+        showToast('Lead added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'opportunities'){
+      const our_offer = prompt('Our offer ($):');
+      try {
+        await createPipelineRecord('opportunities', { property_id: id, our_offer: our_offer ? Number(our_offer) : null });
+        showToast('Opportunity added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'purchases'){
+      const purchase_price = prompt('Purchase price ($):');
+      try {
+        await createPipelineRecord('purchases', { property_id: id, purchase_price: purchase_price ? Number(purchase_price) : null });
+        showToast('Purchase added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    } else if (stage === 'projects'){
+      const kind = prompt("Kind ('flip' or 'rental'):", 'flip');
+      if (!['flip','rental'].includes(kind)) return showToast('Invalid kind', 'error');
+      try {
+        await createPipelineRecord('projects', { property_id: id, kind });
+        showToast('Project added'); await load();
+      } catch (e) { showToast(e.message, 'error'); }
+    }
+  }
+
+  async function promote(stage, recordId){
+    let body = {};
+    if (stage === 'purchases'){
+      const kind = prompt("Promote to project — kind ('flip' or 'rental'):", 'flip');
+      if (!['flip','rental'].includes(kind)) return showToast('Invalid kind', 'error');
+      body = { kind };
+    }
+    try {
+      await promotePipelineRecord(stage, recordId, body);
+      showToast('Promoted'); await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+async function addContactLink(){
+    const contacts = await getContacts();
+    if (!contacts.length){ if (confirm('No contacts yet. Create one?')) window.location.href = '/contacts.html'; return; }
+    const choice = prompt(
+      'Contact ID? Available:\n' +
+      contacts.slice(0, 20).map(c => `${c.id.slice(0,8)} — ${c.full_name} (${c.type})`).join('\n')
+    );
+    if (!choice) return;
+    const match = contacts.find(c => c.id.startsWith(choice.trim()));
+    if (!match) return showToast('No match', 'error');
+    const role = prompt('Role on this property (e.g. seller, contractor, accountant):', match.type);
+    if (!role) return;
+    try {
+      await linkContactToProperty({ property_id: id, contact_id: match.id, role });
+      showToast('Linked'); await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function unlink(contactId, role){
+    if (!confirm('Unlink this contact?')) return;
+    try {
+      await unlinkContactFromProperty({ property_id: id, contact_id: contactId, role });
+      showToast('Unlinked'); await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  init();
+</script>
+</body>
+</html>

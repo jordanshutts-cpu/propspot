@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Dashboard</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .pipeline-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stage-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px; text-decoration: none; color: var(--text); transition: transform .15s; }
+    .stage-card:active { transform: scale(.98); }
+    .stage-icon { font-size: 1.4rem; margin-bottom: 6px; }
+    .stage-count { font-size: 1.6rem; font-weight: 800; color: var(--brand); }
+    .stage-label { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+    .apps-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .app-tile { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 14px; text-align: center; text-decoration: none; color: var(--text); }
+    .app-icon { font-size: 2rem; margin-bottom: 6px; }
+    .app-name { font-weight: 700; font-size: .95rem; }
+    .app-role { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+    .activity-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .85rem; align-items: flex-start; }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-dot { width: 6px; height: 6px; background: var(--brand); border-radius: 50%; margin-top: 8px; flex-shrink: 0; }
+    .activity-time { color: var(--text-muted); font-size: .72rem; }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="section-header"><span class="section-title">Pipeline</span></div>
+  <div class="pipeline-grid" id="pipeline-grid">
+    <div class="stage-card"><div class="stage-icon">📥</div><div class="stage-count" id="c-prospects">–</div><div class="stage-label">Prospects</div></div>
+    <div class="stage-card"><div class="stage-icon">🎯</div><div class="stage-count" id="c-leads">–</div><div class="stage-label">Leads</div></div>
+    <div class="stage-card"><div class="stage-icon">🤝</div><div class="stage-count" id="c-opps">–</div><div class="stage-label">Opportunities</div></div>
+    <div class="stage-card"><div class="stage-icon">📝</div><div class="stage-count" id="c-purchases">–</div><div class="stage-label">Under Contract</div></div>
+    <div class="stage-card"><div class="stage-icon">🔧</div><div class="stage-count" id="c-renovating">–</div><div class="stage-label">Renovating</div></div>
+    <div class="stage-card"><div class="stage-icon">🏷️</div><div class="stage-count" id="c-listed">–</div><div class="stage-label">Listed / Rented</div></div>
+  </div>
+
+  <div class="section-header" style="margin-top:24px;"><span class="section-title">Holdings Desk</span></div>
+  <div class="pipeline-grid" id="holdings-grid">
+    <a class="stage-card" data-app="holdings" data-app-path="/" href="#"><div class="stage-icon">💵</div><div class="stage-count" id="h-monthly">–</div><div class="stage-label">Monthly Carry</div></a>
+    <a class="stage-card" data-app="holdings" data-app-path="/?filter=due-7d" href="#"><div class="stage-icon">📅</div><div class="stage-count" id="h-due-week">–</div><div class="stage-label">Due ≤ 7 days</div></a>
+    <a class="stage-card" data-app="holdings" data-app-path="/?filter=overdue" href="#"><div class="stage-icon">⚠️</div><div class="stage-count" id="h-overdue">–</div><div class="stage-label">Overdue</div></a>
+    <a class="stage-card" data-app="holdings" data-app-path="/" href="#"><div class="stage-icon">📂</div><div class="stage-count" id="h-active">–</div><div class="stage-label">Active Items</div></a>
+  </div>
+
+  <div class="section-header" style="margin-top:24px;"><span class="section-title">Your Apps</span></div>
+  <div class="apps-grid" id="apps-grid"><p class="text-muted text-sm">Loading…</p></div>
+
+  <div class="section-header" style="margin-top:24px;"><span class="section-title">Recent Activity</span></div>
+  <div class="card"><div class="card-body" id="activity-list"><p class="text-muted text-sm">Loading…</p></div></div>
+</main>
+
+<script>window.NAV_CURRENT = 'dashboard';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  async function init(){
+    const me = await requireAuth(); if (!me) return;
+    await Promise.all([loadPipeline(), loadHoldings(), loadApps(me), loadActivity()]);
+  }
+
+  async function loadHoldings(){
+    try{
+      const s = await getHoldingsSummary();
+      document.getElementById('h-monthly').textContent  = '$' + Math.round(s.monthly_carry || 0).toLocaleString('en-US');
+      document.getElementById('h-due-week').textContent = s.due_this_week ?? 0;
+      document.getElementById('h-overdue').textContent  = s.overdue ?? 0;
+      document.getElementById('h-active').textContent   = s.active_count ?? 0;
+    }catch(e){ console.error(e); }
+  }
+
+  async function loadPipeline(){
+    try{
+      const props = await getProperties();
+      let pros=0, leads=0, opps=0, pur=0, ren=0, listed=0;
+      for (const p of props){
+        pros   += p.prospect_count    || 0;
+        leads  += p.lead_count        || 0;
+        opps   += p.opportunity_count || 0;
+        pur    += p.purchase_count    || 0;
+      }
+      const projects = await apiFetch('/api/projects');
+      ren    = projects.filter(p => p.status === 'renovating').length;
+      listed = projects.filter(p => ['listed_for_sale','listed_for_rent','rented'].includes(p.status)).length;
+      document.getElementById('c-prospects').textContent  = pros;
+      document.getElementById('c-leads').textContent      = leads;
+      document.getElementById('c-opps').textContent       = opps;
+      document.getElementById('c-purchases').textContent  = pur;
+      document.getElementById('c-renovating').textContent = ren;
+      document.getElementById('c-listed').textContent     = listed;
+    }catch(e){ console.error(e); }
+  }
+
+  function loadApps(me){
+    const grid = document.getElementById('apps-grid');
+    if (!me.grants?.length){
+      grid.innerHTML = '<p class="text-muted text-sm">No apps granted yet.</p>';
+      return;
+    }
+    const token = getToken();
+    grid.innerHTML = me.grants.map(g => {
+      let url = '#';
+      if (g.base_url) {
+        const sep = g.base_url.includes('?') ? '&' : '?';
+        url = g.base_url + sep + 'token=' + encodeURIComponent(token);
+      }
+      return `<a class="app-tile" href="${escHtml(url)}">
+        <div class="app-icon">${escHtml(g.icon || '🧩')}</div>
+        <div class="app-name">${escHtml(g.name)}</div>
+        <div class="app-role">${escHtml(g.role)}</div>
+      </a>`;
+    }).join('');
+  }
+
+  async function loadActivity(){
+    try{
+      const rows = await getActivity({ limit: 8 });
+      const el = document.getElementById('activity-list');
+      if (!rows.length){ el.innerHTML = '<p class="text-muted text-sm">No activity yet.</p>'; return; }
+      el.innerHTML = rows.map(r => `
+        <div class="activity-row">
+          <div class="activity-dot"></div>
+          <div style="flex:1;">
+            <div><strong>${escHtml(r.actor_name || 'System')}</strong> ${escHtml(r.action)} <em>${escHtml(r.entity_type)}</em></div>
+            <div class="activity-time">${formatDate(r.created_at)}</div>
+          </div>
+        </div>
+      `).join('');
+    }catch(e){
+      document.getElementById('activity-list').innerHTML = '<p class="text-muted text-sm">Could not load activity.</p>';
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

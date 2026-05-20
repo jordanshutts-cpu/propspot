@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Properties</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .pcount { font-size:.68rem; padding:2px 7px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; white-space:nowrap; }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input class="form-input" type="search" id="search-input" placeholder="Search by address, owner, county, TMS…" oninput="filterProps(this.value)">
+  </div>
+
+  <div class="section-header">
+    <span class="section-title" id="props-count">All Properties</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="dt-reset-btn" onclick="resetTableLayout()" title="Reset column order, widths, and sort">↺ Reset table</button>
+      <a href="/add-property.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">+ Add</a>
+    </div>
+  </div>
+
+  <div id="props-list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="datatable.js"></script>
+<script>
+  window.PAGE_TITLE     = window.PAGE_TITLE     || 'All Properties';
+  window.PAGE_STATUSES  = window.PAGE_STATUSES  || null;
+  window.NAV_CURRENT    = window.NAV_CURRENT    || 'dashboard';
+  // Each lifecycle page gets its own saved layout:
+  window.PAGE_TABLE_KEY = window.PAGE_TABLE_KEY || ('properties:' + window.PAGE_TITLE.toLowerCase().replace(/\s+/g, '-'));
+
+  let allProps = [];
+  let scopedProps = [];
+
+  async function init(){
+    if (!await requireAuth()) return;
+    try {
+      allProps = await getProperties();
+      if (Array.isArray(window.PAGE_STATUSES) && window.PAGE_STATUSES.length) {
+        allProps = allProps.filter(p => window.PAGE_STATUSES.includes(p.status));
+      }
+      const q = new URLSearchParams(location.search).get('q');
+      if (q) {
+        document.getElementById('search-input').value = q;
+        filterProps(q);
+      } else {
+        scopedProps = allProps;
+        render(scopedProps);
+      }
+    } catch (err) {
+      document.getElementById('props-list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function fullSearchString(p){
+    return [p.address_line1, p.unit, p.city, p.state, p.zip,
+            p.display_name, p.owner, p.county, p.tms,
+            p.lender_name, p.seller_name].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  function fmtDate(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function fmtMoney(n) {
+    if (n == null || n === '') return '';
+    return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  function render(list){
+    const countLabel = list.length === 1 ? '1 Property' : `${list.length} Properties`;
+    document.getElementById('props-count').textContent =
+      window.PAGE_TITLE === 'All Properties' ? countLabel : `${window.PAGE_TITLE} · ${countLabel}`;
+    const el = document.getElementById('props-list');
+    if (!list.length){
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🏗️</div>
+        <p>No properties match.</p>
+        <a href="/add-property.html" class="btn btn-primary">+ Add Property</a>
+      </div>`;
+      return;
+    }
+    renderDataTable(el, list, {
+      storageKey: window.PAGE_TABLE_KEY,
+      onRowClick: (row) => { location.href = '/property.html?id=' + row.id; },
+      defaultSort: { key: 'updated_at', dir: 'desc' },
+      columns: [
+        { key: 'address_line1', label: 'Address', width: 240,
+          render: r => `<strong>${escHtml(r.address_line1 || '')}${r.unit ? ' #' + escHtml(r.unit) : ''}</strong>` },
+        { key: 'city',           label: 'City',           width: 130, render: r => escHtml(r.city || '') },
+        { key: 'state',          label: 'State',          width: 70,  render: r => escHtml(r.state || '') },
+        { key: 'zip',            label: 'ZIP',            width: 80,  render: r => escHtml(r.zip || '') },
+        { key: 'county',         label: 'County',         width: 120, render: r => escHtml(r.county || '') },
+        { key: 'status',         label: 'Status',         width: 110, render: r => propertyStatusBadge(r.status), sortValue: r => r.status },
+        { key: 'owner',          label: 'Owner',          width: 140, render: r => escHtml(r.owner_name || r.owner || '') },
+        { key: 'tms',            label: 'TMS',            width: 110, render: r => escHtml(r.tms || '') },
+        { key: 'purchase_date',  label: 'Purchased',      width: 110, render: r => fmtDate(r.purchase_date), sortValue: r => r.purchase_date },
+        { key: 'purchase_price', label: 'Purchase $',     width: 110, render: r => fmtMoney(r.purchase_price), sortValue: r => r.purchase_price },
+        { key: 'sold_date',      label: 'Sold',           width: 110, render: r => fmtDate(r.sold_date), sortValue: r => r.sold_date },
+        { key: 'sold_price',     label: 'Sold $',         width: 110, render: r => fmtMoney(r.sold_price), sortValue: r => r.sold_price },
+        { key: 'lender_name',    label: 'Lender',         width: 130, render: r => escHtml(r.lender_name || '') },
+        { key: 'seller_name',    label: 'Seller',         width: 130, render: r => escHtml(r.seller_name || '') },
+        { key: 'updated_at',     label: 'Updated',        width: 110, render: r => fmtDate(r.updated_at), sortValue: r => r.updated_at }
+      ]
+    });
+  }
+
+  function filterProps(q){
+    q = (q || '').toLowerCase();
+    scopedProps = allProps.filter(p => fullSearchString(p).includes(q));
+    render(scopedProps);
+  }
+
+  function resetTableLayout(){
+    if (!confirm('Reset column order, widths, and sort to defaults?')) return;
+    resetDataTablePrefs(window.PAGE_TABLE_KEY);
+    render(scopedProps);
+  }
+
+  init();
+</script>
+</body>
+</html>

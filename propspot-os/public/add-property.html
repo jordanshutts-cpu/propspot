@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Add Property</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title">Add Property</span>
+</header>
+
+<main class="page">
+  <div class="card">
+    <div class="card-body">
+      <form onsubmit="submitForm(event)">
+        <div class="form-group">
+          <label class="form-label">Street Address *</label>
+          <input class="form-input" id="address_line1" placeholder="123 Main St" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unit / Apt</label>
+          <input class="form-input" id="unit" placeholder="Optional">
+        </div>
+        <div class="form-group">
+          <label class="form-label">City *</label>
+          <input class="form-input" id="city" required>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <div class="form-group" style="flex:1;">
+            <label class="form-label">State *</label>
+            <input class="form-input" id="state" placeholder="OH" required maxlength="2" style="text-transform:uppercase;">
+          </div>
+          <div class="form-group" style="flex:2;">
+            <label class="form-label">Zip *</label>
+            <input class="form-input" id="zip" placeholder="44101" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="status">
+            <!-- options populated from PROPERTY_STATUSES on load -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Parcel ID</label>
+          <input class="form-input" id="parcel_id" placeholder="Optional">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="notes" placeholder="Any context"></textarea>
+        </div>
+        <p id="err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+        <div id="dup-card" class="hidden" style="background:var(--brand-light);border-radius:10px;padding:12px;margin-bottom:12px;">
+          <p class="font-bold text-sm mb-4">⚠️ A property at this address already exists.</p>
+          <a id="dup-link" class="btn btn-secondary btn-full" href="#">View existing property</a>
+        </div>
+        <button class="btn btn-primary btn-full" type="submit" id="submit-btn">Add Property</button>
+      </form>
+    </div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (!getToken()) window.location.href = '/index.html';
+
+  // Populate the status dropdown from PROPERTY_STATUSES.
+  document.getElementById('status').innerHTML = PROPERTY_STATUSES
+    .map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
+
+  async function submitForm(e){
+    e.preventDefault();
+    const btn  = document.getElementById('submit-btn');
+    const err  = document.getElementById('err');
+    const dup  = document.getElementById('dup-card');
+    err.style.display = 'none';
+    dup.classList.add('hidden');
+    showSpinner(btn, 'Saving…');
+    try{
+      const property = await createProperty({
+        address_line1: document.getElementById('address_line1').value,
+        unit:          document.getElementById('unit').value,
+        city:          document.getElementById('city').value,
+        state:         document.getElementById('state').value,
+        zip:           document.getElementById('zip').value,
+        parcel_id:     document.getElementById('parcel_id').value,
+        status:        document.getElementById('status').value,
+        notes:         document.getElementById('notes').value
+      });
+      window.location.href = `/property.html?id=${property.id}`;
+    }catch(error){
+      try{
+        const r = await fetch(API_BASE + '/api/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
+          body: JSON.stringify({
+            address_line1: document.getElementById('address_line1').value,
+            unit:          document.getElementById('unit').value,
+            city:          document.getElementById('city').value,
+            state:         document.getElementById('state').value,
+            zip:           document.getElementById('zip').value,
+            parcel_id:     document.getElementById('parcel_id').value,
+            status:        document.getElementById('status').value
+          })
+        });
+        const data = await r.json();
+        if (r.status === 409 && data.existing){
+          document.getElementById('dup-link').href = `/property.html?id=${data.existing.id}`;
+          dup.classList.remove('hidden');
+        } else {
+          err.textContent = error.message;
+          err.style.display = 'block';
+        }
+      }catch{
+        err.textContent = error.message;
+        err.style.display = 'block';
+      }
+      hideSpinner(btn);
+    }
+  }
+</script>
+</body>
+</html>

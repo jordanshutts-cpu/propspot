@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>FieldCam — Properties</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <!-- Leaflet map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    #map {
+      width: 100%;
+      height: 260px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+      z-index: 0;
+    }
+
+    /* Leaflet popup tweaks */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      padding: 0;
+    }
+    .leaflet-popup-content { margin: 0; }
+    .map-popup {
+      padding: 12px 16px;
+      min-width: 160px;
+    }
+    .map-popup .popup-name {
+      font-weight: 700;
+      font-size: .95rem;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+    .map-popup .popup-address {
+      font-size: .78rem;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+    .map-popup a {
+      display: block;
+      background: #61B746;
+      color: #fff;
+      text-align: center;
+      padding: 7px 12px;
+      border-radius: 7px;
+      text-decoration: none;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+
+    /* Custom green marker */
+    .green-marker {
+      background: #61B746;
+      border: 2px solid #fff;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+
+    .map-no-gps {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: .85rem;
+      margin-bottom: 16px;
+      border: 1.5px dashed var(--border);
+    }
+
+    /* ── Notification bell ── */
+    .notif-bell { position: relative; }
+    .notif-badge {
+      position: absolute;
+      top: -4px; right: -4px;
+      background: #FF3B30;
+      color: #fff;
+      font-size: .6rem;
+      font-weight: 800;
+      border-radius: 100px;
+      padding: 1px 5px;
+      min-width: 16px;
+      text-align: center;
+      line-height: 14px;
+      border: 1.5px solid #61B746;
+    }
+
+    /* Notification panel (slides down from top) */
+    .notif-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 190;
+    }
+    .notif-panel {
+      position: fixed;
+      top: var(--header-height);
+      right: 8px;
+      width: min(360px, calc(100vw - 16px));
+      background: #1c1c1e;
+      border-radius: 14px;
+      z-index: 200;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      max-height: calc(100dvh - var(--header-height) - 80px);
+      display: flex;
+      flex-direction: column;
+    }
+    .notif-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 10px;
+      color: #fff;
+      font-weight: 700;
+      font-size: .95rem;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      flex-shrink: 0;
+    }
+    #notif-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .notif-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .notif-item:hover { background: rgba(255,255,255,.04); }
+    .notif-item.unread { background: rgba(97,183,70,.07); }
+    .notif-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: #3a3a3c;
+      color: #fff;
+      font-size: .85rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-text {
+      color: #f0f0f0;
+      font-size: .82rem;
+      line-height: 1.35;
+      margin-bottom: 2px;
+    }
+    .notif-text strong { color: #fff; }
+    .notif-sub {
+      color: rgba(255,255,255,.35);
+      font-size: .72rem;
+    }
+    .notif-preview {
+      color: rgba(255,255,255,.5);
+      font-size: .78rem;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .notif-empty {
+      color: rgba(255,255,255,.3);
+      font-size: .85rem;
+      text-align: center;
+      padding: 28px 16px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">📸 FieldCam</span>
+  <div class="header-actions">
+    <button class="icon-btn notif-bell" id="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+      🔔<span class="notif-badge hidden" id="notif-badge">0</span>
+    </button>
+    <a class="icon-btn" href="/team.html" title="Team">👥</a>
+    <button class="icon-btn header-signout" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<!-- Notification panel -->
+<div class="notif-overlay hidden" id="notif-overlay" onclick="closeNotifPanel()"></div>
+<div class="notif-panel hidden" id="notif-panel">
+  <div class="notif-header">
+    <span>🔔 Mentions</span>
+    <button onclick="closeNotifPanel()" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;">✕</button>
+  </div>
+  <div id="notif-list"><div class="notif-empty">Loading…</div></div>
+</div>
+
+<main class="page">
+
+  <!-- GPS Nearby Banner -->
+  <div id="nearby-banner" class="nearby-banner hidden" onclick="goToNearby()">
+    <div class="nearby-icon">📍</div>
+    <div class="nearby-text">
+      <strong id="nearby-name">Nearby Property</strong>
+      <span id="nearby-dist">Tap to view</span>
+    </div>
+    <div style="margin-left:auto;font-size:1.4rem;">›</div>
+  </div>
+
+  <!-- Map -->
+  <div id="map-section">
+    <div class="section-header" style="margin-bottom:8px;">
+      <span class="section-title">📍 Project Map</span>
+      <button class="btn btn-secondary" style="padding:5px 12px;font-size:.78rem;" onclick="centerOnMe()">
+        My Location
+      </button>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input class="form-input" type="search" id="search-input"
+           placeholder="Search properties…" oninput="applyFilters()">
+  </div>
+
+  <!-- Status filter pills -->
+  <div id="status-filter" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
+
+  <div class="section-header">
+    <span class="section-title" id="props-count">All Properties</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="/import.html" class="btn btn-secondary" style="padding:8px 14px;font-size:.85rem;">📥 Import</a>
+      <a href="/add-property.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">+ Add</a>
+    </div>
+  </div>
+
+  <div id="properties-list">
+    <div class="card mb-16" style="height:180px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
+    <div class="card mb-16" style="height:180px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite linear;border-radius:var(--radius)"></div>
+  </div>
+
+</main>
+
+<a class="fab" href="/camera.html" title="Take Photo">📷</a>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'dashboard';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let allProperties = [], nearbyProperty = null;
+  let map = null, userMarker = null, propertyMarkers = [];
+
+  // ── Custom green pin icon ────────────────────────────────────
+  function makeIcon(color = '#61B746', size = 14) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${size*2}px;height:${size*2}px;
+        background:${color};
+        border:3px solid #fff;
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        box-shadow:0 2px 8px rgba(0,0,0,.3);
+      "></div>`,
+      iconSize: [size*2, size*2],
+      iconAnchor: [size, size*2],
+      popupAnchor: [0, -(size*2)]
+    });
+  }
+
+  // ── Init map ─────────────────────────────────────────────────
+  function initMap(properties) {
+    if (map) { map.remove(); map = null; }
+
+    map = L.map('map', { zoomControl: true, attributionControl: false });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    const withGPS = properties.filter(p => p.lat && p.lng);
+
+    if (withGPS.length === 0) {
+      // Default to US center if no GPS properties
+      map.setView([39.5, -98.35], 4);
+    }
+
+    // Add property pins
+    propertyMarkers = [];
+    withGPS.forEach(p => {
+      const marker = L.marker([p.lat, p.lng], { icon: makeIcon('#61B746') })
+        .addTo(map)
+        .bindPopup(`
+          <div class="map-popup">
+            <div class="popup-name">${escHtml(p.name)}</div>
+            <div class="popup-address">${escHtml(p.address || 'No address')}</div>
+            <a href="/property.html?id=${p.id}">📷 View Photos (${p.photo_count || 0})</a>
+          </div>`, { maxWidth: 220 });
+      propertyMarkers.push(marker);
+    });
+
+    // Fit map to show all pins
+    if (withGPS.length > 0) {
+      const group = L.featureGroup(propertyMarkers);
+      map.fitBounds(group.getBounds().pad(0.2), { maxZoom: 15 });
+    }
+
+    // Show user location
+    tryUserLocation();
+  }
+
+  function tryUserLocation() {
+    if (!map) return;
+    getCurrentPosition()
+      .then(pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+
+        // Blue dot for user
+        const userIcon = L.divIcon({
+          className: '',
+          html: `<div style="
+            width:16px;height:16px;
+            background:#3b82f6;
+            border:3px solid #fff;
+            border-radius:50%;
+            box-shadow:0 0 0 4px rgba(59,130,246,.25);
+          "></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+
+        if (userMarker) userMarker.remove();
+        userMarker = L.marker([lat, lng], { icon: userIcon })
+          .addTo(map)
+          .bindPopup('<div class="map-popup"><div class="popup-name">📍 You are here</div></div>');
+      })
+      .catch(() => {}); // silent fail
+  }
+
+  function centerOnMe() {
+    getCurrentPosition()
+      .then(pos => {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+        if (userMarker) userMarker.openPopup();
+      })
+      .catch(() => showToast('Could not get your location', 'error'));
+  }
+
+  // ── Update map markers to match filtered list ─────────────────
+  function syncMapToList(list) {
+    if (!map) return;
+    propertyMarkers.forEach(m => map.removeLayer(m));
+    propertyMarkers = [];
+    const withGPS = list.filter(p => p.lat && p.lng);
+    withGPS.forEach(p => {
+      const marker = L.marker([p.lat, p.lng], { icon: makeIcon('#61B746') })
+        .addTo(map)
+        .bindPopup(`
+          <div class="map-popup">
+            <div class="popup-name">${escHtml(p.name)}</div>
+            <div class="popup-address">${escHtml(p.address || '')}</div>
+            <a href="/property.html?id=${p.id}">📷 View Photos (${p.photo_count || 0})</a>
+          </div>`, { maxWidth: 220 });
+      propertyMarkers.push(marker);
+    });
+    if (withGPS.length > 0) {
+      map.fitBounds(L.featureGroup(propertyMarkers).getBounds().pad(0.2), { maxZoom: 15 });
+    }
+  }
+
+  // ── Notifications / @mentions ─────────────────────────────────
+  const SEEN_KEY = 'fieldcam_mentions_seen';
+
+  async function loadMentions() {
+    try {
+      const mentions = await getMentions();
+      const lastSeen = parseInt(localStorage.getItem(SEEN_KEY) || '0');
+      const unread   = mentions.filter(m => new Date(m.created_at).getTime() > lastSeen);
+
+      // Badge
+      const badge = document.getElementById('notif-badge');
+      if (unread.length > 0) {
+        badge.textContent = unread.length > 9 ? '9+' : unread.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      // Render list
+      const listEl = document.getElementById('notif-list');
+      if (!mentions.length) {
+        listEl.innerHTML = '<div class="notif-empty">No mentions yet.<br>When someone @tags you in a comment it will appear here.</div>';
+        return;
+      }
+
+      listEl.innerHTML = mentions.map(m => {
+        const name     = m.commenter_name || m.commenter_email || 'Someone';
+        const initials = name[0].toUpperCase();
+        const isUnread = new Date(m.created_at).getTime() > lastSeen;
+        const when     = formatDate(m.created_at);
+        const preview  = m.body.length > 60 ? m.body.substring(0, 60) + '…' : m.body;
+        return `<a class="notif-item${isUnread ? ' unread' : ''}"
+                   href="/property.html?id=${m.property_id}"
+                   onclick="markSeen()">
+          <div class="notif-avatar">${escHtml(initials)}</div>
+          <div class="notif-body">
+            <div class="notif-text">
+              <strong>${escHtml(name)}</strong> mentioned you on <strong>${escHtml(m.property_name)}</strong>
+            </div>
+            <div class="notif-preview">${escHtml(preview)}</div>
+            <div class="notif-sub">${escHtml(when)}</div>
+          </div>
+        </a>`;
+      }).join('');
+    } catch (_) {}
+  }
+
+  function markSeen() {
+    localStorage.setItem(SEEN_KEY, Date.now().toString());
+    document.getElementById('notif-badge').classList.add('hidden');
+  }
+
+  function toggleNotifPanel() {
+    const panel   = document.getElementById('notif-panel');
+    const overlay = document.getElementById('notif-overlay');
+    const isOpen  = !panel.classList.contains('hidden');
+    if (isOpen) {
+      closeNotifPanel();
+    } else {
+      panel.classList.remove('hidden');
+      overlay.classList.remove('hidden');
+      markSeen();
+    }
+  }
+
+  function closeNotifPanel() {
+    document.getElementById('notif-panel').classList.add('hidden');
+    document.getElementById('notif-overlay').classList.add('hidden');
+  }
+
+  // ── Properties ────────────────────────────────────────────────
+  async function init() {
+    const user = await requireAuth();
+    if (!user) return;
+    await loadProperties();
+    detectNearby();
+    loadMentions();   // load notification count in background
+  }
+
+  async function loadProperties() {
+    try {
+      allProperties = await getProperties();
+      renderStatusFilter();   // build the toggle pills
+      applyFilters();         // honors saved status pref + any text in the search box
+      initMap(allProperties);
+      // Geocode any properties with an address but no GPS (runs in background)
+      geocodeMissingGPS(allProperties);
+    } catch (err) {
+      document.getElementById('properties-list').innerHTML =
+        `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  async function geocodeMissingGPS(properties) {
+    const missing = properties.filter(p => !p.lat && p.address);
+    if (!missing.length) return;
+    let config;
+    try { config = await apiFetch('/api/config'); } catch(_) { return; }
+    const key = config.googleMapsApiKey;
+    if (!key) return;
+
+    for (const prop of missing) {
+      try {
+        const r = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(prop.address)}&key=${key}`
+        );
+        const d = await r.json();
+        if (d.results?.[0]) {
+          const { lat, lng } = d.results[0].geometry.location;
+          // Save to DB so it won't need geocoding again
+          await updateProperty(prop.id, { lat, lng }).catch(() => {});
+          // Update local copy and refresh map
+          prop.lat = lat; prop.lng = lng;
+          initMap(allProperties);
+        }
+      } catch(_) {}
+    }
+  }
+
+  function renderProperties(list) {
+    const el = document.getElementById('properties-list');
+    document.getElementById('props-count').textContent =
+      list.length === 1 ? '1 Property' : `${list.length} Properties`;
+
+    if (list.length === 0) {
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🏗️</div>
+        <p>No properties yet.<br>Add your first renovation site!</p>
+        <a href="/add-property.html" class="btn btn-primary">+ Add Property</a>
+      </div>`;
+      return;
+    }
+
+    el.innerHTML = list.map(p => {
+      const cnt = p.photo_count || 0;
+      const thumb = p.cover_url
+        ? `<img class="property-thumb" src="${escHtml(p.cover_url)}" alt="${escHtml(p.name)}" loading="lazy">`
+        : `<div class="property-thumb-placeholder">🏠</div>`;
+      return `<a class="property-card" href="/property.html?id=${p.id}">
+        ${thumb}
+        <div class="property-info">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="property-name" style="flex:1;min-width:0;">${escHtml(p.name)}</div>
+            ${p.status ? propertyStatusBadge(p.status) : ''}
+          </div>
+          <div class="property-address">${escHtml(p.address || '')}</div>
+          <div class="property-meta">
+            <span>📷 ${cnt} photo${cnt !== 1 ? 's' : ''}</span>
+            ${p.lat ? '<span>📍 GPS set</span>' : ''}
+            ${p.lockbox_code ? `<span title="Lockbox code">🔒 ${escHtml(p.lockbox_code)}</span>` : ''}
+          </div>
+        </div>
+      </a>`;
+    }).join('');
+  }
+
+  // ── Status filter (persists per-user in localStorage) ──────────
+  // [key, label, icon, on-by-default]
+  const STATUS_FILTERS = [
+    ['purchasing',           'Purchases',       '🛒', true],
+    ['renovating',           'Renovations',     '🔧', true],
+    ['listed_for_rent',      'Listed for Rent', '🏷️', true],
+    ['renting',              'Renting',         '🪧', true],
+    ['listed_for_sale',      'Listed on MLS',   '🏠', true],
+    ['selling',              'Selling',         '💰', true],
+    ['under_contract_buyer', 'UC with Buyer',   '📝', false],
+    ['rented',               'Rented',          '✅', false],
+    ['sold',                 'Sold',            '🤝', false],
+    ['assigned',             'Assigned',        '📦', false],
+    ['dropped',              'Dropped',         '🗑️', false]
+  ];
+  const FILTER_LS_KEY = 'fc_status_filter_v1';
+  let activeStatuses = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FILTER_LS_KEY));
+      if (Array.isArray(saved)) return new Set(saved);
+    } catch {}
+    return new Set(STATUS_FILTERS.filter(s => s[3]).map(s => s[0]));
+  })();
+
+  function renderStatusFilter() {
+    const el = document.getElementById('status-filter');
+    if (!el) return;
+    el.innerHTML = STATUS_FILTERS.map(([key, label, icon]) => {
+      const on = activeStatuses.has(key);
+      return `<button type="button"
+        onclick="toggleStatus('${key}')"
+        style="
+          border:1.5px solid ${on ? 'var(--brand)' : 'var(--border)'};
+          background:${on ? 'var(--brand-light)' : 'var(--surface)'};
+          color:${on ? 'var(--brand-dark)' : 'var(--text-muted)'};
+          padding:5px 10px;border-radius:100px;
+          font-size:.78rem;font-weight:600;cursor:pointer;
+          display:inline-flex;align-items:center;gap:4px;
+        ">${icon} ${escHtml(label)}</button>`;
+    }).join('');
+  }
+
+  function toggleStatus(key) {
+    if (activeStatuses.has(key)) activeStatuses.delete(key);
+    else activeStatuses.add(key);
+    try { localStorage.setItem(FILTER_LS_KEY, JSON.stringify([...activeStatuses])); } catch {}
+    renderStatusFilter();
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const filtered = allProperties.filter(p => {
+      // status: if a property has no status field at all, treat it as 'purchasing'
+      // (the schema default) so it doesn't disappear from the default view.
+      const status = p.status || 'purchasing';
+      if (!activeStatuses.has(status)) return false;
+      if (!q) return true;
+      return (p.name    || '').toLowerCase().includes(q) ||
+             (p.address || '').toLowerCase().includes(q);
+    });
+    renderProperties(filtered);
+    syncMapToList(filtered);
+  }
+
+  // Backwards-compat for any existing inline handlers expecting filterProperties.
+  function filterProperties() { applyFilters(); }
+
+  async function detectNearby() {
+    try {
+      const pos = await getCurrentPosition();
+      const nearby = await findNearbyProperties(pos.coords.latitude, pos.coords.longitude);
+      if (nearby.length > 0) {
+        nearbyProperty = nearby[0];
+        document.getElementById('nearby-name').textContent = nearbyProperty.name;
+        document.getElementById('nearby-dist').textContent =
+          `${Math.round(nearbyProperty.distance)}m away — tap to view`;
+        document.getElementById('nearby-banner').classList.remove('hidden');
+      }
+    } catch (_) {}
+  }
+
+  function goToNearby() {
+    if (nearbyProperty) window.location.href = `/property.html?id=${nearbyProperty.id}`;
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Contact</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .prop-row { padding: 8px 0; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .prop-row:last-child { border-bottom: none; }
+    .role-tag { font-size: .7rem; color: var(--text-muted); }
+    .grant-row { display:flex; align-items:center; gap:10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+    .grant-row:last-child { border-bottom: none; }
+    .grant-row select { padding:6px 8px; border-radius:6px; border:1px solid var(--border); font-size:.85rem; }
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .modal-card { background:#fff; border-radius:14px; max-width:460px; width:100%; padding:20px; max-height:90vh; overflow:auto; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title" id="hdr">Contact</span>
+</header>
+
+<main class="page" id="page">
+  <p class="text-muted text-sm">Loading…</p>
+</main>
+
+<div id="invite-modal" class="hidden modal-bg">
+  <div class="modal-card">
+    <div class="section-header">
+      <span class="section-title">✉️ Invite to create an account</span>
+      <button class="icon-btn" style="background:#eee;color:#000;" onclick="closeInvite()">×</button>
+    </div>
+    <p class="text-sm text-muted mb-12" id="invite-blurb"></p>
+
+    <div class="section-header" style="margin-bottom:6px;"><span class="section-title" style="font-size:.85rem;">App access</span></div>
+    <p class="text-xs text-muted mb-12">Pick which apps this person can use, what role they get, and whether their access is limited to projects they're linked to.</p>
+    <div id="grants-config"></div>
+
+    <p id="invite-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+
+    <div id="link-box" class="hidden mt-12" style="background:var(--bg);border-radius:8px;padding:12px;">
+      <p class="text-sm font-bold mb-4">📋 Share this link manually:</p>
+      <p id="link-text" class="text-xs text-muted" style="word-break:break-all;"></p>
+      <button class="btn btn-secondary btn-full mt-8" onclick="copyLink()" style="font-size:.85rem;">Copy Link</button>
+    </div>
+
+    <button class="btn btn-primary btn-full mt-12" onclick="sendInvite()" id="send-btn">📨 Send Invite</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get('id');
+  let contact = null, apps = [], lastLink = null;
+
+  async function init(){
+    if (!await requireAuth()) return;
+    if (!id){ document.getElementById('page').innerHTML = '<p>Missing contact id.</p>'; return; }
+    [contact, apps] = await Promise.all([ getContact(id), getApps() ]);
+    document.getElementById('hdr').textContent = contact.full_name;
+    render();
+  }
+
+  function render(){
+    const c = contact;
+    let html = `
+      <div class="card mb-16">
+        <div class="card-body">
+          <div style="display:flex;gap:12px;align-items:center;">
+            <div class="avatar" style="width:54px;height:54px;font-size:1.3rem;">${escHtml(c.full_name.charAt(0).toUpperCase())}</div>
+            <div style="flex:1;">
+              <div class="property-name">${escHtml(c.full_name)}</div>
+              <div class="property-address">${escHtml(contactTypeLabel(c.type))}${c.company ? ' · ' + escHtml(c.company) : ''}</div>
+            </div>
+          </div>
+          <div class="mt-12">
+            ${c.email ? `<div class="text-sm">📧 ${escHtml(c.email)}</div>` : ''}
+            ${c.phone ? `<div class="text-sm">📞 ${escHtml(c.phone)}</div>` : ''}
+            ${c.notes ? `<div class="text-sm mt-8 text-muted">${escHtml(c.notes)}</div>` : ''}
+          </div>
+          <div class="mt-12">
+            ${c.user
+              ? `<span class="badge ${c.user.is_active ? 'badge-green' : 'badge-red'}">
+                   ${c.user.is_active ? '✓ Has account' : 'Invited — pending'}
+                 </span>`
+              : `<button class="btn btn-primary" onclick="openInvite()" ${c.email ? '' : 'disabled title="Add an email first"'}>
+                   ✉️ Invite to create account
+                 </button>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header"><span class="section-title">Linked Properties</span></div>
+      <div class="card"><div class="card-body">
+        ${c.properties.length
+          ? c.properties.map(p => `
+              <div class="prop-row">
+                <div>
+                  <div><a href="/property.html?id=${p.id}">${escHtml(p.address_line1)}</a></div>
+                  <div class="role-tag">${escHtml(p.role)}${p.is_primary ? ' · primary' : ''}</div>
+                </div>
+                <div class="text-xs text-muted">${escHtml(p.city)}, ${escHtml(p.state)}</div>
+              </div>`).join('')
+          : '<p class="text-muted text-sm">Not linked to any properties yet.</p>'}
+      </div></div>
+    `;
+    document.getElementById('page').innerHTML = html;
+  }
+
+  function openInvite(){
+    if (!contact.email){ showToast('Add an email to this contact first', 'error'); return; }
+    document.getElementById('invite-blurb').textContent =
+      `${contact.full_name} (${contact.email}) will get an email with a link to set their password and join.`;
+    renderGrantsConfig();
+    document.getElementById('link-box').classList.add('hidden');
+    document.getElementById('invite-err').style.display = 'none';
+    document.getElementById('invite-modal').classList.remove('hidden');
+  }
+  function closeInvite(){ document.getElementById('invite-modal').classList.add('hidden'); }
+
+  function renderGrantsConfig(){
+    const wrap = document.getElementById('grants-config');
+    wrap.innerHTML = apps.map(a => {
+      const defaultRole = contact.type === 'contractor' ? 'contractor'
+                         : contact.type === 'accountant' ? 'member'
+                         : 'member';
+      const defaultScope = contact.type === 'contractor' ? 'linked_projects' : 'all';
+      return `
+        <div class="grant-row">
+          <input type="checkbox" id="g-${a.id}" data-app="${a.id}">
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:.9rem;">${escHtml(a.icon || '🧩')} ${escHtml(a.name)}</div>
+            <div style="display:flex; gap:6px; margin-top:4px;">
+              <select data-role="${a.id}">
+                <option value="member">member</option>
+                <option value="contractor" ${defaultRole === 'contractor' ? 'selected' : ''}>contractor</option>
+                <option value="field_user">field_user</option>
+                <option value="admin">admin</option>
+              </select>
+              <select data-scope="${a.id}">
+                <option value="all" ${defaultScope === 'all' ? 'selected' : ''}>all projects</option>
+                <option value="linked_projects" ${defaultScope === 'linked_projects' ? 'selected' : ''}>only linked projects</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p class="text-sm text-muted">No apps registered yet.</p>';
+  }
+
+  async function sendInvite(){
+    const btn = document.getElementById('send-btn');
+    const err = document.getElementById('invite-err');
+    err.style.display = 'none';
+
+    const grants = apps
+      .filter(a => document.getElementById(`g-${a.id}`)?.checked)
+      .map(a => ({
+        app_id:     a.id,
+        role:       document.querySelector(`[data-role="${a.id}"]`).value,
+        scope_kind: document.querySelector(`[data-scope="${a.id}"]`).value
+      }));
+
+    showSpinner(btn, 'Sending…');
+    try{
+      const res = await inviteContact(contact.id, { app_grants: grants });
+      if (res.inviteLink){
+        lastLink = res.inviteLink;
+        document.getElementById('link-text').textContent = res.inviteLink;
+        document.getElementById('link-box').classList.remove('hidden');
+        showToast('Invite ready — share the link');
+      } else {
+        showToast(res.message || 'Invite sent');
+        setTimeout(() => { closeInvite(); init(); }, 1200);
+      }
+      hideSpinner(btn);
+    }catch(e){
+      err.textContent = e.message; err.style.display = 'block';
+      hideSpinner(btn);
+    }
+  }
+
+  function copyLink(){
+    if (lastLink) navigator.clipboard.writeText(lastLink).then(() => showToast('Link copied!'));
+  }
+
+  init();
+</script>
+</body>
+</html>

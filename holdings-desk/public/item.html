@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Holding · Holdings Desk</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .panel { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; margin-bottom:14px; }
+    .panel h3 { font-size:.95rem; margin:0 0 10px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .panel h3 .actions { display:flex; gap:6px; }
+    .kv { display:grid; grid-template-columns: 120px 1fr; gap:6px 12px; font-size:.85rem; }
+    .kv dt { color:var(--text-muted); }
+    .kv dd { margin:0; word-break:break-word; }
+    .kv a { color:var(--brand); text-decoration:none; }
+    .kv a:hover { text-decoration:underline; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:100px; font-size:.7rem; font-weight:600; }
+    .badge-cat { background:var(--brand-light); color:var(--brand); }
+    .badge-status-active { background:#dcfce7; color:#15803d; }
+    .badge-status-paused { background:#fef3c7; color:#92400e; }
+    .badge-status-closed { background:var(--border); color:var(--text-muted); }
+    .badge-autopay { background:#dbeafe; color:#1e40af; }
+    .badge-due { font-size:.72rem; padding:2px 8px; border-radius:100px; font-weight:600; }
+    .badge-danger { background:#fee2e2; color:#b91c1c; }
+    .badge-warn   { background:#fef3c7; color:#92400e; }
+    .badge-ok     { background:var(--brand-light); color:var(--brand); }
+    .badge-muted  { background:var(--border); color:var(--text-muted); }
+    .form-row { display:flex; gap:8px; margin-bottom:8px; }
+    .form-row > * { flex:1; }
+    .doc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; }
+    .doc-tile { position:relative; background:var(--brand-light); border-radius:8px; padding:10px; text-align:center; min-height:90px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; text-decoration:none; color:var(--text); }
+    .doc-tile .doc-icon { font-size:1.8rem; }
+    .doc-tile .doc-label { font-size:.72rem; margin-top:4px; word-break:break-word; line-height:1.2; }
+    .doc-tile .doc-del { position:absolute; top:4px; right:4px; background:rgba(239,68,68,.85); color:#fff; width:20px; height:20px; border-radius:50%; border:none; font-size:.85rem; line-height:1; cursor:pointer; }
+    .pay-row { display:grid; grid-template-columns: 100px 1fr 1fr auto; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); font-size:.82rem; align-items:center; }
+    .pay-row:last-child { border-bottom:none; }
+    .detail-pair { display:flex; gap:6px; margin-bottom:6px; }
+    .detail-pair input { flex:1; }
+    .detail-pair button { background:var(--danger); color:#fff; border:none; border-radius:6px; width:32px; cursor:pointer; }
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:flex-end; justify-content:center; }
+    .modal { background:var(--surface); border-radius:var(--radius) var(--radius) 0 0; padding:18px; width:100%; max-width:480px; max-height:92vh; overflow-y:auto; }
+    .modal h3 { margin:0 0 12px; font-size:1.05rem; }
+    .form-group { margin-bottom:12px; }
+    .form-label { display:block; font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; }
+    .toggle-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:.85rem; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <a class="back-btn" href="/" title="All holdings">‹</a>
+  <span class="header-title" id="hdr">Holding</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="confirmDelete()" title="Delete">🗑️</button>
+  </div>
+</header>
+
+<main class="page" id="page">
+  <p class="text-muted text-sm">Loading…</p>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const id = new URLSearchParams(location.search).get('id');
+  let holding = null;
+  let contactsCache = null;
+  let editMode = false;
+
+  // Suggested details-JSONB keys per category. Pure UI hints; the server
+  // accepts any keys.
+  const DETAIL_HINTS = {
+    insurance:        ['policy_number','carrier','coverage_limit','deductible','effective_date','renewal_date'],
+    mortgage:         ['loan_number','lender','loan_balance','interest_rate','original_amount','term_months','escrow_account'],
+    property_tax:     ['parcel_id','tax_year','assessed_value','jurisdiction'],
+    business_license: ['license_number','jurisdiction','license_type','expires_at'],
+    hoa:              ['management_company','management_email','dues_period'],
+    utility:          ['meter_number','service_address','rate_plan']
+  };
+
+  async function init(){
+    if (!await requireAuth()) return;
+    if (!id) { document.getElementById('page').innerHTML = '<p>Missing holding id.</p>'; return; }
+    await load();
+  }
+
+  async function load(){
+    try {
+      holding = await getHolding(id);
+      document.getElementById('hdr').textContent = holding.name || 'Holding';
+      // Resolve cross-domain Prop Spot links once so render() can use them synchronously.
+      holding._propertyUrl = await osLink('/property.html?id=' + holding.property_id);
+      holding._contactUrl  = holding.contact_id ? await osLink('/contact.html?id=' + holding.contact_id) : null;
+      render();
+    } catch (err) {
+      document.getElementById('page').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function render(){
+    const badge = holdingDueBadge(holding.next_due_date, holding.reminder_days_before);
+    const statusCls = `badge-status-${holding.status || 'active'}`;
+    const propLabel = holding.property_display_name || holding.property_address || '—';
+
+    let html = `
+      <div class="panel">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <span class="badge badge-cat">${escHtml(holdingCategoryIcon(holding.category))} ${escHtml(holdingCategoryLabel(holding.category))}</span>
+          <span class="badge ${statusCls}">${escHtml(holding.status || 'active')}</span>
+          ${holding.auto_pay ? '<span class="badge badge-autopay">⚡ Auto-pay</span>' : ''}
+          <span class="badge-due ${badge.cls}" style="margin-left:auto;">${escHtml(badge.label)}</span>
+        </div>
+        <div style="font-size:1.1rem; font-weight:700;">${escHtml(holding.name)}</div>
+        <div style="font-size:.85rem; color:var(--text-muted); margin-top:4px;">
+          <a href="${escHtml(holding._propertyUrl)}" style="color:inherit;">🏠 ${escHtml(propLabel)} ↗</a>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn btn-primary" style="flex:1;min-width:120px;" onclick="openMarkPaid()">💰 Mark Paid</button>
+          <button class="btn btn-secondary" style="flex:1;min-width:120px;" onclick="openAddPayment()">+ Payment</button>
+        </div>
+      </div>
+    `;
+
+    html += renderProviderPanel();
+    html += renderContactPanel();
+    html += renderBillingPanel();
+    html += renderDocumentsPanel();
+    html += renderPaymentsPanel();
+    html += renderDetailsPanel();
+
+    document.getElementById('page').innerHTML = html;
+  }
+
+  function renderProviderPanel(){
+    const view = `
+      <dl class="kv">
+        ${holding.vendor              ? `<dt>Vendor</dt>           <dd>${escHtml(holding.vendor)}</dd>` : ''}
+        ${holding.account_number      ? `<dt>Account #</dt>        <dd>${escHtml(holding.account_number)}</dd>` : ''}
+        ${holding.provider_phone      ? `<dt>Phone</dt>            <dd><a href="tel:${escHtml(holding.provider_phone)}">${escHtml(holding.provider_phone)}</a></dd>` : ''}
+        ${holding.provider_email      ? `<dt>Email</dt>            <dd><a href="mailto:${escHtml(holding.provider_email)}">${escHtml(holding.provider_email)}</a></dd>` : ''}
+        ${holding.provider_website    ? `<dt>Website</dt>          <dd><a href="${escHtml(holding.provider_website)}" target="_blank" rel="noopener">${escHtml(holding.provider_website)}</a></dd>` : ''}
+        ${holding.provider_portal_url ? `<dt>Portal</dt>           <dd><a href="${escHtml(holding.provider_portal_url)}" target="_blank" rel="noopener">Open portal ↗</a></dd>` : ''}
+        ${holding.provider_address    ? `<dt>Address</dt>          <dd>${escHtml(holding.provider_address)}</dd>` : ''}
+      </dl>
+    `;
+    const empty = !(holding.vendor || holding.account_number || holding.provider_phone || holding.provider_email || holding.provider_website || holding.provider_portal_url || holding.provider_address);
+    const edit = `
+      <form id="provider-form" onsubmit="saveProvider(event)">
+        <div class="form-row">
+          <input class="form-input" name="vendor"         placeholder="Vendor"           value="${escHtml(holding.vendor || '')}">
+          <input class="form-input" name="account_number" placeholder="Account #"        value="${escHtml(holding.account_number || '')}">
+        </div>
+        <div class="form-row">
+          <input class="form-input" name="provider_phone" placeholder="Phone"            value="${escHtml(holding.provider_phone || '')}">
+          <input class="form-input" name="provider_email" placeholder="Email"            value="${escHtml(holding.provider_email || '')}">
+        </div>
+        <input class="form-input" name="provider_website"    placeholder="https://provider.com"  value="${escHtml(holding.provider_website || '')}" style="margin-bottom:8px;">
+        <input class="form-input" name="provider_portal_url" placeholder="https://portal.url"    value="${escHtml(holding.provider_portal_url || '')}" style="margin-bottom:8px;">
+        <input class="form-input" name="provider_address"    placeholder="Billing address"       value="${escHtml(holding.provider_address || '')}" style="margin-bottom:8px;">
+        <div style="display:flex; justify-content:flex-end; gap:6px;">
+          <button type="button" class="btn btn-secondary" onclick="togglePanel('provider', false)">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    `;
+    return `<div class="panel" id="panel-provider">
+      <h3>📇 Provider <span class="actions">
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;" onclick="togglePanel('provider', true)">Edit</button>
+      </span></h3>
+      <div data-mode="view">${empty ? '<div class="text-muted text-xs">No provider details yet.</div>' : view}</div>
+      <div data-mode="edit" style="display:none;">${edit}</div>
+    </div>`;
+  }
+
+  function renderContactPanel(){
+    const has = !!holding.contact_id;
+    const view = has
+      ? `<div style="display:flex; align-items:center; gap:10px;">
+          <div class="avatar">${escHtml((holding.contact_name || '?').charAt(0).toUpperCase())}</div>
+          <div style="flex:1;">
+            <div><a href="${escHtml(holding._contactUrl || '#')}">${escHtml(holding.contact_name || '—')} ↗</a></div>
+            <div style="font-size:.75rem; color:var(--text-muted);">
+              ${holding.contact_phone ? `<a href="tel:${escHtml(holding.contact_phone)}">${escHtml(holding.contact_phone)}</a>` : ''}
+              ${holding.contact_phone && holding.contact_email ? ' · ' : ''}
+              ${holding.contact_email ? `<a href="mailto:${escHtml(holding.contact_email)}">${escHtml(holding.contact_email)}</a>` : ''}
+            </div>
+          </div>
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;" onclick="clearContact()">Clear</button>
+        </div>`
+      : '<div class="text-muted text-xs">No contact linked.</div>';
+    return `<div class="panel">
+      <h3>👤 Linked Contact <span class="actions">
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;" onclick="pickContact()">${has ? 'Change' : 'Link'}</button>
+      </span></h3>
+      ${view}
+    </div>`;
+  }
+
+  function renderBillingPanel(){
+    const view = `
+      <dl class="kv">
+        <dt>Amount</dt>     <dd>${holding.amount != null ? formatMoney(holding.amount) : '<span class="text-muted">—</span>'}</dd>
+        <dt>Frequency</dt>  <dd>${escHtml(holdingFrequencyLabel(holding.frequency))}</dd>
+        <dt>Next due</dt>   <dd>${holding.next_due_date ? formatDate(holding.next_due_date) : '<span class="text-muted">—</span>'}</dd>
+        <dt>Start</dt>      <dd>${holding.start_date ? formatDate(holding.start_date) : '<span class="text-muted">—</span>'}</dd>
+        <dt>End</dt>        <dd>${holding.end_date ? formatDate(holding.end_date) : '<span class="text-muted">—</span>'}</dd>
+        <dt>Auto-pay</dt>   <dd>${holding.auto_pay ? 'Yes' : 'No'}</dd>
+        <dt>Reminder</dt>   <dd>${holding.reminder_enabled ? `${holding.reminder_days_before} days before` : 'Off'}</dd>
+      </dl>
+    `;
+    const freqOpts = HOLDING_FREQUENCIES.map(([k, label]) =>
+      `<option value="${k}" ${holding.frequency === k ? 'selected' : ''}>${escHtml(label)}</option>`
+    ).join('');
+    const statusOpts = ['active','paused','closed'].map(s =>
+      `<option value="${s}" ${holding.status === s ? 'selected' : ''}>${s}</option>`
+    ).join('');
+    const edit = `
+      <form id="billing-form" onsubmit="saveBilling(event)">
+        <div class="form-row">
+          <div><label class="form-label">Amount</label>
+            <input class="form-input" name="amount" type="number" step="0.01" value="${holding.amount != null ? holding.amount : ''}"></div>
+          <div><label class="form-label">Frequency</label>
+            <select class="form-input" name="frequency">${freqOpts}</select></div>
+        </div>
+        <div class="form-row">
+          <div><label class="form-label">Next due</label>
+            <input class="form-input" name="next_due_date" type="date" value="${holding.next_due_date ? holding.next_due_date.slice(0,10) : ''}"></div>
+          <div><label class="form-label">Status</label>
+            <select class="form-input" name="status">${statusOpts}</select></div>
+        </div>
+        <div class="form-row">
+          <div><label class="form-label">Start</label>
+            <input class="form-input" name="start_date" type="date" value="${holding.start_date ? holding.start_date.slice(0,10) : ''}"></div>
+          <div><label class="form-label">End</label>
+            <input class="form-input" name="end_date" type="date" value="${holding.end_date ? holding.end_date.slice(0,10) : ''}"></div>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="t-auto" name="auto_pay" ${holding.auto_pay ? 'checked' : ''}>
+          <label for="t-auto">Auto-pay enabled</label>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="t-rem" name="reminder_enabled" ${holding.reminder_enabled ? 'checked' : ''}>
+          <label for="t-rem">Reminder enabled,</label>
+          <input class="form-input" name="reminder_days_before" type="number" min="0" max="60" value="${holding.reminder_days_before || 7}" style="width:60px;">
+          <span style="font-size:.85rem;color:var(--text-muted);">days before</span>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
+          <button type="button" class="btn btn-secondary" onclick="togglePanel('billing', false)">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    `;
+    return `<div class="panel" id="panel-billing">
+      <h3>💰 Billing <span class="actions">
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;" onclick="togglePanel('billing', true)">Edit</button>
+      </span></h3>
+      <div data-mode="view">${view}</div>
+      <div data-mode="edit" style="display:none;">${edit}</div>
+    </div>`;
+  }
+
+  function renderDocumentsPanel(){
+    const docs = holding.documents || [];
+    const tiles = docs.length
+      ? `<div class="doc-grid">${docs.map(d => {
+          const icon = (d.mime_type || '').startsWith('image/') ? '🖼️'
+                     : (d.mime_type || '').includes('pdf') ? '📄'
+                     : '📎';
+          return `<div class="doc-tile">
+            <button class="doc-del" onclick="event.stopPropagation();event.preventDefault();removeDocument('${d.id}')" title="Delete">×</button>
+            <a href="${escHtml(d.url)}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;">
+              <div class="doc-icon">${icon}</div>
+              <div class="doc-label">${escHtml(d.label || 'Document')}</div>
+              ${d.doc_type ? `<div style="font-size:.65rem; color:var(--text-muted); margin-top:2px;">${escHtml(d.doc_type)}</div>` : ''}
+            </a>
+          </div>`;
+        }).join('')}</div>`
+      : '<div class="text-muted text-xs">No documents yet.</div>';
+    return `<div class="panel">
+      <h3>📎 Documents <span class="actions">
+        <label class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;cursor:pointer;">+ Upload
+          <input type="file" style="display:none;" onchange="uploadDocument(event)" accept="application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain">
+        </label>
+      </span></h3>
+      ${tiles}
+    </div>`;
+  }
+
+  function renderPaymentsPanel(){
+    const pays = holding.payments || [];
+    return `<div class="panel">
+      <h3>📜 Payment History <span class="text-muted text-xs" style="font-weight:400;">${pays.length} total</span></h3>
+      ${pays.length
+        ? pays.map(p => `<div class="pay-row">
+            <div>${formatDate(p.paid_on)}</div>
+            <div style="font-weight:600;">${formatMoney(p.amount)}</div>
+            <div style="color:var(--text-muted); font-size:.78rem;">${escHtml(p.method || '')}${p.reference ? ' · ' + escHtml(p.reference) : ''}</div>
+            <button class="icon-btn" style="background:rgba(239,68,68,.15);color:var(--danger);" onclick="removePayment('${p.id}')" title="Delete">×</button>
+          </div>`).join('')
+        : '<div class="text-muted text-xs">No payments yet.</div>'
+      }
+    </div>`;
+  }
+
+  function renderDetailsPanel(){
+    const details = holding.details || {};
+    const entries = Object.entries(details);
+    const hintKeys = (DETAIL_HINTS[holding.category] || []).filter(k => !(k in details));
+    return `<div class="panel">
+      <h3>🗂️ Details <span class="actions">
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;" onclick="editDetails()">Edit</button>
+      </span></h3>
+      ${entries.length
+        ? `<dl class="kv">${entries.map(([k, v]) =>
+            `<dt>${escHtml(k)}</dt><dd>${escHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</dd>`
+          ).join('')}</dl>`
+        : '<div class="text-muted text-xs">No details yet.</div>'
+      }
+      ${hintKeys.length ? `<div style="margin-top:8px; font-size:.7rem; color:var(--text-muted);">Suggested for ${escHtml(holdingCategoryLabel(holding.category))}: ${hintKeys.map(escHtml).join(', ')}</div>` : ''}
+    </div>`;
+  }
+
+  // ── Panel toggle ────────────────────────────────────────────────────
+  function togglePanel(name, on){
+    const p = document.getElementById('panel-' + name);
+    if (!p) return;
+    p.querySelector('[data-mode="view"]').style.display = on ? 'none' : '';
+    p.querySelector('[data-mode="edit"]').style.display = on ? '' : 'none';
+  }
+
+  // ── Save handlers ────────────────────────────────────────────────────
+  async function saveProvider(ev){
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+    const body = {};
+    for (const k of ['vendor','account_number','provider_phone','provider_email','provider_website','provider_portal_url','provider_address']) {
+      body[k] = (fd.get(k) || '').trim() || null;
+    }
+    try {
+      await updateHolding(id, body);
+      showToast('Provider saved');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function saveBilling(ev){
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+    const body = {
+      amount: fd.get('amount') === '' ? null : Number(fd.get('amount')),
+      frequency: fd.get('frequency'),
+      next_due_date: fd.get('next_due_date') || null,
+      start_date: fd.get('start_date') || null,
+      end_date: fd.get('end_date') || null,
+      status: fd.get('status'),
+      auto_pay: fd.get('auto_pay') === 'on',
+      reminder_enabled: fd.get('reminder_enabled') === 'on',
+      reminder_days_before: parseInt(fd.get('reminder_days_before'), 10) || 7
+    };
+    try {
+      await updateHolding(id, body);
+      showToast('Billing saved');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Contact picker ──────────────────────────────────────────────────
+  async function pickContact(){
+    if (!contactsCache) contactsCache = await getContacts();
+    if (!contactsCache.length){
+      if (confirm('No contacts yet. Create one in Prop Spot?')) bounceToOs();
+      return;
+    }
+    const opts = contactsCache.map(c =>
+      `<option value="${c.id}" ${holding.contact_id === c.id ? 'selected' : ''}>${escHtml(c.full_name)} (${escHtml(c.type)})</option>`
+    ).join('');
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+      <h3>Link Contact</h3>
+      <select id="contact-pick" class="form-input" style="margin-bottom:12px;">${opts}</select>
+      <div style="display:flex; justify-content:flex-end; gap:6px;">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveContact()">Link</button>
+      </div>
+    </div>`;
+    bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+    document.body.appendChild(bg);
+  }
+
+  async function saveContact(){
+    const cid = document.getElementById('contact-pick').value;
+    try {
+      await updateHolding(id, { contact_id: cid });
+      closeModal();
+      showToast('Contact linked');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function clearContact(){
+    if (!confirm('Unlink this contact?')) return;
+    try {
+      await updateHolding(id, { contact_id: null });
+      showToast('Cleared');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Mark Paid / Add Payment ─────────────────────────────────────────
+  function openMarkPaid(){
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+      <h3>Mark Paid</h3>
+      <form onsubmit="submitMarkPaid(event)">
+        <div class="form-group"><label class="form-label">Paid on</label>
+          <input class="form-input" name="paid_on" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="form-group"><label class="form-label">Amount</label>
+          <input class="form-input" name="amount" type="number" step="0.01" value="${holding.amount != null ? holding.amount : ''}"></div>
+        <div class="form-group"><label class="form-label">Method</label>
+          <select class="form-input" name="method">
+            <option value="">—</option>
+            <option ${holding.auto_pay ? 'selected' : ''}>autopay</option>
+            <option>ach</option><option>check</option><option>card</option><option>cash</option><option>other</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Reference</label>
+          <input class="form-input" name="reference" placeholder="check # / confirmation #"></div>
+        <div style="display:flex; justify-content:flex-end; gap:6px;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Mark Paid</button>
+        </div>
+      </form>
+    </div>`;
+    bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+    document.body.appendChild(bg);
+  }
+
+  async function submitMarkPaid(ev){
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+    const body = Object.fromEntries(fd.entries());
+    if (body.amount !== '') body.amount = Number(body.amount);
+    else delete body.amount;
+    for (const k of Object.keys(body)) if (body[k] === '') delete body[k];
+    try {
+      await markHoldingPaid(id, body);
+      closeModal();
+      showToast('Marked paid');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  function openAddPayment(){
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+      <h3>Add Payment</h3>
+      <p class="text-muted text-xs" style="margin-top:0;">For back-dated or variable-amount payments. Use Mark Paid for normal cycles.</p>
+      <form onsubmit="submitAddPayment(event)">
+        <div class="form-group"><label class="form-label">Paid on</label>
+          <input class="form-input" name="paid_on" type="date" required></div>
+        <div class="form-group"><label class="form-label">Amount</label>
+          <input class="form-input" name="amount" type="number" step="0.01" required></div>
+        <div class="form-row">
+          <div><label class="form-label">Period start</label>
+            <input class="form-input" name="covers_period_start" type="date"></div>
+          <div><label class="form-label">Period end</label>
+            <input class="form-input" name="covers_period_end" type="date"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Method</label>
+          <select class="form-input" name="method">
+            <option value="">—</option>
+            <option>ach</option><option>check</option><option>card</option><option>cash</option><option>autopay</option><option>other</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Reference</label>
+          <input class="form-input" name="reference"></div>
+        <div class="form-group"><label class="form-label">Notes</label>
+          <input class="form-input" name="notes"></div>
+        <div style="display:flex; justify-content:flex-end; gap:6px;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Payment</button>
+        </div>
+      </form>
+    </div>`;
+    bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+    document.body.appendChild(bg);
+  }
+
+  async function submitAddPayment(ev){
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+    const body = { item_id: id };
+    for (const [k, v] of fd.entries()) if (v !== '') body[k] = v;
+    if (body.amount) body.amount = Number(body.amount);
+    try {
+      await createHoldingPayment(body);
+      closeModal();
+      showToast('Payment added');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function removePayment(pid){
+    if (!confirm('Delete this payment?')) return;
+    try {
+      await deleteHoldingPayment(pid);
+      showToast('Deleted');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Documents ───────────────────────────────────────────────────────
+  async function uploadDocument(ev){
+    const f = ev.target.files[0];
+    if (!f) return;
+    const label = prompt('Label for this document (optional):', f.name) || '';
+    const docType = prompt('Type (policy, declarations, statement, bill, receipt, certificate, other):', 'other') || 'other';
+    showToast('Uploading…');
+    try {
+      await uploadHoldingDocument(id, f, { label, doc_type: docType });
+      showToast('Uploaded');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+    ev.target.value = '';
+  }
+
+  async function removeDocument(did){
+    if (!confirm('Delete this document?')) return;
+    try {
+      await deleteHoldingDocument(did);
+      showToast('Deleted');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Details JSONB editor ───────────────────────────────────────────
+  function editDetails(){
+    const entries = Object.entries(holding.details || {});
+    const hints = (DETAIL_HINTS[holding.category] || []).filter(k => !(k in (holding.details || {})));
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+      <h3>Edit Details</h3>
+      <div id="details-pairs">
+        ${entries.map(([k, v]) => detailPairHtml(k, v)).join('')}
+      </div>
+      <button class="btn btn-secondary" style="margin-bottom:8px;" onclick="addDetailPair()">+ Add field</button>
+      ${hints.length ? `<div style="font-size:.72rem; color:var(--text-muted); margin-bottom:8px;">Suggested: ${hints.map(h => `<a href="#" onclick="addDetailPair('${escHtml(h)}'); return false;">${escHtml(h)}</a>`).join(' · ')}</div>` : ''}
+      <div style="display:flex; justify-content:flex-end; gap:6px;">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveDetails()">Save</button>
+      </div>
+    </div>`;
+    bg.addEventListener('click', (e) => { if (e.target === bg) closeModal(); });
+    document.body.appendChild(bg);
+  }
+
+  function detailPairHtml(k, v){
+    return `<div class="detail-pair">
+      <input class="form-input" placeholder="key"   value="${escHtml(k)}">
+      <input class="form-input" placeholder="value" value="${escHtml(typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''))}">
+      <button onclick="this.parentElement.remove()" title="Remove">×</button>
+    </div>`;
+  }
+
+  function addDetailPair(prefillKey){
+    const wrap = document.getElementById('details-pairs');
+    if (!wrap) return;
+    const div = document.createElement('div');
+    div.innerHTML = detailPairHtml(prefillKey || '', '');
+    wrap.appendChild(div.firstChild);
+  }
+
+  async function saveDetails(){
+    const pairs = document.querySelectorAll('#details-pairs .detail-pair');
+    const details = {};
+    for (const row of pairs) {
+      const inputs = row.querySelectorAll('input');
+      const k = inputs[0].value.trim();
+      const v = inputs[1].value;
+      if (!k) continue;
+      details[k] = v;
+    }
+    try {
+      await updateHolding(id, { details });
+      closeModal();
+      showToast('Details saved');
+      await load();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Misc ────────────────────────────────────────────────────────────
+  function closeModal(){
+    document.querySelectorAll('.modal-bg').forEach(el => el.remove());
+  }
+
+  async function confirmDelete(){
+    if (!confirm('Delete this holding and all its payments and documents? This cannot be undone.')) return;
+    try {
+      await deleteHolding(id);
+      showToast('Deleted');
+      location.href = '/';
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  init();
+</script>
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = "holdings";</script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Sign In</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>body{padding-bottom:0;background:linear-gradient(160deg,#edf7e9 0%,#ffffff 100%)}</style>
+</head>
+<body>
+<div class="login-wrap">
+  <img src="logo.png" class="login-logo-img" alt="PropSpot">
+  <div class="login-logo">Prop Spot</div>
+  <p class="login-tagline">Your property operating system</p>
+  <div class="login-card">
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-login"  onclick="showTab('login')">Sign In</button>
+      <button class="tab-btn"        id="tab-signup" onclick="showTab('signup')">Create Account</button>
+    </div>
+
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="login-email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <p id="login-error" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+      <button class="btn btn-primary btn-full" type="submit" id="login-btn">Sign In</button>
+      <p class="text-sm text-center mt-12">
+        <a href="/forgot-password.html" style="color:var(--brand);text-decoration:none;font-weight:500;">Forgot password?</a>
+      </p>
+    </form>
+
+    <form id="signup-form" class="hidden" onsubmit="handleSignup(event)">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input class="form-input" type="text" id="signup-name" placeholder="Jordan Shutts" required autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="signup-email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="signup-password" placeholder="Min. 6 characters" required autocomplete="new-password" minlength="6">
+      </div>
+      <p id="signup-error" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+      <button class="btn btn-primary btn-full" type="submit" id="signup-btn">Create Account</button>
+    </form>
+  </div>
+  <p class="text-muted text-sm mt-16">Prop Spot</p>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if(getToken()){apiFetch('/api/auth/me').then(()=>{window.location.href='/dashboard.html'}).catch(()=>clearToken())}
+  function showTab(tab){
+    document.getElementById('login-form').classList.toggle('hidden',tab!=='login');
+    document.getElementById('signup-form').classList.toggle('hidden',tab!=='signup');
+    document.getElementById('tab-login').classList.toggle('active',tab==='login');
+    document.getElementById('tab-signup').classList.toggle('active',tab==='signup');
+  }
+  async function handleLogin(e){
+    e.preventDefault();
+    const btn=document.getElementById('login-btn'),errEl=document.getElementById('login-error');
+    errEl.style.display='none'; showSpinner(btn,'Signing in…');
+    try{
+      const{token,user}=await apiFetch('/api/auth/login',{method:'POST',body:JSON.stringify({
+        email:document.getElementById('login-email').value,
+        password:document.getElementById('login-password').value
+      })});
+      setToken(token);setCachedUser(user);window.location.href='/dashboard.html';
+    }catch(err){errEl.textContent=err.message;errEl.style.display='block';hideSpinner(btn);}
+  }
+  async function handleSignup(e){
+    e.preventDefault();
+    const btn=document.getElementById('signup-btn'),errEl=document.getElementById('signup-error');
+    errEl.style.display='none'; showSpinner(btn,'Creating account…');
+    try{
+      const{token,user}=await apiFetch('/api/auth/signup',{method:'POST',body:JSON.stringify({
+        email:document.getElementById('signup-email').value,
+        password:document.getElementById('signup-password').value,
+        fullName:document.getElementById('signup-name').value
+      })});
+      setToken(token);setCachedUser(user);window.location.href='/dashboard.html';
+    }catch(err){errEl.textContent=err.message;errEl.style.display='block';hideSpinner(btn);}
+  }
+</script>
+</body>
+</html>

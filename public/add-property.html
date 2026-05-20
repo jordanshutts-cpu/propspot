@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>FieldCam — Add Property</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    #preview-map {
+      width: 100%;
+      height: 180px;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 12px;
+      display: none;
+      border: 1.5px solid var(--border);
+    }
+    .address-valid {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .82rem;
+      color: var(--success);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    .address-invalid {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .82rem;
+      color: var(--danger);
+      margin-top: 4px;
+    }
+    /* Google autocomplete dropdown fix for mobile */
+    .pac-container {
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      box-shadow: var(--shadow);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      z-index: 9999;
+    }
+    .pac-item { padding: 10px 14px; font-size: .9rem; cursor: pointer; }
+    .pac-item:hover { background: var(--bg); }
+    .pac-item-selected { background: var(--brand-light); }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title">Add Property</span>
+</header>
+
+<main class="page" style="padding-top:16px;">
+  <div class="card">
+    <div class="card-body">
+
+      <!-- Property Name -->
+      <div class="form-group">
+        <label class="form-label">Property Name *</label>
+        <input class="form-input" type="text" id="prop-name"
+               placeholder="e.g. 142 Maple St Renovation" required>
+      </div>
+
+      <!-- Address with Google Autocomplete -->
+      <div class="form-group">
+        <label class="form-label">Street Address *
+          <span class="text-muted" style="font-weight:400;font-size:.8rem;"> — verified by Google Maps</span>
+        </label>
+        <input class="form-input" type="text" id="prop-address"
+               placeholder="Start typing an address…" autocomplete="off">
+        <div id="address-status"></div>
+
+        <!-- Mini map preview -->
+        <div id="preview-map"></div>
+      </div>
+
+      <!-- Notes -->
+      <div class="form-group">
+        <label class="form-label">Notes / Description</label>
+        <textarea class="form-textarea" id="prop-notes"
+                  placeholder="3-bedroom full gut renovation, expected completion June…"></textarea>
+      </div>
+
+      <!-- GPS (hidden lat/lng fields, filled by autocomplete) -->
+      <input type="hidden" id="prop-lat">
+      <input type="hidden" id="prop-lng">
+
+      <!-- GPS override -->
+      <div style="background:var(--bg);border-radius:10px;padding:14px;margin-bottom:16px;">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-sm">📍 GPS Override</span>
+          <span id="gps-status-pill" class="gps-pill warn" style="font-size:.72rem;">Not set</span>
+        </div>
+        <p class="text-xs text-muted mt-8 mb-8">
+          GPS is auto-filled when you pick an address above. Use this only if you need to override it.
+        </p>
+        <button class="btn btn-secondary btn-full" onclick="useCurrentGPS()" id="gps-btn"
+                style="font-size:.85rem;padding:10px;">
+          📍 Use My Current Location Instead
+        </button>
+      </div>
+
+      <p id="form-error"   class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+      <p id="form-success" class="text-sm mb-8" style="color:var(--success);display:none;"></p>
+      <button class="btn btn-primary btn-full" onclick="handleSubmit()" id="submit-btn">
+        ➕ Add Property
+      </button>
+    </div>
+  </div>
+</main>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'properties';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let addressValidated = false;
+  let previewMap = null;
+  let previewMarker = null;
+
+  async function init() {
+    await requireAuth();
+    // Load Google Maps API key from backend, then inject Places script
+    try {
+      const cfg = await apiFetch('/api/config');
+      if (cfg.googleMapsApiKey) {
+        loadGooglePlaces(cfg.googleMapsApiKey);
+      } else {
+        showFallbackAddress();
+      }
+    } catch (e) {
+      showFallbackAddress();
+    }
+  }
+
+  // ── Load Google Places Autocomplete ───────────────────────────
+  function loadGooglePlaces(apiKey) {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initAutocomplete`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
+  // Called by Google Maps SDK when loaded
+  window.initAutocomplete = function () {
+    const input = document.getElementById('prop-address');
+    const autocomplete = new google.maps.places.Autocomplete(input, {
+      types: ['address'],
+      fields: ['formatted_address', 'geometry', 'name', 'address_components']
+    });
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+
+      if (!place.geometry || !place.geometry.location) {
+        // User typed something but didn't pick a suggestion
+        setAddressInvalid('Please select an address from the dropdown suggestions.');
+        return;
+      }
+
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      const formatted = place.formatted_address;
+
+      // Fill in the fields
+      input.value = formatted;
+      document.getElementById('prop-lat').value = lat;
+      document.getElementById('prop-lng').value = lng;
+
+      setAddressValid(formatted);
+      showPreviewMap(lat, lng, formatted);
+    });
+
+    // Detect if user manually clears or edits the address after picking
+    input.addEventListener('input', () => {
+      if (addressValidated) {
+        setAddressInvalid('Address edited — please select from the dropdown again.');
+        clearPreviewMap();
+      }
+    });
+  };
+
+  function setAddressValid(address) {
+    addressValidated = true;
+    document.getElementById('address-status').innerHTML =
+      `<div class="address-valid">✅ Address verified by Google Maps</div>`;
+  }
+
+  function setAddressInvalid(msg) {
+    addressValidated = false;
+    document.getElementById('prop-lat').value = '';
+    document.getElementById('prop-lng').value = '';
+    document.getElementById('address-status').innerHTML =
+      `<div class="address-invalid">⚠️ ${msg}</div>`;
+  }
+
+  // ── Mini preview map ──────────────────────────────────────────
+  function showPreviewMap(lat, lng, label) {
+    const mapEl = document.getElementById('preview-map');
+    mapEl.style.display = 'block';
+
+    if (previewMap) {
+      previewMap.setView([lat, lng], 16);
+      if (previewMarker) previewMarker.setLatLng([lat, lng]);
+      return;
+    }
+
+    previewMap = L.map('preview-map', { zoomControl: false, attributionControl: false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(previewMap);
+    previewMap.setView([lat, lng], 16);
+
+    previewMarker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:22px;height:22px;background:#61B746;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 22],
+        popupAnchor: [0, -22]
+      })
+    }).addTo(previewMap).bindPopup(label).openPopup();
+  }
+
+  function clearPreviewMap() {
+    document.getElementById('preview-map').style.display = 'none';
+  }
+
+  // ── Fallback: plain text address (if no Google Maps key yet) ──
+  function showFallbackAddress() {
+    document.getElementById('address-status').innerHTML =
+      `<div class="address-invalid">⚠️ Google Maps key not configured — address won't be verified.</div>`;
+    addressValidated = true; // Allow submit without validation
+  }
+
+  // ── GPS Override ──────────────────────────────────────────────
+  async function useCurrentGPS() {
+    const btn  = document.getElementById('gps-btn');
+    const pill = document.getElementById('gps-status-pill');
+    showSpinner(btn, 'Getting GPS…');
+    try {
+      const pos = await getCurrentPosition();
+      const lat = pos.coords.latitude.toFixed(6);
+      const lng = pos.coords.longitude.toFixed(6);
+      document.getElementById('prop-lat').value = lat;
+      document.getElementById('prop-lng').value = lng;
+      pill.className = 'gps-pill'; pill.textContent = '✅ GPS set';
+
+      // Reverse geocode to fill address if empty
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        const j = await r.json();
+        if (j.display_name && !addressValidated) {
+          document.getElementById('prop-address').value = j.display_name;
+          addressValidated = true;
+          document.getElementById('address-status').innerHTML =
+            `<div class="address-valid">✅ Location set from GPS</div>`;
+        }
+      } catch (_) {}
+
+      showPreviewMap(parseFloat(lat), parseFloat(lng), 'Your current location');
+    } catch (err) {
+      pill.className = 'gps-pill err'; pill.textContent = '❌ GPS failed';
+    }
+    hideSpinner(btn); btn.textContent = '📍 Use My Current Location Instead';
+  }
+
+  // ── Submit ────────────────────────────────────────────────────
+  async function handleSubmit() {
+    const btn   = document.getElementById('submit-btn');
+    const errEl = document.getElementById('form-error');
+    const okEl  = document.getElementById('form-success');
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    const name    = document.getElementById('prop-name').value.trim();
+    const address = document.getElementById('prop-address').value.trim();
+    const notes   = document.getElementById('prop-notes').value.trim();
+    const lat     = document.getElementById('prop-lat').value;
+    const lng     = document.getElementById('prop-lng').value;
+
+    if (!name) {
+      errEl.textContent = 'Property name is required.';
+      errEl.style.display = 'block'; return;
+    }
+    if (!address) {
+      errEl.textContent = 'Please enter and verify an address.';
+      errEl.style.display = 'block'; return;
+    }
+    if (!addressValidated) {
+      errEl.textContent = 'Please select a verified address from the Google Maps suggestions.';
+      errEl.style.display = 'block'; return;
+    }
+
+    showSpinner(btn, 'Saving…');
+    try {
+      const prop = await createProperty({ name, address, notes, lat, lng });
+      okEl.textContent  = '✅ Property added!';
+      okEl.style.display = 'block';
+      setTimeout(() => window.location.href = `/property.html?id=${prop.id}`, 800);
+    } catch (err) {
+      errEl.textContent = 'Error: ' + err.message;
+      errEl.style.display = 'block';
+      hideSpinner(btn);
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

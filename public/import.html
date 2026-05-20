@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>FieldCam — Import Photos</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <!-- EXIF reader (reads GPS + date from photo metadata) -->
+  <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/lite.umd.cjs"></script>
+  <style>
+    .import-step { display: none; }
+    .import-step.active { display: block; }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2.5px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: var(--surface);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--brand);
+      background: var(--brand-light);
+    }
+    .drop-zone .dz-icon { font-size: 3rem; margin-bottom: 12px; }
+    .drop-zone .dz-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+    .drop-zone .dz-sub   { font-size: .85rem; color: var(--text-muted); margin-bottom: 16px; }
+
+    /* Analysis progress */
+    .analysis-bar {
+      height: 6px;
+      background: var(--bg);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    .analysis-fill {
+      height: 100%;
+      background: var(--brand);
+      border-radius: 6px;
+      transition: width .3s;
+    }
+
+    /* Group header */
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0 6px;
+      border-bottom: 2px solid var(--brand);
+      margin-bottom: 8px;
+      margin-top: 16px;
+    }
+    .group-header:first-child { margin-top: 0; }
+    .group-name { font-weight: 700; font-size: .95rem; flex: 1; }
+    .group-count { font-size: .8rem; color: var(--text-muted); }
+
+    /* Photo row */
+    .photo-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .photo-row:last-child { border-bottom: none; }
+
+    .photo-row-thumb {
+      width: 56px; height: 56px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--bg);
+    }
+
+    .photo-row-info { flex: 1; min-width: 0; }
+    .photo-row-name {
+      font-size: .82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .photo-row-gps  { font-size: .72rem; color: var(--text-muted); }
+
+    .photo-row-assign { flex-shrink: 0; }
+    .assign-select {
+      font-size: .78rem;
+      padding: 5px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      max-width: 130px;
+    }
+    .assign-select.matched { border-color: var(--brand); color: var(--brand); }
+    .assign-select.unmatched { border-color: #f59e0b; }
+
+    .remove-row-btn {
+      background: none; border: none;
+      color: var(--text-muted); font-size: 1rem;
+      cursor: pointer; padding: 4px;
+      flex-shrink: 0;
+    }
+    .remove-row-btn:hover { color: var(--danger); }
+
+    /* GPS badge */
+    .gps-yes { color: var(--success); font-size: .72rem; font-weight: 600; }
+    .gps-no  { color: #f59e0b;       font-size: .72rem; font-weight: 600; }
+
+    /* Summary bar */
+    .summary-bar {
+      background: var(--brand-light);
+      border: 1.5px solid var(--brand);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .summary-stat { text-align: center; }
+    .summary-stat .num  { font-size: 1.4rem; font-weight: 800; color: var(--brand); display: block; }
+    .summary-stat .lbl  { font-size: .72rem; color: var(--text-muted); }
+
+    /* Upload progress */
+    .upload-prog-wrap {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .upload-prog-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .upload-prog-label { font-weight: 600; margin-bottom: 12px; }
+    .upload-prog-bar {
+      height: 8px;
+      background: var(--bg);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .upload-prog-fill {
+      height: 100%;
+      background: var(--brand);
+      border-radius: 8px;
+      transition: width .4s;
+    }
+    .upload-sub { font-size: .82rem; color: var(--text-muted); margin-top: 8px; }
+
+    /* Filter tabs */
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .filter-tab {
+      padding: 5px 12px;
+      border-radius: 100px;
+      font-size: .78rem;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      background: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all .15s;
+    }
+    .filter-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="history.back()">‹</button>
+  <span class="header-title">Import Photos</span>
+</header>
+
+<main class="page" style="padding-top:16px;">
+
+  <!-- ── STEP 1: Choose photos ── -->
+  <div class="import-step active" id="step-1">
+    <input type="file" id="file-input" accept="image/*" multiple
+           onchange="handleFiles(this.files)" style="display:none">
+
+    <!-- Drop / tap zone -->
+    <div class="drop-zone" id="drop-zone"
+         onclick="document.getElementById('file-input').click()"
+         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+      <div class="dz-icon">📥</div>
+      <div class="dz-title">Import from Camera Roll</div>
+      <div class="dz-sub">Tap to choose photos · or drag &amp; drop<br>Select as many as you want</div>
+      <button class="btn btn-primary" style="pointer-events:none;">Choose Photos</button>
+    </div>
+
+    <!-- Or: Smart Geo-Match call-out -->
+    <div class="card mt-16">
+      <div class="card-body">
+        <p class="font-bold mb-4">🧠 Smart Geo-Match</p>
+        <p class="text-sm text-muted mb-12">
+          Select photos with GPS data and FieldCam will automatically figure out
+          which project each photo belongs to — no manual sorting needed.
+        </p>
+        <button class="btn btn-secondary btn-full"
+                onclick="document.getElementById('file-input').click()">
+          📍 Select Photos to Auto-Match
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: Analysing ── -->
+  <div class="import-step" id="step-2">
+    <div class="card">
+      <div class="card-body" style="text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">🔍</div>
+        <p class="font-bold" id="analysis-label">Reading photo data…</p>
+        <div class="analysis-bar">
+          <div class="analysis-fill" id="analysis-fill" style="width:0%"></div>
+        </div>
+        <p class="text-sm text-muted" id="analysis-sub">Checking GPS metadata in your photos</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: Review & assign ── -->
+  <div class="import-step" id="step-3">
+    <!-- Summary -->
+    <div class="summary-bar" id="summary-bar">
+      <div class="summary-stat">
+        <span class="num" id="sum-total">0</span>
+        <span class="lbl">Photos</span>
+      </div>
+      <div class="summary-stat">
+        <span class="num" id="sum-matched">0</span>
+        <span class="lbl">Auto-matched</span>
+      </div>
+      <div class="summary-stat">
+        <span class="num" id="sum-unmatched">0</span>
+        <span class="lbl">Need assignment</span>
+      </div>
+      <div class="summary-stat">
+        <span class="num" id="sum-nogps">0</span>
+        <span class="lbl">No GPS data</span>
+      </div>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="filter-tabs">
+      <button class="filter-tab active" onclick="setFilter('all')">All</button>
+      <button class="filter-tab" onclick="setFilter('matched')">✅ Matched</button>
+      <button class="filter-tab" onclick="setFilter('unmatched')">⚠️ Needs assignment</button>
+      <button class="filter-tab" onclick="setFilter('nogps')">📍 No GPS</button>
+    </div>
+
+    <!-- Photo list -->
+    <div id="photo-review-list" class="card" style="margin-bottom:80px;">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+
+  <!-- ── STEP 4: Uploading ── -->
+  <div class="import-step" id="step-4">
+    <div class="upload-prog-wrap">
+      <div class="upload-prog-icon" id="prog-icon">📤</div>
+      <p class="upload-prog-label" id="prog-label">Uploading…</p>
+      <div class="upload-prog-bar">
+        <div class="upload-prog-fill" id="prog-fill" style="width:0%"></div>
+      </div>
+      <p class="upload-sub" id="prog-sub"></p>
+    </div>
+  </div>
+
+</main>
+
+<!-- Sticky upload button (shown in step 3) -->
+<div id="upload-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;
+     padding:12px 16px 32px;background:var(--surface);
+     border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(0,0,0,.08);z-index:50;">
+  <button class="btn btn-primary btn-full" id="upload-bar-btn" onclick="uploadAll()">
+    📤 Upload All Photos
+  </button>
+  <p class="text-xs text-muted mt-8" style="text-align:center;" id="upload-bar-sub"></p>
+</div>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'properties';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let photos    = [];   // { file, preview, gps, matchedProp, assignedPropId, status }
+  let allProps  = [];
+  let userLat = null, userLng = null;
+  let currentFilter = 'all';
+
+  // ── Init ──────────────────────────────────────────────────────
+  async function init() {
+    await requireAuth();
+    allProps = await getProperties();
+
+    // Get user location for fallback
+    getCurrentPosition()
+      .then(p => { userLat = p.coords.latitude; userLng = p.coords.longitude; })
+      .catch(() => {});
+  }
+
+  // ── Drag and drop ─────────────────────────────────────────────
+  function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.add('drag-over');
+  }
+  function onDragLeave(e) {
+    document.getElementById('drop-zone').classList.remove('drag-over');
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+    handleFiles(e.dataTransfer.files);
+  }
+
+  // ── File handling ─────────────────────────────────────────────
+  async function handleFiles(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    if (files.length === 0) { showToast('No image files selected', 'error'); return; }
+
+    showStep(2);
+    photos = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const pct  = Math.round(((i + 1) / files.length) * 100);
+
+      document.getElementById('analysis-fill').style.width = pct + '%';
+      document.getElementById('analysis-label').textContent =
+        `Reading photo ${i + 1} of ${files.length}…`;
+
+      const preview = URL.createObjectURL(file);
+
+      // Read EXIF GPS
+      let gps = null;
+      try {
+        const exif = await exifr.parse(file, { gps: true });
+        if (exif?.latitude && exif?.longitude) {
+          gps = { lat: exif.latitude, lng: exif.longitude };
+        }
+      } catch (_) {}
+
+      // Match to nearest property
+      let matchedProp = null;
+      if (gps) {
+        const propsWithGPS = allProps.filter(p => p.lat && p.lng);
+        let minDist = Infinity;
+        for (const p of propsWithGPS) {
+          const d = distanceMeters(gps.lat, gps.lng, p.lat, p.lng);
+          if (d < minDist && d < 500) { // within 500m
+            minDist = d;
+            matchedProp = { ...p, distance: Math.round(d) };
+          }
+        }
+      }
+
+      const status = !gps ? 'nogps' : (matchedProp ? 'matched' : 'unmatched');
+
+      photos.push({
+        id: i,
+        file,
+        preview,
+        gps,
+        matchedProp,
+        assignedPropId: matchedProp?.id || null,
+        status
+      });
+    }
+
+    document.getElementById('analysis-label').textContent = 'Done! Review your photos below.';
+    await new Promise(r => setTimeout(r, 400));
+
+    renderReview();
+    showStep(3);
+    document.getElementById('upload-bar').style.display = 'block';
+    updateUploadBar();
+  }
+
+  // ── Render review list ────────────────────────────────────────
+  function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-tab').forEach((el, i) => {
+      el.classList.toggle('active', ['all','matched','unmatched','nogps'][i] === filter);
+    });
+    renderReview();
+  }
+
+  function renderReview() {
+    const filtered = currentFilter === 'all'
+      ? photos
+      : photos.filter(p => p.status === currentFilter);
+
+    const container = document.getElementById('photo-review-list');
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div class="card-body"><p class="text-muted text-sm">No photos in this filter.</p></div>`;
+      return;
+    }
+
+    // Update summary
+    document.getElementById('sum-total').textContent     = photos.length;
+    document.getElementById('sum-matched').textContent   = photos.filter(p => p.status === 'matched').length;
+    document.getElementById('sum-unmatched').textContent = photos.filter(p => p.status === 'unmatched').length;
+    document.getElementById('sum-nogps').textContent     = photos.filter(p => p.status === 'nogps').length;
+
+    container.innerHTML = `<div class="card-body" style="padding:8px 12px;">
+      ${filtered.map(p => renderPhotoRow(p)).join('')}
+    </div>`;
+  }
+
+  function renderPhotoRow(p) {
+    const gpsLabel = p.gps
+      ? `<span class="gps-yes">📍 GPS: ${p.gps.lat.toFixed(4)}, ${p.gps.lng.toFixed(4)}</span>`
+      : `<span class="gps-no">📍 No GPS data</span>`;
+
+    const matchLabel = p.matchedProp
+      ? `Auto-matched · ${p.matchedProp.distance}m away`
+      : (p.gps ? 'No property within 500m' : 'Assign manually');
+
+    const selectHtml = `
+      <select class="assign-select ${p.assignedPropId ? 'matched' : 'unmatched'}"
+              onchange="assignPhoto(${p.id}, this.value)">
+        <option value="">-- Unassigned --</option>
+        ${allProps.map(prop =>
+          `<option value="${prop.id}" ${prop.id === p.assignedPropId ? 'selected' : ''}>
+            ${escHtml(prop.name.length > 20 ? prop.name.slice(0, 20) + '…' : prop.name)}
+          </option>`
+        ).join('')}
+      </select>`;
+
+    return `<div class="photo-row" id="row-${p.id}">
+      <img class="photo-row-thumb" src="${p.preview}" alt="">
+      <div class="photo-row-info">
+        <div class="photo-row-name">${escHtml(p.file.name)}</div>
+        <div class="photo-row-gps">${gpsLabel}</div>
+        <div class="photo-row-gps" style="margin-top:2px;color:var(--text-muted);">${matchLabel}</div>
+      </div>
+      <div class="photo-row-assign">${selectHtml}</div>
+      <button class="remove-row-btn" onclick="removePhoto(${p.id})">✕</button>
+    </div>`;
+  }
+
+  function assignPhoto(id, propId) {
+    const p = photos.find(ph => ph.id === id);
+    if (!p) return;
+    p.assignedPropId = propId || null;
+    p.status = !p.gps ? 'nogps' : (p.assignedPropId ? 'matched' : 'unmatched');
+    // Update the select styling
+    const sel = document.querySelector(`#row-${id} .assign-select`);
+    if (sel) {
+      sel.className = `assign-select ${p.assignedPropId ? 'matched' : 'unmatched'}`;
+    }
+    updateUploadBar();
+    // Update summary counts
+    document.getElementById('sum-matched').textContent   = photos.filter(p => p.status === 'matched').length;
+    document.getElementById('sum-unmatched').textContent = photos.filter(p => p.status === 'unmatched').length;
+  }
+
+  function removePhoto(id) {
+    const idx = photos.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      URL.revokeObjectURL(photos[idx].preview);
+      photos.splice(idx, 1);
+    }
+    renderReview();
+    updateUploadBar();
+    if (photos.length === 0) {
+      document.getElementById('upload-bar').style.display = 'none';
+      showStep(1);
+    }
+  }
+
+  function updateUploadBar() {
+    const assigned = photos.filter(p => p.assignedPropId);
+    const unassigned = photos.length - assigned.length;
+    const btn = document.getElementById('upload-bar-btn');
+    btn.textContent = `📤 Upload ${assigned.length} Photo${assigned.length !== 1 ? 's' : ''}`;
+    btn.disabled = assigned.length === 0;
+    document.getElementById('upload-bar-sub').textContent =
+      unassigned > 0 ? `${unassigned} unassigned photo${unassigned !== 1 ? 's' : ''} will be skipped` : '';
+  }
+
+  // ── Upload ────────────────────────────────────────────────────
+  async function uploadAll() {
+    const toUpload = photos.filter(p => p.assignedPropId);
+    if (toUpload.length === 0) { showToast('Assign at least one photo to a property', 'error'); return; }
+
+    document.getElementById('upload-bar').style.display = 'none';
+    showStep(4);
+
+    const total = toUpload.length;
+    let done = 0, failed = 0;
+
+    for (let i = 0; i < toUpload.length; i++) {
+      const p = toUpload[i];
+      const pct = Math.round((i / total) * 100);
+      document.getElementById('prog-fill').style.width  = pct + '%';
+      document.getElementById('prog-label').textContent = `Uploading ${i + 1} of ${total}…`;
+      document.getElementById('prog-sub').textContent   =
+        `${escHtml(p.file.name)} → ${escHtml(allProps.find(a => a.id === p.assignedPropId)?.name || '')}`;
+
+      try {
+        await uploadPhoto({
+          file:       p.file,
+          propertyId: p.assignedPropId,
+          lat:        p.gps?.lat || userLat,
+          lng:        p.gps?.lng || userLng,
+          notes:      null
+        });
+        done++;
+      } catch (e) {
+        failed++;
+        console.error('Upload failed:', e);
+      }
+    }
+
+    document.getElementById('prog-fill').style.width  = '100%';
+    document.getElementById('prog-icon').textContent  = failed === 0 ? '🎉' : '⚠️';
+    document.getElementById('prog-label').textContent =
+      failed === 0 ? `All ${done} photos uploaded!` : `${done} uploaded, ${failed} failed`;
+    document.getElementById('prog-sub').textContent   = 'Redirecting to your properties…';
+
+    photos.forEach(p => URL.revokeObjectURL(p.preview));
+    setTimeout(() => window.location.href = '/dashboard.html', 1800);
+  }
+
+  // ── Step navigation ───────────────────────────────────────────
+  function showStep(n) {
+    document.querySelectorAll('.import-step').forEach((el, i) => {
+      el.classList.toggle('active', i + 1 === n);
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
