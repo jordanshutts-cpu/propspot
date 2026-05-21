@@ -596,6 +596,57 @@ END $$;
 CREATE INDEX IF NOT EXISTS lawn_maint_assigned_idx ON lawn_maintenance(assigned_user_id);
 CREATE INDEX IF NOT EXISTS lawn_maint_route_idx    ON lawn_maintenance(route_position);
 
+-- ── Pulse satellite (team chat) ─────────────────────────────────────────────
+-- Owned by Prop Spot; read/written by the pulse.propspot.io app via the
+-- shared DATABASE_URL (Model A). Phase 1: channels + channel membership +
+-- messages. Phase 2 adds DMs, attachments, mentions, presence.
+CREATE TABLE IF NOT EXISTS chat_channels (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug        TEXT UNIQUE NOT NULL,
+  name        TEXT NOT NULL,
+  description TEXT,
+  is_private  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS chat_channels_slug_idx ON chat_channels(slug);
+
+CREATE TABLE IF NOT EXISTS chat_channel_members (
+  channel_id   UUID NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES users(id)         ON DELETE CASCADE,
+  role         TEXT NOT NULL DEFAULT 'member',
+  last_read_at TIMESTAMPTZ,
+  joined_at    TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (channel_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS chat_channel_members_user_idx ON chat_channel_members(user_id);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_id        UUID REFERENCES chat_channels(id) ON DELETE CASCADE,
+  dm_id             UUID,  -- FK added in Phase 2 once chat_dms exists
+  sender_id         UUID REFERENCES users(id) ON DELETE SET NULL,
+  client_message_id UUID,  -- echoed back to dedupe optimistic UI
+  body              TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  edited_at         TIMESTAMPTZ,
+  deleted_at        TIMESTAMPTZ
+);
+-- Exactly one of channel_id / dm_id must be set.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chat_messages_target_check') THEN
+    ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_target_check
+      CHECK ((channel_id IS NULL) <> (dm_id IS NULL));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS chat_messages_channel_idx ON chat_messages(channel_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS chat_messages_dm_idx      ON chat_messages(dm_id,      created_at DESC);
+CREATE INDEX IF NOT EXISTS chat_messages_sender_idx  ON chat_messages(sender_id,  created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS chat_messages_client_dedup_idx
+  ON chat_messages(sender_id, client_message_id)
+  WHERE client_message_id IS NOT NULL;
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -607,7 +658,8 @@ BEGIN
   FOR t IN SELECT unnest(ARRAY[
     'properties','contacts','prospects','leads','opportunities','purchases','projects',
     'holdings_items','holdings_payments','holdings_documents',
-    'work_orders','lawn_maintenance'
+    'work_orders','lawn_maintenance',
+    'chat_channels'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||
