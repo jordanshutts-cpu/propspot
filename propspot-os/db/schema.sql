@@ -647,6 +647,79 @@ CREATE UNIQUE INDEX IF NOT EXISTS chat_messages_client_dedup_idx
   ON chat_messages(sender_id, client_message_id)
   WHERE client_message_id IS NOT NULL;
 
+-- ── Pulse: DMs (1:1 + group) ────────────────────────────────────────────────
+-- 1:1 DMs get a deterministic `dm_key` (sorted user uuids joined by ':') so the
+-- partial unique index dedupes them. Group DMs leave dm_key NULL — multiple
+-- group DMs over the same membership are allowed (matches Slack behavior).
+CREATE TABLE IF NOT EXISTS chat_dms (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  is_group   BOOLEAN NOT NULL DEFAULT FALSE,
+  dm_key     TEXT,  -- canonical key for 1:1 dedup; NULL for group DMs
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS chat_dms_dm_key_uniq
+  ON chat_dms(dm_key) WHERE dm_key IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS chat_dm_members (
+  dm_id        UUID NOT NULL REFERENCES chat_dms(id) ON DELETE CASCADE,
+  user_id      UUID NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  last_read_at TIMESTAMPTZ,
+  joined_at    TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (dm_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS chat_dm_members_user_idx ON chat_dm_members(user_id);
+
+-- Now that chat_dms exists, retroactively add the FK on chat_messages.dm_id.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chat_messages_dm_fk') THEN
+    ALTER TABLE chat_messages
+      ADD CONSTRAINT chat_messages_dm_fk
+      FOREIGN KEY (dm_id) REFERENCES chat_dms(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+-- ── Pulse: attachments ──────────────────────────────────────────────────────
+-- One row per file attached to a message. Cloudinary owns the bytes; we keep
+-- the URL + metadata. Allowed mime types are enforced at the upload route, not
+-- at the DB.
+CREATE TABLE IF NOT EXISTS chat_attachments (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id    UUID NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+  url           TEXT NOT NULL,
+  cloudinary_id TEXT,
+  mime_type     TEXT,
+  size_bytes    BIGINT,
+  filename      TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS chat_attachments_message_idx ON chat_attachments(message_id);
+
+-- ── Pulse: mentions ─────────────────────────────────────────────────────────
+-- Server parses `<@uuid>` tokens out of message body on POST and writes one
+-- row here per mentioned user. Drives the "@me" feed + notifications.
+CREATE TABLE IF NOT EXISTS chat_mentions (
+  message_id        UUID NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+  mentioned_user_id UUID NOT NULL REFERENCES users(id)         ON DELETE CASCADE,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (message_id, mentioned_user_id)
+);
+CREATE INDEX IF NOT EXISTS chat_mentions_user_idx
+  ON chat_mentions(mentioned_user_id, message_id);
+
+-- ── Pulse: presence ─────────────────────────────────────────────────────────
+-- One row per user. Client POSTs a heartbeat every ~30s while open; we treat
+-- any user with last_seen_at within the past 60s as "online". The push token
+-- column is wired now (no-op) so Capacitor mobile wrap doesn't need a
+-- migration later.
+CREATE TABLE IF NOT EXISTS chat_user_presence (
+  user_id           UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  last_seen_at      TIMESTAMPTZ DEFAULT NOW(),
+  device_push_token TEXT
+);
+CREATE INDEX IF NOT EXISTS chat_user_presence_last_seen_idx
+  ON chat_user_presence(last_seen_at DESC);
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;

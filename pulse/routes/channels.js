@@ -6,19 +6,56 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requirePulseGrant);
 
-// GET /api/pulse/channels — list channels the caller belongs to (owners see all).
+// Normalize a free-form name into a slug: lowercase, alnum + hyphen only.
+function toSlug(input) {
+  return String(input || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
+}
+
+async function isOwner(userId) {
+  const { rows } = await query(`SELECT is_owner FROM users WHERE id = $1`, [userId]);
+  return !!rows[0]?.is_owner;
+}
+
+async function isMember(channelId, userId) {
+  const { rows } = await query(
+    `SELECT 1 FROM chat_channel_members WHERE channel_id = $1 AND user_id = $2`,
+    [channelId, userId]
+  );
+  return rows.length > 0;
+}
+
+async function isAdmin(channelId, userId) {
+  const { rows } = await query(
+    `SELECT role FROM chat_channel_members WHERE channel_id = $1 AND user_id = $2`,
+    [channelId, userId]
+  );
+  return rows[0]?.role === 'admin';
+}
+
+// GET /api/pulse/channels — list channels the caller can see.
+//   Includes is_member + my_role so the UI can branch on "Join" vs "Open".
 router.get('/', async (req, res) => {
   try {
     const { rows } = await query(`
       SELECT c.*,
-             (SELECT COUNT(*) FROM chat_channel_members WHERE channel_id = c.id)::int AS member_count
+             (SELECT COUNT(*) FROM chat_channel_members WHERE channel_id = c.id)::int AS member_count,
+             (m.user_id IS NOT NULL) AS is_member,
+             m.role AS my_role
         FROM chat_channels c
         LEFT JOIN chat_channel_members m ON m.channel_id = c.id AND m.user_id = $1
         LEFT JOIN users u ON u.id = $1
        WHERE u.is_owner = TRUE
           OR m.user_id IS NOT NULL
           OR c.is_private = FALSE
-       ORDER BY c.created_at ASC
+       ORDER BY
+         (c.slug = 'general') DESC,
+         c.is_private ASC,
+         c.created_at ASC
     `, [req.userId]);
     res.json(rows);
   } catch (err) {
@@ -27,21 +64,48 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/pulse/channels/:id/join — make the caller a member (public channels only for Phase 1).
+// POST /api/pulse/channels   { name, description?, is_private? }
+router.post('/', async (req, res) => {
+  const { name, description, is_private } = req.body || {};
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'name required' });
+  }
+  const slug = toSlug(name);
+  if (!slug) return res.status(400).json({ error: 'name must contain at least one letter or digit' });
+  if (slug.length < 2) return res.status(400).json({ error: 'name too short' });
+
+  try {
+    const ins = await query(`
+      INSERT INTO chat_channels (slug, name, description, is_private, created_by)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `, [slug, name.trim(), (description || null), !!is_private, req.userId]);
+    const channel = ins.rows[0];
+
+    await query(`
+      INSERT INTO chat_channel_members (channel_id, user_id, role)
+      VALUES ($1, $2, 'admin')
+      ON CONFLICT (channel_id, user_id) DO NOTHING
+    `, [channel.id, req.userId]);
+
+    res.json({ ...channel, is_member: true, my_role: 'admin', member_count: 1 });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'A channel with that name already exists' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create channel' });
+  }
+});
+
+// POST /api/pulse/channels/:id/join — caller joins a public channel.
 router.post('/:id/join', async (req, res) => {
   const channelId = req.params.id;
   try {
-    const { rows } = await query(
-      `SELECT is_private FROM chat_channels WHERE id = $1`,
-      [channelId]
-    );
+    const { rows } = await query(`SELECT is_private FROM chat_channels WHERE id = $1`, [channelId]);
     if (!rows.length) return res.status(404).json({ error: 'Channel not found' });
-    if (rows[0].is_private) {
-      // Owners can self-join; everyone else needs an invite.
-      const ownerCheck = await query(`SELECT is_owner FROM users WHERE id = $1`, [req.userId]);
-      if (!ownerCheck.rows[0]?.is_owner) {
-        return res.status(403).json({ error: 'Private channel — ask an existing member to invite you' });
-      }
+    if (rows[0].is_private && !(await isOwner(req.userId))) {
+      return res.status(403).json({ error: 'Private channel — ask an existing member to invite you' });
     }
     await query(`
       INSERT INTO chat_channel_members (channel_id, user_id, role)
@@ -52,6 +116,96 @@ router.post('/:id/join', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to join channel' });
+  }
+});
+
+// POST /api/pulse/channels/:id/leave — caller leaves the channel.
+router.post('/:id/leave', async (req, res) => {
+  const channelId = req.params.id;
+  try {
+    const { rows } = await query(`SELECT slug FROM chat_channels WHERE id = $1`, [channelId]);
+    if (rows[0]?.slug === 'general') {
+      return res.status(400).json({ error: "You can't leave #general" });
+    }
+    await query(
+      `DELETE FROM chat_channel_members WHERE channel_id = $1 AND user_id = $2`,
+      [channelId, req.userId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to leave channel' });
+  }
+});
+
+// POST /api/pulse/channels/:id/members   { user_id }
+router.post('/:id/members', async (req, res) => {
+  const channelId = req.params.id;
+  const { user_id } = req.body || {};
+  if (!user_id) return res.status(400).json({ error: 'user_id required' });
+  try {
+    if (!(await isOwner(req.userId)) && !(await isMember(channelId, req.userId))) {
+      return res.status(403).json({ error: 'Only channel members can add others' });
+    }
+    await query(`
+      INSERT INTO chat_channel_members (channel_id, user_id, role)
+      VALUES ($1, $2, 'member')
+      ON CONFLICT (channel_id, user_id) DO NOTHING
+    `, [channelId, user_id]);
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === '23503') {
+      return res.status(404).json({ error: 'Channel or user not found' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Failed to add member' });
+  }
+});
+
+// DELETE /api/pulse/channels/:id/members/:userId
+router.delete('/:id/members/:userId', async (req, res) => {
+  const channelId = req.params.id;
+  const targetUserId = req.params.userId;
+  try {
+    const slugRow = await query(`SELECT slug FROM chat_channels WHERE id = $1`, [channelId]);
+    if (slugRow.rows[0]?.slug === 'general' && targetUserId === req.userId) {
+      return res.status(400).json({ error: "You can't leave #general" });
+    }
+    if (targetUserId !== req.userId
+        && !(await isAdmin(channelId, req.userId))
+        && !(await isOwner(req.userId))) {
+      return res.status(403).json({ error: 'Only channel admins can remove other members' });
+    }
+    await query(
+      `DELETE FROM chat_channel_members WHERE channel_id = $1 AND user_id = $2`,
+      [channelId, targetUserId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
+// GET /api/pulse/channels/:id/members — list members with display names.
+router.get('/:id/members', async (req, res) => {
+  const channelId = req.params.id;
+  try {
+    if (!(await isOwner(req.userId)) && !(await isMember(channelId, req.userId))) {
+      return res.status(403).json({ error: 'Not a member of this channel' });
+    }
+    const { rows } = await query(`
+      SELECT m.user_id, m.role, m.joined_at,
+             u.full_name, u.email
+        FROM chat_channel_members m
+        LEFT JOIN users u ON u.id = m.user_id
+       WHERE m.channel_id = $1
+       ORDER BY m.role DESC, u.full_name ASC NULLS LAST, u.email ASC
+    `, [channelId]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load members' });
   }
 });
 
