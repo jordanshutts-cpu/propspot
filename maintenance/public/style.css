@@ -217,6 +217,15 @@ a { color: var(--brand-dark); }
   white-space: nowrap;
 }
 .sign-toggle input { margin: 0; }
+.mow-event-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.mow-event-row:last-child { border-bottom: none; }
+
 .overdue-text { color: #b91c1c; font-weight: 600; }
 .overdue-dot {
   display: inline-block;

@@ -81,10 +81,13 @@ async function deleteUpdate(id) { return apiFetch(`/api/updates/${id}`, { method
 
 // ── Lawn maintenance ─────────────────────────────────────────
 async function getLawn()                      { return apiFetch('/api/lawn'); }
-async function markMowed(propertyId)          { return apiFetch(`/api/lawn/${propertyId}/mowed`, { method: 'POST' }); }
+async function markMowed(propertyId, body)    { return apiFetch(`/api/lawn/${propertyId}/mowed`, { method: 'POST', body: JSON.stringify(body || {}) }); }
 async function checkIn(propertyId, coords)    { return apiFetch(`/api/lawn/${propertyId}/checkin`, { method: 'POST', body: JSON.stringify(coords || {}) }); }
 async function patchLawn(propertyId, body)    { return apiFetch(`/api/lawn/${propertyId}`, { method: 'PATCH', body: JSON.stringify(body) }); }
 async function saveLawnRoute(orderArray)      { return apiFetch('/api/lawn/route', { method: 'POST', body: JSON.stringify({ order: orderArray }) }); }
+async function getMowEvents(propertyId)       { return apiFetch(`/api/lawn/${propertyId}/mow-events`); }
+async function patchMowEvent(eventId, body)   { return apiFetch(`/api/lawn/mow-events/${eventId}`, { method: 'PATCH', body: JSON.stringify(body) }); }
+async function deleteMowEvent(eventId)        { return apiFetch(`/api/lawn/mow-events/${eventId}`, { method: 'DELETE' }); }
 async function getUsers()                     { return apiFetch('/api/users'); }
 
 // ── UI helpers ────────────────────────────────────────────────

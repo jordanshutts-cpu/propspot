@@ -40,6 +40,47 @@
 
 </main>
 
+<!-- Mowing log modal -->
+<div class="modal-backdrop" id="modal-mow">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title" id="mow-title">Mowing log</div>
+
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;background:var(--bg);">
+      <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;" id="mow-form-title">Log a new mow</div>
+      <form onsubmit="submitMow(event)">
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Date &amp; time</label>
+            <input class="form-input" type="datetime-local" id="mow-at" required>
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Mowed by</label>
+            <select class="form-select" id="mow-by"></select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label class="form-label">Notes</label>
+          <input class="form-input" id="mow-notes" placeholder="e.g. trimmed bushes too">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="mow-cancel-edit" style="display:none;" onclick="resetMowForm()">Cancel edit</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="mow-save">Save</button>
+        </div>
+        <p id="mow-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+      </form>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">History</div>
+    <div id="mow-history" style="max-height:280px;overflow-y:auto;">
+      <p class="text-muted text-sm">Loading…</p>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeModal('modal-mow')" style="flex:1;">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Settings modal -->
 <div class="modal-backdrop" id="modal-settings">
   <div class="modal">
@@ -234,7 +275,7 @@
         const id  = btn.dataset.id;
         const act = btn.dataset.act;
         if (act === 'checkin')  await onCheckIn(id);
-        if (act === 'mowed')    await onMowed(id);
+        if (act === 'mowed')    openMowLog(id);
         if (act === 'settings') openSettings(id);
       });
     });
@@ -296,18 +337,132 @@
     } catch (e) { showToast(e.message, 'error'); }
   }
 
-  async function onMowed(id) {
+  // ── Mowing log modal ────────────────────────────────────────
+  let mowingPropertyId = null;
+  let editingEventId   = null;
+
+  function openMowLog(propertyId) {
+    mowingPropertyId = propertyId;
+    editingEventId   = null;
+    const r = rows.find(x => x.id === propertyId);
+    if (!r) return;
+    document.getElementById('mow-title').textContent =
+      `Mowing log — ${r.address_line1 || ''}${r.unit ? ' #' + r.unit : ''}`;
+    // Populate the mowed_by dropdown.
+    const sel = document.getElementById('mow-by');
+    sel.innerHTML = `<option value="">— unknown —</option>` +
+      users.map(u => `<option value="${u.id}"${u.id === me.id ? ' selected' : ''}>${escHtml(u.full_name || u.email)}</option>`).join('');
+    resetMowForm();
+    document.getElementById('modal-mow').classList.add('open');
+    loadMowHistory(propertyId);
+  }
+
+  function resetMowForm() {
+    editingEventId = null;
+    document.getElementById('mow-form-title').textContent = 'Log a new mow';
+    document.getElementById('mow-at').value = nowForInput();
+    document.getElementById('mow-by').value = me.id;
+    document.getElementById('mow-notes').value = '';
+    document.getElementById('mow-error').style.display = 'none';
+    document.getElementById('mow-cancel-edit').style.display = 'none';
+    document.getElementById('mow-save').textContent = 'Save';
+  }
+
+  function nowForInput() {
+    // Local-time string in the shape the datetime-local input expects.
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function loadMowHistory(propertyId) {
+    const wrap = document.getElementById('mow-history');
+    wrap.innerHTML = '<p class="text-muted text-sm">Loading…</p>';
     try {
-      const res = await markMowed(id);
-      const r = rows.find(x => x.id === id);
-      if (r) {
-        r.last_mowed_at = res.last_mowed_at;
-        r.last_mowed_by = res.last_mowed_by;
-        r.last_mowed_by_name = me.full_name || me.email;
-        r.overdue = false;
+      const events = await getMowEvents(propertyId);
+      if (!events.length) {
+        wrap.innerHTML = '<p class="text-muted text-sm">No mow events logged yet.</p>';
+        return;
       }
+      wrap.innerHTML = events.map(e => `
+        <div class="mow-event-row" data-event-id="${escHtml(e.id)}">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:.86rem;">${escHtml(formatDateTime(e.mowed_at))}</div>
+            <div class="text-muted text-xs">${escHtml(e.mowed_by_name || '—')}${e.notes ? ' · ' + escHtml(e.notes) : ''}</div>
+          </div>
+          <button class="btn btn-secondary btn-xs" data-event-act="edit"   data-event-id="${escHtml(e.id)}">Edit</button>
+          <button class="btn btn-secondary btn-xs" data-event-act="delete" data-event-id="${escHtml(e.id)}" style="color:var(--danger);">Delete</button>
+        </div>
+      `).join('');
+      // Wire row buttons.
+      wrap.querySelectorAll('button[data-event-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const eid = btn.dataset.eventId;
+          const act = btn.dataset.eventAct;
+          if (act === 'edit')   loadEventIntoForm(events.find(e => e.id === eid));
+          if (act === 'delete') deleteEvent(eid);
+        });
+      });
+    } catch (err) {
+      wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function loadEventIntoForm(evt) {
+    if (!evt) return;
+    editingEventId = evt.id;
+    document.getElementById('mow-form-title').textContent = 'Edit mow event';
+    // Convert UTC ISO → local datetime-local string.
+    const d = new Date(evt.mowed_at);
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('mow-at').value =
+      `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    document.getElementById('mow-by').value = evt.mowed_by || '';
+    document.getElementById('mow-notes').value = evt.notes || '';
+    document.getElementById('mow-cancel-edit').style.display = '';
+    document.getElementById('mow-save').textContent = 'Update';
+    document.getElementById('mow-error').style.display = 'none';
+  }
+
+  async function submitMow(e) {
+    e.preventDefault();
+    if (!mowingPropertyId) return;
+    const localStr = document.getElementById('mow-at').value;
+    const mowedAt  = localStr ? new Date(localStr).toISOString() : null;
+    const mowedBy  = document.getElementById('mow-by').value || null;
+    const notes    = document.getElementById('mow-notes').value || null;
+    const err = document.getElementById('mow-error'); err.style.display = 'none';
+    const btn = document.getElementById('mow-save');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      if (editingEventId) {
+        await patchMowEvent(editingEventId, { mowed_at: mowedAt, mowed_by: mowedBy, notes });
+        showToast('Event updated');
+      } else {
+        await markMowed(mowingPropertyId, { mowed_at: mowedAt, mowed_by: mowedBy, notes });
+        showToast('Mow logged');
+      }
+      resetMowForm();
+      await loadMowHistory(mowingPropertyId);
+      // Refresh the underlying list so the Last Mowed column reflects the change.
+      rows = await getLawn();
       render();
-      showToast('Marked as mowed');
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = editingEventId ? 'Update' : 'Save';
+    }
+  }
+
+  async function deleteEvent(eventId) {
+    if (!confirm('Delete this mow event?')) return;
+    try {
+      await deleteMowEvent(eventId);
+      showToast('Event deleted');
+      if (editingEventId === eventId) resetMowForm();
+      await loadMowHistory(mowingPropertyId);
+      rows = await getLawn();
+      render();
     } catch (e) { showToast(e.message, 'error'); }
   }
 

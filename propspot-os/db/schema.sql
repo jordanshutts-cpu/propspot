@@ -596,6 +596,33 @@ END $$;
 CREATE INDEX IF NOT EXISTS lawn_maint_assigned_idx ON lawn_maintenance(assigned_user_id);
 CREATE INDEX IF NOT EXISTS lawn_maint_route_idx    ON lawn_maintenance(route_position);
 
+-- Per-mow event log. The lawn_maintenance.last_mowed_* columns above
+-- are a denormalized cache of the most recent event here; the maintenance
+-- app refreshes them on every event insert/update/delete.
+CREATE TABLE IF NOT EXISTS lawn_mow_events (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  mowed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  mowed_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+  notes       TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS lawn_mow_events_property_idx ON lawn_mow_events(property_id);
+CREATE INDEX IF NOT EXISTS lawn_mow_events_mowed_at_idx ON lawn_mow_events(mowed_at DESC);
+
+-- One-time backfill: if a property has last_mowed_at set on lawn_maintenance
+-- but no events exist for it yet, create a single seed event so the history
+-- isn't lost. Idempotent — the NOT EXISTS guard prevents re-runs from
+-- creating duplicates.
+INSERT INTO lawn_mow_events (property_id, mowed_at, mowed_by, notes)
+SELECT lm.property_id, lm.last_mowed_at, lm.last_mowed_by, '(seeded from cache)'
+  FROM lawn_maintenance lm
+ WHERE lm.last_mowed_at IS NOT NULL
+   AND NOT EXISTS (
+     SELECT 1 FROM lawn_mow_events e WHERE e.property_id = lm.property_id
+   );
+
 -- ── Pulse satellite (team chat) ─────────────────────────────────────────────
 -- Owned by Prop Spot; read/written by the pulse.propspot.io app via the
 -- shared DATABASE_URL (Model A). Phase 1: channels + channel membership +

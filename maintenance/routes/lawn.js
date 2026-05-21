@@ -79,27 +79,118 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Recompute lawn_maintenance.last_mowed_* from the most recent event for
+// this property. Called after every events insert/update/delete so the
+// cached fields on the lawn list query stay in sync. Accepts a query
+// runner (either `query` or a transaction client) so callers can chain it.
+async function refreshLastMowedCache(runner, propertyId) {
+  const { rows } = await runner.query(
+    `SELECT mowed_at, mowed_by
+       FROM lawn_mow_events
+      WHERE property_id = $1
+      ORDER BY mowed_at DESC
+      LIMIT 1`,
+    [propertyId]
+  );
+  const evt = rows[0] || { mowed_at: null, mowed_by: null };
+  await runner.query(
+    `INSERT INTO lawn_maintenance (property_id, last_mowed_at, last_mowed_by, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (property_id) DO UPDATE
+       SET last_mowed_at = $2, last_mowed_by = $3, updated_at = NOW()`,
+    [propertyId, evt.mowed_at, evt.mowed_by]
+  );
+}
+
 // ── POST /api/lawn/:property_id/mowed ───────────────────────────
+// Creates a new mow event. Body may include `mowed_at`, `mowed_by`,
+// `notes` to override the defaults (NOW / current user / blank).
 router.post('/:property_id/mowed', async (req, res) => {
+  const mowedAt = req.body?.mowed_at || null;     // null → DB DEFAULT NOW()
+  const mowedBy = req.body?.mowed_by || req.userId;
+  const notes   = req.body?.notes || null;
   try {
     const { rows } = await query(`
-      INSERT INTO lawn_maintenance (property_id, last_mowed_at, last_mowed_by, updated_at)
-      VALUES ($1, NOW(), $2, NOW())
-      ON CONFLICT (property_id) DO UPDATE
-        SET last_mowed_at = NOW(),
-            last_mowed_by = $2,
-            updated_at    = NOW()
-      RETURNING property_id, last_mowed_at, last_mowed_by
-    `, [req.params.property_id, req.userId]);
-    if (!rows[0]) return res.status(404).json({ error: 'Property not found' });
+      INSERT INTO lawn_mow_events (property_id, mowed_at, mowed_by, notes, created_by)
+      VALUES ($1, COALESCE($2::timestamptz, NOW()), $3, $4, $5)
+      RETURNING id, property_id, mowed_at, mowed_by, notes, created_at, created_by
+    `, [req.params.property_id, mowedAt, mowedBy, notes, req.userId]);
+    await refreshLastMowedCache({ query }, req.params.property_id);
     await logActivity({
       actorUserId: req.userId, entityType: 'property', entityId: req.params.property_id,
-      action: 'mowed', payload: null
+      action: 'mowed', payload: { event_id: rows[0].id, mowed_at: rows[0].mowed_at }
     });
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to mark mowed' });
+    res.status(500).json({ error: 'Failed to log mow event' });
+  }
+});
+
+// ── GET /api/lawn/:property_id/mow-events ───────────────────────
+// Returns full mowing history for a single property, newest first,
+// with the mower's name joined in.
+router.get('/:property_id/mow-events', async (req, res) => {
+  try {
+    const { rows } = await query(`
+      SELECT e.id, e.property_id, e.mowed_at, e.mowed_by, e.notes,
+             e.created_at, e.created_by,
+             u.full_name AS mowed_by_name
+        FROM lawn_mow_events e
+        LEFT JOIN users u ON u.id = e.mowed_by
+       WHERE e.property_id = $1
+       ORDER BY e.mowed_at DESC
+    `, [req.params.property_id]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch mow events' });
+  }
+});
+
+// ── PATCH /api/lawn/mow-events/:event_id ────────────────────────
+// Edit an existing event. Allowed fields: mowed_at, mowed_by, notes.
+router.patch('/mow-events/:event_id', async (req, res) => {
+  const allowed = ['mowed_at', 'mowed_by', 'notes'];
+  const sets = [];
+  const vals = [];
+  let i = 1;
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) {
+      sets.push(`${k} = $${i++}`);
+      vals.push(req.body[k] === '' ? null : req.body[k]);
+    }
+  }
+  if (!sets.length) return res.status(400).json({ error: 'no fields to update' });
+  vals.push(req.params.event_id);
+  try {
+    const { rows } = await query(
+      `UPDATE lawn_mow_events SET ${sets.join(', ')}
+        WHERE id = $${i} RETURNING *`,
+      vals
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Event not found' });
+    await refreshLastMowedCache({ query }, rows[0].property_id);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update mow event' });
+  }
+});
+
+// ── DELETE /api/lawn/mow-events/:event_id ───────────────────────
+router.delete('/mow-events/:event_id', async (req, res) => {
+  try {
+    const { rows } = await query(
+      `DELETE FROM lawn_mow_events WHERE id = $1 RETURNING property_id`,
+      [req.params.event_id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Event not found' });
+    await refreshLastMowedCache({ query }, rows[0].property_id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete mow event' });
   }
 });
 
