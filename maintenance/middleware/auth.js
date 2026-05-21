@@ -46,10 +46,12 @@ async function requireMaintenanceGrant(req, res, next) {
     next();
   } catch (err) {
     console.error('requireMaintenanceGrant error:', err);
-    // Surface the underlying cause so we can debug from the client side.
+    // Surface the underlying cause in the user-visible error string so we
+    // can diagnose without needing access to Railway logs.
     res.status(500).json({
-      error: 'Authorization check failed',
+      error: `AUTH-CHECK-FAIL: ${err.code || ''} ${err.message || String(err)} (uid=${req.userId || 'none'})`,
       detail: err.message || String(err),
+      code: err.code || null,
       userId: req.userId || null
     });
   }
