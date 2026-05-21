@@ -7,7 +7,6 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requirePulseGrant);
 
-// Helper: confirm the caller can read/write the given channel.
 async function userHasChannel(userId, channelId) {
   const { rows } = await query(`
     SELECT 1
@@ -58,7 +57,6 @@ router.post('/', async (req, res) => {
     hub.publish(channel_id, { type: 'message', message: enriched });
     return res.json(enriched);
   } catch (err) {
-    // Unique violation on (sender_id, client_message_id) — return the existing row.
     if (err.code === '23505' && client_message_id) {
       const { rows } = await query(
         `SELECT * FROM chat_messages WHERE sender_id = $1 AND client_message_id = $2`,
@@ -71,23 +69,44 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET /api/pulse/messages?channel_id=<UUID>   — most recent 100 (Phase 1, no pagination)
+// GET /api/pulse/messages?channel_id=<UUID>&before=<ISO>&limit=50
+//   Returns messages strictly OLDER than `before` (or most recent if not given),
+//   in chronological order (oldest first), plus has_more so the UI knows whether
+//   to keep paginating.
 router.get('/', async (req, res) => {
   const channel_id = req.query.channel_id;
   if (!channel_id) return res.status(400).json({ error: 'channel_id required' });
   if (!(await userHasChannel(req.userId, channel_id))) {
     return res.status(403).json({ error: 'Not a member of this channel' });
   }
-  const { rows } = await query(`
+
+  const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 50, 100));
+  const before = req.query.before ? new Date(req.query.before) : null;
+  const params = [channel_id];
+  let beforeClause = '';
+  if (before && !isNaN(before)) {
+    params.push(before.toISOString());
+    beforeClause = `AND m.created_at < $${params.length}`;
+  }
+  params.push(limit);
+
+  const sql = `
     SELECT m.*, u.full_name AS sender_name, u.email AS sender_email
       FROM chat_messages m
       LEFT JOIN users u ON u.id = m.sender_id
      WHERE m.channel_id = $1
        AND m.deleted_at IS NULL
+       ${beforeClause}
      ORDER BY m.created_at DESC
-     LIMIT 100
-  `, [channel_id]);
-  res.json(rows.reverse());
+     LIMIT $${params.length}
+  `;
+  const { rows } = await query(sql, params);
+
+  // Pull DESC + LIMIT to grab freshest, reverse for chronological return.
+  res.json({
+    messages: rows.reverse(),
+    has_more: rows.length === limit
+  });
 });
 
 module.exports = router;
