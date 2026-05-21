@@ -477,6 +477,11 @@ body.os-newlayout .page         { max-width: 1200px; padding: 24px; }
 .apps-rail-link:hover::after { opacity: 1; }
 .apps-rail-spacer { flex: 1; }
 
+/* Sign-out button in the rail — strip default <button> chrome so it
+   inherits .apps-rail-link styling. */
+.apps-rail-signout { border: none; cursor: pointer; padding: 0; font-family: inherit; }
+.apps-rail-signout:hover { background: #fee2e2; color: var(--danger); }
+
 /* Mobile (< 720px): top nav becomes sticky and apps rail moves to bottom */
 @media (max-width: 720px) {
   body.os-newlayout {

@@ -332,12 +332,16 @@ function renderAppsRail() {
     <a class="apps-rail-brand" href="/dashboard.html" data-osnav="dashboard" title="Prop Spot home">
       <img src="/logo.png" alt="Prop Spot">
     </a>
-    <a class="apps-rail-link" data-app="fieldcam"     data-label="FieldCam"     style="display:none;" href="#">📸</a>
+    <a class="apps-rail-link" data-osnav="dashboard"  data-label="Home"         href="#">🏠</a>
+    <a class="apps-rail-link" data-app="holdings"     data-label="Holdings"     style="display:none;" href="#">💼</a>
     <a class="apps-rail-link" data-app="maintenance"  data-label="Maintenance"  style="display:none;" href="#">🛠️</a>
-    <a class="apps-rail-link" data-app="underwriting" data-label="Underwriting" style="display:none;" href="#">💰</a>
+    <a class="apps-rail-link" data-app="fieldcam"     data-label="FieldCam"     style="display:none;" href="#">📸</a>
+    <a class="apps-rail-link" data-app="pulse"        data-label="Pulse"        style="display:none;" href="#">💬</a>
+    <a class="apps-rail-link" data-app="underwriting" data-label="Underwriting" style="display:none;" href="#">📊</a>
     <div class="apps-rail-spacer"></div>
+    <button class="apps-rail-link apps-rail-signout" title="Sign out" onclick="signOut()">🚪</button>
   `;
-  // Wire data-app links via existing helper (it'll fetch /api/config)
+  // Wire data-app and data-osnav links via existing helper (fetches /api/config).
   wireUnifiedNav();
 }
 
