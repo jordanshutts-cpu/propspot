@@ -18,26 +18,40 @@ function requireAuth(req, res, next) {
 
 async function requireMaintenanceGrant(req, res, next) {
   try {
-    const { rows } = await query(`
-      SELECT ag.role, ag.scope, u.is_owner
-        FROM users u
-        LEFT JOIN app_grants ag ON ag.user_id = u.id
-        LEFT JOIN apps a       ON a.id = ag.app_id AND a.slug = 'maintenance'
-       WHERE u.id = $1
-    `, [req.userId]);
-
-    const row = rows[0];
-    if (!row) return res.status(401).json({ error: 'User not found' });
-    if (row.is_owner) {
+    // Pull the user first so we can short-circuit on owner without joining
+    // through app_grants (which can return multiple rows when a user has
+    // grants on more than one app and confuse the rows[0] pick).
+    const { rows: userRows } = await query(
+      `SELECT id, email, is_owner FROM users WHERE id = $1`,
+      [req.userId]
+    );
+    const user = userRows[0];
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    if (user.is_owner) {
       req.maintenanceGrant = { role: 'owner', scope: { all: true } };
       return next();
     }
-    if (!row.role) return res.status(403).json({ error: 'No access to Maintenance' });
-    req.maintenanceGrant = { role: row.role, scope: row.scope || { all: true } };
+
+    const { rows: grantRows } = await query(`
+      SELECT ag.role, ag.scope
+        FROM app_grants ag
+        JOIN apps a ON a.id = ag.app_id
+       WHERE ag.user_id = $1 AND a.slug = 'maintenance'
+       LIMIT 1
+    `, [req.userId]);
+
+    const grant = grantRows[0];
+    if (!grant) return res.status(403).json({ error: 'No access to Maintenance' });
+    req.maintenanceGrant = { role: grant.role, scope: grant.scope || { all: true } };
     next();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Authorization check failed' });
+    console.error('requireMaintenanceGrant error:', err);
+    // Surface the underlying cause so we can debug from the client side.
+    res.status(500).json({
+      error: 'Authorization check failed',
+      detail: err.message || String(err),
+      userId: req.userId || null
+    });
   }
 }
 
