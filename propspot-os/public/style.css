@@ -1045,15 +1045,23 @@ body.os-newlayout .page         { max-width: 1200px; padding: 24px; }
 }
 
 /* ── Kanban board (shared across lifecycle pages) ────────── */
+/* Horizontal scroll instead of grid collapse — keeps every lane
+   visible side-by-side regardless of viewport width. */
 .kanban {
-  display: grid;
-  grid-template-columns: repeat(var(--kanban-cols, 4), minmax(260px, 1fr));
+  display: flex;
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
   margin-top: 14px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 10px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
 }
-@media (max-width: 1240px) { .kanban { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 720px)  { .kanban { grid-template-columns: 1fr; } }
+.kanban::-webkit-scrollbar { height: 10px; }
+.kanban::-webkit-scrollbar-track { background: transparent; }
+.kanban::-webkit-scrollbar-thumb { background: var(--border); border-radius: 100px; }
+.kanban::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 .kanban-col {
   background: var(--surface);
@@ -1064,6 +1072,11 @@ body.os-newlayout .page         { max-width: 1200px; padding: 24px; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex: 0 0 300px;
+  scroll-snap-align: start;
+}
+@media (max-width: 720px) {
+  .kanban-col { flex: 0 0 85vw; }   /* phones: one lane at a time, snap to next */
 }
 .kanban-col.drag-over {
   outline: 2px dashed var(--brand);
