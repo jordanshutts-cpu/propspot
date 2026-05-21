@@ -30,7 +30,6 @@
 <script>
   async function init(){
     if (!await requireAuth()) return;
-    document.getElementById('nav-os').href = await getOsUrl() || '#';
     try {
       const props = await getProperties();
       const el = document.getElementById('list');

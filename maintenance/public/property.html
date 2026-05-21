@@ -100,7 +100,6 @@
   async function init(){
     if (!propId) { location.href = '/properties.html'; return; }
     if (!await requireAuth()) return;
-    document.getElementById('nav-os').href = await getOsUrl() || '#';
     await load();
   }
 

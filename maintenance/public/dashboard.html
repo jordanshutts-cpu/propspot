@@ -65,7 +65,8 @@
     <form onsubmit="submitCreate(event)">
       <div class="form-group">
         <label class="form-label">Property *</label>
-        <select class="form-select" id="c-property_id" required></select>
+        <input class="form-input mb-8" type="search" id="c-property-search" placeholder="Search address, city, owner…" oninput="filterPropertyOptions(this.value)">
+        <select class="form-select" id="c-property_id" size="6" required></select>
       </div>
       <div class="form-group">
         <label class="form-label">Title *</label>
@@ -124,8 +125,8 @@
 
   async function init() {
     const me = await requireAuth(); if (!me) return;
-    document.getElementById('nav-os').href = await getOsUrl() || '#';
-    const grant = (me.grants || []).find(g => g.slug === 'maintenance');
+    // Owners have implicit access (matches the backend's requireMaintenanceGrant).
+    const grant = me.is_owner || (me.grants || []).find(g => g.slug === 'maintenance');
     if (!grant) {
       document.querySelector('main').innerHTML = `
         <div class="empty-state">
@@ -160,10 +161,25 @@
   async function loadProperties() {
     try {
       propertiesCache = await getProperties();
-      const sel = document.getElementById('c-property_id');
-      sel.innerHTML = '<option value="">Select a property…</option>' +
-        propertiesCache.map(p => `<option value="${p.id}">${escHtml(propertyDisplay(p))} — ${escHtml(p.city || '')}, ${escHtml(p.state || '')}</option>`).join('');
+      renderPropertyOptions(propertiesCache);
     } catch (e) { console.error(e); }
+  }
+
+  function renderPropertyOptions(list) {
+    const sel = document.getElementById('c-property_id');
+    sel.innerHTML = list.length
+      ? list.map(p => `<option value="${p.id}">${escHtml(propertyDisplay(p))} — ${escHtml(p.city || '')}, ${escHtml(p.state || '')}</option>`).join('')
+      : '<option value="" disabled>No matching properties</option>';
+  }
+
+  function filterPropertyOptions(q) {
+    q = (q || '').toLowerCase().trim();
+    if (!q) return renderPropertyOptions(propertiesCache);
+    const filtered = propertiesCache.filter(p =>
+      [p.address_line1, p.unit, p.city, p.state, p.zip, p.display_name]
+        .filter(Boolean).join(' ').toLowerCase().includes(q)
+    );
+    renderPropertyOptions(filtered);
   }
 
   function computeStats() {
@@ -212,6 +228,8 @@
   }
 
   function openCreate() {
+    document.getElementById('c-property-search').value = '';
+    renderPropertyOptions(propertiesCache);
     document.getElementById('c-property_id').value = '';
     document.getElementById('c-title').value = '';
     document.getElementById('c-description').value = '';

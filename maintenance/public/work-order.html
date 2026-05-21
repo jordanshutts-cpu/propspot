@@ -105,7 +105,6 @@
   async function init(){
     if (!woId) { location.href = '/dashboard.html'; return; }
     if (!await requireAuth()) return;
-    document.getElementById('nav-os').href = await getOsUrl() || '#';
     await load();
   }
 
