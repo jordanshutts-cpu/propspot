@@ -561,6 +561,41 @@ CREATE TABLE IF NOT EXISTS work_order_updates (
 );
 CREATE INDEX IF NOT EXISTS work_order_updates_wo_idx ON work_order_updates(work_order_id);
 
+-- ── Lawn maintenance ────────────────────────────────────────────────────────
+-- One row per property. Rows are OPTIONAL — properties with no row default
+-- to enabled_mode='auto' and inherit visibility from property.status. The
+-- maintenance app's lawn page handles the inclusion logic in its SELECT.
+CREATE TABLE IF NOT EXISTS lawn_maintenance (
+  property_id          UUID PRIMARY KEY REFERENCES properties(id) ON DELETE CASCADE,
+  enabled_mode         TEXT NOT NULL DEFAULT 'auto',  -- auto | force_on | force_off
+  assigned_user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+  frequency_days       INT NOT NULL DEFAULT 14,
+  last_mowed_at        TIMESTAMPTZ,
+  last_mowed_by        UUID REFERENCES users(id) ON DELETE SET NULL,
+  -- Arrival marker. Set by the "Check In" button when the technician reaches
+  -- the property. Lat/lng captured if the browser grants geolocation so we
+  -- can spot-verify on-site presence.
+  last_checked_in_at   TIMESTAMPTZ,
+  last_checked_in_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  last_checked_in_lat  DOUBLE PRECISION,
+  last_checked_in_lng  DOUBLE PRECISION,
+  sign_for_sale        BOOLEAN NOT NULL DEFAULT FALSE,
+  sign_for_rent        BOOLEAN NOT NULL DEFAULT FALSE,
+  route_position       INT,
+  notes                TEXT,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW()
+);
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lawn_maintenance_mode_check') THEN
+    ALTER TABLE lawn_maintenance DROP CONSTRAINT lawn_maintenance_mode_check;
+  END IF;
+  ALTER TABLE lawn_maintenance ADD CONSTRAINT lawn_maintenance_mode_check
+    CHECK (enabled_mode IN ('auto','force_on','force_off'));
+END $$;
+CREATE INDEX IF NOT EXISTS lawn_maint_assigned_idx ON lawn_maintenance(assigned_user_id);
+CREATE INDEX IF NOT EXISTS lawn_maint_route_idx    ON lawn_maintenance(route_position);
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -572,7 +607,7 @@ BEGIN
   FOR t IN SELECT unnest(ARRAY[
     'properties','contacts','prospects','leads','opportunities','purchases','projects',
     'holdings_items','holdings_payments','holdings_documents',
-    'work_orders'
+    'work_orders','lawn_maintenance'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||

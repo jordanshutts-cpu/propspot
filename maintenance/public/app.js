@@ -79,6 +79,14 @@ async function postUpdate(work_order_id, body) {
 }
 async function deleteUpdate(id) { return apiFetch(`/api/updates/${id}`, { method: 'DELETE' }); }
 
+// ── Lawn maintenance ─────────────────────────────────────────
+async function getLawn()                      { return apiFetch('/api/lawn'); }
+async function markMowed(propertyId)          { return apiFetch(`/api/lawn/${propertyId}/mowed`, { method: 'POST' }); }
+async function checkIn(propertyId, coords)    { return apiFetch(`/api/lawn/${propertyId}/checkin`, { method: 'POST', body: JSON.stringify(coords || {}) }); }
+async function patchLawn(propertyId, body)    { return apiFetch(`/api/lawn/${propertyId}`, { method: 'PATCH', body: JSON.stringify(body) }); }
+async function saveLawnRoute(orderArray)      { return apiFetch('/api/lawn/route', { method: 'POST', body: JSON.stringify({ order: orderArray }) }); }
+async function getUsers()                     { return apiFetch('/api/users'); }
+
 // ── UI helpers ────────────────────────────────────────────────
 function showToast(message, type = 'success') {
   const existing = document.getElementById('mn-toast');

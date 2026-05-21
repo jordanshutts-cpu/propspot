@@ -13,6 +13,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/work-orders', require('./routes/work-orders'));
 app.use('/api/updates',     require('./routes/updates'));
 app.use('/api/properties',  require('./routes/properties'));
+app.use('/api/lawn',        require('./routes/lawn'));
+app.use('/api/users',       require('./routes/users'));
 
 // /api/me — pass-through to Prop Spot
 const OS_URL = process.env.OS_INTERNAL_URL || process.env.OS_URL || '';

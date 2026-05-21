@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Maintenance — Lawn</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+</head>
+<body>
+
+<header class="app-header">
+  <a href="/dashboard.html" class="back-btn" title="Back">‹</a>
+  <span class="logo">🌳 Lawn</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="section-header">
+    <span class="section-title" id="props-count">Lawn maintenance</span>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" id="btn-route" onclick="openInMaps()" title="Open the current route in Google Maps">🗺️ Open Route in Maps</button>
+    </div>
+  </div>
+
+  <div class="pills" id="filter-pills">
+    <button class="pill active" data-f="all">All</button>
+    <button class="pill"        data-f="mine">Mine</button>
+    <button class="pill"        data-f="overdue">Overdue</button>
+    <button class="pill"        data-f="forced">Force-on</button>
+  </div>
+
+  <p class="text-muted text-sm" id="route-hint" style="display:none;"></p>
+
+  <div id="list"><p class="text-muted text-sm">Loading…</p></div>
+
+</main>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="modal-settings">
+  <div class="modal">
+    <div class="modal-title" id="ms-title">Settings</div>
+    <form onsubmit="submitSettings(event)">
+      <div class="form-group">
+        <label class="form-label">Inclusion</label>
+        <select class="form-select" id="ms-mode">
+          <option value="auto">Auto — follow property status</option>
+          <option value="force_on">Always include</option>
+          <option value="force_off">Always exclude (hide)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mowing frequency (days)</label>
+        <input class="form-input" type="number" min="1" max="120" id="ms-freq" value="14">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="ms-notes" placeholder="e.g. dog in backyard, gate code 1234"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-settings')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="ms-save">Save</button>
+      </div>
+      <p id="ms-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    </form>
+  </div>
+</div>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'maintenance';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let rows         = [];        // current view-model from /api/lawn
+  let users        = [];        // for assignee dropdown
+  let me           = null;
+  let currentFilter = 'all';
+  let editingPropertyId = null; // open settings modal target
+  let fieldcamBase = '';        // for FieldCam deep links
+
+  async function init() {
+    me = await requireAuth(); if (!me) return;
+
+    document.querySelectorAll('.pill').forEach(p => p.addEventListener('click', () => {
+      document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      currentFilter = p.dataset.f;
+      render();
+    }));
+
+    try {
+      const cfg = await fetch('/api/config').then(r => r.json());
+      fieldcamBase = cfg.fieldcamUrl || '';
+    } catch {}
+
+    await Promise.all([loadData(), loadUsers()]);
+  }
+
+  async function loadData() {
+    try {
+      rows = await getLawn();
+      render();
+    } catch (err) {
+      document.getElementById('list').innerHTML = `<p class="text-muted">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  async function loadUsers() {
+    try { users = await getUsers(); }
+    catch (err) { console.error('loadUsers failed', err); users = []; }
+  }
+
+  function defaultAssigneeId() {
+    // Look for a user named Jonathan (case-insensitive); fall back to first user.
+    const jon = users.find(u => /^jonathan/i.test(u.full_name || ''));
+    return jon?.id || users[0]?.id || null;
+  }
+
+  function filteredRows() {
+    let list = rows.slice();
+    if (currentFilter === 'mine')   list = list.filter(r => r.assigned_user_id === me.id);
+    if (currentFilter === 'overdue') list = list.filter(r => r.overdue);
+    if (currentFilter === 'forced') list = list.filter(r => r.enabled_mode === 'force_on');
+    return list;
+  }
+
+  function render() {
+    const list = filteredRows();
+    document.getElementById('props-count').textContent =
+      `Lawn maintenance · ${list.length === 1 ? '1 property' : list.length + ' properties'}`;
+
+    if (!list.length) {
+      document.getElementById('list').innerHTML =
+        `<div class="empty-state"><div class="empty-icon">🌿</div><p>No properties in this view.</p></div>`;
+      return;
+    }
+
+    const html = `
+      <div class="lawn-table-wrap">
+        <table class="lawn-table">
+          <thead>
+            <tr>
+              <th style="width:34px;"></th>
+              <th>Address</th>
+              <th>Status</th>
+              <th>Assignee</th>
+              <th>Last visit</th>
+              <th>Last mowed</th>
+              <th>Signs</th>
+              <th>Lockbox</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="lawn-tbody">
+            ${list.map(rowHtml).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    document.getElementById('list').innerHTML = html;
+    wireRowEvents();
+    wireDragReorder();
+  }
+
+  function rowHtml(r) {
+    const addr   = (r.address_line1 || '') + (r.unit ? ' #' + r.unit : '');
+    const city   = [r.city, r.state].filter(Boolean).join(', ');
+    const assignOptions = `
+      <option value="">— unassigned —</option>
+      ${users.map(u => `<option value="${u.id}"${(r.assigned_user_id || defaultAssigneeId()) === u.id ? ' selected' : ''}>${escHtml(u.full_name || u.email)}</option>`).join('')}
+    `;
+    const lastMowedCell = r.last_mowed_at
+      ? `<span class="${r.overdue ? 'overdue-text' : ''}">${escHtml(relativeTime(r.last_mowed_at))}</span>${r.overdue ? ' <span class="overdue-dot" title="Overdue"></span>' : ''}${r.last_mowed_by_name ? `<div class="cell-sub">${escHtml(r.last_mowed_by_name)}</div>` : ''}`
+      : `<span class="text-muted">Never</span> <span class="overdue-dot" title="Never mowed"></span>`;
+    const lastVisitCell = r.last_checked_in_at
+      ? `${escHtml(relativeTime(r.last_checked_in_at))}${r.last_checked_in_by_name ? `<div class="cell-sub">${escHtml(r.last_checked_in_by_name)}</div>` : ''}`
+      : `<span class="text-muted">—</span>`;
+    const statusPretty = (r.status || '').replace(/_/g, ' ');
+    const forcedBadge = r.enabled_mode === 'force_on'
+      ? `<span class="badge badge-purple" title="Forced on">FORCE-ON</span> `
+      : r.enabled_mode === 'force_off'
+      ? `<span class="badge badge-grey">FORCE-OFF</span> `
+      : '';
+    const fieldcamPath = `/camera.html?property_id=${encodeURIComponent(r.id)}`;
+    return `
+      <tr draggable="true" data-id="${escHtml(r.id)}">
+        <td class="drag-handle" title="Drag to reorder">⋮⋮</td>
+        <td>
+          <a class="addr-link" href="${fieldcamBase ? '' : ''}/property.html?id=${encodeURIComponent(r.id)}" title="${escHtml(addr)}" draggable="false">${escHtml(addr)}</a>
+          <div class="cell-sub">${escHtml(city)}</div>
+        </td>
+        <td>${forcedBadge}<span class="badge ${statusBadgeForLawn(r.status)}">${escHtml(statusPretty)}</span></td>
+        <td>
+          <select class="form-select assignee-select" data-id="${escHtml(r.id)}" data-prev="${escHtml(r.assigned_user_id || '')}">
+            ${assignOptions}
+          </select>
+        </td>
+        <td>${lastVisitCell}</td>
+        <td>${lastMowedCell}</td>
+        <td>
+          <label class="sign-toggle"><input type="checkbox" data-sign="for_sale" data-id="${escHtml(r.id)}" ${r.sign_for_sale ? 'checked' : ''}> Sale</label>
+          <label class="sign-toggle"><input type="checkbox" data-sign="for_rent" data-id="${escHtml(r.id)}" ${r.sign_for_rent ? 'checked' : ''}> Rent</label>
+        </td>
+        <td><code class="lockbox">${escHtml(r.lockbox_code || '—')}</code></td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button class="btn btn-secondary btn-xs" data-act="checkin" data-id="${escHtml(r.id)}" title="Check in (records arrival + GPS)">📍 Check in</button>
+          <button class="btn btn-primary   btn-xs" data-act="mowed"   data-id="${escHtml(r.id)}" title="Mark mowed today">✓ Mowed</button>
+          <a class="btn btn-secondary btn-xs" data-app="fieldcam" data-app-path="${fieldcamPath}" title="Take photos in FieldCam">📷</a>
+          <button class="btn btn-secondary btn-xs" data-act="settings" data-id="${escHtml(r.id)}" title="Settings">⚙</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  function statusBadgeForLawn(s) {
+    if (s === 'renovating')           return 'badge-blue';
+    if (s === 'listed_for_rent')      return 'badge';        // brand-tinted
+    if (s === 'listed_for_sale')      return 'badge-purple';
+    if (s === 'under_contract_buyer') return 'badge-amber';
+    if (s === 'rented' || s === 'renting') return 'badge-green';
+    return 'badge-grey';
+  }
+
+  // ── Per-row events ──────────────────────────────────────────
+  function wireRowEvents() {
+    document.querySelectorAll('button[data-act]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id  = btn.dataset.id;
+        const act = btn.dataset.act;
+        if (act === 'checkin')  await onCheckIn(id);
+        if (act === 'mowed')    await onMowed(id);
+        if (act === 'settings') openSettings(id);
+      });
+    });
+    document.querySelectorAll('.assignee-select').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const id  = sel.dataset.id;
+        const val = sel.value || null;
+        try {
+          await patchLawn(id, { assigned_user_id: val });
+          const r = rows.find(x => x.id === id);
+          if (r) r.assigned_user_id = val;
+          const u = users.find(x => x.id === val);
+          if (r) r.assigned_user_name = u?.full_name || u?.email || null;
+          showToast('Assignee updated');
+        } catch (e) { showToast(e.message, 'error'); }
+      });
+    });
+    document.querySelectorAll('input[type=checkbox][data-sign]').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const id   = cb.dataset.id;
+        const key  = cb.dataset.sign === 'for_sale' ? 'sign_for_sale' : 'sign_for_rent';
+        try {
+          await patchLawn(id, { [key]: cb.checked });
+          const r = rows.find(x => x.id === id);
+          if (r) r[key] = cb.checked;
+        } catch (e) {
+          cb.checked = !cb.checked;
+          showToast(e.message, 'error');
+        }
+      });
+    });
+    // Wire FieldCam links with the SSO token + correct base URL.
+    if (typeof wireUnifiedNav === 'function') wireUnifiedNav();
+  }
+
+  async function onCheckIn(id) {
+    // Best-effort geolocation. Don't block on it.
+    let coords = {};
+    if (navigator.geolocation) {
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000, maximumAge: 60000 });
+        });
+        coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      } catch { /* user denied or timed out — submit without coords */ }
+    }
+    try {
+      const res = await checkIn(id, coords);
+      const r = rows.find(x => x.id === id);
+      if (r) {
+        r.last_checked_in_at  = res.last_checked_in_at;
+        r.last_checked_in_by  = res.last_checked_in_by;
+        r.last_checked_in_by_name = me.full_name || me.email;
+        r.last_checked_in_lat = res.last_checked_in_lat;
+        r.last_checked_in_lng = res.last_checked_in_lng;
+      }
+      render();
+      showToast(coords.lat ? 'Checked in (location captured)' : 'Checked in');
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function onMowed(id) {
+    try {
+      const res = await markMowed(id);
+      const r = rows.find(x => x.id === id);
+      if (r) {
+        r.last_mowed_at = res.last_mowed_at;
+        r.last_mowed_by = res.last_mowed_by;
+        r.last_mowed_by_name = me.full_name || me.email;
+        r.overdue = false;
+      }
+      render();
+      showToast('Marked as mowed');
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Settings modal ──────────────────────────────────────────
+  function openSettings(id) {
+    editingPropertyId = id;
+    const r = rows.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('ms-title').textContent = `Settings — ${r.address_line1 || ''}`;
+    document.getElementById('ms-mode').value   = r.enabled_mode || 'auto';
+    document.getElementById('ms-freq').value   = r.frequency_days || 14;
+    document.getElementById('ms-notes').value  = r.notes || '';
+    document.getElementById('ms-error').style.display = 'none';
+    document.getElementById('modal-settings').classList.add('open');
+  }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  async function submitSettings(e) {
+    e.preventDefault();
+    if (!editingPropertyId) return;
+    const body = {
+      enabled_mode:   document.getElementById('ms-mode').value,
+      frequency_days: parseInt(document.getElementById('ms-freq').value, 10) || 14,
+      notes:          document.getElementById('ms-notes').value || null
+    };
+    const err = document.getElementById('ms-error'); err.style.display = 'none';
+    const btn = document.getElementById('ms-save');
+    btn.disabled = true; btn.innerHTML = 'Saving…';
+    try {
+      await patchLawn(editingPropertyId, body);
+      closeModal('modal-settings');
+      await loadData();   // re-fetch in case visibility (force_off) flipped
+      showToast('Settings saved');
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Save';
+    }
+  }
+
+  // ── Drag-to-reorder ─────────────────────────────────────────
+  let dragSrc = null;
+  function wireDragReorder() {
+    const tbody = document.getElementById('lawn-tbody');
+    if (!tbody) return;
+
+    tbody.querySelectorAll('tr[draggable=true]').forEach(tr => {
+      tr.addEventListener('dragstart', e => {
+        dragSrc = tr;
+        tr.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', tr.dataset.id);
+      });
+      tr.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!dragSrc || dragSrc === tr) return;
+        const rect = tr.getBoundingClientRect();
+        const after = (e.clientY - rect.top) > rect.height / 2;
+        tbody.insertBefore(dragSrc, after ? tr.nextSibling : tr);
+      });
+      tr.addEventListener('dragend', async () => {
+        tr.classList.remove('dragging');
+        if (!dragSrc) return;
+        dragSrc = null;
+        // Commit new order to the server.
+        const newOrder = [...tbody.querySelectorAll('tr[draggable=true]')].map(r => r.dataset.id);
+        try {
+          await saveLawnRoute(newOrder);
+          // Mutate our local rows array so subsequent re-renders preserve order.
+          for (let i = 0; i < newOrder.length; i++) {
+            const r = rows.find(x => x.id === newOrder[i]);
+            if (r) r.route_position = i + 1;
+          }
+          showToast('Route saved');
+        } catch (e) {
+          showToast(e.message, 'error');
+          await loadData();
+        }
+      });
+    });
+  }
+
+  // ── Google Maps directions URL ──────────────────────────────
+  function openInMaps() {
+    const list = filteredRows().filter(r => r.lat != null && r.lng != null);
+    if (!list.length) {
+      showToast('No properties with coordinates in this view', 'error');
+      return;
+    }
+    const skipped = filteredRows().length - list.length;
+    const hint = document.getElementById('route-hint');
+    if (skipped > 0) {
+      hint.style.display = '';
+      hint.textContent = `Note: ${skipped} ${skipped === 1 ? 'property' : 'properties'} skipped (no GPS coordinates).`;
+    } else {
+      hint.style.display = 'none';
+    }
+
+    // Google Maps caps waypoints around 9 (plus destination = ~10 stops).
+    // If we have more, we still build a URL but warn — Google will trim.
+    const dest = list[list.length - 1];
+    const waypoints = list.slice(0, -1).map(r => `${r.lat},${r.lng}`).join('|');
+    const url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`
+              + `&destination=${dest.lat},${dest.lng}`
+              + (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '');
+    window.open(url, '_blank', 'noopener');
+  }
+
+  init();
+</script>
+</body>
+</html>
