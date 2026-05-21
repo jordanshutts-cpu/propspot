@@ -184,10 +184,6 @@
   // ── History loading + pagination ──────────────────────────────────
   async function loadInitialHistory() {
     const wrap = $('messages');
-    wrap.innerHTML = '';
-    wrap.appendChild($('history-loader').cloneNode(true)); // keep loader in DOM
-    // Re-grab the cloned loader so we keep a reference at the top.
-    // Simpler approach: rebuild messages container with loader and empty marker.
     wrap.innerHTML = `
       <div class="pulse-history-loader hidden" id="history-loader">Loading older messages…</div>
       <div class="pulse-empty">Loading…</div>
@@ -376,17 +372,7 @@
       showToast('Could not load channels: ' + err.message, 'error');
       return;
     }
-    if (!CHANNELS.length) {
-      $('messages').innerHTML = '<div class="pulse-empty">No channels found. Ask an owner to bootstrap one.</div>';
-      return;
-    }
-    renderChannelList();
-
-    // Pick #general or first
-    const initial = CHANNELS.find(c => c.slug === 'general') || CHANNELS[0];
-    await switchChannel(initial);
-
-    // Composer
+    // Wire global controls FIRST so they work even if channel loading later errors.
     const input = $('composer-input');
     input.addEventListener('input', () => {
       input.style.height = 'auto';
@@ -396,11 +382,8 @@
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
     $('composer').addEventListener('submit', (e) => { e.preventDefault(); send(); });
-
-    // Scroll for pagination + auto-scroll tracking
     $('messages').addEventListener('scroll', onMessagesScroll);
 
-    // New channel
     $('new-channel-btn').addEventListener('click', openNewChannelModal);
     $('nc-cancel').addEventListener('click', closeNewChannelModal);
     $('new-channel-form').addEventListener('submit', submitNewChannel);
@@ -412,11 +395,19 @@
         closeNewChannelModal();
       }
     });
-
-    // Sidebar drawer toggle (mobile)
     $('sidebar-toggle').addEventListener('click', () => {
       $('sidebar').classList.toggle('open');
     });
+
+    if (!CHANNELS.length) {
+      $('messages').innerHTML = '<div class="pulse-empty">No channels found. Click + to create one.</div>';
+      return;
+    }
+    renderChannelList();
+
+    // Pick #general or first
+    const initial = CHANNELS.find(c => c.slug === 'general') || CHANNELS[0];
+    await switchChannel(initial);
 
     input.focus();
   }
