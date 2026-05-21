@@ -224,6 +224,16 @@
     <div id="map"></div>
   </div>
 
+  <!-- Recent activity -->
+  <div id="activity-section" style="margin-top:16px;">
+    <div class="section-header" style="margin-bottom:8px;">
+      <span class="section-title">📸 Recent Activity</span>
+    </div>
+    <div id="activity-row" class="photo-row" style="min-height:96px;">
+      <div class="text-muted text-sm" style="padding:8px;">Loading…</div>
+    </div>
+  </div>
+
   <!-- Search -->
   <div class="search-box">
     <span class="search-icon">🔍</span>
@@ -455,6 +465,45 @@
     await loadProperties();
     detectNearby();
     loadMentions();   // load notification count in background
+    loadRecentActivity();
+  }
+
+  async function loadRecentActivity() {
+    const row = document.getElementById('activity-row');
+    try {
+      const photos = await apiFetch('/api/photos/recent?limit=12');
+      if (!photos.length) {
+        row.innerHTML = '<div class="text-muted text-sm" style="padding:8px;">No photos uploaded yet.</div>';
+        return;
+      }
+      row.innerHTML = photos.map(ph => {
+        const addr = (ph.display_name || ph.address_line1 || '') + (ph.unit ? ' #' + ph.unit : '');
+        const ts   = relTime(ph.taken_at || ph.created_at);
+        const who  = ph.uploader_name ? ' · ' + escHtml(ph.uploader_name) : '';
+        return `
+          <a href="/property.html?id=${encodeURIComponent(ph.property_id)}"
+             class="activity-tile" title="${escHtml(addr)} — ${escHtml(ts)}${escHtml(who)}">
+            <img src="${escHtml(ph.url)}" alt="" loading="lazy">
+            <div class="activity-meta">
+              <div class="activity-addr">${escHtml(addr)}</div>
+              <div class="activity-sub">${escHtml(ts)}${who}</div>
+            </div>
+          </a>`;
+      }).join('');
+    } catch (err) {
+      row.innerHTML = `<div class="text-muted text-sm" style="padding:8px;">Couldn't load activity: ${escHtml(err.message)}</div>`;
+    }
+  }
+
+  function relTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (sec < 60)      return 'just now';
+    if (sec < 3600)    return Math.floor(sec / 60) + 'm ago';
+    if (sec < 86400)   return Math.floor(sec / 3600) + 'h ago';
+    if (sec < 604800)  return Math.floor(sec / 86400) + 'd ago';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   async function loadProperties() {
@@ -585,15 +634,19 @@
   }
 
   function applyFilters() {
-    const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
     const filtered = allProperties.filter(p => {
+      // Search query overrides the status pills — typing in the search bar
+      // hits every property regardless of which pills are active. Pills only
+      // narrow the default browse view (no query).
+      if (q) {
+        return (p.name    || '').toLowerCase().includes(q) ||
+               (p.address || '').toLowerCase().includes(q);
+      }
       // status: if a property has no status field at all, treat it as 'purchasing'
       // (the schema default) so it doesn't disappear from the default view.
       const status = p.status || 'purchasing';
-      if (!activeStatuses.has(status)) return false;
-      if (!q) return true;
-      return (p.name    || '').toLowerCase().includes(q) ||
-             (p.address || '').toLowerCase().includes(q);
+      return activeStatuses.has(status);
     });
     renderProperties(filtered);
     syncMapToList(filtered);

@@ -618,6 +618,52 @@ body {
   cursor: pointer;
 }
 
+/* Activity tile (Recent Activity widget on the dashboard) */
+.activity-tile {
+  flex-shrink: 0;
+  width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow .12s ease, transform .08s ease;
+}
+.activity-tile:hover {
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+  transform: translateY(-1px);
+}
+.activity-tile img {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  display: block;
+  background: #f1f1f1;
+}
+.activity-meta {
+  padding: 6px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.activity-addr {
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.activity-sub {
+  font-size: .68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Desktop Sidebar (≥900px) ────────────────────────────── */
 
 /* These elements live in the sidebar on desktop, hidden on mobile */

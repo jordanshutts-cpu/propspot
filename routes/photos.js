@@ -32,6 +32,37 @@ function uploadToCloudinary(buffer, mimetype, options = {}) {
   });
 }
 
+// ── GET /api/photos/recent ─────────────────────────────────────
+// Most recent uploads across all properties — powers the FieldCam
+// dashboard's "Recent activity" widget. Must be declared BEFORE the
+// /:propertyId route so Express matches "recent" as a literal path
+// segment instead of treating it as a UUID parameter.
+router.get('/recent', async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+  try {
+    const { rows } = await query(`
+      SELECT ph.id, ph.url, ph.cloudinary_id, ph.media_type, ph.taken_at, ph.created_at, ph.notes,
+             p.id           AS property_id,
+             p.address_line1,
+             p.unit,
+             p.city,
+             p.state,
+             p.display_name,
+             u.full_name    AS uploader_name
+        FROM photos ph
+        JOIN properties p ON p.id  = ph.property_id
+        LEFT JOIN users  u ON u.id = ph.uploaded_by
+       WHERE ph.deleted_at IS NULL
+       ORDER BY COALESCE(ph.taken_at, ph.created_at) DESC
+       LIMIT $1
+    `, [limit]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch recent photos' });
+  }
+});
+
 // ── GET /api/photos/:propertyId ────────────────────────────────
 router.get('/:propertyId', async (req, res) => {
   try {
