@@ -1044,6 +1044,148 @@ body.os-newlayout .page         { max-width: 1200px; padding: 24px; }
   cursor: pointer;
 }
 
+/* ── Kanban board (shared across lifecycle pages) ────────── */
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(var(--kanban-cols, 4), minmax(260px, 1fr));
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+}
+@media (max-width: 1240px) { .kanban { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px)  { .kanban { grid-template-columns: 1fr; } }
+
+.kanban-col {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.kanban-col.drag-over {
+  outline: 2px dashed var(--brand);
+  outline-offset: -2px;
+  background: var(--brand-light);
+}
+.kanban-col-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.kanban-swatch { width: 10px; height: 10px; border-radius: 100px; flex-shrink: 0; }
+.kanban-title { font-weight: 700; font-size: .92rem; }
+.kanban-count {
+  font-size: .72rem; padding: 2px 8px; border-radius: 100px;
+  background: var(--bg); color: var(--text-muted); font-weight: 600;
+  margin-left: auto;
+}
+.kanban-col-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.kanban-col-body .empty-lane {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: .8rem;
+  padding: 18px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+.kanban-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: grab;
+  transition: box-shadow .12s ease, transform .08s ease;
+  user-select: none;
+}
+.kanban-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.kanban-card:active { cursor: grabbing; }
+.kanban-card.dragging { opacity: .45; transform: scale(.98); }
+.kanban-addr-link {
+  display: block;
+  color: var(--text);
+  font-weight: 700;
+  font-size: .92rem;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.kanban-addr-link:hover { color: var(--brand); text-decoration-color: var(--brand); }
+.kanban-meta {
+  color: var(--text-muted);
+  font-size: .76rem;
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kanban-meta .dot { opacity: .5; }
+
+/* Toast used by kanban moves and other transient feedback. */
+.kb-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111827;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 100px;
+  font-size: .85rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 200;
+}
+.kb-toast.show { opacity: 1; }
+.kb-toast.error { background: #b91c1c; }
+
+/* ── View toggle pills (Kanban | Table) ──────────────────── */
+.view-toggle {
+  display: inline-flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 3px;
+  gap: 2px;
+}
+.view-toggle button {
+  background: transparent;
+  border: none;
+  font-size: .8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 100px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background .12s ease, color .12s ease;
+}
+.view-toggle button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.view-toggle button:not(.active):hover { color: var(--text); }
+
 /* ── Utilities ───────────────────────────────────────────── */
 .mt-8  { margin-top: 8px; }
 .mt-12 { margin-top: 12px; }

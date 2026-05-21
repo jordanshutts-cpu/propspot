@@ -8,9 +8,6 @@
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
-  <style>
-    .pcount { font-size:.68rem; padding:2px 7px; border-radius:100px; background:var(--brand-light); color:var(--brand); font-weight:600; white-space:nowrap; }
-  </style>
 </head>
 <body class="os-newlayout">
 
@@ -25,19 +22,21 @@
   </div>
 
   <div class="section-header">
-    <span class="section-title" id="props-count">All Properties</span>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button class="dt-reset-btn" onclick="resetTableLayout()" title="Reset column order, widths, and sort">↺ Reset table</button>
+    <span class="section-title" id="props-count">Holdings</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <span id="view-toggle"></span>
+      <button class="dt-reset-btn" id="reset-table-btn" onclick="resetTableLayout()" title="Reset column order, widths, and sort" style="display:none;">↺ Reset table</button>
       <a href="/add-property.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">+ Add</a>
     </div>
   </div>
 
-  <div id="props-list"><p class="text-muted text-sm">Loading…</p></div>
+  <div id="view-root"><p class="text-muted text-sm">Loading…</p></div>
 </main>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="datatable.js"></script>
+<script src="kanban.js"></script>
 <script>
   window.PAGE_TITLE     = 'Holdings';
   window.PAGE_STATUSES  = [
@@ -45,35 +44,55 @@
     'listed_for_rent','listed_for_sale','under_contract_buyer'
   ];
   window.NAV_CURRENT    = 'holdings';
-  // Each lifecycle page gets its own saved layout:
-  window.PAGE_TABLE_KEY = window.PAGE_TABLE_KEY || ('properties:' + window.PAGE_TITLE.toLowerCase().replace(/\s+/g, '-'));
+  window.PAGE_TABLE_KEY = 'properties:holdings';
+  window.PAGE_VIEW_KEY  = 'view:holdings';
 
-  let allProps = [];
+  // Lane order is fixed (Jordan's spec). Colors mirror PROPERTY_STATUSES in app.js.
+  const LANES = [
+    ['renovating',           'Renovations',     '#1e40af'],
+    ['listed_for_rent',      'Listed for Rent', '#0c4a6e'],
+    ['listed_for_sale',      'Listed on MLS',   '#581c87'],
+    ['under_contract_buyer', 'UC with Buyer',   '#9d174d'],
+    ['rented',               'Rented',          '#15803d']
+  ];
+
+  // 'renting' isn't its own lane — group it under Rented (semantic synonym).
+  function laneFor(p) {
+    if (p.status === 'renting') return 'rented';
+    return p.status;
+  }
+
+  let allProps   = [];
   let scopedProps = [];
+  let viewMode   = getViewMode(window.PAGE_VIEW_KEY);
 
   async function init(){
     if (!await requireAuth()) return;
+    renderViewToggle(document.getElementById('view-toggle'), {
+      storageKey: window.PAGE_VIEW_KEY,
+      onChange: (m) => { viewMode = m; renderCurrent(); }
+    });
     try {
-      allProps = await getProperties();
-      if (Array.isArray(window.PAGE_STATUSES) && window.PAGE_STATUSES.length) {
-        allProps = allProps.filter(p => window.PAGE_STATUSES.includes(p.status));
-      }
+      const props = await getProperties();
+      allProps = (Array.isArray(props) ? props : [])
+        .filter(p => window.PAGE_STATUSES.includes(p.status));
       const q = new URLSearchParams(location.search).get('q');
       if (q) {
         document.getElementById('search-input').value = q;
         filterProps(q);
       } else {
         scopedProps = allProps;
-        render(scopedProps);
+        renderCurrent();
       }
     } catch (err) {
-      document.getElementById('props-list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+      document.getElementById('view-root').innerHTML =
+        `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
 
   function fullSearchString(p){
     return [p.address_line1, p.unit, p.city, p.state, p.zip,
-            p.display_name, p.owner, p.county, p.tms,
+            p.display_name, p.owner, p.owner_name, p.county, p.tms,
             p.lender_name, p.seller_name].filter(Boolean).join(' ').toLowerCase();
   }
 
@@ -86,11 +105,42 @@
     return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
   }
 
-  function render(list){
-    const countLabel = list.length === 1 ? '1 Property' : `${list.length} Properties`;
+  function renderCurrent(){
+    const total = scopedProps.length;
     document.getElementById('props-count').textContent =
-      window.PAGE_TITLE === 'All Properties' ? countLabel : `${window.PAGE_TITLE} · ${countLabel}`;
-    const el = document.getElementById('props-list');
+      `Holdings · ${total === 1 ? '1 Property' : total + ' Properties'}`;
+    document.getElementById('reset-table-btn').style.display = viewMode === 'table' ? '' : 'none';
+    if (viewMode === 'kanban') renderBoard(scopedProps);
+    else                       renderTable(scopedProps);
+  }
+
+  function renderBoard(list){
+    const el = document.getElementById('view-root');
+    renderKanban(el, list, {
+      lanes: LANES,
+      field: 'status',
+      laneFor,
+      onCardMove: async (id, newLane) => {
+        const prop = allProps.find(p => p.id === id);
+        if (!prop) return;
+        const prev = prop.status;
+        prop.status = newLane;
+        renderCurrent();
+        try {
+          await updateProperty(id, { status: newLane });
+          const label = LANES.find(([k]) => k === newLane)?.[1] || newLane;
+          showKbToast(`Moved to ${label}`);
+        } catch (err) {
+          prop.status = prev;
+          renderCurrent();
+          showKbToast(`Couldn't save: ${err.message}`, true);
+        }
+      }
+    });
+  }
+
+  function renderTable(list){
+    const el = document.getElementById('view-root');
     if (!list.length){
       el.innerHTML = `<div class="empty-state">
         <div class="empty-icon">🏗️</div>
@@ -126,14 +176,14 @@
 
   function filterProps(q){
     q = (q || '').toLowerCase();
-    scopedProps = allProps.filter(p => fullSearchString(p).includes(q));
-    render(scopedProps);
+    scopedProps = q ? allProps.filter(p => fullSearchString(p).includes(q)) : allProps;
+    renderCurrent();
   }
 
   function resetTableLayout(){
     if (!confirm('Reset column order, widths, and sort to defaults?')) return;
     resetDataTablePrefs(window.PAGE_TABLE_KEY);
-    render(scopedProps);
+    renderCurrent();
   }
 
   init();

@@ -696,6 +696,34 @@ function acquisitionStatusBadge(s) {
   return `<span class="status-badge" style="color:${f[2]};background:${f[3]};">${f[1]}</span>`;
 }
 
+// ── View-mode toggle (Kanban | Table) ──────────────────────────────────
+// Drop into the section header on any lifecycle page. Persists the user's
+// choice per-page in localStorage so it stays consistent across reloads.
+function getViewMode(storageKey, fallback = 'kanban') {
+  try {
+    const v = localStorage.getItem(storageKey);
+    return v === 'table' || v === 'kanban' ? v : fallback;
+  } catch { return fallback; }
+}
+
+function renderViewToggle(container, { storageKey, onChange }) {
+  const current = getViewMode(storageKey);
+  container.innerHTML = `
+    <div class="view-toggle" role="tablist" aria-label="View mode">
+      <button type="button" data-mode="kanban" class="${current === 'kanban' ? 'active' : ''}" role="tab">Kanban</button>
+      <button type="button" data-mode="table"  class="${current === 'table'  ? 'active' : ''}" role="tab">Table</button>
+    </div>
+  `;
+  container.querySelectorAll('.view-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      try { localStorage.setItem(storageKey, mode); } catch {}
+      container.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+      if (typeof onChange === 'function') onChange(mode);
+    });
+  });
+}
+
 const CONTACT_TYPES = [
   ['seller','Seller'],
   ['buyer','Buyer'],

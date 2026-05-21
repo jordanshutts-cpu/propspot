@@ -88,9 +88,10 @@
         opps   += p.opportunity_count || 0;
         pur    += p.purchase_count    || 0;
       }
-      const projects = await apiFetch('/api/projects');
-      ren    = projects.filter(p => p.status === 'renovating').length;
-      listed = projects.filter(p => ['listed_for_sale','listed_for_rent','rented'].includes(p.status)).length;
+      // Count from properties.status (authoritative top-level state) rather than
+      // projects.status, so the dashboard matches the lifecycle pages exactly.
+      ren    = props.filter(p => p.status === 'renovating').length;
+      listed = props.filter(p => ['listed_for_sale','listed_for_rent','rented','renting'].includes(p.status)).length;
       document.getElementById('c-prospects').textContent  = pros;
       document.getElementById('c-leads').textContent      = leads;
       document.getElementById('c-opps').textContent       = opps;
