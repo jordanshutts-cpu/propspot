@@ -175,9 +175,11 @@ async function wireUnifiedNav() {
   const cfg = await _loadNavConfig();
 
   const APP_URLS = {
-    holdings:    cfg.holdingsUrl    || '',
-    maintenance: cfg.maintenanceUrl || '',
-    fieldcam:    cfg.fieldcamUrl    || ''
+    holdings:     cfg.holdingsUrl     || '',
+    maintenance:  cfg.maintenanceUrl  || '',
+    fieldcam:     cfg.fieldcamUrl     || '',
+    pulse:        cfg.pulseUrl        || '',
+    underwriting: cfg.underwritingUrl || ''
   };
 
   // data-app="<slug>" — link to a satellite app
@@ -247,6 +249,12 @@ function renderUnifiedNav() {
     </a>
     <a class="nav-link" data-app="fieldcam" href="#" style="display:none;">
       <span class="nav-icon">📸</span><span class="nav-label">FieldCam</span>
+    </a>
+    <a class="nav-link" data-app="pulse" href="#" style="display:none;">
+      <span class="nav-icon">💬</span><span class="nav-label">Pulse</span>
+    </a>
+    <a class="nav-link" data-app="underwriting" href="#" style="display:none;">
+      <span class="nav-icon">📊</span><span class="nav-label">Underwriting</span>
     </a>
     <a class="nav-link" data-osnav="contacts" href="#">
       <span class="nav-icon">📇</span><span class="nav-label">Contacts</span>

@@ -229,9 +229,11 @@ async function wireUnifiedNav() {
   if (!getToken()) return;
   const cfg = await _loadNavConfig();
   const APP_URLS = {
-    holdings:    cfg.holdingsUrl    || '',
-    maintenance: cfg.maintenanceUrl || '',
-    fieldcam:    cfg.fieldcamUrl    || ''
+    holdings:     cfg.holdingsUrl     || '',
+    maintenance:  cfg.maintenanceUrl  || '',
+    fieldcam:     cfg.fieldcamUrl     || '',
+    pulse:        cfg.pulseUrl        || '',
+    underwriting: cfg.underwritingUrl || ''
   };
   document.querySelectorAll('[data-app]').forEach(a => {
     const slug = a.dataset.app;
@@ -273,6 +275,8 @@ function renderUnifiedNav() {
     <a class="nav-link" data-app="holdings" href="#" style="display:none;"><span class="nav-icon">💼</span><span class="nav-label">Holdings</span></a>
     <a class="nav-link" data-app="maintenance" href="#" style="display:none;"><span class="nav-icon">🛠️</span><span class="nav-label">Maintenance</span></a>
     <a class="nav-link" data-app="fieldcam" href="#" style="display:none;"><span class="nav-icon">📸</span><span class="nav-label">FieldCam</span></a>
+    <a class="nav-link" data-app="pulse" href="#" style="display:none;"><span class="nav-icon">💬</span><span class="nav-label">Pulse</span></a>
+    <a class="nav-link" data-app="underwriting" href="#" style="display:none;"><span class="nav-icon">📊</span><span class="nav-label">Underwriting</span></a>
     <a class="nav-link" data-osnav="contacts" href="#"><span class="nav-icon">📇</span><span class="nav-label">Contacts</span></a>
     <a class="nav-link" data-osnav="team" href="#"><span class="nav-icon">👥</span><span class="nav-label">Team</span></a>
     <div class="nav-spacer"></div>

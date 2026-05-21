@@ -45,7 +45,8 @@ app.get('/api/config', (req, res) => {
     holdingsUrl:    process.env.HOLDINGS_URL    || '',
     maintenanceUrl: process.env.MAINTENANCE_URL || '',
     fieldcamUrl:    process.env.FIELDCAM_URL    || '',
-    pulseUrl:       process.env.APP_URL         || ''
+    pulseUrl:       process.env.APP_URL         || '',
+    underwritingUrl: process.env.UNDERWRITING_URL || ''
   });
 });
 
