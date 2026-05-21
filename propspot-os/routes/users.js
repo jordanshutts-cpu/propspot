@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db');
 const { requireAuth, requireOwner } = require('../middleware/auth');
+const { logActivity } = require('../lib/activity');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -42,6 +43,41 @@ router.get('/:id', async (req, res) => {
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// DELETE /api/users/:id  (owner only — cancel a pending invitation)
+// Only allowed while the user is still pending (password_hash IS NULL).
+// After they've accepted, full removal requires a different flow.
+router.delete('/:id', requireOwner, async (req, res) => {
+  if (req.params.id === req.userId) {
+    return res.status(400).json({ error: 'Cannot delete yourself' });
+  }
+  try {
+    const { rows } = await query(
+      `SELECT id, email, full_name, password_hash IS NOT NULL AS is_active, is_owner
+         FROM users WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    if (rows[0].is_active) {
+      return res.status(400).json({ error: 'User has already accepted; uninvite no longer applies' });
+    }
+    if (rows[0].is_owner) {
+      return res.status(400).json({ error: 'Cannot uninvite an owner' });
+    }
+
+    // app_grants cascade via FK ON DELETE CASCADE.
+    await query('DELETE FROM users WHERE id = $1', [req.params.id]);
+
+    await logActivity({
+      actorUserId: req.userId, entityType: 'user', entityId: req.params.id,
+      action: 'invite_revoked', payload: { email: rows[0].email, full_name: rows[0].full_name }
+    });
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to uninvite user' });
   }
 });
 
