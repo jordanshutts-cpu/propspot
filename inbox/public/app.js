@@ -1,9 +1,9 @@
 // ============================================================
-//  Maintenance — Shared Frontend Utilities
+//  Inbox — Shared Frontend Utilities
 // ============================================================
 
-const TOKEN_KEY = 'maintenance_token';
-const USER_KEY  = 'maintenance_user';
+const TOKEN_KEY = 'inbox_token';
+const USER_KEY  = 'inbox_user';
 
 (function consumeSsoToken() {
   if (typeof window === 'undefined') return;
@@ -27,7 +27,7 @@ async function apiFetch(path, options = {}) {
   const token = getToken();
   const headers = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    'Content-Type': 'application/json',
+    ...((options.body && !(options.body instanceof FormData)) ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers || {})
   };
   const res = await fetch(API_BASE + path, { ...options, headers });
@@ -41,7 +41,7 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-async function requireAuth() {
+async function requireAuthOrRedirect() {
   if (!getToken()) { window.location.href = '/index.html'; return null; }
   try {
     const me = await apiFetch('/api/auth/me');
@@ -56,138 +56,78 @@ async function requireAuth() {
 
 async function signOut() { clearToken(); window.location.href = '/index.html'; }
 
-async function getOsUrl() {
-  try { const cfg = await (await fetch('/api/config')).json(); return cfg.osUrl || ''; }
-  catch { return ''; }
-}
-
 // ── Domain API ───────────────────────────────────────────────
-async function getProperties()       { return apiFetch('/api/properties'); }
-async function getProperty(id)       { return apiFetch(`/api/properties/${id}`); }
+async function listMailboxes()             { return apiFetch('/api/mailboxes'); }
+async function connectMailbox()            { return apiFetch('/api/mailboxes/connect', { method: 'POST', body: '{}' }); }
+async function resyncMailbox(id)           { return apiFetch(`/api/mailboxes/${id}/resync`, { method: 'POST', body: '{}' }); }
+async function disconnectMailbox(id)       { return apiFetch(`/api/mailboxes/${id}`, { method: 'DELETE' }); }
 
-async function getWorkOrders(params = {}) {
+async function listSharedInboxes()         { return apiFetch('/api/shared-inboxes'); }
+async function createSharedInbox(body)     { return apiFetch('/api/shared-inboxes', { method: 'POST', body: JSON.stringify(body) }); }
+async function patchSharedInbox(id, body)  { return apiFetch(`/api/shared-inboxes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }); }
+async function deleteSharedInbox(id)       { return apiFetch(`/api/shared-inboxes/${id}`, { method: 'DELETE' }); }
+async function listInboxMembers(id)        { return apiFetch(`/api/shared-inboxes/${id}/members`); }
+async function patchInboxMember(id, body)  { return apiFetch(`/api/shared-inboxes/${id}/members`, { method: 'PATCH', body: JSON.stringify(body) }); }
+
+async function listAliasRoutes()           { return apiFetch('/api/alias-routes'); }
+async function saveAliasRoute(body)        { return apiFetch('/api/alias-routes', { method: 'POST', body: JSON.stringify(body) }); }
+async function deleteAliasRoute(id)        { return apiFetch(`/api/alias-routes/${id}`, { method: 'DELETE' }); }
+
+async function listThreads(params = {})    {
   const qs = new URLSearchParams(params).toString();
-  return apiFetch(`/api/work-orders${qs ? '?' + qs : ''}`);
+  return apiFetch(`/api/threads${qs ? '?' + qs : ''}`);
 }
-async function getWorkOrder(id)            { return apiFetch(`/api/work-orders/${id}`); }
-async function createWorkOrder(body)       { return apiFetch('/api/work-orders', { method: 'POST', body: JSON.stringify(body) }); }
-async function updateWorkOrder(id, body)   { return apiFetch(`/api/work-orders/${id}`, { method: 'PATCH', body: JSON.stringify(body) }); }
-async function deleteWorkOrder(id)         { return apiFetch(`/api/work-orders/${id}`, { method: 'DELETE' }); }
+async function getThread(id)               { return apiFetch(`/api/threads/${id}`); }
+async function patchThread(id, body)       { return apiFetch(`/api/threads/${id}`, { method: 'PATCH', body: JSON.stringify(body) }); }
+async function sendReply(threadId, body)   { return apiFetch(`/api/messages/threads/${threadId}/reply`, { method: 'POST', body: JSON.stringify(body) }); }
+async function composeMessage(body)        { return apiFetch('/api/messages/compose', { method: 'POST', body: JSON.stringify(body) }); }
 
-async function postUpdate(work_order_id, body) {
-  return apiFetch('/api/updates', { method: 'POST', body: JSON.stringify({ work_order_id, body }) });
+async function saveAttachmentToProperty(attId, body) {
+  return apiFetch(`/api/attachments/${attId}/save-to-property`, { method: 'POST', body: JSON.stringify(body) });
 }
-async function deleteUpdate(id) { return apiFetch(`/api/updates/${id}`, { method: 'DELETE' }); }
+function attachmentUrl(attId) { return `/api/attachments/${attId}`; }
 
-// ── Lawn maintenance ─────────────────────────────────────────
-async function getLawn()                      { return apiFetch('/api/lawn'); }
-async function markMowed(propertyId, body)    { return apiFetch(`/api/lawn/${propertyId}/mowed`, { method: 'POST', body: JSON.stringify(body || {}) }); }
-async function checkIn(propertyId, coords)    { return apiFetch(`/api/lawn/${propertyId}/checkin`, { method: 'POST', body: JSON.stringify(coords || {}) }); }
-async function patchLawn(propertyId, body)    { return apiFetch(`/api/lawn/${propertyId}`, { method: 'PATCH', body: JSON.stringify(body) }); }
-async function saveLawnRoute(orderArray)      { return apiFetch('/api/lawn/route', { method: 'POST', body: JSON.stringify({ order: orderArray }) }); }
-async function getMowEvents(propertyId)       { return apiFetch(`/api/lawn/${propertyId}/mow-events`); }
-async function patchMowEvent(eventId, body)   { return apiFetch(`/api/lawn/mow-events/${eventId}`, { method: 'PATCH', body: JSON.stringify(body) }); }
-async function deleteMowEvent(eventId)        { return apiFetch(`/api/lawn/mow-events/${eventId}`, { method: 'DELETE' }); }
-async function getUsers()                     { return apiFetch('/api/users'); }
+async function searchProperties(q) {
+  return apiFetch(`/api/properties?q=${encodeURIComponent(q || '')}`);
+}
 
 // ── UI helpers ────────────────────────────────────────────────
 function showToast(message, type = 'success') {
-  const existing = document.getElementById('mn-toast');
+  const existing = document.getElementById('ib-toast');
   if (existing) existing.remove();
   const toast = document.createElement('div');
-  toast.id = 'mn-toast';
+  toast.id = 'ib-toast';
   toast.className = `toast${type === 'error' ? ' toast-error' : ''}`;
   toast.textContent = message;
   document.body.appendChild(toast);
-  setTimeout(() => toast.classList.add('toast-visible'), 10);
-  setTimeout(() => {
-    toast.classList.remove('toast-visible');
-    setTimeout(() => toast.remove(), 300);
-  }, 3200);
+  setTimeout(() => toast.classList.add('toast-show'), 10);
+  setTimeout(() => { toast.classList.remove('toast-show'); setTimeout(() => toast.remove(), 250); }, 3200);
 }
 
-function escHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
-  );
-}
-
-function formatDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d)) return '—';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatDateTime(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d)) return '—';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+function escapeHtml(s) {
+  return (s == null ? '' : String(s)).replace(/[<>&"']/g, ch => ({
+    '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
 }
 
 function relativeTime(iso) {
   if (!iso) return '';
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return formatDate(iso);
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60)        return 'just now';
+  if (diff < 3600)      return Math.floor(diff / 60) + 'm';
+  if (diff < 86400)     return Math.floor(diff / 3600) + 'h';
+  if (diff < 86400 * 7) return Math.floor(diff / 86400) + 'd';
+  return new Date(iso).toLocaleDateString();
 }
 
-function formatMoney(cents) {
-  if (cents == null || cents === '') return '—';
-  return '$' + (parseInt(cents, 10) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function propertyLabel(p) {
+  if (!p) return '';
+  const addr = [p.address_line1, p.unit].filter(Boolean).join(' ');
+  const where = [p.city, p.state].filter(Boolean).join(', ');
+  return [addr, where].filter(Boolean).join(' — ');
 }
-
-function dollarsToCents(v) {
-  if (v === '' || v == null) return null;
-  return Math.round(parseFloat(v) * 100);
-}
-function centsToDollars(c) {
-  if (c == null) return '';
-  return (parseInt(c, 10) / 100).toFixed(2);
-}
-
-function propertyDisplay(p) { return p?.display_name || p?.address_line1 || 'Property'; }
-
-const CATEGORIES = [
-  ['plumbing',    'Plumbing',    '🚿'],
-  ['electrical',  'Electrical',  '💡'],
-  ['hvac',        'HVAC',        '❄️'],
-  ['roofing',     'Roofing',     '🏠'],
-  ['landscaping', 'Landscaping', '🌳'],
-  ['cleaning',    'Cleaning',    '🧹'],
-  ['appliance',   'Appliance',   '🔌'],
-  ['pest',        'Pest control','🐜'],
-  ['general',     'General',     '🛠️'],
-  ['other',       'Other',       '📋']
-];
-function categoryLabel(c){ return (CATEGORIES.find(x => x[0]===c) || [c, c||'—'])[1]; }
-function categoryIcon(c){  return (CATEGORIES.find(x => x[0]===c) || [c, c, '🛠️'])[2]; }
-
-const PRIORITIES = [
-  ['urgent', 'Urgent', 'badge-red'],
-  ['high',   'High',   'badge-amber'],
-  ['normal', 'Normal', 'badge-green'],
-  ['low',    'Low',    'badge-grey']
-];
-function priorityLabel(p){ return (PRIORITIES.find(x => x[0]===p) || [p,p])[1]; }
-function priorityBadgeClass(p){ return (PRIORITIES.find(x => x[0]===p) || [p,p,'badge-grey'])[2]; }
-
-const STATUSES = [
-  ['open',        'Open',        'badge-red'],
-  ['scheduled',   'Scheduled',   'badge-amber'],
-  ['in_progress', 'In progress', 'badge-blue'],
-  ['completed',   'Completed',   'badge-green'],
-  ['cancelled',   'Cancelled',   'badge-grey']
-];
-function statusLabel(s){ return (STATUSES.find(x => x[0]===s) || [s, s||'—'])[1]; }
-function statusBadgeClass(s){ return (STATUSES.find(x => x[0]===s) || [s,s,'badge-grey'])[2]; }
 
 function toggleSidebar() {
   const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
@@ -199,12 +139,7 @@ function toggleSidebar() {
   }
 }
 
-// ── Unified satellite + OS nav (shared across propspot-os, holdings,
-//    maintenance, fieldcam, pulse). Each anchor with data-app="holdings|
-//    maintenance|fieldcam|pulse" is wired to that satellite's URL with the
-//    SSO token; data-osnav="dashboard|properties|contacts|team|apps"
-//    is wired to the OS URL. Set window.NAV_CURRENT to highlight the
-//    active item. ─────────────────────────────────────────────────────
+// ── Unified satellite + OS nav ───────────────────────────────────────
 let _navCfgCache = null;
 async function _loadNavConfig() {
   if (_navCfgCache) return _navCfgCache;

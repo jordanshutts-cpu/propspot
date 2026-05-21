@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Inbox — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .inbox-layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; max-width: 1400px; margin: 0 auto; padding: 16px; }
+    .inbox-list-sidebar { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px; height: fit-content; position: sticky; top: 16px; }
+    .inbox-list-sidebar h3 { font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 6px 0 8px; }
+    .inbox-list-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; font-size: .9rem; }
+    .inbox-list-item:hover { background: var(--bg); }
+    .inbox-list-item.active { background: var(--brand-light); color: var(--brand-dark); font-weight: 600; }
+    .inbox-list-item .badge { margin-left: auto; }
+    .thread-row { display: flex; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .thread-row:hover { background: var(--bg); }
+    .thread-row.unread { background: #fff; font-weight: 600; }
+    .thread-row.unread:hover { background: var(--bg); }
+    .thread-from { flex: 0 0 180px; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-subject { flex: 1; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-meta { flex: 0 0 auto; display: flex; gap: 8px; align-items: center; font-size: .75rem; color: var(--text-muted); }
+    .thread-property-tag { background: var(--brand-light); color: var(--brand-dark); padding: 2px 6px; border-radius: 4px; font-size: .72rem; font-weight: 600; }
+    @media (max-width: 720px) {
+      .inbox-layout { grid-template-columns: 1fr; }
+      .inbox-list-sidebar { position: static; }
+      .thread-from { flex: 0 0 110px; font-size: .8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="logo">📧 Inbox</span>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="location.href='/admin-mailboxes.html'" title="Admin">⚙️</button>
+    <button class="icon-btn" onclick="openCompose()" title="Compose">✏️</button>
+    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
+  </div>
+</header>
+
+<main class="inbox-layout">
+  <aside class="inbox-list-sidebar">
+    <h3>Shared inboxes</h3>
+    <div id="inbox-list">
+      <p class="text-muted text-sm">Loading…</p>
+    </div>
+  </aside>
+
+  <section>
+    <div class="section-header">
+      <span class="section-title" id="active-inbox-title">All threads</span>
+      <button class="btn btn-secondary btn-sm" onclick="refreshThreads()">Refresh</button>
+    </div>
+
+    <div class="pills" id="filter-pills">
+      <button class="pill active" data-status="open">Open</button>
+      <button class="pill"        data-status="archived">Archived</button>
+      <button class="pill"        data-mine="1">Assigned to me</button>
+    </div>
+
+    <div class="card">
+      <div id="threads"><p class="text-muted text-sm" style="padding:14px;">Loading threads…</p></div>
+    </div>
+  </section>
+</main>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'inbox';</script>
+
+<!-- Compose modal -->
+<div class="modal-backdrop" id="modal-compose">
+  <div class="modal">
+    <div class="modal-title">New email</div>
+    <form onsubmit="submitCompose(event)">
+      <div class="form-group">
+        <label class="form-label">Send from *</label>
+        <select class="form-select" id="c-from" required></select>
+        <div class="text-muted text-sm" style="margin-top:6px;">Only aliases routed to a shared inbox you can access are shown.</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">To *</label>
+          <input class="form-input" id="c-to" type="email" placeholder="recipient@example.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cc</label>
+          <input class="form-input" id="c-cc" type="text" placeholder="optional">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subject *</label>
+        <input class="form-input" id="c-subject" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message *</label>
+        <textarea class="form-textarea" id="c-body" rows="8" required></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="closeCompose()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Send</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let STATE = {
+  user: null,
+  inboxes: [],
+  activeInboxSlug: null,
+  status: 'open',
+  assignedToMe: false,
+  composeAliases: []
+};
+
+async function init() {
+  STATE.user = await requireAuthOrRedirect();
+  if (!STATE.user) return;
+  await loadInboxes();
+  attachPillHandlers();
+  refreshThreads();
+}
+
+async function loadInboxes() {
+  try {
+    STATE.inboxes = await listSharedInboxes();
+  } catch (err) {
+    showToast(err.message, 'error');
+    STATE.inboxes = [];
+  }
+  const el = document.getElementById('inbox-list');
+  if (!STATE.inboxes.length) {
+    el.innerHTML = `
+      <p class="text-muted text-sm">No shared inboxes yet.</p>
+      <a class="btn btn-primary btn-sm btn-full" href="/admin-shared.html" style="margin-top:10px;">Create one</a>
+    `;
+    return;
+  }
+  const items = [
+    `<div class="inbox-list-item ${!STATE.activeInboxSlug ? 'active' : ''}" onclick="selectInbox(null)">
+       <span>📬</span><span>All</span>
+     </div>`,
+    ...STATE.inboxes.map(i => `
+      <div class="inbox-list-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" onclick="selectInbox('${i.slug}')">
+        <span>${i.icon || '📨'}</span>
+        <span>${escapeHtml(i.name)}</span>
+        ${i.unread_count > 0 ? `<span class="badge badge-red">${i.unread_count}</span>` : ''}
+      </div>
+    `)
+  ];
+  el.innerHTML = items.join('');
+}
+
+function selectInbox(slug) {
+  STATE.activeInboxSlug = slug;
+  loadInboxes();
+  const title = slug
+    ? (STATE.inboxes.find(i => i.slug === slug)?.name || 'Inbox')
+    : 'All threads';
+  document.getElementById('active-inbox-title').textContent = title;
+  refreshThreads();
+}
+
+function attachPillHandlers() {
+  document.querySelectorAll('#filter-pills .pill').forEach(p => {
+    p.addEventListener('click', () => {
+      if (p.dataset.mine === '1') {
+        STATE.assignedToMe = !p.classList.contains('active');
+        document.querySelectorAll('#filter-pills .pill').forEach(x => x.classList.remove('active'));
+        if (STATE.assignedToMe) p.classList.add('active');
+      } else {
+        STATE.status = p.dataset.status;
+        STATE.assignedToMe = false;
+        document.querySelectorAll('#filter-pills .pill').forEach(x => x.classList.remove('active'));
+        p.classList.add('active');
+      }
+      refreshThreads();
+    });
+  });
+}
+
+async function refreshThreads() {
+  const params = { status: STATE.status };
+  if (STATE.activeInboxSlug) params.inbox = STATE.activeInboxSlug;
+  if (STATE.assignedToMe) { params.assigned_to_me = '1'; delete params.status; }
+  let rows = [];
+  try {
+    rows = await listThreads(params);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+  const el = document.getElementById('threads');
+  if (!rows.length) {
+    el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No threads.</p>`;
+    return;
+  }
+  el.innerHTML = rows.map(t => {
+    const from = (t.participants && t.participants[0]) || '(unknown sender)';
+    const subj = t.subject || '(no subject)';
+    const tag = t.address_line1
+      ? `<span class="thread-property-tag" title="${escapeHtml(propertyLabel(t))}">🏠 ${escapeHtml(t.address_line1)}</span>`
+      : '';
+    const assigned = t.assigned_name ? `<span title="Assigned to ${escapeHtml(t.assigned_name)}">👤 ${escapeHtml(t.assigned_name.split(' ')[0])}</span>` : '';
+    const att = t.has_attachments ? '<span title="Has attachments">📎</span>' : '';
+    return `
+      <div class="thread-row ${t.unread ? 'unread' : ''}" onclick="location.href='/thread.html?id=${t.id}'">
+        <div class="thread-from">${escapeHtml(from)}</div>
+        <div class="thread-subject">
+          ${escapeHtml(subj)} ${tag}
+        </div>
+        <div class="thread-meta">
+          ${att}${assigned}<span>${relativeTime(t.last_message_at)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Compose ──────────────────────────────────────────────────────
+async function openCompose() {
+  document.getElementById('modal-compose').classList.add('open');
+  // Load aliases the user can send from. We use the alias-routes endpoint,
+  // which returns routed aliases. Non-owners may get a 403; we fall back to
+  // listing inboxes and resolving an alias from their first mailbox.
+  try {
+    const data = await listAliasRoutes();
+    STATE.composeAliases = (data.routed || []).map(r => ({
+      mailbox_id: r.mailbox_id,
+      alias_email: r.alias_email,
+      inbox: r.shared_inbox_name
+    }));
+  } catch {
+    STATE.composeAliases = [];
+  }
+  const sel = document.getElementById('c-from');
+  if (!STATE.composeAliases.length) {
+    sel.innerHTML = '<option value="">— No aliases available —</option>';
+  } else {
+    sel.innerHTML = STATE.composeAliases
+      .map(a => `<option value="${a.mailbox_id}::${a.alias_email}">${escapeHtml(a.alias_email)} → ${escapeHtml(a.inbox)}</option>`)
+      .join('');
+  }
+}
+function closeCompose() {
+  document.getElementById('modal-compose').classList.remove('open');
+}
+async function submitCompose(e) {
+  e.preventDefault();
+  const fromVal = document.getElementById('c-from').value;
+  if (!fromVal) return showToast('Pick an alias to send from', 'error');
+  const [mailbox_id, from_alias] = fromVal.split('::');
+  const body = {
+    mailbox_id,
+    from_alias,
+    to: document.getElementById('c-to').value.trim(),
+    cc: document.getElementById('c-cc').value.trim() || undefined,
+    subject: document.getElementById('c-subject').value.trim(),
+    body_text: document.getElementById('c-body').value
+  };
+  try {
+    const r = await composeMessage(body);
+    showToast('Email sent');
+    closeCompose();
+    setTimeout(() => { location.href = '/thread.html?id=' + r.thread_id; }, 600);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

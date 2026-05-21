@@ -180,6 +180,13 @@
     </div>`;
 
     html += `<div class="stage-section">
+      <h3>📧 Email <span class="text-muted text-xs" style="font-weight:400;" id="email-threads-count"></span>
+        <a class="btn btn-secondary" data-app="inbox" data-app-path="/" href="#" style="padding:4px 10px;font-size:.7rem;margin-left:auto;text-decoration:none;">Open Inbox ↗</a>
+      </h3>
+      <div id="email-threads-list" class="text-muted text-xs">Loading…</div>
+    </div>`;
+
+    html += `<div class="stage-section">
       <h3>📇 Contacts<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addContactLink()">+ Link</button></h3>
       ${property.contacts.length
         ? property.contacts.map(c => `<div class="contact-row">
@@ -222,6 +229,50 @@
     document.getElementById('page').innerHTML = html;
     wireUnifiedNav();   // re-wire the freshly-rendered data-app links
     loadFiles();
+    loadEmailThreads();
+  }
+
+  // ── Email threads (Inbox app) ────────────────────────────────
+  async function loadEmailThreads() {
+    const el  = document.getElementById('email-threads-list');
+    const cnt = document.getElementById('email-threads-count');
+    let rows = [];
+    try {
+      rows = await apiFetch(`/api/properties/${id}/email-threads`);
+    } catch (err) {
+      el.textContent = err.message;
+      return;
+    }
+    if (cnt) cnt.textContent = `(${rows.length})`;
+    if (!rows.length) {
+      el.innerHTML = `No emails linked yet. <a data-app="inbox" data-app-path="/" href="#">Open Inbox ↗</a> to tag a thread.`;
+      wireUnifiedNav();
+      return;
+    }
+    const relTime = iso => {
+      const t = new Date(iso).getTime();
+      const diff = (Date.now() - t) / 1000;
+      if (diff < 3600)      return Math.floor(diff / 60) + 'm';
+      if (diff < 86400)     return Math.floor(diff / 3600) + 'h';
+      if (diff < 86400 * 7) return Math.floor(diff / 86400) + 'd';
+      return new Date(iso).toLocaleDateString();
+    };
+    el.innerHTML = rows.map(t => `
+      <a class="pipe-row" data-app="inbox" data-app-path="/thread.html?id=${t.id}" href="#" style="text-decoration:none;color:inherit;">
+        <div style="flex:1;">
+          <div style="font-weight:${t.unread ? '700' : '500'};">
+            ${t.has_attachments ? '📎 ' : ''}${escHtml(t.subject || '(no subject)')}
+          </div>
+          <div class="meta">
+            ${t.inbox_name ? (t.inbox_icon || '📨') + ' ' + escHtml(t.inbox_name) + ' · ' : ''}
+            ${t.message_count} message${t.message_count === 1 ? '' : 's'} ·
+            ${escHtml((t.participants || []).slice(0,3).join(', '))}
+          </div>
+        </div>
+        <span class="meta">${relTime(t.last_message_at)}</span>
+      </a>
+    `).join('');
+    wireUnifiedNav();
   }
 
   // ── Files (PDFs, deeds, inspection reports) ──────────────────

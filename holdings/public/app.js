@@ -243,6 +243,7 @@ async function wireUnifiedNav() {
     maintenance:  cfg.maintenanceUrl  || '',
     fieldcam:     cfg.fieldcamUrl     || '',
     pulse:        cfg.pulseUrl        || '',
+    inbox:        cfg.inboxUrl        || '',
     underwriting: cfg.underwritingUrl || ''
   };
   document.querySelectorAll('[data-app]').forEach(a => {
@@ -285,6 +286,7 @@ function renderUnifiedNav() {
     <a class="nav-link" data-app="maintenance" href="#" style="display:none;"><span class="nav-icon">🛠️</span><span class="nav-label">Maintenance</span></a>
     <a class="nav-link" data-app="fieldcam" href="#" style="display:none;"><span class="nav-icon">📸</span><span class="nav-label">FieldCam</span></a>
     <a class="nav-link" data-app="pulse" href="#" style="display:none;"><span class="nav-icon">💬</span><span class="nav-label">Pulse</span></a>
+    <a class="nav-link" data-app="inbox" href="#" style="display:none;"><span class="nav-icon">📧</span><span class="nav-label">Inbox</span></a>
     <a class="nav-link" data-app="underwriting" href="#" style="display:none;"><span class="nav-icon">📊</span><span class="nav-label">Underwriting</span></a>
     <div class="nav-spacer"></div>
     <button class="nav-signout" onclick="signOut()" title="Sign Out">

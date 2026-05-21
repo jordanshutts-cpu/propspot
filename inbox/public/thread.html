@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Inbox — Thread</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .thread-page { max-width: 880px; margin: 0 auto; padding: 16px; }
+    .thread-header { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; margin-bottom: 12px; }
+    .thread-header h1 { margin: 0 0 6px; font-size: 1.15rem; }
+    .thread-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .msg-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 10px; }
+    .msg-head { display: flex; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .msg-head .who { font-weight: 600; }
+    .msg-head .when { margin-left: auto; font-size: .8rem; color: var(--text-muted); }
+    .msg-body { padding: 14px 16px; font-size: .9rem; line-height: 1.55; }
+    .msg-body iframe { width: 100%; border: 0; min-height: 200px; background: #fff; }
+    .msg-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; }
+    .msg-att-list { padding: 0 16px 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .att-chip { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: .82rem; background: var(--bg); cursor: pointer; }
+    .att-chip:hover { background: #eee; }
+    .att-chip .att-save { color: var(--brand); font-weight: 600; }
+    .reply-box { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
+    .property-pill { background: var(--brand-light); color: var(--brand-dark); padding: 4px 10px; border-radius: 999px; font-size: .82rem; font-weight: 600; }
+    /* Pulse comment slot — Pulse will inject its widget here when entity-threading lands */
+    .pulse-slot { margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="location.href='/inbox.html'">← Back</button>
+  <span class="logo">📧 Thread</span>
+</header>
+
+<main class="thread-page">
+  <div id="loading" class="text-muted text-sm">Loading thread…</div>
+  <div id="content" style="display:none;">
+    <div class="thread-header">
+      <h1 id="t-subject"></h1>
+      <div class="text-muted text-sm" id="t-meta"></div>
+      <div class="thread-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openLinkPropertyDialog()">🏠 <span id="t-property-btn-label">Link to property</span></button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('archived')" id="t-archive-btn">📁 Archive</button>
+        <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
+      </div>
+    </div>
+
+    <div id="messages"></div>
+
+    <!-- Pulse comments slot (Phase 3) -->
+    <div class="pulse-slot" id="pulse-slot" data-entity-type="inbox_thread" data-entity-id=""></div>
+
+    <div class="reply-box">
+      <form onsubmit="submitReply(event)">
+        <div class="form-group">
+          <label class="form-label">Reply to <span id="t-reply-to"></span></label>
+          <textarea class="form-textarea" id="reply-body" rows="6" placeholder="Type your reply…" required></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button type="submit" class="btn btn-primary">Send reply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</main>
+
+<!-- Link to property dialog -->
+<div class="modal-backdrop" id="modal-link-prop">
+  <div class="modal">
+    <div class="modal-title">Link thread to a property</div>
+    <div class="form-group">
+      <label class="form-label">Search</label>
+      <input class="form-input" id="lp-search" placeholder="address, city, owner…" oninput="searchPropertiesDebounced(this.value)">
+      <select class="form-select" id="lp-results" size="6" style="margin-top:8px;"></select>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:8px;">
+      <button class="btn btn-danger btn-sm" onclick="unlinkProperty()" id="lp-unlink-btn" style="display:none;">Remove link</button>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn btn-secondary" onclick="closeLinkPropertyDialog()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmLinkProperty()">Link</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Save attachment dialog -->
+<div class="modal-backdrop" id="modal-save-att">
+  <div class="modal">
+    <div class="modal-title">Save attachment to property</div>
+    <input type="hidden" id="sa-att-id">
+    <div class="form-group">
+      <label class="form-label">Property</label>
+      <input class="form-input" id="sa-search" placeholder="search…" oninput="saSearchDebounced(this.value)">
+      <select class="form-select" id="sa-results" size="6" style="margin-top:8px;"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Folder</label>
+        <input class="form-input" id="sa-folder" value="Email attachments">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Filename</label>
+        <input class="form-input" id="sa-filename" required>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-secondary" onclick="closeSaveAtt()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmSaveAtt()">Save</button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'inbox';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+const threadId = new URLSearchParams(location.search).get('id');
+let THREAD = null;
+
+async function loadThread() {
+  if (!await requireAuthOrRedirect()) return;
+  if (!threadId) { showToast('No thread id', 'error'); return; }
+  try {
+    THREAD = await getThread(threadId);
+  } catch (err) {
+    document.getElementById('loading').textContent = err.message;
+    return;
+  }
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = '';
+  renderHeader();
+  renderMessages();
+  document.getElementById('pulse-slot').dataset.entityId = THREAD.id;
+}
+
+function renderHeader() {
+  document.getElementById('t-subject').textContent = THREAD.subject || '(no subject)';
+  const parts = [];
+  if (THREAD.inbox_name) parts.push(`<span>${THREAD.inbox_icon || '📨'} ${escapeHtml(THREAD.inbox_name)}</span>`);
+  parts.push(`<span>${THREAD.message_count} message${THREAD.message_count === 1 ? '' : 's'}</span>`);
+  if (THREAD.assigned_name) parts.push(`<span>👤 ${escapeHtml(THREAD.assigned_name)}</span>`);
+  if (THREAD.address_line1) parts.push(`<span class="property-pill">🏠 ${escapeHtml(THREAD.address_line1)}, ${escapeHtml(THREAD.city || '')}</span>`);
+  document.getElementById('t-meta').innerHTML = parts.join(' • ');
+  document.getElementById('t-property-btn-label').textContent = THREAD.property_id ? 'Change property' : 'Link to property';
+  document.getElementById('t-archive-btn').textContent = THREAD.status === 'archived' ? '📥 Unarchive' : '📁 Archive';
+
+  // Show who the next reply will go to.
+  const lastInbound = [...(THREAD.messages || [])].reverse().find(m => !m.is_outbound);
+  if (lastInbound) {
+    document.getElementById('t-reply-to').textContent = lastInbound.from_name
+      ? `${lastInbound.from_name} <${lastInbound.from_email}>`
+      : lastInbound.from_email;
+  } else {
+    document.getElementById('t-reply-to').textContent = THREAD.participants?.[0] || '(no recipient)';
+  }
+}
+
+function renderMessages() {
+  const el = document.getElementById('messages');
+  el.innerHTML = (THREAD.messages || []).map(m => {
+    const who = m.is_outbound
+      ? `<strong>${escapeHtml(m.sent_by_name || 'You')}</strong> <span class="text-muted">via ${escapeHtml(m.delivered_to_alias || m.from_email)}</span>`
+      : `<strong>${escapeHtml(m.from_name || m.from_email)}</strong> <span class="text-muted">&lt;${escapeHtml(m.from_email)}&gt;</span>`;
+    const when = new Date(m.received_at).toLocaleString();
+    const body = m.body_html
+      ? `<iframe srcdoc="${escapeHtml(m.body_html)}" sandbox=""></iframe>`
+      : `<pre>${escapeHtml(m.body_text || m.snippet || '(empty)')}</pre>`;
+    const atts = (m.attachments || []).map(a => `
+      <span class="att-chip">
+        <a href="${attachmentUrl(a.id)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">📎 ${escapeHtml(a.filename)}</a>
+        <span class="att-save" onclick="openSaveAtt('${a.id}', '${escapeHtml(a.filename)}')">↓ Save to property</span>
+        ${a.saved ? '<span class="badge badge-green">Saved</span>' : ''}
+      </span>
+    `).join('');
+    return `
+      <div class="msg-card">
+        <div class="msg-head">
+          <div class="who">${who}</div>
+          <div class="when">${when}</div>
+        </div>
+        <div class="msg-body">${body}</div>
+        ${atts ? `<div class="msg-att-list">${atts}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function submitReply(e) {
+  e.preventDefault();
+  const body_text = document.getElementById('reply-body').value;
+  if (!body_text.trim()) return;
+  try {
+    await sendReply(threadId, { body_text });
+    document.getElementById('reply-body').value = '';
+    showToast('Reply sent');
+    setTimeout(loadThread, 800);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function toggleStatus(target) {
+  const next = THREAD.status === target ? 'open' : target;
+  try {
+    await patchThread(threadId, { status: next });
+    showToast(next === 'archived' ? 'Archived' : 'Reopened');
+    setTimeout(loadThread, 400);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function markUnread() {
+  try { await patchThread(threadId, { unread: true }); showToast('Marked unread'); location.href = '/inbox.html'; }
+  catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Property linking ────────────────────────────────────────────
+let saSearchTimer = null;
+function saSearchDebounced(q) { clearTimeout(saSearchTimer); saSearchTimer = setTimeout(() => doSaSearch(q), 200); }
+async function doSaSearch(q) {
+  const sel = document.getElementById('sa-results');
+  try {
+    const rows = await searchProperties(q);
+    sel.innerHTML = rows.map(p =>
+      `<option value="${p.id}">${escapeHtml(propertyLabel(p))}</option>`
+    ).join('');
+  } catch {}
+}
+
+let lpSearchTimer = null;
+function searchPropertiesDebounced(q) { clearTimeout(lpSearchTimer); lpSearchTimer = setTimeout(() => doLpSearch(q), 200); }
+async function doLpSearch(q) {
+  const sel = document.getElementById('lp-results');
+  try {
+    const rows = await searchProperties(q);
+    sel.innerHTML = rows.map(p =>
+      `<option value="${p.id}">${escapeHtml(propertyLabel(p))}</option>`
+    ).join('');
+  } catch {}
+}
+
+function openLinkPropertyDialog() {
+  document.getElementById('modal-link-prop').classList.add('open');
+  document.getElementById('lp-unlink-btn').style.display = THREAD.property_id ? '' : 'none';
+  doLpSearch('');
+}
+function closeLinkPropertyDialog() { document.getElementById('modal-link-prop').classList.remove('open'); }
+async function confirmLinkProperty() {
+  const id = document.getElementById('lp-results').value;
+  if (!id) return showToast('Pick a property first', 'error');
+  try { await patchThread(threadId, { property_id: id }); showToast('Linked'); closeLinkPropertyDialog(); loadThread(); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+async function unlinkProperty() {
+  try { await patchThread(threadId, { property_id: null }); showToast('Unlinked'); closeLinkPropertyDialog(); loadThread(); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Save attachment ────────────────────────────────────────────
+function openSaveAtt(attId, filename) {
+  document.getElementById('sa-att-id').value = attId;
+  document.getElementById('sa-filename').value = filename;
+  document.getElementById('modal-save-att').classList.add('open');
+  doSaSearch('');
+}
+function closeSaveAtt() { document.getElementById('modal-save-att').classList.remove('open'); }
+async function confirmSaveAtt() {
+  const attId = document.getElementById('sa-att-id').value;
+  const property_id = document.getElementById('sa-results').value;
+  const filename = document.getElementById('sa-filename').value.trim();
+  const folder = document.getElementById('sa-folder').value.trim() || 'Email attachments';
+  if (!property_id) return showToast('Pick a property', 'error');
+  if (!filename) return showToast('Filename required', 'error');
+  try {
+    await saveAttachmentToProperty(attId, { property_id, folder, filename });
+    showToast('Saved to property');
+    closeSaveAtt();
+    loadThread();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+loadThread();
+</script>
+</body>
+</html>
