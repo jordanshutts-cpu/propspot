@@ -50,7 +50,8 @@ app.get('/api/config', (req, res) => {
     osUrl:            process.env.APP_URL          || '',
     holdingsUrl:      process.env.HOLDINGS_URL    || '',
     maintenanceUrl:   process.env.MAINTENANCE_URL || '',
-    fieldcamUrl:      process.env.FIELDCAM_URL    || ''
+    fieldcamUrl:      process.env.FIELDCAM_URL    || '',
+    pulseUrl:         process.env.PULSE_URL       || ''
   });
 });
 

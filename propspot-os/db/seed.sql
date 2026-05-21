@@ -7,7 +7,8 @@ VALUES
   ('fieldcam',     'FieldCam',      'Field photo management for renovation contractors', '📸', NULL, TRUE),
   ('underwriting', 'Underwriting',  'Offer underwriting and ARV modeling',                '💰', NULL, TRUE),
   ('maintenance',  'Maintenance',   'Work-order tracking for properties',                 '🛠️',  'https://maintenance.propspot.io', TRUE),
-  ('holdings',     'Holdings Desk', 'Per-property obligations: utilities, insurance, taxes, mortgages, licenses, HOA', '💼', 'https://holdings.propspot.io', TRUE)
+  ('holdings',     'Holdings Desk', 'Per-property obligations: utilities, insurance, taxes, mortgages, licenses, HOA', '💼', 'https://holdings.propspot.io', TRUE),
+  ('pulse',        'Pulse',         'Team messaging — channels, DMs, mentions',           '💬', 'https://pulse.propspot.io', TRUE)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Auto-grant owners full access to every enabled app. Mirrors the grant
@@ -20,6 +21,18 @@ SELECT u.id, a.id, 'owner', '{"all": true}'::jsonb, u.id
  WHERE u.is_owner = TRUE
    AND a.enabled  = TRUE
 ON CONFLICT (user_id, app_id) DO NOTHING;
+
+-- Pulse: seed the default #general channel and add every owner as a member.
+INSERT INTO chat_channels (slug, name, description, is_private)
+VALUES ('general', 'general', 'Everyone — start here.', FALSE)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO chat_channel_members (channel_id, user_id, role)
+SELECT c.id, u.id, 'admin'
+  FROM chat_channels c, users u
+ WHERE c.slug = 'general'
+   AND u.is_owner = TRUE
+ON CONFLICT (channel_id, user_id) DO NOTHING;
 
 -- Backfill owner_contact_id from the legacy free-text properties.owner.
 -- Step 1: ensure a contact (type='owner') exists for every distinct

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Pulse</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="/logo.png">
+</head>
+<body class="pulse-body">
+
+<header class="pulse-topbar">
+  <div class="pulse-topbar-left">
+    <a href="#" id="os-back" class="pulse-back" title="Back to Prop Spot">‹</a>
+    <span class="pulse-app-name">💬 Pulse</span>
+  </div>
+  <div class="pulse-topbar-center">
+    <span id="channel-name">#general</span>
+    <span class="pulse-conn-dot" id="conn-dot" title="Connecting…"></span>
+  </div>
+  <div class="pulse-topbar-right">
+    <span class="pulse-user" id="me-name">…</span>
+    <button class="pulse-signout" onclick="signOut()" title="Sign out">Sign out</button>
+  </div>
+</header>
+
+<main class="pulse-main">
+  <div class="pulse-messages" id="messages">
+    <div class="pulse-empty">Loading…</div>
+  </div>
+  <form class="pulse-composer" id="composer" autocomplete="off">
+    <textarea
+      id="composer-input"
+      class="pulse-composer-input"
+      placeholder="Message #general"
+      rows="1"
+      maxlength="8000"></textarea>
+    <button type="submit" class="pulse-send" id="send-btn">Send</button>
+  </form>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let CURRENT_CHANNEL_ID = null;
+  let CURRENT_USER = null;
+  let SSE = null;
+  let RENDERED_IDS = new Set();
+
+  function setConnDot(state) {
+    const el = document.getElementById('conn-dot');
+    el.classList.remove('connected','connecting','disconnected');
+    el.classList.add(state);
+    el.title = state === 'connected' ? 'Connected'
+      : state === 'connecting' ? 'Connecting…'
+      : 'Disconnected — retrying';
+  }
+
+  function renderMessage(msg, opts = {}) {
+    if (RENDERED_IDS.has(msg.id)) return;
+    RENDERED_IDS.add(msg.id);
+
+    const wrap = document.getElementById('messages');
+    if (wrap.querySelector('.pulse-empty')) wrap.innerHTML = '';
+
+    const row = document.createElement('div');
+    row.className = 'pulse-msg';
+    row.dataset.id = msg.id;
+
+    const initial = avatarInitial(msg.sender_name || msg.sender_email);
+    const time = formatTime(msg.created_at);
+
+    row.innerHTML = `
+      <div class="pulse-avatar">${escHtml(initial)}</div>
+      <div class="pulse-msg-body">
+        <div class="pulse-msg-head">
+          <span class="pulse-msg-author">${escHtml(msg.sender_name || msg.sender_email || 'Unknown')}</span>
+          <span class="pulse-msg-time">${escHtml(time)}</span>
+        </div>
+        <div class="pulse-msg-text">${escHtml(msg.body || '')}</div>
+      </div>
+    `;
+    wrap.appendChild(row);
+    if (opts.scroll !== false) wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  async function loadHistory() {
+    try {
+      const msgs = await apiFetch(`/api/pulse/messages?channel_id=${encodeURIComponent(CURRENT_CHANNEL_ID)}`);
+      const wrap = document.getElementById('messages');
+      wrap.innerHTML = '';
+      RENDERED_IDS = new Set();
+      if (!msgs.length) {
+        wrap.innerHTML = '<div class="pulse-empty">No messages yet. Be the first to say hi.</div>';
+        return;
+      }
+      msgs.forEach(m => renderMessage(m, { scroll: false }));
+      wrap.scrollTop = wrap.scrollHeight;
+    } catch (err) {
+      showToast('Could not load messages: ' + err.message, 'error');
+    }
+  }
+
+  function connectSse() {
+    setConnDot('connecting');
+    if (SSE) SSE.close();
+    const url = `/api/pulse/stream?channel_id=${encodeURIComponent(CURRENT_CHANNEL_ID)}&token=${encodeURIComponent(getToken())}`;
+    SSE = new EventSource(url);
+    SSE.onopen = () => setConnDot('connected');
+    SSE.onerror = () => setConnDot('disconnected');
+    SSE.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        if (event.type === 'message' && event.message) {
+          renderMessage(event.message);
+        }
+      } catch {}
+    };
+  }
+
+  async function send() {
+    const input = document.getElementById('composer-input');
+    const body = input.value.trim();
+    if (!body) return;
+    const btn = document.getElementById('send-btn');
+    btn.disabled = true;
+    try {
+      await apiFetch('/api/pulse/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          channel_id: CURRENT_CHANNEL_ID,
+          body,
+          client_message_id: crypto.randomUUID()
+        })
+      });
+      input.value = '';
+      input.style.height = 'auto';
+    } catch (err) {
+      showToast('Send failed: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  }
+
+  async function init() {
+    const me = await requireAuth();
+    if (!me) return;
+    CURRENT_USER = me.user || me;
+    document.getElementById('me-name').textContent = CURRENT_USER.full_name || CURRENT_USER.email || '';
+
+    // Wire OS back link
+    const cfg = await (await fetch('/api/config')).json();
+    const osUrl = cfg.osUrl || '';
+    if (osUrl) {
+      const tok = getToken();
+      const sep = osUrl.includes('?') ? '&' : '?';
+      document.getElementById('os-back').href =
+        osUrl + '/dashboard.html' + (tok ? sep + 'token=' + encodeURIComponent(tok) : '');
+    }
+
+    // Find the #general channel (Phase 1: hardcoded one channel)
+    let channels = [];
+    try { channels = await apiFetch('/api/pulse/channels'); }
+    catch (err) { showToast('Could not load channels: ' + err.message, 'error'); return; }
+
+    const general = channels.find(c => c.slug === 'general');
+    if (!general) {
+      document.getElementById('messages').innerHTML =
+        '<div class="pulse-empty">No #general channel found. Ask an owner to bootstrap one.</div>';
+      return;
+    }
+
+    // Auto-join #general if not already a member (public channel only).
+    if (!general.is_private) {
+      try { await apiFetch(`/api/pulse/channels/${general.id}/join`, { method: 'POST' }); }
+      catch { /* okay if already a member, or if owners */ }
+    }
+
+    CURRENT_CHANNEL_ID = general.id;
+    document.getElementById('channel-name').textContent = '#' + general.name;
+
+    await loadHistory();
+    connectSse();
+
+    // Composer wiring
+    const input = document.getElementById('composer-input');
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    document.getElementById('composer').addEventListener('submit', (e) => { e.preventDefault(); send(); });
+    input.focus();
+  }
+
+  init();
+</script>
+</body>
+</html>
