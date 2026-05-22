@@ -879,29 +879,37 @@ CREATE INDEX IF NOT EXISTS inbox_attachment_saves_attachment_idx
   ON inbox_attachment_saves(attachment_id);
 
 -- ── Inbox data hygiene ───────────────────────────────────────────────────────
--- Idempotent cleanup of bogus inbox_messages.delivered_to_alias values that
--- were recorded before the threading.js detection rules were tightened
--- (see commit history for the fix). After the first boot following the
--- code fix, this UPDATE matches zero rows and is a no-op.
---
--- Two classes of bogus values being nulled:
---   (a) outbound messages — Jordan's reply recipients (e.g. external client
---       addresses, BuilderTrend BCC receipts) were getting recorded as if
---       they were aliases ON his mailbox. They aren't.
---   (b) inbound messages where the "alias" was on a domain other than the
---       mailbox's own domain — these were Reply-All Cc'd external addresses
---       mistakenly picked up by the fallback heuristic.
-UPDATE inbox_messages msg
+-- Step 1: null out delivered_to_alias on OUTBOUND messages. Outbound mail
+-- has no "delivered alias" — from_email IS the sending alias. The previous
+-- detection fallback was incorrectly capturing recipient addresses (e.g.
+-- external clients, BuilderTrend BCC receipts) as if they were aliases.
+-- Idempotent.
+UPDATE inbox_messages
    SET delivered_to_alias = NULL
-  FROM inbox_threads t, inbox_mailboxes mb
- WHERE msg.thread_id = t.id
-   AND t.mailbox_id  = mb.id
-   AND msg.delivered_to_alias IS NOT NULL
-   AND (
-     msg.is_outbound = TRUE
-     OR LOWER(SPLIT_PART(msg.delivered_to_alias, '@', 2))
-        <> LOWER(SPLIT_PART(mb.email,           '@', 2))
-   );
+ WHERE delivered_to_alias IS NOT NULL
+   AND is_outbound = TRUE;
+
+-- Step 2: backfill delivered_to_alias from the saved raw_headers JSONB
+-- for INBOUND messages where the value is NULL. An earlier over-aggressive
+-- cleanup nulled legitimate cross-domain values (e.g. hoa@sellrh.com
+-- forwarded to operations@restorationhomes.com); raw_headers preserves the
+-- authoritative `Delivered-To` value Gmail's MTA set. Idempotent — only
+-- touches rows where delivered_to_alias IS NULL.
+UPDATE inbox_messages
+   SET delivered_to_alias = LOWER(TRIM(raw_headers->>'Delivered-To'))
+ WHERE delivered_to_alias IS NULL
+   AND is_outbound = FALSE
+   AND raw_headers ? 'Delivered-To'
+   AND TRIM(raw_headers->>'Delivered-To') <> '';
+
+-- Step 2b: same backfill but using X-Original-To as a secondary source
+-- for any inbound row that lacks Delivered-To.
+UPDATE inbox_messages
+   SET delivered_to_alias = LOWER(TRIM(raw_headers->>'X-Original-To'))
+ WHERE delivered_to_alias IS NULL
+   AND is_outbound = FALSE
+   AND raw_headers ? 'X-Original-To'
+   AND TRIM(raw_headers->>'X-Original-To') <> '';
 
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$

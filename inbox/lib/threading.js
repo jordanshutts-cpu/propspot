@@ -56,33 +56,26 @@ function walkParts(payload, out) {
 
 // Detect which alias on the mailbox received this message.
 //
-// Constraints:
-//  - Outbound messages don't have a "delivered alias" — their from_email IS
-//    the alias they were sent from. Returning anything here for outbound
-//    messages causes external recipient addresses (e.g. `e.davis@…`,
-//    BuilderTrend BCC receipts) to be misidentified as aliases.
-//  - Inbound messages: prefer the Delivered-To / X-Original-To header.
-//    Otherwise fall back to To:/Cc: addresses ON THE MAILBOX'S OWN DOMAIN —
-//    never a foreign domain (those are external recipients in Reply-All
-//    threads, not aliases on the mailbox).
-function detectDeliveredAlias(headers, mailboxEmail, isOutbound) {
+// Hard rule: only trust the `Delivered-To` / `X-Original-To` SMTP headers.
+// Those are set by Gmail's MTA to the actual address mail was accepted for
+// — covers same-domain aliases (e.g. insurance@restorationhomes.com on the
+// operations@ mailbox) AND cross-domain forwarded aliases (e.g.
+// hoa@sellrh.com → operations@restorationhomes.com).
+//
+// Do NOT fall back to scanning To: / Cc: — that path produces false
+// positives in two cases:
+//   (a) Outbound messages: Jordan's recipients get treated as aliases
+//   (b) Reply-All inbound: external addresses in To: / Cc: get picked up
+//
+// Outbound messages have no delivered-to-alias by definition; their
+// from_email is the sending alias.
+function detectDeliveredAlias(headers, isOutbound) {
   if (isOutbound) return null;
-
   const deliveredTo = headerLookup(headers, 'Delivered-To');
   if (deliveredTo) return deliveredTo.toLowerCase().trim();
   const xOrig = headerLookup(headers, 'X-Original-To');
   if (xOrig) return xOrig.toLowerCase().trim();
-
-  if (!mailboxEmail) return null;
-  const mailboxDomain = mailboxEmail.split('@')[1]?.toLowerCase();
-  if (!mailboxDomain) return null;
-
-  const to = parseAddressList(headerLookup(headers, 'To'));
-  const cc = parseAddressList(headerLookup(headers, 'Cc'));
-  const onMailboxDomain = [...to, ...cc].filter(a =>
-    a.toLowerCase().endsWith('@' + mailboxDomain)
-  );
-  return onMailboxDomain[0] || null;
+  return null;
 }
 
 function parseGmailMessage(message, mailboxEmail) {
@@ -101,7 +94,7 @@ function parseGmailMessage(message, mailboxEmail) {
     from_name:         from.name,
     to_emails:         parseAddressList(headerLookup(headers, 'To')),
     cc_emails:         parseAddressList(headerLookup(headers, 'Cc')),
-    delivered_to_alias: detectDeliveredAlias(headers, mailboxEmail, sentByMe),
+    delivered_to_alias: detectDeliveredAlias(headers, sentByMe),
     subject:           headerLookup(headers, 'Subject'),
     snippet:           message.snippet || null,
     body_html:         out.bodyHtml,
