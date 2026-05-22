@@ -901,3 +901,42 @@ BEGIN
     );
   END LOOP;
 END $$;
+
+-- ── Underwriter Deals ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS uw_deals (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id       UUID REFERENCES properties(id) ON DELETE SET NULL,
+  address           TEXT NOT NULL,
+  city              TEXT,
+  state             TEXT,
+  zip               TEXT,
+  county            TEXT,
+  sqft              NUMERIC,
+  list_price        NUMERIC,
+  prelim_title_json JSONB,
+  created_by        UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS uw_snapshots (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id     UUID NOT NULL REFERENCES uw_deals(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL CHECK(kind IN ('initial_pro_forma','actual_results')),
+  data_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE(deal_id, kind)
+);
+
+CREATE TABLE IF NOT EXISTS uw_audit_log (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  deal_id     UUID NOT NULL REFERENCES uw_deals(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,
+  field       TEXT NOT NULL,
+  old_value   JSONB,
+  new_value   JSONB,
+  changed_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  changed_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS uw_audit_deal_idx ON uw_audit_log(deal_id, changed_at DESC);

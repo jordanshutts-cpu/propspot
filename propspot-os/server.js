@@ -37,6 +37,7 @@ app.use('/api/admin/recover-photos', require('./routes/admin-photo-recovery'));
 app.use('/api/holdings',          require('./routes/holdings'));
 app.use('/api/activity',          require('./routes/activity'));
 app.use('/api/os',                require('./routes/authz'));
+app.use('/api/underwriting',      require('./routes/underwriting'));
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>

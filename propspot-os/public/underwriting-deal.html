@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Underwriting Deal</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    /* ── Sticky result header ── */
+    .uw-sticky-header {
+      position: sticky; top: 0; z-index: 200;
+      background: #fff; border-bottom: 1px solid var(--border,#e5e7eb);
+      padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .uw-sticky-header .deal-address { font-weight: 700; font-size: 1rem; flex: 0 0 auto; }
+    .uw-result-card {
+      display: flex; flex-direction: column; align-items: center;
+      background: var(--surface-2,#f9fafb); border: 1px solid var(--border,#e5e7eb);
+      border-radius: 8px; padding: 6px 14px; min-width: 130px;
+    }
+    .uw-result-card .card-label { font-size: .7rem; color: var(--text-muted,#6b7280); text-transform: uppercase; letter-spacing: .05em; }
+    .uw-result-card .card-primary { font-size: 1.15rem; font-weight: 700; }
+    .uw-result-card .card-secondary { font-size: .8rem; color: var(--text-muted,#6b7280); }
+    .uw-result-card.flip-card { border-color: #fbbf24; background: #fffbeb; }
+    .uw-result-card.dscr-card { border-color: #4ade80; background: #f0fdf4; }
+    .badge-rec { padding: 4px 12px; border-radius: 9999px; font-size: .8rem; font-weight: 700; }
+    .badge-rec.rec-dscr { background: #dcfce7; color: #15803d; }
+    .badge-rec.rec-flip { background: #fef3c7; color: #92400e; }
+    .badge-rec.rec-none { background: #fee2e2; color: #b91c1c; }
+    .val-pos { color: #16a34a; }
+    .val-neg { color: #dc2626; }
+    /* ── Tab bar ── */
+    .uw-tab-bar { display: flex; gap: 4px; margin-left: auto; }
+    .uw-tab { padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border,#e5e7eb);
+               background: #fff; cursor: pointer; font-size: .82rem; font-weight: 500; }
+    .uw-tab.active { background: var(--primary,#61B746); color: #fff; border-color: var(--primary,#61B746); }
+    /* ── Three-column layout ── */
+    .uw-body { display: grid; grid-template-columns: 320px 1fr 1fr; gap: 16px; padding: 16px 20px; }
+    @media (max-width: 1100px) { .uw-body { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 700px)  { .uw-body { grid-template-columns: 1fr; } }
+    /* ── Assumption panels ── */
+    .uw-panel { border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+    .uw-panel h3 { margin: 0 0 10px; font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .uw-field-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .uw-field-row label { flex: 1 1 auto; font-size: .78rem; color: var(--text,#111); }
+    .uw-field-row input[type=number], .uw-field-row input[type=text] {
+      width: 110px; flex: 0 0 110px; font-size: .82rem; padding: 4px 6px;
+      border: 1px solid var(--border,#e5e7eb); border-radius: 5px; text-align: right;
+    }
+    .uw-field-row input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 16px; }
+    .uw-field-row input:disabled { background: var(--surface-2,#f9fafb); color: var(--text-muted,#6b7280); }
+    .uw-field-row select { font-size: .78rem; padding: 3px 4px; border: 1px solid var(--border,#e5e7eb); border-radius: 5px; }
+    .val-panel { background: #fef3c7; }
+    .pml-panel { background: #fee2e2; }
+    .dscr-panel { background: #fee2e2; }
+    .flip-panel { background: #dbeafe; }
+    .rental-panel { background: #dbeafe; }
+    .opex-panel { background: #dcfce7; }
+    /* Valuation two-column sub-grid */
+    .val-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    /* Op-ex table */
+    .opex-tbl { width: 100%; border-collapse: collapse; font-size: .76rem; }
+    .opex-tbl th { text-align: left; color: var(--text-muted,#6b7280); font-size: .7rem; padding: 2px 4px; }
+    .opex-tbl td { padding: 3px 4px; }
+    .opex-tbl td input[type=number] { width: 80px; font-size: .76rem; padding: 3px 5px; border: 1px solid var(--border,#e5e7eb); border-radius: 4px; text-align: right; }
+    .opex-tbl td select { font-size: .72rem; padding: 2px 3px; border: 1px solid var(--border,#e5e7eb); border-radius: 4px; }
+    /* ── Output tables ── */
+    .uw-out-section { margin-bottom: 14px; }
+    .uw-out-section h4 { margin: 0 0 6px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted,#6b7280); }
+    .uw-out-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .uw-out-table td { padding: 4px 6px; }
+    .uw-out-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    .uw-out-table tr:last-child td { border-top: 1px solid var(--border,#e5e7eb); font-weight: 700; }
+    .uw-out-table .sub { color: var(--text-muted,#6b7280); font-size: .78rem; padding-left: 14px; }
+    .out-bold { font-weight: 700; }
+    .out-pos { color: #16a34a; font-weight: 700; }
+    .out-neg { color: #dc2626; font-weight: 700; }
+    /* Back link */
+    .uw-back { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--text-muted,#6b7280); text-decoration: none; margin: 12px 20px 0; }
+    .uw-back:hover { color: var(--primary,#61B746); }
+    .uw-revert-btn { font-size: .75rem; padding: 4px 10px; }
+    .uw-save-status { font-size: .73rem; color: var(--text-muted,#6b7280); margin-left: 8px; }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page" style="padding:0;">
+
+  <a class="uw-back" href="/underwriting.html">← Underwriting</a>
+
+  <!-- Sticky result header -->
+  <div class="uw-sticky-header" id="uw-sticky-header">
+    <div class="deal-address" id="deal-address-label">Loading…</div>
+
+    <div class="uw-result-card flip-card">
+      <div class="card-label">Flip</div>
+      <div class="card-primary" id="card-flip-profit">—</div>
+      <div class="card-secondary" id="card-flip-irr">—</div>
+    </div>
+
+    <div class="uw-result-card dscr-card">
+      <div class="card-label">DSCR</div>
+      <div class="card-primary" id="card-dscr-profit">—</div>
+      <div class="card-secondary" id="card-dscr-irr">—</div>
+    </div>
+
+    <div id="rec-badge" class="badge-rec rec-none">—</div>
+    <span class="uw-save-status" id="save-status"></span>
+
+    <div class="uw-tab-bar">
+      <button class="uw-tab" id="tab-pro-forma" onclick="switchTab('initial_pro_forma')">Initial Pro Forma</button>
+      <button class="uw-tab" id="tab-actual" onclick="switchTab('actual_results')">Actual Results</button>
+      <button class="uw-tab uw-revert-btn" id="revert-btn" onclick="revertToProForma()" style="display:none;">↩ Revert to Pro Forma</button>
+    </div>
+  </div>
+
+  <!-- Three-column body -->
+  <div class="uw-body">
+
+    <!-- LEFT: Assumption inputs -->
+    <div id="left-col">
+
+      <!-- Valuation -->
+      <div class="uw-panel val-panel">
+        <h3>Valuation</h3>
+        <div class="val-cols">
+          <div>
+            <div class="uw-field-row"><label>Bridge ARV</label><input type="number" id="f-bridgeARV" step="1000" oninput="onFieldChange('bridgeARV',this.value)"></div>
+            <div class="uw-field-row"><label>DSCR ARV</label><input type="number" id="f-dscrARV" step="1000" oninput="onFieldChange('dscrARV',this.value)"></div>
+            <div class="uw-field-row"><label>Purchase Price</label><input type="number" id="f-purchasePrice" step="1000" oninput="onFieldChange('purchasePrice',this.value)"></div>
+            <div class="uw-field-row"><label>Reno Budget</label><input type="number" id="f-renoBudget" step="500" oninput="onFieldChange('renoBudget',this.value)"></div>
+          </div>
+          <div>
+            <div class="uw-field-row"><label>Rent/month</label><input type="number" id="f-rentOverride" step="50" oninput="onFieldChange('rentOverride',this.value)"></div>
+            <div class="uw-field-row"><label>Annual Rent Inc %</label><input type="number" id="f-rentEscalation" step="0.1" oninput="onFieldChange('rentEscalation',pct(this.value))"></div>
+            <div class="uw-field-row"><label>Annual Prop Tax</label><input type="number" id="f-annualPropertyTax" step="100" oninput="onFieldChange('annualPropertyTax',this.value);syncAutoOpex()"></div>
+            <div class="uw-field-row"><label>Insurance/year</label><input type="number" id="f-insuranceAnnual" step="100" oninput="onFieldChange('insuranceAnnual',this.value);syncAutoOpex()"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PML -->
+      <div class="uw-panel pml-panel">
+        <h3>PML</h3>
+        <div class="uw-field-row"><label>Use PML</label><input type="checkbox" id="f-usePML" onchange="onFieldChange('usePML',this.checked)"></div>
+        <div class="uw-field-row"><label>PML Amount</label><input type="number" id="f-pmlAmount" step="1000" oninput="onFieldChange('pmlAmount',this.value)"></div>
+        <div class="uw-field-row"><label>PML Rate %</label><input type="number" id="f-pmlRate" step="0.1" oninput="onFieldChange('pmlRate',pct(this.value))"></div>
+        <div class="uw-field-row"><label>PML Fees</label><input type="number" id="f-pmlFees" step="100" oninput="onFieldChange('pmlFees',this.value)"></div>
+      </div>
+
+      <!-- DSCR / Rental -->
+      <div class="uw-panel dscr-panel">
+        <h3>DSCR / Rental</h3>
+        <div class="uw-field-row"><label>Appreciation Rate %</label><input type="number" id="f-appreciationRate" step="0.1" oninput="onFieldChange('appreciationRate',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Include Appreciation</label><input type="checkbox" id="f-includeAppreciation" onchange="onFieldChange('includeAppreciation',this.checked)"></div>
+        <div class="uw-field-row"><label>Sell After (years)</label><input type="number" id="f-sellAfterYears" step="1" min="1" oninput="onFieldChange('sellAfterYears',this.value)"></div>
+        <div class="uw-field-row"><label>Vacancy Rate %</label><input type="number" id="f-vacancyRate" step="0.5" oninput="onFieldChange('vacancyRate',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Prepaid Interest Days</label><input type="number" id="f-prepaidInterestDays" step="1" oninput="onFieldChange('prepaidInterestDays',this.value)"></div>
+        <div class="uw-field-row"><label>HOA Prepaid months</label><input type="number" id="f-hoaMonths" step="1" oninput="onFieldChange('hoaMonths',this.value)"></div>
+        <div class="uw-field-row"><label>Insurance Prepaid months</label><input type="number" id="f-insuranceMonths" step="1" oninput="onFieldChange('insuranceMonths',this.value)"></div>
+        <div class="uw-field-row"><label>Prop Tax Prepaid months</label><input type="number" id="f-propTaxMonths" step="1" oninput="onFieldChange('propTaxMonths',this.value)"></div>
+        <div class="uw-field-row"><label>Use Dwella PM</label><input type="checkbox" id="f-useDwellaPM" onchange="onFieldChange('useDwellaPM',this.checked)"></div>
+        <div class="uw-field-row"><label>Borrow Max DSCR</label><input type="checkbox" id="f-borrowMaxDSCR" onchange="onFieldChange('borrowMaxDSCR',this.checked)"></div>
+        <div class="uw-field-row"><label>Riverstone Rate %</label><input type="number" id="f-riverstoneRate" step="0.1" oninput="onFieldChange('riverstoneRate',pct(this.value))"></div>
+      </div>
+
+      <!-- Base Flip -->
+      <div class="uw-panel flip-panel">
+        <h3>Base Flip</h3>
+        <div class="uw-field-row"><label>Bridge Rate %</label><input type="number" id="f-bridgeRate" step="0.1" oninput="onFieldChange('bridgeRate',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Max LTV %</label><input type="number" id="f-maxLTV" step="1" oninput="onFieldChange('maxLTV',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Max LTC %</label><input type="number" id="f-maxLTC" step="1" oninput="onFieldChange('maxLTC',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Loan Origination %</label><input type="number" id="f-bridgeOrigPct" step="0.1" oninput="onFieldChange('bridgeOrigPct',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Origination Min $</label><input type="number" id="f-bridgeOrigMin" step="100" oninput="onFieldChange('bridgeOrigMin',this.value)"></div>
+        <div class="uw-field-row"><label>Bridge UW Fee</label><input type="number" id="f-bridgeUWFee" step="100" oninput="onFieldChange('bridgeUWFee',this.value)"></div>
+        <div class="uw-field-row"><label>Bridge Closing Costs</label><input type="number" id="f-bridgeClosingCosts" step="100" oninput="onFieldChange('bridgeClosingCosts',this.value)"></div>
+        <div class="uw-field-row"><label>Pre-closing Expenses</label><input type="number" id="f-bridgePreClosingExpenses" step="100" oninput="onFieldChange('bridgePreClosingExpenses',this.value)"></div>
+        <div class="uw-field-row"><label>Post-closing Expenses</label><input type="number" id="f-bridgePostClosingExpenses" step="100" oninput="onFieldChange('bridgePostClosingExpenses',this.value)"></div>
+        <div class="uw-field-row"><label>Vacate Days</label><input type="number" id="f-vacateDays" step="1" oninput="onFieldChange('vacateDays',this.value)"></div>
+        <div class="uw-field-row"><label>Listing/Refi Days</label><input type="number" id="f-listingRefiDays" step="1" oninput="onFieldChange('listingRefiDays',this.value)"></div>
+        <div class="uw-field-row"><label>Closing Days</label><input type="number" id="f-closingDays" step="1" oninput="onFieldChange('closingDays',this.value)"></div>
+        <div class="uw-field-row"><label>Bridge Utility/month</label><input type="number" id="f-utilityCostsMonthly" step="10" oninput="onFieldChange('utilityCostsMonthly',this.value)"></div>
+        <div class="uw-field-row"><label>Bridge Insurance/year</label><input type="number" id="f-bridgeInsuranceOverride" step="100" oninput="onFieldChange('bridgeInsuranceOverride',this.value)"></div>
+        <div class="uw-field-row"><label>Dispo Commission %</label><input type="number" id="f-dispoCommissionPct" step="0.1" oninput="onFieldChange('dispoCommissionPct',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Dispo Transfer Tax %</label><input type="number" id="f-dispoTransferTaxPct" step="0.01" oninput="onFieldChange('dispoTransferTaxPct',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Dispo Closing Costs</label><input type="number" id="f-dispoClosingCosts" step="100" oninput="onFieldChange('dispoClosingCosts',this.value)"></div>
+      </div>
+
+      <!-- Base Rental -->
+      <div class="uw-panel rental-panel">
+        <h3>Base Rental</h3>
+        <div class="uw-field-row"><label>DSCR Rate %</label><input type="number" id="f-dscrRate" step="0.1" oninput="onFieldChange('dscrRate',pct(this.value))"></div>
+        <div class="uw-field-row"><label>DSCR Max LTV %</label><input type="number" id="f-dscrMaxLTV" step="1" oninput="onFieldChange('dscrMaxLTV',pct(this.value))"></div>
+        <div class="uw-field-row"><label>DSCR Origination %</label><input type="number" id="f-dscrOriginationPct" step="0.1" oninput="onFieldChange('dscrOriginationPct',pct(this.value))"></div>
+        <div class="uw-field-row"><label>DSCR Orig Min $</label><input type="number" id="f-dscrOrigMin" step="100" oninput="onFieldChange('dscrOrigMin',this.value)"></div>
+        <div class="uw-field-row"><label>DSCR UW Fee</label><input type="number" id="f-dscrUWFee" step="100" oninput="onFieldChange('dscrUWFee',this.value)"></div>
+        <div class="uw-field-row"><label>DSCR Closing Costs</label><input type="number" id="f-dscrClosingCosts" step="100" oninput="onFieldChange('dscrClosingCosts',this.value)"></div>
+        <div class="uw-field-row"><label>Amortization (years)</label><input type="number" id="f-amortYears" step="1" oninput="onFieldChange('amortYears',this.value)"></div>
+      </div>
+
+      <!-- Rental Op-Ex -->
+      <div class="uw-panel opex-panel">
+        <h3>Rental Op-Ex</h3>
+        <table class="opex-tbl">
+          <thead><tr><th>Line</th><th>Amount</th><th>Freq</th><th>Esc %</th></tr></thead>
+          <tbody id="opex-body"></tbody>
+        </table>
+      </div>
+
+    </div><!-- /left-col -->
+
+    <!-- MIDDLE: cost basis + cash flows -->
+    <div id="mid-col">
+      <div class="uw-out-section">
+        <h4>Cost Basis</h4>
+        <table class="uw-out-table">
+          <tr><td>Purchase Price</td><td id="o-purchasePrice">—</td></tr>
+          <tr><td>Reno Budget</td><td id="o-renoBudget">—</td></tr>
+          <tr><td>Total Cost Basis</td><td id="o-G30">—</td></tr>
+          <tr><td>Bridge Loan</td><td id="o-V9">—</td></tr>
+          <tr><td>PML</td><td id="o-V10">—</td></tr>
+          <tr><td class="out-bold">Unfunded Equity</td><td id="o-V11" class="out-bold">—</td></tr>
+        </table>
+      </div>
+
+      <div class="uw-out-section">
+        <h4>Flip Cash to Close</h4>
+        <table class="uw-out-table">
+          <tr><td>Bridge Closing Costs</td><td id="o-V13">—</td></tr>
+          <tr><td>Pre/Post Closing</td><td id="o-V14">—</td></tr>
+          <tr><td>Origination</td><td id="o-V15">—</td></tr>
+          <tr><td>UW Fee</td><td id="o-V16">—</td></tr>
+          <tr><td>Prepaid Interest</td><td id="o-V17">—</td></tr>
+          <tr><td class="out-bold">Total Cash to Close</td><td id="o-V19" class="out-bold">—</td></tr>
+        </table>
+      </div>
+
+      <div class="uw-out-section">
+        <h4>Flip Holding Costs</h4>
+        <table class="uw-out-table">
+          <tr><td>Operations</td><td id="o-V20">—</td></tr>
+          <tr><td>Bridge Interest</td><td id="o-V21">—</td></tr>
+          <tr><td>PML Fees</td><td id="o-V22">—</td></tr>
+          <tr><td>PML Interest</td><td id="o-V23">—</td></tr>
+          <tr><td class="out-bold">Total Holding</td><td id="o-V24" class="out-bold">—</td></tr>
+        </table>
+      </div>
+
+      <div class="uw-out-section">
+        <h4>DSCR Closing</h4>
+        <table class="uw-out-table">
+          <tr><td>DSCR Closing Costs</td><td id="o-Z13">—</td></tr>
+          <tr><td>Origination</td><td id="o-Z15">—</td></tr>
+          <tr><td>UW Fee</td><td id="o-Z16">—</td></tr>
+          <tr><td>Prepaids</td><td id="o-Z17">—</td></tr>
+          <tr><td>Gross Refi Proceeds</td><td id="o-Z9">—</td></tr>
+          <tr><td class="out-bold">Net Cost</td><td id="o-Z22" class="out-bold">—</td></tr>
+        </table>
+      </div>
+    </div><!-- /mid-col -->
+
+    <!-- RIGHT: flip disposition + DSCR cashflows -->
+    <div id="right-col">
+      <div class="uw-out-section">
+        <h4>Flip Disposition</h4>
+        <table class="uw-out-table">
+          <tr><td>Bridge ARV</td><td id="o-V37">—</td></tr>
+          <tr><td>Loan Payoff</td><td id="o-V9-payoff">—</td></tr>
+          <tr><td>Riverstone</td><td id="o-V40">—</td></tr>
+          <tr><td>Commission</td><td id="o-V41">—</td></tr>
+          <tr><td>Transfer/Close</td><td id="o-V42">—</td></tr>
+          <tr><td class="out-bold">Net Proceeds</td><td id="o-V46" class="out-bold">—</td></tr>
+          <tr><td>Total Cash Needed</td><td id="o-V26">—</td></tr>
+          <tr><td class="out-bold">Flip Profit</td><td id="o-flipProfit" class="out-bold">—</td></tr>
+          <tr><td class="out-bold">Flip IRR</td><td id="o-flipIRR" class="out-bold">—</td></tr>
+        </table>
+      </div>
+
+      <div class="uw-out-section">
+        <h4>DSCR Year-1 Cash Flow (Monthly)</h4>
+        <table class="uw-out-table">
+          <tr><td>Rent</td><td id="o-Z55">—</td></tr>
+          <tr><td>Vacancy</td><td id="o-Z56">—</td></tr>
+          <tr><td>P+I</td><td id="o-Z57">—</td></tr>
+          <tr><td>Op-Ex</td><td id="o-opexMo">—</td></tr>
+          <tr><td>Riverstone</td><td id="o-Z63">—</td></tr>
+          <tr><td class="out-bold">Monthly CF</td><td id="o-Z64" class="out-bold">—</td></tr>
+        </table>
+      </div>
+
+      <div class="uw-out-section">
+        <h4>DSCR Hold Period</h4>
+        <table class="uw-out-table">
+          <tr><td>Future Value</td><td id="o-Z37">—</td></tr>
+          <tr><td>Loan Payoff</td><td id="o-Z9-payoff">—</td></tr>
+          <tr><td>Commission</td><td id="o-Z41">—</td></tr>
+          <tr><td>Transfer/Close</td><td id="o-Z42">—</td></tr>
+          <tr><td>Prepaids Recovery</td><td id="o-Z43">—</td></tr>
+          <tr><td>Principal Paydown</td><td id="o-Z44">—</td></tr>
+          <tr><td class="out-bold">Net Sale Proceeds</td><td id="o-Z46" class="out-bold">—</td></tr>
+          <tr><td>Hold Cashflow</td><td id="o-Z48">—</td></tr>
+          <tr><td>Total Cash Needed</td><td id="o-Z26-dscr">—</td></tr>
+          <tr><td class="out-bold">DSCR Profit</td><td id="o-dscrProfit" class="out-bold">—</td></tr>
+          <tr><td class="out-bold">DSCR IRR</td><td id="o-dscrIRR" class="out-bold">—</td></tr>
+        </table>
+      </div>
+    </div><!-- /right-col -->
+
+  </div><!-- /uw-body -->
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  window.NAV_CURRENT = 'underwriting';
+
+  // ============================================================
+  // Calculation Model (ported from model.py)
+  // ============================================================
+
+  const DEFAULTS = {
+    bridgeARV: 0, dscrARV: 0, purchasePrice: 0, renoBudget: 0,
+    rentOverride: 0, uwRent: 0, annualPropertyTax: 0, insuranceAnnual: 0,
+    usePML: true, pmlAmount: 0, pmlRate: 0.10, pmlFees: 0,
+    appreciationRate: 0.03, includeAppreciation: true, sellAfterYears: 5,
+    vacancyRate: 0.05, rentEscalation: 0.03, monthlyRepairs: 100,
+    prepaidInterestDays: 15, hoaMonths: 12, insuranceMonths: 8, propTaxMonths: 11,
+    useDwellaPM: true, borrowMaxDSCR: true, riverstoneRate: 0.10, applyEscalations: false,
+    bridgeRate: 0.1099, maxLTV: 0.75, maxLTC: 1.00,
+    bridgeOrigPct: 0.015, bridgeOrigMin: 2250, bridgeUWFee: 999,
+    bridgeClosingCosts: 2300, bridgePreClosingExpenses: 800, bridgePostClosingExpenses: 0,
+    vacateDays: 0, listingRefiDays: 30, closingDays: 45,
+    utilityCostsMonthly: 150, bridgeInsuranceOverride: 0,
+    dispoCommissionPct: 0.03, dispoTransferTaxPct: 0.0081, dispoClosingCosts: 1500,
+    dscrRate: 0.068, dscrMaxLTV: 0.75, dscrOriginationPct: 0.015, dscrOrigMin: 2000,
+    dscrUWFee: 750, dscrClosingCosts: 2200, amortYears: 30,
+    rentalOpEx: {}
+  };
+
+  const RENTAL_OPEX_LINES = [
+    { id: 'HOA',         label: 'HOA',                   defaultFreq: 'Annual',  autoFrom: null },
+    { id: 'solar1',      label: 'Solar Panel Pmts',      defaultFreq: 'Monthly', autoFrom: null },
+    { id: 'insurance',   label: 'Insurance',             defaultFreq: 'Annual',  autoFrom: 'insuranceAnnual' },
+    { id: 'landscaping', label: 'Landscaping',           defaultFreq: 'Annual',  autoFrom: null },
+    { id: 'solar2',      label: 'Solar Panel Pmts (2)',  defaultFreq: 'Monthly', autoFrom: null },
+    { id: 'propMgmt',    label: 'Property Management',   defaultFreq: 'Monthly', autoFrom: null },
+    { id: 'repairs',     label: 'Repairs & Maintenance', defaultFreq: 'Monthly', autoFrom: null },
+    { id: 'supplies',    label: 'Supplies',              defaultFreq: 'Annual',  autoFrom: null },
+    { id: 'propertyTax', label: 'Property Tax',          defaultFreq: 'Annual',  autoFrom: 'annualPropertyTax' },
+    { id: 'trash',       label: 'Trash Removal',         defaultFreq: 'Annual',  autoFrom: null },
+    { id: 'utilities',   label: 'Utilities',             defaultFreq: 'Monthly', autoFrom: null },
+    { id: 'waterSewer',  label: 'Water and Sewer',       defaultFreq: 'Annual',  autoFrom: null },
+    { id: 'other',       label: 'Other Expenses',        defaultFreq: 'Annual',  autoFrom: null },
+  ];
+
+  function rd2(x) {
+    return (x >= 0 ? Math.floor(x * 100) : Math.ceil(x * 100)) / 100;
+  }
+
+  function pmtFn(r, n, pv) {
+    if (r === 0) return -pv / n;
+    return pv * r / (1 - Math.pow(1 + r, -n));
+  }
+
+  function excelRate(nper, pmtAmt, pv, fv) {
+    let r = 0.10;
+    for (let i = 0; i < 200; i++) {
+      let f, df;
+      try {
+        f  = pv * Math.pow(1+r, nper) + pmtAmt * (Math.pow(1+r, nper) - 1) / r + fv;
+        df = pv * nper * Math.pow(1+r, nper-1) +
+             pmtAmt * (nper * Math.pow(1+r, nper-1) / r - (Math.pow(1+r, nper) - 1) / (r*r));
+      } catch(e) { break; }
+      if (!isFinite(df) || df === 0) break;
+      const dr = f / df;
+      r -= dr;
+      if (Math.abs(dr) < 1e-12) return r;
+      r = Math.max(-0.999, Math.min(100.0, r));
+    }
+    let lo = -0.999, hi = 50.0;
+    const npv = rr => pv * Math.pow(1+rr, nper) + pmtAmt * (Math.pow(1+rr, nper)-1)/rr + fv;
+    for (let i = 0; i < 120; i++) {
+      const mid = (lo + hi) / 2;
+      if (npv(mid) > 0) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+  function daysRemainingInClosingMonth() {
+    const d = new Date();
+    d.setDate(d.getDate() + 10);
+    const eom = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return Math.round((eom - d) / 86400000);
+  }
+
+  function opexYearTotals(rentalOpEx, nYears, applyEscalations, syncInsurance, syncPropTax) {
+    const totals = new Array(nYears).fill(0);
+    for (const line of RENTAL_OPEX_LINES) {
+      const entry = rentalOpEx[line.id] || { amount: 0, frequency: line.defaultFreq, escalation: 0 };
+      let amount = Number(entry.amount) || 0;
+      if (line.autoFrom === 'insuranceAnnual' && syncInsurance != null) amount = syncInsurance;
+      if (line.autoFrom === 'annualPropertyTax' && syncPropTax != null) amount = syncPropTax;
+      const yr1 = entry.frequency === 'Monthly' ? amount * 12 : amount;
+      const esc = applyEscalations ? (Number(entry.escalation) || 0) : 0;
+      for (let i = 0; i < nYears; i++) totals[i] += yr1 * Math.pow(1 + esc, i);
+    }
+    return totals;
+  }
+
+  function compute(A) {
+    A = Object.assign({}, DEFAULTS, A);
+    const rentalOpEx = A.rentalOpEx || {};
+    const listPrice = Number(A.listPrice) || 0;
+
+    const G27 = Number(A.purchasePrice) || 0;
+    const G29 = Number(A.renoBudget) || 0;
+    const G30 = G27 + G29;
+    const C42 = G30 * Number(A.maxLTC);
+    const C43 = Number(A.bridgeARV) * Number(A.maxLTV);
+    const V9 = Math.min(C42, C43);
+    const renoDays = G29 / 1000;
+    const totalDays = Math.floor((Number(A.vacateDays) + renoDays + Number(A.listingRefiDays) + Number(A.closingDays)) * 100) / 100;
+
+    const botIns = Number(A.bridgeInsuranceOverride) > 0
+      ? Number(A.bridgeInsuranceOverride)
+      : listPrice * 0.005;
+    const O14 = rd2(((Number(A.utilityCostsMonthly) * 12) + botIns + Number(A.annualPropertyTax)) / 365);
+    const L21 = rd2(V9 * Number(A.bridgeRate) / 365);
+
+    const V13 = Number(A.bridgeClosingCosts);
+    const V14 = Number(A.bridgePreClosingExpenses) + Number(A.bridgePostClosingExpenses);
+    const C46 = Math.max(V9 * Number(A.bridgeOrigPct), Number(A.bridgeOrigMin));
+    const V15 = C46;
+    const V16 = Number(A.bridgeUWFee);
+    const V17 = (daysRemainingInClosingMonth() / 30.44) * L21;
+    const V19 = V13 + V14 + V15 + V16 + V17;
+    const V20 = totalDays * O14;
+    const V21 = (V9 * Number(A.bridgeRate) * totalDays / 365) - V17;
+    const V22 = A.usePML ? Number(A.pmlFees) : 0;
+    const V23 = A.usePML
+      ? ((Number(A.pmlAmount) + V19 + V20 + V21) * Number(A.pmlRate) * totalDays / 365)
+      : 0;
+    const V24 = V19 + V20 + V21 + V22 + V23;
+    const V10 = A.usePML ? Number(A.pmlAmount) : 0;
+    const V11 = G30 - V9 - V10;
+    const V26 = V11 + V24;
+    const V33 = V26 * Number(A.riverstoneRate) / 12;
+    const V37 = Number(A.bridgeARV);
+    const V40 = -(V33 * totalDays / 30.44);
+    const V41 = -(V37 * Number(A.dispoCommissionPct));
+    const V42 = -(V37 * Number(A.dispoTransferTaxPct)) - Number(A.dispoClosingCosts);
+    const V46 = V37 + (-V9) + (-V10) + V40 + V41 + V42;
+    const flipProfit = V46 - V26;
+    const flipIRR = (totalDays > 0 && V26 > 0 && V46 > 0)
+      ? (Math.pow(V46 / V26, 365 / totalDays) - 1)
+      : NaN;
+
+    const Z9 = A.borrowMaxDSCR ? Number(A.dscrARV) * Number(A.dscrMaxLTV) : 0;
+    const Z13 = Number(A.dscrClosingCosts);
+    const C80 = Math.max(Z9 * Number(A.dscrOriginationPct), Number(A.dscrOrigMin));
+    const Z15 = C80;
+    const Z16 = Number(A.dscrUWFee);
+    const O21 = rd2(Z9 * Number(A.dscrRate) / 365);
+    const G76 = Number(A.prepaidInterestDays) * O21;
+    const hoaEntry = rentalOpEx.HOA || { amount: 0, frequency: 'Annual' };
+    const hoaMo = hoaEntry.frequency === 'Monthly' ? Number(hoaEntry.amount) : (Number(hoaEntry.amount) / 12);
+    const G77 = hoaMo * Number(A.hoaMonths);
+    const G78 = (Number(A.insuranceAnnual) / 12) * Number(A.insuranceMonths);
+    const G79 = (Number(A.annualPropertyTax) / 12) * Number(A.propTaxMonths);
+    const G81 = G76 + G77 + G78 + G79;
+    const Z17 = G81;
+    const Z20 = Z13 + Z15 + Z16 + Z17;
+    const Z11 = Z9 - V9 - V10;
+    const Z22 = Z20 - Z11;
+    const Z26 = V26 + Z22;
+
+    const appr = A.includeAppreciation ? Number(A.appreciationRate) : 0;
+    const nYears = Math.max(1, Math.round(Number(A.sellAfterYears)));
+    const Z37 = Number(A.dscrARV) * Math.pow(1 + appr, nYears);
+    const Z41 = -(Z37 * Number(A.dispoCommissionPct));
+    const Z42 = -(Z37 * Number(A.dispoTransferTaxPct)) - Number(A.dispoClosingCosts);
+    const Z43 = G81;
+    const monthlyRate = Number(A.dscrRate) / 12;
+    const monthlyPI = pmtFn(monthlyRate, Math.round(Number(A.amortYears)) * 12, Z9);
+    let bal = Z9, principalSum = 0;
+    for (let i = 0; i < 13; i++) {
+      const ip = bal * monthlyRate;
+      const pp = monthlyPI - ip;
+      principalSum += pp;
+      bal -= pp;
+    }
+    const Z44 = (principalSum / 13) * 12 * nYears;
+    const Z46 = Z37 + (-Z9) + Z41 + Z42 + Z43 + Z44;
+
+    const rentMo = Number(A.rentOverride) > 0 ? Number(A.rentOverride) : (Number(A.uwRent) || 0);
+    const Z55 = rentMo;
+    const Z56 = -rentMo * Number(A.vacancyRate);
+    const Z57 = -monthlyPI;
+    const opexYr1 = opexYearTotals(rentalOpEx, 1, false, Number(A.insuranceAnnual), Number(A.annualPropertyTax))[0];
+    const opexMo = opexYr1 / 12;
+    const Z33dscr = Z26 * Number(A.riverstoneRate) / 12;
+    const Z63 = -Z33dscr;
+    const Z64 = Z55 + Z56 + Z57 - opexMo + Z63;
+
+    const opexAll = opexYearTotals(rentalOpEx, nYears, true, Number(A.insuranceAnnual), Number(A.annualPropertyTax));
+    let cashflowTotal = 0;
+    const rentEsc = Number(A.rentEscalation) || 0;
+    for (let i = 0; i < nYears; i++) {
+      const yrRent = rentMo * Math.pow(1 + rentEsc, i);
+      const yrVac = -yrRent * Number(A.vacancyRate);
+      const yrOpex = opexAll[i] / 12;
+      cashflowTotal += (yrRent + yrVac - monthlyPI - yrOpex + Z63) * 12;
+    }
+    const Z48 = cashflowTotal;
+    const dscrProfit = Z46 - Z26 + Z48;
+
+    let dscrIRR;
+    if (Z26 < 0) dscrIRR = 100;
+    else if (Z26 === 0) dscrIRR = NaN;
+    else dscrIRR = excelRate(nYears, Z48 / nYears, -Z26, Z46);
+
+    return {
+      G27, G29, G30, V9, V10, V11, V13, V14, V15, V16, V17, V19,
+      V20, V21, V22, V23, V24, V26, V33, V37, V40, V41, V42, V46,
+      flipProfit, flipIRR, totalDays,
+      Z9, Z11, Z13, Z15, Z16, Z17, Z20, Z22, Z26, Z37, Z41, Z42, Z43, Z44, Z46,
+      monthlyPI,
+      Z55, Z56, Z57, Z63, Z64, Z48, opexMo, dscrProfit, dscrIRR
+    };
+  }
+
+  function bestStrategy(r) {
+    if (!isNaN(r.dscrIRR) && r.dscrIRR > 0.25) return 'DSCR';
+    if (!isNaN(r.flipProfit) && r.flipProfit > 30000) return 'Flip';
+    return 'None';
+  }
+
+  // ============================================================
+  // State
+  // ============================================================
+  const dealId = new URLSearchParams(location.search).get('id');
+  let currentTab = 'actual_results'; // default to actual results
+  let snapshots = { initial_pro_forma: {}, actual_results: {} };
+  let A = {}; // current assumption object (merged defaults + snapshot)
+  let saveTimer = null;
+  let saving = false;
+
+  // ============================================================
+  // Formatting
+  // ============================================================
+  function fmtM(n)  { if (n == null || isNaN(n)) return '—'; return '$' + Math.round(n).toLocaleString('en-US'); }
+  function fmtP(n)  { if (n == null || isNaN(n)) return '—'; return (n * 100).toFixed(1) + '%'; }
+  function fmtPct(v) { return (Number(v) * 100).toFixed(2); } // for display in inputs
+
+  function numCls(n) {
+    if (n == null || isNaN(n) || n === 0) return '';
+    return n > 0 ? 'out-pos' : 'out-neg';
+  }
+
+  function setCell(id, val, asMoney = true, colorize = false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const txt = asMoney ? fmtM(val) : val;
+    el.textContent = txt;
+    el.className = colorize ? numCls(val) + ' out-bold' : (el.className.includes('out-bold') ? 'out-bold' : '');
+  }
+
+  // ============================================================
+  // Op-ex table rendering
+  // ============================================================
+  function renderOpexTable() {
+    const roe = A.rentalOpEx || {};
+    const tbody = document.getElementById('opex-body');
+    tbody.innerHTML = RENTAL_OPEX_LINES.map(line => {
+      const entry = roe[line.id] || { amount: 0, frequency: line.defaultFreq, escalation: 0 };
+      const auto = !!line.autoFrom;
+      const amt = Number(entry.amount) || 0;
+      const freq = entry.frequency || line.defaultFreq;
+      const esc = Number(entry.escalation) || 0;
+      return `<tr>
+        <td>${escHtml(line.label)}</td>
+        <td><input type="number" step="1" value="${amt.toFixed(0)}"
+              ${auto ? 'disabled' : ''}
+              data-opex-id="${escHtml(line.id)}" data-opex-field="amount"
+              oninput="onOpexChange('${escHtml(line.id)}','amount',this.value)"></td>
+        <td><select data-opex-id="${escHtml(line.id)}" data-opex-field="frequency"
+                    onchange="onOpexChange('${escHtml(line.id)}','frequency',this.value)">
+              <option ${freq==='Annual'?'selected':''}>Annual</option>
+              <option ${freq==='Monthly'?'selected':''}>Monthly</option>
+            </select></td>
+        <td><input type="number" step="0.01" value="${(esc*100).toFixed(2)}"
+              data-opex-id="${escHtml(line.id)}" data-opex-field="escalation"
+              oninput="onOpexChange('${escHtml(line.id)}','escalation',this.value/100)"></td>
+      </tr>`;
+    }).join('');
+    // Fix the escalation input oninput to use the element value properly
+    tbody.querySelectorAll('[data-opex-field="escalation"]').forEach(input => {
+      input.oninput = function() {
+        onOpexChange(this.dataset.opexId, 'escalation', Number(this.value) / 100);
+      };
+    });
+  }
+
+  // ============================================================
+  // Input population from assumptions
+  // ============================================================
+  function populateInputs() {
+    // Helper to set a numeric input
+    function setNum(id, val)  {
+      const el = document.getElementById(id);
+      if (el) el.value = (val != null && val !== '') ? Number(val) : '';
+    }
+    function setPct(id, val)  {
+      const el = document.getElementById(id);
+      if (el) el.value = (val != null && val !== '') ? fmtPct(val) : '';
+    }
+    function setChk(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.checked = !!val;
+    }
+
+    setNum('f-bridgeARV',               A.bridgeARV);
+    setNum('f-dscrARV',                 A.dscrARV);
+    setNum('f-purchasePrice',           A.purchasePrice);
+    setNum('f-renoBudget',              A.renoBudget);
+    setNum('f-rentOverride',            A.rentOverride);
+    setPct('f-rentEscalation',          A.rentEscalation);
+    setNum('f-annualPropertyTax',       A.annualPropertyTax);
+    setNum('f-insuranceAnnual',         A.insuranceAnnual);
+
+    setChk('f-usePML',                  A.usePML);
+    setNum('f-pmlAmount',               A.pmlAmount);
+    setPct('f-pmlRate',                 A.pmlRate);
+    setNum('f-pmlFees',                 A.pmlFees);
+
+    setPct('f-appreciationRate',        A.appreciationRate);
+    setChk('f-includeAppreciation',     A.includeAppreciation);
+    setNum('f-sellAfterYears',          A.sellAfterYears);
+    setPct('f-vacancyRate',             A.vacancyRate);
+    setNum('f-prepaidInterestDays',     A.prepaidInterestDays);
+    setNum('f-hoaMonths',               A.hoaMonths);
+    setNum('f-insuranceMonths',         A.insuranceMonths);
+    setNum('f-propTaxMonths',           A.propTaxMonths);
+    setChk('f-useDwellaPM',             A.useDwellaPM);
+    setChk('f-borrowMaxDSCR',           A.borrowMaxDSCR);
+    setPct('f-riverstoneRate',          A.riverstoneRate);
+
+    setPct('f-bridgeRate',              A.bridgeRate);
+    setPct('f-maxLTV',                  A.maxLTV);
+    setPct('f-maxLTC',                  A.maxLTC);
+    setPct('f-bridgeOrigPct',           A.bridgeOrigPct);
+    setNum('f-bridgeOrigMin',           A.bridgeOrigMin);
+    setNum('f-bridgeUWFee',             A.bridgeUWFee);
+    setNum('f-bridgeClosingCosts',      A.bridgeClosingCosts);
+    setNum('f-bridgePreClosingExpenses',A.bridgePreClosingExpenses);
+    setNum('f-bridgePostClosingExpenses',A.bridgePostClosingExpenses);
+    setNum('f-vacateDays',              A.vacateDays);
+    setNum('f-listingRefiDays',         A.listingRefiDays);
+    setNum('f-closingDays',             A.closingDays);
+    setNum('f-utilityCostsMonthly',     A.utilityCostsMonthly);
+    setNum('f-bridgeInsuranceOverride', A.bridgeInsuranceOverride);
+    setPct('f-dispoCommissionPct',      A.dispoCommissionPct);
+    setPct('f-dispoTransferTaxPct',     A.dispoTransferTaxPct);
+    setNum('f-dispoClosingCosts',       A.dispoClosingCosts);
+
+    setPct('f-dscrRate',                A.dscrRate);
+    setPct('f-dscrMaxLTV',              A.dscrMaxLTV);
+    setPct('f-dscrOriginationPct',      A.dscrOriginationPct);
+    setNum('f-dscrOrigMin',             A.dscrOrigMin);
+    setNum('f-dscrUWFee',               A.dscrUWFee);
+    setNum('f-dscrClosingCosts',        A.dscrClosingCosts);
+    setNum('f-amortYears',              A.amortYears);
+
+    renderOpexTable();
+  }
+
+  // ============================================================
+  // Compute + update outputs
+  // ============================================================
+  function updateOutputs() {
+    let r;
+    try { r = compute(A); } catch(e) { console.error(e); return; }
+
+    // Header cards
+    const fp = r.flipProfit;
+    const dp = r.dscrProfit;
+    const fi = r.flipIRR;
+    const di = r.dscrIRR;
+
+    const flipProfEl = document.getElementById('card-flip-profit');
+    const dscrProfEl = document.getElementById('card-dscr-profit');
+    flipProfEl.textContent = fmtM(fp);
+    flipProfEl.className = 'card-primary ' + (fp > 0 ? 'val-pos' : fp < 0 ? 'val-neg' : '');
+    dscrProfEl.textContent = fmtM(dp);
+    dscrProfEl.className = 'card-primary ' + (dp > 0 ? 'val-pos' : dp < 0 ? 'val-neg' : '');
+
+    document.getElementById('card-flip-irr').textContent =
+      `${isNaN(fi) ? '—' : (fi * 100).toFixed(1) + '%'} · ${Math.round(r.totalDays)}d`;
+    document.getElementById('card-dscr-irr').textContent =
+      `${isNaN(di) ? '—' : (di * 100).toFixed(1) + '%'} · ${fmtM(r.Z64)}/mo`;
+
+    const strat = bestStrategy(r);
+    const badge = document.getElementById('rec-badge');
+    badge.textContent = strat;
+    badge.className = 'badge-rec ' + (strat === 'DSCR' ? 'rec-dscr' : strat === 'Flip' ? 'rec-flip' : 'rec-none');
+
+    // Middle column
+    setCell('o-purchasePrice', r.G27);
+    setCell('o-renoBudget',    r.G29);
+    setCell('o-G30',           r.G30);
+    setCell('o-V9',            r.V9);
+    setCell('o-V10',           r.V10);
+    setCell('o-V11',           r.V11);
+
+    setCell('o-V13', r.V13);
+    setCell('o-V14', r.V14);
+    setCell('o-V15', r.V15);
+    setCell('o-V16', r.V16);
+    setCell('o-V17', r.V17);
+    setCell('o-V19', r.V19);
+
+    setCell('o-V20', r.V20);
+    setCell('o-V21', r.V21);
+    setCell('o-V22', r.V22);
+    setCell('o-V23', r.V23);
+    setCell('o-V24', r.V24);
+
+    setCell('o-Z13', r.Z13);
+    setCell('o-Z15', r.Z15);
+    setCell('o-Z16', r.Z16);
+    setCell('o-Z17', r.Z17);
+    setCell('o-Z9',  r.Z9);
+    setCell('o-Z22', r.Z22);
+
+    // Right column — Flip Disposition
+    setCell('o-V37',     r.V37);
+    setCell('o-V9-payoff', -r.V9);
+    setCell('o-V40',     r.V40);
+    setCell('o-V41',     r.V41);
+    setCell('o-V42',     r.V42);
+    setCell('o-V46',     r.V46);
+    setCell('o-V26',     -r.V26);
+
+    const fpEl = document.getElementById('o-flipProfit');
+    fpEl.textContent = fmtM(fp);
+    fpEl.className = 'out-bold ' + (fp > 0 ? 'out-pos' : fp < 0 ? 'out-neg' : '');
+
+    const fiEl = document.getElementById('o-flipIRR');
+    fiEl.textContent = isNaN(fi) ? '—' : (fi * 100).toFixed(1) + '%';
+    fiEl.className = 'out-bold ' + (fi > 0 ? 'out-pos' : fi < 0 ? 'out-neg' : '');
+
+    // Right column — DSCR Year-1 CF
+    setCell('o-Z55',    r.Z55);
+    setCell('o-Z56',    r.Z56);
+    setCell('o-Z57',    r.Z57);
+    setCell('o-opexMo', -r.opexMo);
+    setCell('o-Z63',    r.Z63);
+    const z64El = document.getElementById('o-Z64');
+    z64El.textContent = fmtM(r.Z64);
+    z64El.className = 'out-bold ' + (r.Z64 > 0 ? 'out-pos' : r.Z64 < 0 ? 'out-neg' : '');
+
+    // Right column — DSCR Hold
+    setCell('o-Z37',      r.Z37);
+    setCell('o-Z9-payoff', -r.Z9);
+    setCell('o-Z41',      r.Z41);
+    setCell('o-Z42',      r.Z42);
+    setCell('o-Z43',      r.Z43);
+    setCell('o-Z44',      r.Z44);
+    setCell('o-Z46',      r.Z46);
+    setCell('o-Z48',      r.Z48);
+    setCell('o-Z26-dscr', -r.Z26);
+
+    const dpEl = document.getElementById('o-dscrProfit');
+    dpEl.textContent = fmtM(dp);
+    dpEl.className = 'out-bold ' + (dp > 0 ? 'out-pos' : dp < 0 ? 'out-neg' : '');
+
+    const diEl = document.getElementById('o-dscrIRR');
+    diEl.textContent = isNaN(di) ? '—' : (di * 100).toFixed(1) + '%';
+    diEl.className = 'out-bold ' + (di > 0 ? 'out-pos' : di < 0 ? 'out-neg' : '');
+  }
+
+  // ============================================================
+  // Input change handlers
+  // ============================================================
+  function pct(val) { return Number(val) / 100; }
+
+  function onFieldChange(field, value) {
+    const numVal = (typeof value === 'boolean') ? value : (value === '' ? 0 : Number(value));
+    A[field] = numVal;
+    updateOutputs();
+    scheduleSave();
+  }
+
+  function onOpexChange(lineId, field, value) {
+    if (!A.rentalOpEx) A.rentalOpEx = {};
+    if (!A.rentalOpEx[lineId]) {
+      const line = RENTAL_OPEX_LINES.find(l => l.id === lineId);
+      A.rentalOpEx[lineId] = { amount: 0, frequency: line?.defaultFreq || 'Annual', escalation: 0 };
+    }
+    A.rentalOpEx[lineId][field] = (field === 'frequency') ? value : Number(value);
+    updateOutputs();
+    scheduleSave();
+  }
+
+  function syncAutoOpex() {
+    // Update auto-from op-ex entries when Valuation fields change.
+    if (!A.rentalOpEx) A.rentalOpEx = {};
+    for (const line of RENTAL_OPEX_LINES) {
+      if (!line.autoFrom) continue;
+      const srcVal = Number(A[line.autoFrom]) || 0;
+      if (!A.rentalOpEx[line.id]) {
+        A.rentalOpEx[line.id] = { amount: srcVal, frequency: line.defaultFreq, escalation: 0 };
+      } else {
+        A.rentalOpEx[line.id].amount = srcVal;
+      }
+      // Update the disabled input in the table.
+      const inp = document.querySelector(`[data-opex-id="${line.id}"][data-opex-field="amount"]`);
+      if (inp) inp.value = srcVal.toFixed(0);
+    }
+  }
+
+  // ============================================================
+  // Auto-save (800ms debounce)
+  // ============================================================
+  function scheduleSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    document.getElementById('save-status').textContent = 'Unsaved…';
+    saveTimer = setTimeout(doSave, 800);
+  }
+
+  async function doSave() {
+    if (saving) { scheduleSave(); return; }
+    saving = true;
+    try {
+      await apiFetch(`/api/underwriting/${dealId}/snapshot/${currentTab}`, {
+        method: 'PUT',
+        body: JSON.stringify({ data: A })
+      });
+      snapshots[currentTab] = Object.assign({}, A);
+      document.getElementById('save-status').textContent = 'Saved ✓';
+      setTimeout(() => { document.getElementById('save-status').textContent = ''; }, 2000);
+    } catch(e) {
+      document.getElementById('save-status').textContent = 'Save failed';
+    }
+    saving = false;
+  }
+
+  // ============================================================
+  // Tab switching
+  // ============================================================
+  function switchTab(kind) {
+    if (saveTimer) { clearTimeout(saveTimer); doSave(); }
+    currentTab = kind;
+    document.getElementById('tab-pro-forma').classList.toggle('active', kind === 'initial_pro_forma');
+    document.getElementById('tab-actual').classList.toggle('active', kind === 'actual_results');
+    document.getElementById('revert-btn').style.display = kind === 'actual_results' ? '' : 'none';
+    A = Object.assign({}, DEFAULTS, snapshots[kind] || {});
+    populateInputs();
+    updateOutputs();
+  }
+
+  // ============================================================
+  // Revert actual results to pro forma
+  // ============================================================
+  async function revertToProForma() {
+    if (!confirm('Copy Initial Pro Forma values into Actual Results? This will overwrite current Actual Results data.')) return;
+    A = Object.assign({}, DEFAULTS, snapshots.initial_pro_forma || {});
+    snapshots.actual_results = Object.assign({}, A);
+    populateInputs();
+    updateOutputs();
+    scheduleSave();
+  }
+
+  // ============================================================
+  // Init
+  // ============================================================
+  async function init() {
+    if (!await requireAuth()) return;
+    renderAppsRail();
+    renderTopHeader();
+    renderUserMenu();
+
+    if (!dealId) {
+      document.getElementById('deal-address-label').textContent = 'No deal ID';
+      return;
+    }
+
+    try {
+      const deal = await apiFetch(`/api/underwriting/${dealId}`);
+      document.getElementById('deal-address-label').textContent = deal.address;
+      document.title = `UW — ${deal.address}`;
+
+      snapshots.initial_pro_forma = deal.pro_forma_data || {};
+      snapshots.actual_results    = deal.actual_results_data || {};
+
+      // Default to actual results tab
+      A = Object.assign({}, DEFAULTS, snapshots.actual_results);
+      document.getElementById('tab-actual').classList.add('active');
+      document.getElementById('revert-btn').style.display = '';
+      populateInputs();
+      updateOutputs();
+    } catch(e) {
+      document.getElementById('deal-address-label').textContent = 'Error loading deal: ' + e.message;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

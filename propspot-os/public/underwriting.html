@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Underwriting</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .uw-table-wrap { overflow-x: auto; }
+    .uw-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .uw-table th, .uw-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border, #e5e7eb); white-space: nowrap; }
+    .uw-table th { background: var(--surface-2, #f9fafb); font-weight: 600; font-size: .78rem; color: var(--text-muted, #6b7280); text-transform: uppercase; letter-spacing: .04em; }
+    .uw-table tbody tr:hover { background: var(--surface-hover, #f3f4f6); cursor: pointer; }
+    .uw-table td.num { text-align: right; }
+    .uw-table td.profit-pos { color: #16a34a; font-weight: 600; }
+    .uw-table td.profit-neg { color: #dc2626; font-weight: 600; }
+    .badge-dscr { background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
+    .badge-flip { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
+    .badge-none { background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
+    /* Modal */
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center; }
+    .modal-backdrop.open { display:flex; }
+    .modal { background:#fff; border-radius:12px; padding:28px 32px; width:min(620px,94vw); max-height:90vh; overflow-y:auto; }
+    .modal h2 { margin:0 0 20px; font-size:1.1rem; }
+    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; }
+    .modal-grid .full { grid-column: 1/-1; }
+    .form-group label { display:block; font-size:.8rem; font-weight:600; color:var(--text-muted,#6b7280); margin-bottom:4px; }
+    .form-group input { width:100%; box-sizing:border-box; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+    .empty-state { text-align:center; padding:60px 20px; }
+    .empty-state .empty-icon { font-size:2.5rem; margin-bottom:12px; }
+    .empty-state p { color:var(--text-muted,#6b7280); margin-bottom:16px; }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="section-header">
+    <span class="section-title" id="deals-count">Underwriting</span>
+    <button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;" onclick="openNewDeal()">+ New Deal</button>
+  </div>
+
+  <div id="view-root"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<!-- New Deal Modal -->
+<div class="modal-backdrop" id="new-deal-modal">
+  <div class="modal">
+    <h2>New Underwriting Deal</h2>
+    <form id="new-deal-form" onsubmit="submitNewDeal(event)">
+      <div class="modal-grid">
+        <div class="form-group full">
+          <label>Address *</label>
+          <input class="form-input" type="text" id="nd-address" required placeholder="123 Main St">
+        </div>
+        <div class="form-group">
+          <label>City</label>
+          <input class="form-input" type="text" id="nd-city" placeholder="Columbia">
+        </div>
+        <div class="form-group">
+          <label>State</label>
+          <input class="form-input" type="text" id="nd-state" placeholder="SC" maxlength="2">
+        </div>
+        <div class="form-group">
+          <label>ZIP</label>
+          <input class="form-input" type="text" id="nd-zip" placeholder="29201">
+        </div>
+        <div class="form-group">
+          <label>County</label>
+          <input class="form-input" type="text" id="nd-county" placeholder="Richland">
+        </div>
+        <div class="form-group">
+          <label>Sq Ft</label>
+          <input class="form-input" type="number" id="nd-sqft" placeholder="1400" min="0">
+        </div>
+        <div class="form-group">
+          <label>List Price</label>
+          <input class="form-input" type="number" id="nd-list-price" placeholder="120000" min="0">
+        </div>
+        <div class="form-group">
+          <label>Purchase Price</label>
+          <input class="form-input" type="number" id="nd-purchase-price" placeholder="100000" min="0">
+        </div>
+        <div class="form-group">
+          <label>Bridge ARV</label>
+          <input class="form-input" type="number" id="nd-bridge-arv" placeholder="160000" min="0">
+        </div>
+        <div class="form-group">
+          <label>DSCR ARV</label>
+          <input class="form-input" type="number" id="nd-dscr-arv" placeholder="155000" min="0">
+        </div>
+        <div class="form-group">
+          <label>Reno Budget</label>
+          <input class="form-input" type="number" id="nd-reno-budget" placeholder="25000" min="0">
+        </div>
+        <div class="form-group">
+          <label>Monthly Rent</label>
+          <input class="form-input" type="number" id="nd-rent" placeholder="1200" min="0">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeNewDeal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="nd-submit-btn">Create Deal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  window.NAV_CURRENT = 'underwriting';
+
+  // ── Calculation model (subset needed for table) ──────────────────────────
+  const DEFAULTS = {
+    bridgeARV:0, dscrARV:0, purchasePrice:0, renoBudget:0, rentOverride:0, uwRent:0,
+    annualPropertyTax:0, insuranceAnnual:0,
+    usePML:true, pmlAmount:0, pmlRate:0.10, pmlFees:0,
+    appreciationRate:0.03, includeAppreciation:true, sellAfterYears:5,
+    vacancyRate:0.05, rentEscalation:0.03, monthlyRepairs:100,
+    prepaidInterestDays:15, hoaMonths:12, insuranceMonths:8, propTaxMonths:11,
+    useDwellaPM:true, borrowMaxDSCR:true, riverstoneRate:0.10, applyEscalations:false,
+    bridgeRate:0.1099, maxLTV:0.75, maxLTC:1.00,
+    bridgeOrigPct:0.015, bridgeOrigMin:2250, bridgeUWFee:999,
+    bridgeClosingCosts:2300, bridgePreClosingExpenses:800, bridgePostClosingExpenses:0,
+    vacateDays:0, listingRefiDays:30, closingDays:45,
+    utilityCostsMonthly:150, bridgeInsuranceOverride:0,
+    dispoCommissionPct:0.03, dispoTransferTaxPct:0.0081, dispoClosingCosts:1500,
+    dscrRate:0.068, dscrMaxLTV:0.75, dscrOriginationPct:0.015, dscrOrigMin:2000,
+    dscrUWFee:750, dscrClosingCosts:2200, amortYears:30,
+    rentalOpEx: {}
+  };
+
+  const RENTAL_OPEX_LINES = [
+    { id:'HOA',         defaultFreq:'Annual',  autoFrom:null },
+    { id:'solar1',      defaultFreq:'Monthly', autoFrom:null },
+    { id:'insurance',   defaultFreq:'Annual',  autoFrom:'insuranceAnnual' },
+    { id:'landscaping', defaultFreq:'Annual',  autoFrom:null },
+    { id:'solar2',      defaultFreq:'Monthly', autoFrom:null },
+    { id:'propMgmt',    defaultFreq:'Monthly', autoFrom:null },
+    { id:'repairs',     defaultFreq:'Monthly', autoFrom:null },
+    { id:'supplies',    defaultFreq:'Annual',  autoFrom:null },
+    { id:'propertyTax', defaultFreq:'Annual',  autoFrom:'annualPropertyTax' },
+    { id:'trash',       defaultFreq:'Annual',  autoFrom:null },
+    { id:'utilities',   defaultFreq:'Monthly', autoFrom:null },
+    { id:'waterSewer',  defaultFreq:'Annual',  autoFrom:null },
+    { id:'other',       defaultFreq:'Annual',  autoFrom:null },
+  ];
+
+  function rd2(x) {
+    return (x >= 0 ? Math.floor(x * 100) : Math.ceil(x * 100)) / 100;
+  }
+  function pmt(r, n, pv) {
+    if (r === 0) return -pv / n;
+    return pv * r / (1 - Math.pow(1 + r, -n));
+  }
+  function excelRate(nper, pmtAmt, pv, fv) {
+    let r = 0.10;
+    for (let i = 0; i < 200; i++) {
+      let f, df;
+      try {
+        f  = pv * Math.pow(1+r, nper) + pmtAmt * (Math.pow(1+r, nper) - 1) / r + fv;
+        df = pv * nper * Math.pow(1+r, nper-1) +
+             pmtAmt * (nper * Math.pow(1+r, nper-1) / r - (Math.pow(1+r, nper) - 1) / (r*r));
+      } catch(e) { break; }
+      if (!isFinite(df) || df === 0) break;
+      const dr = f / df;
+      r -= dr;
+      if (Math.abs(dr) < 1e-12) return r;
+      r = Math.max(-0.999, Math.min(100.0, r));
+    }
+    let lo = -0.999, hi = 50.0;
+    const npv = rr => pv * Math.pow(1+rr, nper) + pmtAmt * (Math.pow(1+rr, nper)-1)/rr + fv;
+    for (let i = 0; i < 120; i++) {
+      const mid = (lo + hi) / 2;
+      if (npv(mid) > 0) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+  function daysRemainingInClosingMonth() {
+    const d = new Date(); d.setDate(d.getDate() + 10);
+    const eom = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return Math.round((eom - d) / 86400000);
+  }
+  function opexYearTotals(rentalOpEx, nYears, applyEscalations, syncInsurance, syncPropTax) {
+    const totals = new Array(nYears).fill(0);
+    for (const line of RENTAL_OPEX_LINES) {
+      const entry = rentalOpEx[line.id] || { amount: 0, frequency: line.defaultFreq, escalation: 0 };
+      let amount = entry.amount || 0;
+      if (line.autoFrom === 'insuranceAnnual' && syncInsurance != null) amount = syncInsurance;
+      if (line.autoFrom === 'annualPropertyTax' && syncPropTax != null) amount = syncPropTax;
+      const yr1 = entry.frequency === 'Monthly' ? amount * 12 : amount;
+      const esc = applyEscalations ? (entry.escalation || 0) : 0;
+      for (let i = 0; i < nYears; i++) totals[i] += yr1 * Math.pow(1 + esc, i);
+    }
+    return totals;
+  }
+  function compute(A) {
+    A = Object.assign({}, DEFAULTS, A);
+    const rentalOpEx = A.rentalOpEx || {};
+    const listPrice = A.listPrice || 0;
+
+    const G27 = A.purchasePrice, G29 = A.renoBudget, G30 = G27 + G29;
+    const C42 = G30 * A.maxLTC, C43 = A.bridgeARV * A.maxLTV;
+    const V9 = Math.min(C42, C43);
+    const renoDays = G29 / 1000;
+    const totalDays = Math.floor((A.vacateDays + renoDays + A.listingRefiDays + A.closingDays) * 100) / 100;
+
+    const botIns = A.bridgeInsuranceOverride > 0 ? A.bridgeInsuranceOverride : listPrice * 0.005;
+    const O14 = rd2(((A.utilityCostsMonthly * 12) + botIns + A.annualPropertyTax) / 365);
+    const L21 = rd2(V9 * A.bridgeRate / 365);
+
+    const V13 = A.bridgeClosingCosts;
+    const V14 = A.bridgePreClosingExpenses + A.bridgePostClosingExpenses;
+    const C46 = Math.max(V9 * A.bridgeOrigPct, A.bridgeOrigMin);
+    const V15 = C46, V16 = A.bridgeUWFee;
+    const V17 = (daysRemainingInClosingMonth() / 30.44) * L21;
+    const V19 = V13 + V14 + V15 + V16 + V17;
+    const V20 = totalDays * O14;
+    const V21 = (V9 * A.bridgeRate * totalDays / 365) - V17;
+    const V22 = A.usePML ? A.pmlFees : 0;
+    const V23 = A.usePML ? ((A.pmlAmount + V19 + V20 + V21) * A.pmlRate * totalDays / 365) : 0;
+    const V24 = V19 + V20 + V21 + V22 + V23;
+    const V10 = A.usePML ? A.pmlAmount : 0;
+    const V11 = G30 - V9 - V10;
+    const V26 = V11 + V24;
+    const V33 = V26 * A.riverstoneRate / 12;
+    const V37 = A.bridgeARV;
+    const V40 = -(V33 * totalDays / 30.44);
+    const V41 = -(V37 * A.dispoCommissionPct);
+    const V42 = -(V37 * A.dispoTransferTaxPct) - A.dispoClosingCosts;
+    const V46 = V37 + (-V9) + (-V10) + V40 + V41 + V42;
+    const flipProfit = V46 - V26;
+    const flipIRR = (totalDays > 0 && V26 > 0 && V46 > 0)
+      ? (Math.pow(V46 / V26, 365 / totalDays) - 1)
+      : NaN;
+
+    const Z9 = A.borrowMaxDSCR ? A.dscrARV * A.dscrMaxLTV : 0;
+    const Z13 = A.dscrClosingCosts;
+    const C80 = Math.max(Z9 * A.dscrOriginationPct, A.dscrOrigMin);
+    const Z15 = C80, Z16 = A.dscrUWFee;
+    const O21 = rd2(Z9 * A.dscrRate / 365);
+    const G76 = A.prepaidInterestDays * O21;
+    const hoaEntry = rentalOpEx.HOA || { amount: 0, frequency: 'Annual' };
+    const hoaMo = hoaEntry.frequency === 'Monthly' ? hoaEntry.amount : (hoaEntry.amount / 12);
+    const G77 = hoaMo * A.hoaMonths;
+    const G78 = (A.insuranceAnnual / 12) * A.insuranceMonths;
+    const G79 = (A.annualPropertyTax / 12) * A.propTaxMonths;
+    const G81 = G76 + G77 + G78 + G79;
+    const Z17 = G81;
+    const Z20 = Z13 + Z15 + Z16 + Z17;
+    const Z22 = Z20 - (Z9 - V9 - V10);
+    const Z26 = V26 + Z22;
+    const appr = A.includeAppreciation ? A.appreciationRate : 0;
+    const nYears = Math.round(A.sellAfterYears);
+    const Z37 = A.dscrARV * Math.pow(1 + appr, nYears);
+    const Z41 = -(Z37 * A.dispoCommissionPct);
+    const Z42 = -(Z37 * A.dispoTransferTaxPct) - A.dispoClosingCosts;
+    const Z43 = G81;
+    const monthlyRate = A.dscrRate / 12;
+    const monthlyPI = pmt(monthlyRate, Math.round(A.amortYears) * 12, Z9);
+    let bal = Z9, principalSum = 0;
+    for (let i = 0; i < 13; i++) {
+      const ip = bal * monthlyRate, pp = monthlyPI - ip;
+      principalSum += pp; bal -= pp;
+    }
+    const Z44 = (principalSum / 13) * 12 * nYears;
+    const Z46 = Z37 + (-Z9) + Z41 + Z42 + Z43 + Z44;
+
+    const rentMo = A.rentOverride > 0 ? A.rentOverride : (A.uwRent || 0);
+    const Z55 = rentMo, Z56 = -rentMo * A.vacancyRate, Z57 = -monthlyPI;
+    const opexYr1 = opexYearTotals(rentalOpEx, 1, false, A.insuranceAnnual, A.annualPropertyTax)[0];
+    const zOpexMo = opexYr1 / 12;
+    const Z33dscr = Z26 * A.riverstoneRate / 12;
+    const Z63 = -Z33dscr;
+    const Z64 = Z55 + Z56 + Z57 - zOpexMo + Z63;
+
+    const opexAll = opexYearTotals(rentalOpEx, nYears, true, A.insuranceAnnual, A.annualPropertyTax);
+    let cashflowTotal = 0;
+    for (let i = 0; i < nYears; i++) {
+      const yrRent = rentMo * Math.pow(1 + A.rentEscalation, i);
+      const yrVac = -yrRent * A.vacancyRate;
+      const yrOpex = opexAll[i] / 12;
+      cashflowTotal += (yrRent + yrVac - monthlyPI - yrOpex + Z63) * 12;
+    }
+    const Z48 = cashflowTotal;
+    const dscrProfit = Z46 - Z26 + Z48;
+    let dscrIRR;
+    if (Z26 < 0) dscrIRR = 100;
+    else if (Z26 === 0) dscrIRR = NaN;
+    else dscrIRR = excelRate(nYears, Z48 / nYears, -Z26, Z46);
+
+    return {
+      V9, V26, V46, flipProfit, flipIRR, totalDays,
+      Z9, Z26, Z46, Z64, dscrProfit, dscrIRR,
+      monthlyPI, rentMo, opexMo: zOpexMo
+    };
+  }
+
+  function bestStrategy(r) {
+    if (!isNaN(r.dscrIRR) && r.dscrIRR > 0.25) return 'DSCR';
+    if (!isNaN(r.flipProfit) && r.flipProfit > 30000) return 'Flip';
+    return 'None';
+  }
+
+  // ── Formatting helpers ───────────────────────────────────────────────────
+  function fmtMoney(n) {
+    if (n == null || isNaN(n)) return '—';
+    return '$' + Math.round(n).toLocaleString('en-US');
+  }
+  function fmtPct(n) {
+    if (n == null || isNaN(n)) return '—';
+    return (n * 100).toFixed(1) + '%';
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+
+  // ── Render table ─────────────────────────────────────────────────────────
+  let allDeals = [];
+
+  function renderTable() {
+    const el = document.getElementById('view-root');
+    const count = allDeals.length;
+    document.getElementById('deals-count').textContent =
+      `Underwriting · ${count === 1 ? '1 Deal' : count + ' Deals'}`;
+
+    if (!count) {
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <p>No underwriting deals yet.</p>
+        <button class="btn btn-primary" onclick="openNewDeal()">+ New Deal</button>
+      </div>`;
+      return;
+    }
+
+    const rows = allDeals.map(deal => {
+      // Use actual_results snapshot if available, else pro forma.
+      const snapData = deal.actual_results_data || deal.pro_forma_data || {};
+      let r = {};
+      try { r = compute(snapData); } catch(e) {}
+      const strat = bestStrategy(r);
+      const stratBadge = strat === 'DSCR'
+        ? `<span class="badge-dscr">DSCR</span>`
+        : strat === 'Flip'
+          ? `<span class="badge-flip">Flip</span>`
+          : `<span class="badge-none">None</span>`;
+
+      const fpCls = (r.flipProfit > 0) ? 'profit-pos' : (r.flipProfit < 0 ? 'profit-neg' : '');
+      const dpCls = (r.dscrProfit > 0) ? 'profit-pos' : (r.dscrProfit < 0 ? 'profit-neg' : '');
+      const fiCls = (r.flipIRR > 0) ? 'profit-pos' : (r.flipIRR < 0 ? 'profit-neg' : '');
+      const diCls = (r.dscrIRR > 0) ? 'profit-pos' : (r.dscrIRR < 0 ? 'profit-neg' : '');
+
+      return `<tr onclick="location.href='/underwriting-deal.html?id=${escHtml(deal.id)}'">
+        <td><strong>${escHtml(deal.address)}</strong></td>
+        <td>${escHtml(deal.city || '')}</td>
+        <td>${escHtml(deal.state || '')}</td>
+        <td class="num">${fmtMoney(snapData.purchasePrice)}</td>
+        <td class="num">${fmtMoney(snapData.bridgeARV)}</td>
+        <td class="num">${fmtMoney(snapData.dscrARV)}</td>
+        <td class="num ${fpCls}">${fmtMoney(r.flipProfit)}</td>
+        <td class="num ${dpCls}">${fmtMoney(r.dscrProfit)}</td>
+        <td class="num ${fiCls}">${fmtPct(r.flipIRR)}</td>
+        <td class="num ${diCls}">${fmtPct(r.dscrIRR)}</td>
+        <td>${stratBadge}</td>
+        <td>${fmtDate(deal.last_updated)}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `<div class="uw-table-wrap">
+      <table class="uw-table">
+        <thead>
+          <tr>
+            <th>Address</th><th>City</th><th>State</th>
+            <th class="num">Purchase</th>
+            <th class="num">Bridge ARV</th><th class="num">DSCR ARV</th>
+            <th class="num">Flip Profit</th><th class="num">DSCR Profit</th>
+            <th class="num">Flip IRR</th><th class="num">DSCR IRR</th>
+            <th>Strategy</th><th>Updated</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  // ── Modal ────────────────────────────────────────────────────────────────
+  function openNewDeal() {
+    document.getElementById('new-deal-modal').classList.add('open');
+    document.getElementById('nd-address').focus();
+  }
+  function closeNewDeal() {
+    document.getElementById('new-deal-modal').classList.remove('open');
+    document.getElementById('new-deal-form').reset();
+  }
+  document.getElementById('new-deal-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('new-deal-modal')) closeNewDeal();
+  });
+
+  async function submitNewDeal(e) {
+    e.preventDefault();
+    const btn = document.getElementById('nd-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+
+    const purchasePrice = parseFloat(document.getElementById('nd-purchase-price').value) || 0;
+    const bridgeARV     = parseFloat(document.getElementById('nd-bridge-arv').value) || 0;
+    const dscrARV       = parseFloat(document.getElementById('nd-dscr-arv').value) || 0;
+    const renoBudget    = parseFloat(document.getElementById('nd-reno-budget').value) || 0;
+    const rentOverride  = parseFloat(document.getElementById('nd-rent').value) || 0;
+
+    const initial_data = { purchasePrice, bridgeARV, dscrARV, renoBudget, rentOverride };
+
+    try {
+      const deal = await apiFetch('/api/underwriting', {
+        method: 'POST',
+        body: JSON.stringify({
+          address:    document.getElementById('nd-address').value.trim(),
+          city:       document.getElementById('nd-city').value.trim(),
+          state:      document.getElementById('nd-state').value.trim(),
+          zip:        document.getElementById('nd-zip').value.trim(),
+          county:     document.getElementById('nd-county').value.trim(),
+          sqft:       parseFloat(document.getElementById('nd-sqft').value) || null,
+          list_price: parseFloat(document.getElementById('nd-list-price').value) || null,
+          initial_data
+        })
+      });
+      window.location.href = '/underwriting-deal.html?id=' + deal.id;
+    } catch (err) {
+      alert('Error: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Create Deal';
+    }
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  async function init() {
+    if (!await requireAuth()) return;
+    renderAppsRail();
+    renderTopHeader();
+    renderUserMenu();
+    try {
+      allDeals = await apiFetch('/api/underwriting');
+      renderTable();
+    } catch (err) {
+      document.getElementById('view-root').innerHTML =
+        `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

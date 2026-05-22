@@ -254,7 +254,7 @@ function renderUnifiedNav() {
     <a class="nav-link" data-app="inbox" href="#" style="display:none;">
       <span class="nav-icon">📧</span><span class="nav-label">Inbox</span>
     </a>
-    <a class="nav-link" data-app="underwriting" href="#" style="display:none;">
+    <a class="nav-link" data-osnav="underwriting" href="/underwriting.html">
       <span class="nav-icon">📊</span><span class="nav-label">Underwriting</span>
     </a>
     <div class="nav-spacer"></div>
@@ -342,7 +342,7 @@ function renderAppsRail() {
     <a class="apps-rail-link" data-app="fieldcam"     data-label="FieldCam"     style="display:none;" href="#">📸</a>
     <a class="apps-rail-link" data-app="pulse"        data-label="Pulse"        style="display:none;" href="#">💬</a>
     <a class="apps-rail-link" data-app="inbox"        data-label="Inbox"        style="display:none;" href="#">📧</a>
-    <a class="apps-rail-link" data-app="underwriting" data-label="Underwriting" style="display:none;" href="#">📊</a>
+    <a class="apps-rail-link apps-rail-link--active-check" data-osnav="underwriting" data-label="Underwriting" href="/underwriting.html">📊</a>
     <div class="apps-rail-spacer"></div>
     <button class="apps-rail-link apps-rail-signout" title="Sign out" onclick="signOut()">🚪</button>
   `;
