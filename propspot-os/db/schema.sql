@@ -976,6 +976,16 @@ SELECT t.id AS entity_id, u.id AS user_id
       AND (ag.scope->'inbox_ids') @> to_jsonb(t.shared_inbox_id::text)
     );
 
+-- G) Per-(user, entity_thread) read marker. Powers unread-mention counts.
+CREATE TABLE IF NOT EXISTS pulse_entity_thread_reads (
+  entity_thread_id UUID NOT NULL REFERENCES pulse_entity_threads(id) ON DELETE CASCADE,
+  user_id          UUID NOT NULL REFERENCES users(id)                ON DELETE CASCADE,
+  last_read_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (entity_thread_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS pulse_entity_thread_reads_user_idx
+  ON pulse_entity_thread_reads(user_id);
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
