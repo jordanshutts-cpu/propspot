@@ -972,4 +972,20 @@ CREATE TABLE IF NOT EXISTS uw_audit_log (
   changed_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS uw_audit_deal_idx ON uw_audit_log(deal_id, changed_at DESC);
+-- Conditional: only create this index if uw_audit_log actually has a
+-- deal_id column. The Python underwriter satellite (underwriter/) creates
+-- the same table with a `property_id` column instead, and when that
+-- service boots first the unguarded CREATE INDEX crashes initDb() and
+-- prevents propspot-os from starting (Railway healthcheck times out).
+-- TODO(jordan): resolve the two underwriting systems' schema conflict —
+-- pick one canonical owner of these tables. Both versions cannot work.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'uw_audit_log' AND column_name = 'deal_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS uw_audit_deal_idx
+      ON uw_audit_log(deal_id, changed_at DESC);
+  END IF;
+END $$;
