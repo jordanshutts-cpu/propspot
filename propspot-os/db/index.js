@@ -11,6 +11,52 @@ async function initDb() {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(schema);
 
+  // ── Underwriting tables — run as explicit individual queries so they are
+  // always applied even if the large schema batch stops early (pg simple-query
+  // protocol can silently drop trailing statements after complex DO blocks).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS uw_deals (
+      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      property_id       UUID REFERENCES properties(id) ON DELETE SET NULL,
+      address           TEXT NOT NULL,
+      city              TEXT,
+      state             TEXT,
+      zip               TEXT,
+      county            TEXT,
+      sqft              NUMERIC,
+      list_price        NUMERIC,
+      prelim_title_json JSONB,
+      created_by        UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at        TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS uw_snapshots (
+      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      deal_id    UUID NOT NULL REFERENCES uw_deals(id) ON DELETE CASCADE,
+      kind       TEXT NOT NULL CHECK(kind IN ('initial_pro_forma','actual_results')),
+      data_json  JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      UNIQUE(deal_id, kind)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS uw_audit_log (
+      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      deal_id    UUID NOT NULL REFERENCES uw_deals(id) ON DELETE CASCADE,
+      kind       TEXT NOT NULL,
+      field      TEXT NOT NULL,
+      old_value  JSONB,
+      new_value  JSONB,
+      changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      changed_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS uw_audit_deal_idx ON uw_audit_log(deal_id, changed_at DESC)`
+  );
+
   const seed = fs.readFileSync(path.join(__dirname, 'seed.sql'), 'utf8');
   await pool.query(seed);
 
