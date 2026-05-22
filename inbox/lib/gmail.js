@@ -75,7 +75,9 @@ async function getMessage(mailbox, messageId) {
   return data;
 }
 
-// Pull recent message IDs for initial backfill (limited).
+// Pull recent message IDs for initial backfill (limited). Kept for any
+// callers wanting a quick recent-only fetch; the sync worker now uses
+// listAllMessageIds for full-history backfill instead.
 async function listRecentMessageIds(mailbox, maxResults = 50) {
   const gmail = await clientForMailbox(mailbox);
   const { data } = await gmail.users.messages.list({
@@ -84,6 +86,26 @@ async function listRecentMessageIds(mailbox, maxResults = 50) {
     q: 'newer_than:30d'
   });
   return (data.messages || []).map(m => m.id);
+}
+
+// Pull a page of ALL message IDs in the mailbox, no time filter.
+// Used by the sync worker during the `backfill` phase. Gmail returns
+// messages newest-first by default; we paginate via pageToken.
+//
+// Returns: { messageIds: string[], nextPageToken: string|null,
+//            resultSizeEstimate: number }
+async function listAllMessageIds(mailbox, pageToken) {
+  const gmail = await clientForMailbox(mailbox);
+  const { data } = await gmail.users.messages.list({
+    userId: 'me',
+    maxResults: 500, // Gmail's maximum per page
+    pageToken: pageToken || undefined
+  });
+  return {
+    messageIds: (data.messages || []).map(m => m.id),
+    nextPageToken: data.nextPageToken || null,
+    resultSizeEstimate: data.resultSizeEstimate || 0
+  };
 }
 
 // Incremental sync via History API.
@@ -139,6 +161,7 @@ module.exports = {
   getProfile,
   getMessage,
   listRecentMessageIds,
+  listAllMessageIds,
   listHistorySince,
   getAttachmentData,
   sendRaw

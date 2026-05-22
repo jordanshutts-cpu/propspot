@@ -158,9 +158,19 @@
     }
     .msg-head .who { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .msg-head .when { color: var(--text-muted); flex-shrink: 0; }
-    .msg-body { padding: 12px 14px; font-size: .88rem; line-height: 1.55; }
-    .msg-body iframe { width: 100%; border: 0; min-height: 100px; background: #fff; }
+    .msg-body { padding: 12px 18px; font-size: .92rem; line-height: 1.6; }
+    .msg-body iframe { width: 100%; border: 0; min-height: 500px; background: #fff; }
     .msg-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; }
+    /* Collapsed message: hide body + attachments, show a one-line snippet,
+       make the header clickable. Expanded shows everything. */
+    .msg.collapsed .msg-body,
+    .msg.collapsed .msg-atts { display: none; }
+    .msg.collapsed .msg-head { cursor: pointer; }
+    .msg.collapsed .msg-head:hover { background: var(--bg); }
+    .msg-snippet { display: none; padding: 0 18px 12px; color: var(--text-muted); font-size: .82rem; }
+    .msg.collapsed .msg-snippet { display: block; cursor: pointer; }
+    .msg.collapsed .msg-snippet:hover { background: var(--bg); }
+    .msg-toggle { font-size: .75rem; color: var(--text-muted); margin-right: 6px; user-select: none; }
     .msg-atts { padding: 0 14px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
     .att-chip {
       display: inline-flex; gap: 6px; align-items: center;
@@ -586,7 +596,11 @@ function renderThreadDetail() {
     ? (lastInbound.from_name ? `${lastInbound.from_name} <${lastInbound.from_email}>` : lastInbound.from_email)
     : (t.participants?.[0] || '(no recipient)');
 
-  const messagesHtml = (t.messages || []).map(m => messageHtml(m)).join('');
+  // Most recent message is the LAST one (messages are chronological).
+  // Expand only that one by default; everything older is collapsed and
+  // can be clicked to expand.
+  const lastIdx = (t.messages || []).length - 1;
+  const messagesHtml = (t.messages || []).map((m, i) => messageHtml(m, i === lastIdx)).join('');
 
   document.getElementById('thread-detail').innerHTML = `
     <div class="thread-head">
@@ -613,14 +627,60 @@ function renderThreadDetail() {
   // Scroll to latest message
   const scroll = document.getElementById('messages-scroll');
   if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  // Auto-size the iframes of all currently-expanded messages to their
+  // rendered content height (so emails don't get truncated at the 500px
+  // min-height when they're actually taller).
+  document.querySelectorAll('.msg.expanded iframe').forEach(autoSizeIframe);
 }
-function messageHtml(m) {
+
+// Toggle a message's collapsed/expanded state. Called from the msg-head
+// and msg-snippet click handlers.
+function toggleMsg(el) {
+  const msg = el.closest('.msg');
+  if (!msg) return;
+  const wasCollapsed = msg.classList.contains('collapsed');
+  msg.classList.toggle('collapsed');
+  msg.classList.toggle('expanded');
+  // Update the chevron
+  const toggle = msg.querySelector('.msg-toggle');
+  if (toggle) toggle.textContent = msg.classList.contains('expanded') ? '▾' : '▸';
+  // If we just expanded, size the iframe to its content.
+  if (wasCollapsed) {
+    const iframe = msg.querySelector('iframe');
+    if (iframe) autoSizeIframe(iframe);
+  }
+}
+
+// Resize the iframe to fit its rendered email content. Requires
+// sandbox="allow-same-origin" so we can read the iframe's body height
+// from the parent document. Scripts in the iframe remain blocked.
+function autoSizeIframe(iframe) {
+  const doSize = () => {
+    try {
+      const h = iframe.contentDocument?.body?.scrollHeight;
+      if (h && h > 100) iframe.style.height = (h + 20) + 'px';
+    } catch (e) {
+      // Same-origin denied (older browsers / strict CSP); fall back to
+      // the CSS min-height of 500px.
+    }
+  };
+  // If iframe is already loaded, size now. Otherwise wait for load.
+  if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+    doSize();
+  } else {
+    iframe.addEventListener('load', doSize, { once: true });
+  }
+}
+
+function messageHtml(m, isExpanded) {
   const who = m.is_outbound
     ? `<strong>${escapeHtml(m.sent_by_name || 'You')}</strong> <span class="text-muted">via ${escapeHtml(m.delivered_to_alias || m.from_email)}</span>`
     : `<strong>${escapeHtml(m.from_name || m.from_email)}</strong> <span class="text-muted">&lt;${escapeHtml(m.from_email)}&gt;</span>`;
   const when = new Date(m.received_at).toLocaleString();
+  // sandbox="allow-same-origin" lets us read contentDocument.body.scrollHeight
+  // for auto-sizing while still blocking scripts inside the email HTML.
   const body = m.body_html
-    ? `<iframe srcdoc="${escapeHtml(m.body_html)}" sandbox=""></iframe>`
+    ? `<iframe srcdoc="${escapeHtml(m.body_html)}" sandbox="allow-same-origin"></iframe>`
     : `<pre>${escapeHtml(m.body_text || m.snippet || '(empty)')}</pre>`;
   const atts = (m.attachments || []).map(a => `
     <span class="att-chip">
@@ -629,12 +689,17 @@ function messageHtml(m) {
       ${a.saved ? '<span class="badge badge-green">Saved</span>' : ''}
     </span>
   `).join('');
+  const snippet = (m.snippet || m.body_text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  const stateClass = isExpanded ? 'expanded' : 'collapsed';
+  const toggleIcon = isExpanded ? '▾' : '▸';
   return `
-    <div class="msg">
-      <div class="msg-head">
+    <div class="msg ${stateClass}">
+      <div class="msg-head" onclick="toggleMsg(this)">
+        <span class="msg-toggle">${toggleIcon}</span>
         <span class="who">${who}</span>
         <span class="when">${when}</span>
       </div>
+      <div class="msg-snippet" onclick="toggleMsg(this)">${escapeHtml(snippet)}</div>
       <div class="msg-body">${body}</div>
       ${atts ? `<div class="msg-atts">${atts}</div>` : ''}
     </div>
