@@ -11,9 +11,32 @@ async function initDb() {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(schema);
 
-  // ── Underwriting tables — run as explicit individual queries so they are
-  // always applied even if the large schema batch stops early (pg simple-query
-  // protocol can silently drop trailing statements after complex DO blocks).
+  // ── Underwriting tables migration ────────────────────────────────────────
+  // The legacy Python underwriter service created uw_audit_log with a
+  // different schema (property_id instead of deal_id). If those old tables
+  // are present, drop them first so we can recreate with the correct schema.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name = 'uw_audit_log'
+      ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name   = 'uw_audit_log'
+           AND column_name  = 'deal_id'
+      ) THEN
+        DROP TABLE IF EXISTS uw_audit_log CASCADE;
+        DROP TABLE IF EXISTS uw_snapshots  CASCADE;
+        DROP TABLE IF EXISTS uw_deals      CASCADE;
+      END IF;
+    END $$;
+  `);
+
+  // Run as explicit individual queries so they are always applied even if the
+  // large schema batch stops early (pg simple-query protocol can silently drop
+  // trailing statements after complex DO blocks).
   await pool.query(`
     CREATE TABLE IF NOT EXISTS uw_deals (
       id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
