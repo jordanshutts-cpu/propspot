@@ -280,7 +280,7 @@
     <form onsubmit="submitCompose(event)">
       <div class="form-group">
         <label class="form-label">Send from *</label>
-        <select class="form-select" id="c-from" required></select>
+        <select class="form-select" id="c-from" required onchange="refreshComposeSignatureRow()"></select>
         <div class="text-muted text-sm" style="margin-top:6px;">Only aliases routed to a shared inbox you can access are shown.</div>
       </div>
       <div class="form-row">
@@ -301,9 +301,14 @@
         <label class="form-label">Message *</label>
         <textarea class="form-textarea" id="c-body" rows="8" required></textarea>
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="closeCompose()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Send</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <label id="compose-sig-row" class="text-sm text-muted" style="display:none;">
+          <input type="checkbox" id="compose-include-sig" checked> Include signature
+        </label>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button type="button" class="btn btn-secondary" onclick="closeCompose()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Send</button>
+        </div>
       </div>
     </form>
   </div>
@@ -368,7 +373,8 @@ const STATE = {
   searchQuery:     '',
   activeThreadId:  null,       // selected thread (right pane)
   activeThread:    null,       // full thread data + messages
-  composeAliases:  []
+  composeAliases:  [],
+  sharedInboxes:   null
 };
 
 // ── Init ───────────────────────────────────────────────────────
@@ -816,7 +822,8 @@ async function openCompose() {
     STATE.composeAliases = (data.routed || []).map(r => ({
       mailbox_id: r.mailbox_id,
       alias_email: r.alias_email,
-      inbox: r.shared_inbox_name
+      inbox: r.shared_inbox_name,
+      shared_inbox_id: r.shared_inbox_id
     }));
   } catch {
     STATE.composeAliases = [];
@@ -829,6 +836,21 @@ async function openCompose() {
       .map(a => `<option value="${a.mailbox_id}::${a.alias_email}">${escapeHtml(a.alias_email)} → ${escapeHtml(a.inbox)}</option>`)
       .join('');
   }
+  refreshComposeSignatureRow();
+}
+async function refreshComposeSignatureRow() {
+  const aliasId = document.getElementById('c-from')?.value;
+  const alias = STATE.composeAliases.find(a => `${a.mailbox_id}::${a.alias_email}` === aliasId);
+  const sharedInboxId = alias?.shared_inbox_id;
+  if (!sharedInboxId) {
+    document.getElementById('compose-sig-row').style.display = 'none';
+    return;
+  }
+  const all = STATE.sharedInboxes || (await listSharedInboxes());
+  STATE.sharedInboxes = all;
+  const inbox = all.find(s => s.id === sharedInboxId);
+  document.getElementById('compose-sig-row').style.display =
+    (inbox && inbox.signature_html && inbox.signature_html.trim()) ? '' : 'none';
 }
 function closeCompose() { document.getElementById('modal-compose').classList.remove('open'); }
 async function submitCompose(e) {
@@ -842,7 +864,8 @@ async function submitCompose(e) {
     to: document.getElementById('c-to').value.trim(),
     cc: document.getElementById('c-cc').value.trim() || undefined,
     subject: document.getElementById('c-subject').value.trim(),
-    body_text: document.getElementById('c-body').value
+    body_text: document.getElementById('c-body').value,
+    include_signature: document.getElementById('compose-include-sig').checked
   };
   try {
     const r = await composeMessage(body);
