@@ -44,7 +44,7 @@ app.get(['/api/me', '/api/auth/me'], async (req, res) => {
 
 // ── Health Check (Railway uses this) ──────────────────────────
 app.get('/api/health', (req, res) =>
-  res.json({ status: 'ok', service: 'holdings-desk', timestamp: new Date().toISOString() })
+  res.json({ status: 'ok', service: 'holdings', timestamp: new Date().toISOString() })
 );
 
 // ── Public config (non-secret values for the frontend) ────────
@@ -55,6 +55,7 @@ app.get('/api/config', (req, res) => {
     maintenanceUrl: process.env.MAINTENANCE_URL || '',
     fieldcamUrl:    process.env.FIELDCAM_URL    || '',
     pulseUrl:       process.env.PULSE_URL       || '',
+    inboxUrl:       process.env.INBOX_URL       || '',
     underwritingUrl: process.env.UNDERWRITING_URL || ''
   });
 });

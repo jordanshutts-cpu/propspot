@@ -1,7 +1,7 @@
 {
-  "name": "holdings",
+  "name": "inbox",
   "version": "1.0.0",
-  "description": "Holdings Desk — per-property obligations (utilities, insurance, taxes, mortgages, licenses, HOA). Satellite app that shares Prop Spot's Postgres + JWT.",
+  "description": "Shared team email tagged to properties — satellite app on Prop Spot",
   "main": "server.js",
   "engines": {
     "node": ">=18"
@@ -15,8 +15,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "googleapis": "^144.0.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
     "pg": "^8.11.5"
   },
   "devDependencies": {

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inbox — Shared inboxes & access</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1200px; margin: 0 auto; padding: 16px; }
+    @media (max-width: 880px) { .admin-grid { grid-template-columns: 1fr; } }
+    .admin-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+    .admin-tabs a { padding: 8px 14px; text-decoration: none; color: var(--text-muted); border-bottom: 2px solid transparent; }
+    .admin-tabs a.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+    .si-row { padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .si-row:last-child { border-bottom: none; }
+    .si-row.active { background: var(--brand-light); }
+    .si-row .si-title { font-weight: 700; }
+    .member-row { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
+    .member-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="location.href='/inbox.html'">← Back</button>
+  <span class="logo">📧 Admin</span>
+</header>
+
+<main style="max-width:1200px;margin:0 auto;padding:16px;">
+  <div class="admin-tabs">
+    <a href="/admin-mailboxes.html">Mailboxes & aliases</a>
+    <a href="/admin-shared.html" class="active">Shared inboxes & access</a>
+  </div>
+
+  <div class="admin-grid">
+    <section>
+      <div class="section-header">
+        <span class="section-title">Shared inboxes</span>
+        <button class="btn btn-primary btn-sm" onclick="openCreate()">+ New</button>
+      </div>
+      <div class="card"><div id="shared-list"><p class="text-muted text-sm" style="padding:14px;">Loading…</p></div></div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <span class="section-title" id="member-title">Pick a shared inbox →</span>
+      </div>
+      <div class="card"><div id="member-list"></div></div>
+    </section>
+  </div>
+</main>
+
+<!-- Create modal -->
+<div class="modal-backdrop" id="modal-create">
+  <div class="modal">
+    <div class="modal-title">New shared inbox</div>
+    <form onsubmit="submitCreate(event)">
+      <div class="form-group">
+        <label class="form-label">Name *</label>
+        <input class="form-input" id="c-name" placeholder="e.g. Acquisitions" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Slug *</label>
+        <input class="form-input" id="c-slug" placeholder="acquisitions" required>
+        <div class="text-muted text-sm">Lowercase, no spaces — used in URLs.</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Icon</label>
+          <input class="form-input" id="c-icon" value="📨">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input class="form-input" id="c-desc">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeCreate()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'inbox';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let SHARED = [];
+let ACTIVE = null;
+let TEAM = [];
+
+async function init() {
+  if (!await requireAuthOrRedirect()) return;
+  await Promise.all([loadShared(), loadTeam()]);
+}
+
+async function loadShared() {
+  try { SHARED = await listSharedInboxes(); }
+  catch (err) { document.getElementById('shared-list').innerHTML = `<p class="text-muted text-sm" style="padding:14px;">${escapeHtml(err.message)}</p>`; return; }
+  if (!SHARED.length) {
+    document.getElementById('shared-list').innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No shared inboxes yet.</p>`;
+    return;
+  }
+  document.getElementById('shared-list').innerHTML = SHARED.map(s => `
+    <div class="si-row ${ACTIVE?.id === s.id ? 'active' : ''}" onclick="selectShared('${s.id}')">
+      <div class="si-title">${s.icon || '📨'} ${escapeHtml(s.name)}</div>
+      <div class="text-muted text-sm">${escapeHtml(s.description || '')}</div>
+      <div class="text-muted text-sm" style="margin-top:4px;">${s.open_count} open • ${s.unread_count} unread</div>
+    </div>
+  `).join('');
+}
+
+async function loadTeam() {
+  // Pull the full team via propspot-os /api/os/me which only returns the caller.
+  // Best-effort: call propspot-os /api/users via the OS through a known route.
+  // We use the configured OS URL.
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (!cfg.osUrl) { TEAM = []; return; }
+    const r = await fetch(cfg.osUrl + '/api/users', { headers: { Authorization: 'Bearer ' + getToken() } });
+    TEAM = await r.json().catch(() => []);
+  } catch { TEAM = []; }
+}
+
+async function selectShared(id) {
+  ACTIVE = SHARED.find(s => s.id === id);
+  await loadShared();
+  document.getElementById('member-title').textContent = `Members of "${ACTIVE.name}"`;
+  await loadMembers();
+}
+
+async function loadMembers() {
+  let current = [];
+  try { current = await listInboxMembers(ACTIVE.id); } catch {}
+  const currentIds = new Set(current.map(c => c.id));
+  const el = document.getElementById('member-list');
+  if (!TEAM.length) {
+    el.innerHTML = `
+      ${current.map(c => memberRowHtml(c, true)).join('')}
+      <p class="text-muted text-sm" style="padding:14px;">Couldn't load full team list — only existing members shown. Grant access via SQL or from the propspot-os Team page.</p>
+    `;
+    return;
+  }
+  el.innerHTML = TEAM.map(u => {
+    const isMember = currentIds.has(u.id);
+    return memberRowHtml(u, isMember);
+  }).join('');
+}
+
+function memberRowHtml(u, isMember) {
+  const source = (u.source === 'owner') ? '<span class="badge badge-amber">owner</span>' : '';
+  return `
+    <div class="member-row">
+      <div style="flex:1;">
+        <div style="font-weight:600;">${escapeHtml(u.full_name || u.email)} ${source}</div>
+        <div class="text-muted text-sm">${escapeHtml(u.email)}</div>
+      </div>
+      ${u.source === 'owner'
+        ? '<span class="text-muted text-sm">Auto (owner)</span>'
+        : (isMember
+            ? `<button class="btn btn-danger btn-xs" onclick="revoke('${u.id}')">Revoke</button>`
+            : `<button class="btn btn-primary btn-xs" onclick="grant('${u.id}')">Grant access</button>`)
+      }
+    </div>
+  `;
+}
+
+async function grant(user_id) {
+  try { await patchInboxMember(ACTIVE.id, { user_id, action: 'grant' }); showToast('Granted'); loadMembers(); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+async function revoke(user_id) {
+  try { await patchInboxMember(ACTIVE.id, { user_id, action: 'revoke' }); showToast('Revoked'); loadMembers(); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Create ─────────────────────────────────────────────────────
+function openCreate() {
+  document.getElementById('modal-create').classList.add('open');
+  document.getElementById('c-name').focus();
+}
+function closeCreate() { document.getElementById('modal-create').classList.remove('open'); }
+async function submitCreate(e) {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('c-name').value.trim(),
+    slug: document.getElementById('c-slug').value.trim().toLowerCase(),
+    icon: document.getElementById('c-icon').value || '📨',
+    description: document.getElementById('c-desc').value.trim() || null
+  };
+  try {
+    const created = await createSharedInbox(body);
+    showToast('Created');
+    closeCreate();
+    await loadShared();
+    selectShared(created.id);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

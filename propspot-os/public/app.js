@@ -179,6 +179,7 @@ async function wireUnifiedNav() {
     maintenance:  cfg.maintenanceUrl  || '',
     fieldcam:     cfg.fieldcamUrl     || '',
     pulse:        cfg.pulseUrl        || '',
+    inbox:        cfg.inboxUrl        || '',
     underwriting: cfg.underwritingUrl || ''
   };
 
@@ -249,6 +250,9 @@ function renderUnifiedNav() {
     </a>
     <a class="nav-link" data-app="pulse" href="#" style="display:none;">
       <span class="nav-icon">💬</span><span class="nav-label">Pulse</span>
+    </a>
+    <a class="nav-link" data-app="inbox" href="#" style="display:none;">
+      <span class="nav-icon">📧</span><span class="nav-label">Inbox</span>
     </a>
     <a class="nav-link" data-app="underwriting" href="#" style="display:none;">
       <span class="nav-icon">📊</span><span class="nav-label">Underwriting</span>
@@ -337,6 +341,7 @@ function renderAppsRail() {
     <a class="apps-rail-link" data-app="maintenance"  data-label="Maintenance"  style="display:none;" href="#">🛠️</a>
     <a class="apps-rail-link" data-app="fieldcam"     data-label="FieldCam"     style="display:none;" href="#">📸</a>
     <a class="apps-rail-link" data-app="pulse"        data-label="Pulse"        style="display:none;" href="#">💬</a>
+    <a class="apps-rail-link" data-app="inbox"        data-label="Inbox"        style="display:none;" href="#">📧</a>
     <a class="apps-rail-link" data-app="underwriting" data-label="Underwriting" style="display:none;" href="#">📊</a>
     <div class="apps-rail-spacer"></div>
     <button class="apps-rail-link apps-rail-signout" title="Sign out" onclick="signOut()">🚪</button>

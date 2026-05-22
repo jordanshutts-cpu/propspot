@@ -747,6 +747,137 @@ CREATE TABLE IF NOT EXISTS chat_user_presence (
 CREATE INDEX IF NOT EXISTS chat_user_presence_last_seen_idx
   ON chat_user_presence(last_seen_at DESC);
 
+-- ── Inbox satellite (email collaboration) ───────────────────────────────────
+-- Owned by Prop Spot; read/written by the inbox.propspot.io app via Gmail API
+-- (Microsoft Graph in Phase 2). Shared team inboxes route alias mail into
+-- per-inbox conversation threads that can be tagged to a property and have
+-- attachments saved into FieldCam's photo storage.
+
+-- Connected company mailboxes (Workspace logins propspot reads/sends on behalf of).
+CREATE TABLE IF NOT EXISTS inbox_mailboxes (
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider                 TEXT NOT NULL CHECK (provider IN ('google','microsoft')),
+  email                    TEXT NOT NULL UNIQUE,
+  display_name             TEXT,
+  refresh_token_encrypted  TEXT NOT NULL,
+  oauth_scopes             TEXT NOT NULL,
+  connected_by             UUID REFERENCES users(id) ON DELETE SET NULL,
+  connected_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_sync_at             TIMESTAMPTZ,
+  sync_state               JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status                   TEXT NOT NULL DEFAULT 'active'
+                             CHECK (status IN ('active','paused','error')),
+  status_reason            TEXT
+);
+
+-- Shared inboxes (team-owned, the unit users get access to).
+CREATE TABLE IF NOT EXISTS inbox_shared (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         TEXT NOT NULL,
+  slug         TEXT NOT NULL UNIQUE,
+  description  TEXT,
+  icon         TEXT,
+  created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Alias → shared inbox routing (one alias delivers to exactly one shared inbox).
+CREATE TABLE IF NOT EXISTS inbox_alias_routes (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mailbox_id      UUID NOT NULL REFERENCES inbox_mailboxes(id) ON DELETE CASCADE,
+  alias_email     TEXT NOT NULL,
+  shared_inbox_id UUID NOT NULL REFERENCES inbox_shared(id) ON DELETE CASCADE,
+  detected_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (mailbox_id, alias_email)
+);
+CREATE INDEX IF NOT EXISTS inbox_alias_routes_mailbox_idx ON inbox_alias_routes(mailbox_id);
+CREATE INDEX IF NOT EXISTS inbox_alias_routes_inbox_idx   ON inbox_alias_routes(shared_inbox_id);
+
+-- Normalized email thread (groups messages with the same provider thread id).
+CREATE TABLE IF NOT EXISTS inbox_threads (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shared_inbox_id      UUID REFERENCES inbox_shared(id) ON DELETE SET NULL,
+  mailbox_id           UUID NOT NULL REFERENCES inbox_mailboxes(id) ON DELETE CASCADE,
+  provider_thread_id   TEXT NOT NULL,
+  subject              TEXT,
+  participants         TEXT[] NOT NULL DEFAULT '{}',
+  last_message_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  message_count        INT NOT NULL DEFAULT 0,
+  has_attachments      BOOLEAN NOT NULL DEFAULT FALSE,
+  unread               BOOLEAN NOT NULL DEFAULT TRUE,
+  property_id          UUID REFERENCES properties(id) ON DELETE SET NULL,
+  tagged_at            TIMESTAMPTZ,
+  tagged_by            UUID REFERENCES users(id) ON DELETE SET NULL,
+  assigned_to_user_id  UUID REFERENCES users(id) ON DELETE SET NULL,
+  status               TEXT NOT NULL DEFAULT 'open'
+                         CHECK (status IN ('open','archived','snoozed')),
+  snooze_until         TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (mailbox_id, provider_thread_id)
+);
+CREATE INDEX IF NOT EXISTS inbox_threads_shared_inbox_idx
+  ON inbox_threads(shared_inbox_id, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS inbox_threads_property_idx
+  ON inbox_threads(property_id, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS inbox_threads_assigned_idx
+  ON inbox_threads(assigned_to_user_id);
+CREATE INDEX IF NOT EXISTS inbox_threads_status_idx
+  ON inbox_threads(status);
+
+-- Individual messages within a thread.
+CREATE TABLE IF NOT EXISTS inbox_messages (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  thread_id            UUID NOT NULL REFERENCES inbox_threads(id) ON DELETE CASCADE,
+  provider_message_id  TEXT NOT NULL,
+  from_email           TEXT NOT NULL,
+  from_name            TEXT,
+  to_emails            TEXT[] NOT NULL DEFAULT '{}',
+  cc_emails            TEXT[] NOT NULL DEFAULT '{}',
+  delivered_to_alias   TEXT,
+  subject              TEXT,
+  snippet              TEXT,
+  body_html            TEXT,
+  body_text            TEXT,
+  received_at          TIMESTAMPTZ NOT NULL,
+  is_outbound          BOOLEAN NOT NULL DEFAULT FALSE,
+  sent_by_user_id      UUID REFERENCES users(id) ON DELETE SET NULL,
+  raw_headers          JSONB,
+  UNIQUE (thread_id, provider_message_id)
+);
+CREATE INDEX IF NOT EXISTS inbox_messages_thread_idx
+  ON inbox_messages(thread_id, received_at);
+CREATE INDEX IF NOT EXISTS inbox_messages_alias_idx
+  ON inbox_messages(delivered_to_alias);
+
+-- Attachments on inbox messages (lazy-fetched from provider until saved).
+CREATE TABLE IF NOT EXISTS inbox_attachments (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id              UUID NOT NULL REFERENCES inbox_messages(id) ON DELETE CASCADE,
+  filename                TEXT NOT NULL,
+  mime_type               TEXT NOT NULL,
+  size_bytes              BIGINT,
+  provider_attachment_id  TEXT NOT NULL,
+  UNIQUE (message_id, provider_attachment_id)
+);
+CREATE INDEX IF NOT EXISTS inbox_attachments_message_idx ON inbox_attachments(message_id);
+
+-- Saves of attachments to properties (links email attachment to Cloudinary photo).
+CREATE TABLE IF NOT EXISTS inbox_attachment_saves (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attachment_id  UUID NOT NULL REFERENCES inbox_attachments(id) ON DELETE CASCADE,
+  property_id    UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  photo_id       UUID REFERENCES photos(id) ON DELETE SET NULL,
+  saved_filename TEXT NOT NULL,
+  saved_folder   TEXT NOT NULL,
+  saved_by       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  saved_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS inbox_attachment_saves_property_idx
+  ON inbox_attachment_saves(property_id);
+CREATE INDEX IF NOT EXISTS inbox_attachment_saves_attachment_idx
+  ON inbox_attachment_saves(attachment_id);
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -759,7 +890,8 @@ BEGIN
     'properties','contacts','prospects','leads','opportunities','purchases','projects',
     'holdings_items','holdings_payments','holdings_documents',
     'work_orders','lawn_maintenance',
-    'chat_channels'
+    'chat_channels',
+    'inbox_threads'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||

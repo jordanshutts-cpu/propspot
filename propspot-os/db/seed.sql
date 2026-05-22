@@ -8,7 +8,8 @@ VALUES
   ('underwriting', 'Underwriting',  'Offer underwriting and ARV modeling',                '💰', NULL, TRUE),
   ('maintenance',  'Maintenance',   'Work-order tracking for properties',                 '🛠️',  'https://maintenance.propspot.io', TRUE),
   ('holdings',     'Holdings Desk', 'Per-property obligations: utilities, insurance, taxes, mortgages, licenses, HOA', '💼', 'https://holdings.propspot.io', TRUE),
-  ('pulse',        'Pulse',         'Team messaging — channels, DMs, mentions',           '💬', 'https://pulse.propspot.io', TRUE)
+  ('pulse',        'Pulse',         'Team messaging — channels, DMs, mentions',           '💬', 'https://pulse.propspot.io', TRUE),
+  ('inbox',        'Inbox',         'Shared team email tagged to properties',             '📧', 'https://inbox.propspot.io', TRUE)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Auto-grant owners full access to every enabled app. Mirrors the grant

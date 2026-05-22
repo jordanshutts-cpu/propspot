@@ -46,6 +46,7 @@ app.get('/api/config', (req, res) => {
     maintenanceUrl: process.env.MAINTENANCE_URL || '',
     fieldcamUrl:    process.env.FIELDCAM_URL    || '',
     pulseUrl:       process.env.APP_URL         || '',
+    inboxUrl:       process.env.INBOX_URL       || '',
     underwritingUrl: process.env.UNDERWRITING_URL || ''
   });
 });

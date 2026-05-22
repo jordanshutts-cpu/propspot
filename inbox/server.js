@@ -6,15 +6,17 @@ const path    = require('path');
 const app = express();
 
 app.use(cors({ origin: process.env.APP_URL || '*', credentials: true }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── API Routes ────────────────────────────────────────────────────
-app.use('/api/work-orders', require('./routes/work-orders'));
-app.use('/api/updates',     require('./routes/updates'));
-app.use('/api/properties',  require('./routes/properties'));
-app.use('/api/lawn',        require('./routes/lawn'));
-app.use('/api/users',       require('./routes/users'));
+app.use('/api/mailboxes',       require('./routes/mailboxes'));
+app.use('/api/shared-inboxes',  require('./routes/shared-inboxes'));
+app.use('/api/alias-routes',    require('./routes/alias-routes'));
+app.use('/api/threads',         require('./routes/threads'));
+app.use('/api/messages',        require('./routes/messages'));
+app.use('/api/attachments',     require('./routes/attachments'));
+app.use('/api/properties',      require('./routes/properties'));
 
 // /api/me — pass-through to Prop Spot
 const OS_URL = process.env.OS_INTERNAL_URL || process.env.OS_URL || '';
@@ -32,17 +34,17 @@ app.get(['/api/me', '/api/auth/me'], async (req, res) => {
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
-  res.json({ status: 'ok', service: 'maintenance', timestamp: new Date().toISOString() })
+  res.json({ status: 'ok', service: 'inbox', timestamp: new Date().toISOString() })
 );
 
 app.get('/api/config', (req, res) => {
   res.json({
-    osUrl:          process.env.OS_URL          || '',
-    holdingsUrl:    process.env.HOLDINGS_URL    || '',
-    maintenanceUrl: process.env.MAINTENANCE_URL || '',
-    fieldcamUrl:    process.env.FIELDCAM_URL    || '',
-    pulseUrl:       process.env.PULSE_URL       || '',
-    inboxUrl:       process.env.INBOX_URL       || '',
+    osUrl:           process.env.OS_URL           || '',
+    holdingsUrl:     process.env.HOLDINGS_URL     || '',
+    maintenanceUrl:  process.env.MAINTENANCE_URL  || '',
+    fieldcamUrl:     process.env.FIELDCAM_URL     || '',
+    pulseUrl:        process.env.PULSE_URL        || '',
+    inboxUrl:        process.env.APP_URL          || '',
     underwritingUrl: process.env.UNDERWRITING_URL || ''
   });
 });
@@ -54,6 +56,11 @@ app.get('*', (req, res) => {
 
 const PORT = parseInt(process.env.PORT) || 3000;
 app.listen(PORT, () => {
-  console.log(`Maintenance running on port ${PORT}`);
+  console.log(`Inbox running on port ${PORT}`);
   console.log(`  http://localhost:${PORT}`);
+
+  // Start the background sync worker (pulls Gmail history per mailbox).
+  if (process.env.INBOX_SYNC_DISABLED !== '1') {
+    require('./workers/sync').start();
+  }
 });

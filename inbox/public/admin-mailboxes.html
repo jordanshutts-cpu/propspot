@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inbox — Mailboxes & Aliases</title>
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1200px; margin: 0 auto; padding: 16px; }
+    @media (max-width: 880px) { .admin-grid { grid-template-columns: 1fr; } }
+    .admin-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+    .admin-tabs a { padding: 8px 14px; text-decoration: none; color: var(--text-muted); border-bottom: 2px solid transparent; }
+    .admin-tabs a.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+    .mb-row { display: flex; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); align-items: center; }
+    .mb-row:last-child { border-bottom: none; }
+    .alias-row { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
+    .alias-row select { flex: 1; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <button class="back-btn" onclick="location.href='/inbox.html'">← Back</button>
+  <span class="logo">📧 Admin</span>
+</header>
+
+<main style="max-width:1200px;margin:0 auto;padding:16px;">
+  <div class="admin-tabs">
+    <a href="/admin-mailboxes.html" class="active">Mailboxes & aliases</a>
+    <a href="/admin-shared.html">Shared inboxes & access</a>
+  </div>
+
+  <div class="admin-grid">
+    <section>
+      <div class="section-header">
+        <span class="section-title">Connected mailboxes</span>
+        <button class="btn btn-primary btn-sm" onclick="addMailbox()">+ Connect mailbox</button>
+      </div>
+      <div class="card"><div id="mailbox-list"><p class="text-muted text-sm" style="padding:14px;">Loading…</p></div></div>
+      <p class="text-muted text-sm">Connect a Google Workspace mailbox once — propspot will auto-discover every alias that delivers to it and you can map each alias to a shared inbox on the right.</p>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <span class="section-title">Alias routing</span>
+        <button class="btn btn-secondary btn-sm" onclick="loadAliases()">Refresh</button>
+      </div>
+      <div class="card">
+        <div style="padding:10px 14px;font-size:.82rem;color:var(--text-muted);">Unmapped aliases — pick a shared inbox for each.</div>
+        <div id="unrouted-list"></div>
+        <div style="padding:10px 14px;font-size:.82rem;color:var(--text-muted);border-top:1px solid var(--border);">Already mapped</div>
+        <div id="routed-list"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<nav class="bottom-nav" id="nav"></nav>
+<script>window.NAV_CURRENT = 'inbox';</script>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let SHARED = [];
+
+async function init() {
+  if (!await requireAuthOrRedirect()) return;
+  // Surface ?connected=foo@bar query (set by OAuth callback redirect).
+  const just = new URLSearchParams(location.search).get('connected');
+  if (just) {
+    showToast('Connected ' + just);
+    history.replaceState(null, '', location.pathname);
+  }
+  await Promise.all([loadMailboxes(), refreshShared(), loadAliases()]);
+}
+
+async function refreshShared() {
+  try { SHARED = await listSharedInboxes(); } catch { SHARED = []; }
+}
+
+async function loadMailboxes() {
+  const el = document.getElementById('mailbox-list');
+  let rows = [];
+  try { rows = await listMailboxes(); }
+  catch (err) { el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">${escapeHtml(err.message)}</p>`; return; }
+  if (!rows.length) {
+    el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No mailboxes connected yet.</p>`;
+    return;
+  }
+  el.innerHTML = rows.map(m => `
+    <div class="mb-row">
+      <div style="flex:1;">
+        <div style="font-weight:600;">${escapeHtml(m.email)}</div>
+        <div class="text-muted text-sm">
+          ${escapeHtml(m.display_name || '')} •
+          ${m.alias_count} alias${m.alias_count === 1 ? '' : 'es'} •
+          ${m.last_sync_at ? 'last sync ' + relativeTime(m.last_sync_at) : 'not synced yet'}
+          ${m.status === 'error' ? '<span class="badge badge-red" title="' + escapeHtml(m.status_reason || '') + '">error</span>' : ''}
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-xs" onclick="forceSync('${m.id}')">Resync</button>
+      <button class="btn btn-danger btn-xs" onclick="disconnect('${m.id}', '${escapeHtml(m.email)}')">Disconnect</button>
+    </div>
+  `).join('');
+}
+
+async function addMailbox() {
+  try {
+    const { url } = await connectMailbox();
+    window.location.href = url;
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function forceSync(id) {
+  try { await resyncMailbox(id); showToast('Sync queued — refresh in a moment'); setTimeout(loadMailboxes, 1200); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+
+async function disconnect(id, email) {
+  if (!confirm(`Disconnect ${email}? All threads and messages from this mailbox will be removed from propspot. The mailbox itself is untouched.`)) return;
+  try { await disconnectMailbox(id); showToast('Disconnected'); loadMailboxes(); loadAliases(); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+
+async function loadAliases() {
+  let data = { routed: [], unrouted: [] };
+  try { data = await listAliasRoutes(); }
+  catch (err) {
+    document.getElementById('unrouted-list').innerHTML = `<p class="text-muted text-sm" style="padding:14px;">${escapeHtml(err.message)}</p>`;
+    return;
+  }
+  const inboxOptions = SHARED.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+
+  const ul = document.getElementById('unrouted-list');
+  if (!data.unrouted.length) ul.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">All discovered aliases are mapped.</p>`;
+  else ul.innerHTML = data.unrouted.map(a => `
+    <div class="alias-row" data-mb="${a.mailbox_id}" data-alias="${escapeHtml(a.alias_email)}">
+      <div style="flex:1;">
+        <div style="font-weight:600;">${escapeHtml(a.alias_email)}</div>
+        <div class="text-muted text-sm">via ${escapeHtml(a.mailbox_email)}</div>
+      </div>
+      <select class="form-select">
+        <option value="">— pick inbox —</option>
+        ${inboxOptions}
+      </select>
+      <button class="btn btn-primary btn-xs" onclick="mapAlias(this)">Map</button>
+    </div>
+  `).join('');
+
+  const rl = document.getElementById('routed-list');
+  if (!data.routed.length) rl.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No mappings yet.</p>`;
+  else rl.innerHTML = data.routed.map(r => `
+    <div class="alias-row">
+      <div style="flex:1;">
+        <div style="font-weight:600;">${escapeHtml(r.alias_email)}</div>
+        <div class="text-muted text-sm">via ${escapeHtml(r.mailbox_email)} → ${r.shared_inbox_icon || '📨'} ${escapeHtml(r.shared_inbox_name)}</div>
+      </div>
+      <button class="btn btn-danger btn-xs" onclick="unmap('${r.id}')">Unmap</button>
+    </div>
+  `).join('');
+}
+
+async function mapAlias(btn) {
+  const row = btn.closest('.alias-row');
+  const mailbox_id = row.dataset.mb;
+  const alias_email = row.dataset.alias;
+  const shared_inbox_id = row.querySelector('select').value;
+  if (!shared_inbox_id) return showToast('Pick an inbox first', 'error');
+  try { await saveAliasRoute({ mailbox_id, alias_email, shared_inbox_id }); showToast('Mapped'); loadAliases(); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+
+async function unmap(id) {
+  if (!confirm('Remove this alias mapping? Existing threads stay in place.')) return;
+  try { await deleteAliasRoute(id); showToast('Unmapped'); loadAliases(); }
+  catch (err) { showToast(err.message, 'error'); }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inbox — redirecting</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <p class="text-muted text-sm">Redirecting to Prop Spot to sign in…</p>
+</div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  if (getToken()) {
+    window.location.href = '/inbox.html';
+  } else {
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      const os = cfg.osUrl || '';
+      if (!os) { document.querySelector('.text-muted').textContent = 'OS_URL not configured. Ask an admin.'; return; }
+      const back = encodeURIComponent(location.origin + '/inbox.html');
+      window.location.href = os + '/index.html?return_to=' + back;
+    });
+  }
+</script>
+</body>
+</html>

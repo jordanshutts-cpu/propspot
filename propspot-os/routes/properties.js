@@ -283,4 +283,50 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// GET /api/properties/:id/email-threads — Inbox app email threads linked to
+// this property, filtered by the caller's shared-inbox scope.
+router.get('/:id/email-threads', async (req, res) => {
+  try {
+    // Resolve caller's inbox grant.
+    const { rows: u } = await query(
+      'SELECT is_owner FROM users WHERE id = $1', [req.userId]
+    );
+    if (!u[0]) return res.status(401).json({ error: 'User not found' });
+
+    let inboxFilterClause = '';
+    const params = [req.params.id];
+
+    if (!u[0].is_owner) {
+      const { rows: grant } = await query(`
+        SELECT ag.scope FROM app_grants ag
+          JOIN apps a ON a.id = ag.app_id
+         WHERE ag.user_id = $1 AND a.slug = 'inbox' LIMIT 1
+      `, [req.userId]);
+      const scope = grant[0]?.scope || {};
+      if (!scope.all) {
+        const allowed = Array.isArray(scope.inbox_ids) ? scope.inbox_ids : [];
+        if (!allowed.length) return res.json([]);
+        params.push(allowed);
+        inboxFilterClause = `AND t.shared_inbox_id = ANY($2::uuid[])`;
+      }
+    }
+
+    const { rows } = await query(`
+      SELECT t.id, t.subject, t.participants, t.last_message_at,
+             t.message_count, t.has_attachments, t.unread, t.status,
+             i.slug AS inbox_slug, i.name AS inbox_name, i.icon AS inbox_icon
+        FROM inbox_threads t
+   LEFT JOIN inbox_shared i ON i.id = t.shared_inbox_id
+       WHERE t.property_id = $1
+         ${inboxFilterClause}
+    ORDER BY t.last_message_at DESC
+       LIMIT 50
+    `, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('email-threads error:', err);
+    res.status(500).json({ error: 'Failed to fetch email threads' });
+  }
+});
+
 module.exports = router;
