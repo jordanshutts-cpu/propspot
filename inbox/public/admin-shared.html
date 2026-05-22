@@ -18,6 +18,13 @@
     .si-row .si-title { font-weight: 700; }
     .member-row { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
     .member-row:last-child { border-bottom: none; }
+    .sig-card { margin-top: 16px; }
+    .sig-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 880px) { .sig-editor { grid-template-columns: 1fr; } }
+    .sig-editor textarea { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .82rem; height: 220px; }
+    .sig-preview { border: 1px solid var(--border); border-radius: var(--radius); background: #fff; overflow: hidden; }
+    .sig-preview iframe { width: 100%; min-height: 220px; border: 0; }
+    .sig-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -42,12 +49,37 @@
       <div class="card"><div id="shared-list"><p class="text-muted text-sm" style="padding:14px;">Loading…</p></div></div>
     </section>
 
-    <section>
-      <div class="section-header">
-        <span class="section-title" id="member-title">Pick a shared inbox →</span>
-      </div>
-      <div class="card"><div id="member-list"></div></div>
-    </section>
+    <div>
+      <section>
+        <div class="section-header">
+          <span class="section-title" id="member-title">Pick a shared inbox →</span>
+        </div>
+        <div class="card"><div id="member-list"></div></div>
+      </section>
+
+      <section class="sig-card" id="sig-card" style="display:none;">
+        <div class="section-header">
+          <span class="section-title">Email signature</span>
+          <span class="text-muted text-sm">Appended to outgoing mail from this shared inbox.</span>
+        </div>
+        <div class="card" style="padding:14px;">
+          <div class="sig-editor">
+            <div>
+              <label class="form-label">HTML</label>
+              <textarea id="sig-html" class="form-textarea" placeholder="<p>Best,<br><b>Jordan</b></p>"></textarea>
+            </div>
+            <div>
+              <label class="form-label">Preview</label>
+              <div class="sig-preview"><iframe id="sig-preview" sandbox=""></iframe></div>
+            </div>
+          </div>
+          <div class="sig-actions">
+            <button class="btn btn-secondary" onclick="clearSignature()">Clear</button>
+            <button class="btn btn-primary" onclick="saveSignature()">Save signature</button>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 </main>
 
@@ -131,6 +163,7 @@ async function selectShared(id) {
   await loadShared();
   document.getElementById('member-title').textContent = `Members of "${ACTIVE.name}"`;
   await loadMembers();
+  loadSignature();
 }
 
 async function loadMembers() {
@@ -201,6 +234,44 @@ async function submitCreate(e) {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+function loadSignature() {
+  const card = document.getElementById('sig-card');
+  if (!ACTIVE) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const html = ACTIVE.signature_html || '';
+  document.getElementById('sig-html').value = html;
+  renderSignaturePreview(html);
+}
+
+function renderSignaturePreview(html) {
+  const iframe = document.getElementById('sig-preview');
+  iframe.srcdoc = html || '<p style="color:#888;font-family:sans-serif;padding:12px;">No signature set.</p>';
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'sig-html') {
+    renderSignaturePreview(e.target.value);
+  }
+});
+
+async function saveSignature() {
+  const html = document.getElementById('sig-html').value;
+  try {
+    const updated = await patchSharedInbox(ACTIVE.id, { signature_html: html });
+    ACTIVE.signature_html = updated.signature_html;
+    const i = SHARED.findIndex(s => s.id === ACTIVE.id);
+    if (i >= 0) SHARED[i] = { ...SHARED[i], signature_html: updated.signature_html };
+    showToast('Signature saved');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function clearSignature() {
+  document.getElementById('sig-html').value = '';
+  renderSignaturePreview('');
 }
 
 init();
