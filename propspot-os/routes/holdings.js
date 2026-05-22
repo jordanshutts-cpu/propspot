@@ -1,4 +1,4 @@
-// Holdings Desk lives in a separate satellite app at /home/user/propspot/holdings-desk/
+// Holdings lives as a satellite app in the propspot monorepo at propspot/holdings/
 // (deployed at holdings.propspot.io). Prop Spot keeps ONE read-only endpoint
 // here — /summary — so the dashboard can render portfolio-wide totals
 // without a cross-service hop. Tables (holdings_items, holdings_payments,
