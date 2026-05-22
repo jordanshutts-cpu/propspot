@@ -5,12 +5,16 @@
 INSERT INTO apps (slug, name, description, icon, base_url, enabled)
 VALUES
   ('fieldcam',     'FieldCam',      'Field photo management for renovation contractors', '📸', NULL, TRUE),
-  ('underwriting', 'Underwriting',  'Offer underwriting and ARV modeling',                '💰', NULL, TRUE),
+  ('underwriting', 'Underwriting',  'Offer underwriting and ARV modeling',                '💰', 'https://underwriter-production.up.railway.app', TRUE),
   ('maintenance',  'Maintenance',   'Work-order tracking for properties',                 '🛠️',  'https://maintenance.propspot.io', TRUE),
   ('holdings',     'Holdings Desk', 'Per-property obligations: utilities, insurance, taxes, mortgages, licenses, HOA', '💼', 'https://holdings.propspot.io', TRUE),
   ('pulse',        'Pulse',         'Team messaging — channels, DMs, mentions',           '💬', 'https://pulse.propspot.io', TRUE),
   ('inbox',        'Inbox',         'Shared team email tagged to properties',             '📧', 'https://inbox.propspot.io', TRUE)
 ON CONFLICT (slug) DO NOTHING;
+
+-- Patch base_url for underwriting in case the row already existed with NULL
+UPDATE apps SET base_url = 'https://underwriter-production.up.railway.app'
+ WHERE slug = 'underwriting' AND (base_url IS NULL OR base_url = '');
 
 -- Auto-grant owners full access to every enabled app. Mirrors the grant
 -- block in routes/auth.js POST /signup, but runs on every boot so that
