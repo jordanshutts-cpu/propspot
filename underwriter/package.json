@@ -1,0 +1,11 @@
+{
+  "name": "underwriter-redirect",
+  "version": "1.0.0",
+  "description": "Redirects uw.propspot.io to the native PropSpot OS underwriting page",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
