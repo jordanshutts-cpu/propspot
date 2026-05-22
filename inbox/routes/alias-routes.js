@@ -20,6 +20,12 @@ router.get('/', requireOwner, async (req, res) => {
       JOIN inbox_shared i    ON i.id = r.shared_inbox_id
   ORDER BY m.email, r.alias_email
   `);
+  // Unrouted alias candidates. Defense-in-depth filters (in case any bogus
+  // delivered_to_alias values were recorded before the threading.js fix):
+  //   - only inbound messages (msg.is_outbound = FALSE) — outbound message
+  //     recipients are NOT aliases on the mailbox
+  //   - only addresses on the SAME DOMAIN as the mailbox — external
+  //     addresses in Reply-All threads are recipients, not aliases
   const { rows: unrouted } = await query(`
     SELECT DISTINCT msg.delivered_to_alias AS alias_email,
                     t.mailbox_id,
@@ -28,6 +34,9 @@ router.get('/', requireOwner, async (req, res) => {
       JOIN inbox_threads t  ON t.id = msg.thread_id
       JOIN inbox_mailboxes m ON m.id = t.mailbox_id
      WHERE msg.delivered_to_alias IS NOT NULL
+       AND msg.is_outbound = FALSE
+       AND LOWER(SPLIT_PART(msg.delivered_to_alias, '@', 2))
+           = LOWER(SPLIT_PART(m.email, '@', 2))
        AND NOT EXISTS (
          SELECT 1 FROM inbox_alias_routes r
           WHERE r.mailbox_id = t.mailbox_id
