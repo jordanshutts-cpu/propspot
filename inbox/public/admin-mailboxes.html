@@ -88,7 +88,22 @@ async function loadMailboxes() {
     el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No mailboxes connected yet.</p>`;
     return;
   }
-  el.innerHTML = rows.map(m => `
+  el.innerHTML = rows.map(m => {
+    const phase = m.sync_state?.phase || (m.sync_state?.historyId ? 'incremental' : 'bootstrap');
+    let phaseLine = '';
+    if (phase === 'backfill') {
+      const n = (m.sync_state?.backfillMessagesProcessed || 0).toLocaleString();
+      phaseLine = `<div class="text-muted text-sm" style="margin-top:4px;"><span class="badge badge-amber">Backfilling</span> ${n} messages so far…</div>`;
+    } else if (phase === 'incremental') {
+      const total = (m.message_count || 0).toLocaleString();
+      phaseLine = `<div class="text-muted text-sm" style="margin-top:4px;">${total} messages synced</div>`;
+    } else if (phase === 'bootstrap') {
+      phaseLine = `<div class="text-muted text-sm" style="margin-top:4px;">Starting sync…</div>`;
+    }
+    const resyncTitle = phase === 'incremental'
+      ? 'Re-run full-history backfill from scratch'
+      : 'Restart sync';
+    return `
     <div class="mb-row">
       <div style="flex:1;">
         <div style="font-weight:600;">${escapeHtml(m.email)}</div>
@@ -98,11 +113,13 @@ async function loadMailboxes() {
           ${m.last_sync_at ? 'last sync ' + relativeTime(m.last_sync_at) : 'not synced yet'}
           ${m.status === 'error' ? '<span class="badge badge-red" title="' + escapeHtml(m.status_reason || '') + '">error</span>' : ''}
         </div>
+        ${phaseLine}
       </div>
-      <button class="btn btn-secondary btn-xs" onclick="forceSync('${m.id}')">Resync</button>
+      <button class="btn btn-secondary btn-xs" title="${resyncTitle}" onclick="forceSync('${m.id}')">Resync all</button>
       <button class="btn btn-danger btn-xs" onclick="disconnect('${m.id}', '${escapeHtml(m.email)}')">Disconnect</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function addMailbox() {

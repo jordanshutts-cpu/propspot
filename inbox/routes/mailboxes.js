@@ -72,8 +72,12 @@ router.get('/', async (req, res) => {
   const { rows } = await query(
     `SELECT m.id, m.provider, m.email, m.display_name,
             m.connected_at, m.last_sync_at, m.status, m.status_reason,
+            m.sync_state,
             u.full_name AS connected_by_name,
-            (SELECT COUNT(*) FROM inbox_alias_routes r WHERE r.mailbox_id = m.id)::int AS alias_count
+            (SELECT COUNT(*) FROM inbox_alias_routes r WHERE r.mailbox_id = m.id)::int AS alias_count,
+            (SELECT COUNT(*) FROM inbox_messages msg
+               JOIN inbox_threads t ON t.id = msg.thread_id
+              WHERE t.mailbox_id = m.id)::int AS message_count
        FROM inbox_mailboxes m
   LEFT JOIN users u ON u.id = m.connected_by
    ORDER BY m.connected_at DESC`
