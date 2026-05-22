@@ -12,9 +12,9 @@ VALUES
   ('inbox',        'Inbox',         'Shared team email tagged to properties',             '📧', 'https://inbox.propspot.io', TRUE)
 ON CONFLICT (slug) DO NOTHING;
 
--- Patch base_url for underwriting in case the row already existed with NULL
-UPDATE apps SET base_url = 'https://underwriter-production.up.railway.app'
- WHERE slug = 'underwriting' AND (base_url IS NULL OR base_url = '');
+-- Underwriting is now a built-in OS page — always point to its internal path.
+-- A leading slash signals "built-in" to apps.html (no token hand-off needed).
+UPDATE apps SET base_url = '/underwriting.html' WHERE slug = 'underwriting';
 
 -- Auto-grant owners full access to every enabled app. Mirrors the grant
 -- block in routes/auth.js POST /signup, but runs on every boot so that

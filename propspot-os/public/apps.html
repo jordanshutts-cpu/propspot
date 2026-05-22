@@ -25,13 +25,22 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  // Build a deep-link that hands off the OS-issued JWT to the satellite app.
+  // Build a launch URL for an app.
+  // • Relative paths (starting with /) = built-in OS page — link directly, no token needed.
+  // • Absolute URLs = satellite service — append OS JWT for single sign-on hand-off.
   function appLaunchUrl(baseUrl){
     if (!baseUrl) return null;
+    if (baseUrl.startsWith('/')) return baseUrl;   // built-in OS page
     const token = getToken();
     if (!token) return baseUrl;
     const sep = baseUrl.includes('?') ? '&' : '?';
     return baseUrl + sep + 'token=' + encodeURIComponent(token);
+  }
+
+  function appSubtitle(baseUrl){
+    if (!baseUrl)                return '<div class="text-xs text-muted">Not deployed yet</div>';
+    if (baseUrl.startsWith('/')) return '<div class="text-xs text-muted">Built into Prop Spot</div>';
+    return `<div class="text-xs text-muted">${escHtml(baseUrl)}</div>`;
   }
 
   async function init(){
@@ -63,7 +72,7 @@
           <div class="team-info">
             <div class="team-name">${escHtml(a.name)}</div>
             <div class="team-email">${escHtml(a.description || a.slug)}</div>
-            ${a.base_url ? `<div class="text-xs text-muted">${escHtml(a.base_url)}</div>` : `<div class="text-xs text-muted">Not deployed yet</div>`}
+            ${appSubtitle(a.base_url)}
           </div>
           ${badge}
         ${rowClose}`;
