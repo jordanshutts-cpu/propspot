@@ -4,34 +4,200 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#61B746">
-  <title>Inbox — Dashboard</title>
+  <title>Inbox</title>
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
-    .inbox-layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; max-width: 1400px; margin: 0 auto; padding: 16px; }
-    .inbox-list-sidebar { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px; height: fit-content; position: sticky; top: 16px; }
-    .inbox-list-sidebar h3 { font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 6px 0 8px; }
-    .inbox-list-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; font-size: .9rem; }
-    .inbox-list-item:hover { background: var(--bg); }
-    .inbox-list-item.active { background: var(--brand-light); color: var(--brand-dark); font-weight: 600; }
-    .inbox-list-item .badge { margin-left: auto; }
-    .thread-row { display: flex; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
-    .thread-row:hover { background: var(--bg); }
-    .thread-row.unread { background: #fff; font-weight: 600; }
-    .thread-row.unread:hover { background: var(--bg); }
-    .thread-from { flex: 0 0 180px; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .thread-subject { flex: 1; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .thread-meta { flex: 0 0 auto; display: flex; gap: 8px; align-items: center; font-size: .75rem; color: var(--text-muted); }
-    .thread-property-tag { background: var(--brand-light); color: var(--brand-dark); padding: 2px 6px; border-radius: 4px; font-size: .72rem; font-weight: 600; }
-    @media (max-width: 720px) {
-      .inbox-layout { grid-template-columns: 1fr; }
-      .inbox-list-sidebar { position: static; }
-      .thread-from { flex: 0 0 110px; font-size: .8rem; }
+    /* ── Three-column resizable inbox layout ─────────────────────────── */
+    .inbox-3col {
+      display: flex;
+      height: calc(100vh - 0px);
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .col-left   { width: 240px; flex: 0 0 auto; border-right: 1px solid var(--border); }
+    .col-middle { width: 380px; flex: 0 0 auto; border-right: 1px solid var(--border); background: var(--bg); }
+    .col-right  { flex: 1 1 0; min-width: 0; }
+
+    /* Resizer between columns */
+    .resizer {
+      width: 4px;
+      flex: 0 0 4px;
+      cursor: col-resize;
+      background: transparent;
+      transition: background .12s;
+    }
+    .resizer:hover,
+    .resizer.dragging { background: var(--brand); }
+
+    /* ── Left column (nav) ───────────────────────────────────────────── */
+    .col-left .col-head {
+      padding: 12px 12px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .col-left .col-head .brand {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1rem; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: .85rem;
+      background: var(--bg);
+    }
+    .search-input:focus { outline: none; border-color: var(--brand); }
+
+    .nav-section { padding: 12px 8px 4px; }
+    .nav-section-head {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 6px 6px;
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text-muted); font-weight: 700;
+    }
+    .nav-section-head .nav-head-title { flex: 1; }
+    .nav-section-icon-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 2px 5px; font-size: .85rem;
+      border-radius: 4px; color: var(--text-muted); line-height: 1;
+    }
+    .nav-section-icon-btn:hover { background: var(--brand-light); color: var(--brand-dark); }
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 6px;
+      cursor: pointer; font-size: .88rem;
+      color: var(--text);
+    }
+    .nav-item:hover { background: var(--bg); }
+    .nav-item.active { background: var(--brand-light); color: var(--brand-dark); font-weight: 600; }
+    .nav-item .count { margin-left: auto; font-size: .72rem; color: var(--text-muted); }
+    .nav-item.active .count { color: var(--brand-dark); }
+
+    .col-left .nav-scroll {
+      flex: 1; overflow-y: auto;
+    }
+
+    /* ── Middle column (thread list) ─────────────────────────────────── */
+    .col-middle .col-head {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface);
+    }
+    .col-middle .col-head h3 {
+      flex: 1; margin: 0; font-size: .95rem; font-weight: 700;
+    }
+    .col-middle .thread-list { flex: 1; overflow-y: auto; background: var(--surface); }
+    .pills-row {
+      display: flex; gap: 4px; padding: 8px 12px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .pills-row .pill { padding: 4px 10px; font-size: .78rem; }
+
+    .thread-card {
+      display: block; padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      font-size: .85rem;
+    }
+    .thread-card:hover { background: var(--bg); }
+    .thread-card.active { background: var(--brand-light); }
+    .thread-card.unread .thread-from,
+    .thread-card.unread .thread-subject { font-weight: 700; }
+    .thread-card.unread::before {
+      content: ''; display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--brand);
+      margin-right: 6px; vertical-align: middle;
+    }
+    .thread-row1 { display: flex; gap: 8px; align-items: center; }
+    .thread-from { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-time { font-size: .72rem; color: var(--text-muted); flex-shrink: 0; }
+    .thread-subject { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-snippet { margin-top: 3px; font-size: .78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-meta-row { display: flex; gap: 6px; margin-top: 5px; align-items: center; }
+    .property-tag {
+      background: var(--brand-light); color: var(--brand-dark);
+      padding: 1px 6px; border-radius: 4px;
+      font-size: .68rem; font-weight: 600;
+    }
+    .attach-tag { font-size: .72rem; color: var(--text-muted); }
+
+    /* ── Right column (thread detail) ────────────────────────────────── */
+    .col-right .empty-pane {
+      display: flex; align-items: center; justify-content: center;
+      flex: 1; color: var(--text-muted);
+      font-size: .9rem; padding: 20px;
+    }
+    .thread-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .thread-head h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; }
+    .thread-head .thread-head-meta { font-size: .78rem; color: var(--text-muted); }
+    .thread-head-actions {
+      display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;
+    }
+
+    .messages-scroll { flex: 1; overflow-y: auto; padding: 14px 18px; }
+    .msg {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+    }
+    .msg-head {
+      display: flex; gap: 10px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border); font-size: .82rem;
+    }
+    .msg-head .who { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .msg-head .when { color: var(--text-muted); flex-shrink: 0; }
+    .msg-body { padding: 12px 14px; font-size: .88rem; line-height: 1.55; }
+    .msg-body iframe { width: 100%; border: 0; min-height: 100px; background: #fff; }
+    .msg-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; }
+    .msg-atts { padding: 0 14px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .att-chip {
+      display: inline-flex; gap: 6px; align-items: center;
+      padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: .78rem; background: var(--bg);
+    }
+    .att-chip a { color: inherit; text-decoration: none; }
+    .att-chip .att-save { color: var(--brand); font-weight: 600; cursor: pointer; }
+
+    .reply-box {
+      padding: 12px 18px; border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .reply-box textarea {
+      width: 100%; min-height: 80px; padding: 8px 10px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: .88rem; font-family: inherit; resize: vertical;
+    }
+    .reply-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+    /* Pulse comments slot for Phase 3 integration */
+    .pulse-slot { margin: 0 18px 14px; }
+
+    /* ── Mobile / narrow viewport ────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .inbox-3col { flex-direction: column; height: auto; overflow: visible; }
+      .col-left, .col-middle, .col-right { width: 100% !important; flex: 0 0 auto; border-right: none; border-bottom: 1px solid var(--border); }
+      .resizer { display: none; }
+      .col-left .nav-scroll { max-height: 320px; }
+      .col-middle .thread-list { max-height: 480px; }
+      .messages-scroll { max-height: 60vh; }
     }
   </style>
 </head>
 <body>
 
+<!-- Mobile-only top bar (hidden on desktop by style.css line 332). -->
 <header class="app-header">
   <span class="logo">📧 Inbox</span>
   <div class="header-actions">
@@ -41,36 +207,63 @@
   </div>
 </header>
 
-<main class="inbox-layout">
-  <aside class="inbox-list-sidebar">
-    <h3>Shared inboxes</h3>
-    <div id="inbox-list">
-      <p class="text-muted text-sm">Loading…</p>
+<main class="inbox-3col">
+
+  <!-- ─── LEFT: nav + search ─────────────────────────────── -->
+  <aside class="col col-left" id="col-left">
+    <div class="col-head">
+      <div class="brand"><span>📧</span><span>Inbox</span></div>
+      <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
+    </div>
+    <div class="nav-scroll">
+      <div class="nav-section">
+        <div class="nav-section-head"><span class="nav-head-title">Inbox</span></div>
+        <div class="nav-item active" data-filter="open"><span>📬</span><span>Open</span><span class="count" id="count-open"></span></div>
+        <div class="nav-item" data-filter="archived"><span>📁</span><span>Archived</span></div>
+        <div class="nav-item" data-filter="assigned"><span>👤</span><span>Assigned to me</span></div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-head">
+          <span class="nav-head-title">Shared inboxes</span>
+          <button class="nav-section-icon-btn" title="Create a new shared inbox" onclick="location.href='/admin-shared.html'">+</button>
+          <button class="nav-section-icon-btn" title="Mailboxes &amp; aliases (admin)" onclick="location.href='/admin-mailboxes.html'">⚙️</button>
+        </div>
+        <div id="shared-list">
+          <p class="text-muted text-sm" style="padding: 6px 10px;">Loading…</p>
+        </div>
+      </div>
     </div>
   </aside>
 
-  <section>
-    <div class="section-header">
-      <span class="section-title" id="active-inbox-title">All threads</span>
-      <button class="btn btn-secondary btn-sm" onclick="refreshThreads()">Refresh</button>
-    </div>
+  <div class="resizer" id="rz-left" data-resize-prev="#col-left" data-storage-key="inbox_col_left_w" data-min="180" data-max="400"></div>
 
-    <div class="pills" id="filter-pills">
-      <button class="pill active" data-status="open">Open</button>
-      <button class="pill"        data-status="archived">Archived</button>
-      <button class="pill"        data-mine="1">Assigned to me</button>
+  <!-- ─── MIDDLE: thread list ───────────────────────────── -->
+  <section class="col col-middle" id="col-middle">
+    <div class="col-head">
+      <h3 id="active-inbox-title">All open threads</h3>
+      <button class="btn btn-primary btn-sm" onclick="openCompose()">✏️ Compose</button>
+      <button class="btn btn-secondary btn-sm" onclick="refreshThreads()" title="Refresh">↻</button>
     </div>
-
-    <div class="card">
-      <div id="threads"><p class="text-muted text-sm" style="padding:14px;">Loading threads…</p></div>
+    <div class="thread-list" id="threads">
+      <p class="text-muted text-sm" style="padding:14px;">Loading threads…</p>
     </div>
   </section>
+
+  <div class="resizer" id="rz-middle" data-resize-prev="#col-middle" data-storage-key="inbox_col_middle_w" data-min="280" data-max="600"></div>
+
+  <!-- ─── RIGHT: selected thread ─────────────────────────── -->
+  <section class="col col-right" id="col-right">
+    <div id="thread-detail">
+      <div class="empty-pane">Select a thread on the left to view it</div>
+    </div>
+  </section>
+
 </main>
 
 <nav class="bottom-nav" id="nav"></nav>
 <script>window.NAV_CURRENT = 'inbox';</script>
 
-<!-- Compose modal -->
+<!-- ─── Compose modal ─────────────────────────────── -->
 <div class="modal-backdrop" id="modal-compose">
   <div class="modal">
     <div class="modal-title">New email</div>
@@ -106,24 +299,153 @@
   </div>
 </div>
 
+<!-- ─── Link to property modal ─────────────────────── -->
+<div class="modal-backdrop" id="modal-link-prop">
+  <div class="modal">
+    <div class="modal-title">Link thread to a property</div>
+    <div class="form-group">
+      <label class="form-label">Search</label>
+      <input class="form-input" id="lp-search" placeholder="address, city, owner…" oninput="searchPropertiesDebounced(this.value)">
+      <select class="form-select" id="lp-results" size="6" style="margin-top:8px;"></select>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:8px;">
+      <button class="btn btn-danger btn-sm" onclick="unlinkProperty()" id="lp-unlink-btn" style="display:none;">Remove link</button>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn btn-secondary" onclick="closeLinkPropertyDialog()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmLinkProperty()">Link</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Save attachment to property modal ──────────── -->
+<div class="modal-backdrop" id="modal-save-att">
+  <div class="modal">
+    <div class="modal-title">Save attachment to property</div>
+    <input type="hidden" id="sa-att-id">
+    <div class="form-group">
+      <label class="form-label">Property</label>
+      <input class="form-input" id="sa-search" placeholder="search…" oninput="saSearchDebounced(this.value)">
+      <select class="form-select" id="sa-results" size="6" style="margin-top:8px;"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Folder</label>
+        <input class="form-input" id="sa-folder" value="Email attachments">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Filename</label>
+        <input class="form-input" id="sa-filename" required>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-secondary" onclick="closeSaveAtt()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmSaveAtt()">Save</button>
+    </div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-let STATE = {
-  user: null,
-  inboxes: [],
-  activeInboxSlug: null,
-  status: 'open',
-  assignedToMe: false,
-  composeAliases: []
+// ── Application state ──────────────────────────────────────────
+const STATE = {
+  user:            null,
+  inboxes:         [],         // shared inboxes
+  filter:          'open',     // 'open' | 'archived' | 'assigned'
+  activeInboxSlug: null,       // null = all
+  threads:         [],         // currently loaded thread list
+  searchQuery:     '',
+  activeThreadId:  null,       // selected thread (right pane)
+  activeThread:    null,       // full thread data + messages
+  composeAliases:  []
 };
 
+// ── Init ───────────────────────────────────────────────────────
 async function init() {
   STATE.user = await requireAuthOrRedirect();
   if (!STATE.user) return;
+  restoreColumnWidths();
+  setupResizers();
+  attachLeftNavHandlers();
+  attachSearchHandler();
   await loadInboxes();
-  attachPillHandlers();
-  refreshThreads();
+  await refreshThreads();
+
+  // Deep-link support: ?thread=<uuid>
+  const initialThread = new URLSearchParams(location.search).get('thread');
+  if (initialThread) selectThread(initialThread);
+}
+
+// ── Column resizers ────────────────────────────────────────────
+function restoreColumnWidths() {
+  document.querySelectorAll('.resizer').forEach(r => {
+    const prev = document.querySelector(r.dataset.resizePrev);
+    try {
+      const saved = parseInt(localStorage.getItem(r.dataset.storageKey), 10);
+      if (saved && !Number.isNaN(saved)) prev.style.width = saved + 'px';
+    } catch {}
+  });
+}
+function setupResizers() {
+  document.querySelectorAll('.resizer').forEach(r => {
+    const prev = document.querySelector(r.dataset.resizePrev);
+    const min = parseInt(r.dataset.min, 10) || 180;
+    const max = parseInt(r.dataset.max, 10) || 600;
+    r.addEventListener('mousedown', startResize);
+    function startResize(e) {
+      const startX = e.clientX;
+      const startW = prev.offsetWidth;
+      r.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      function onMove(ev) {
+        let w = startW + (ev.clientX - startX);
+        if (w < min) w = min;
+        if (w > max) w = max;
+        prev.style.width = w + 'px';
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        r.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        try { localStorage.setItem(r.dataset.storageKey, prev.offsetWidth); } catch {}
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    }
+  });
+}
+
+// ── Left nav ───────────────────────────────────────────────────
+function attachLeftNavHandlers() {
+  document.querySelectorAll('.nav-item[data-filter]').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      STATE.filter = el.dataset.filter;
+      STATE.activeInboxSlug = null;
+      updateActiveInboxTitle();
+      refreshThreads();
+    });
+  });
+}
+function updateActiveInboxTitle() {
+  let title;
+  if (STATE.activeInboxSlug) {
+    const inb = STATE.inboxes.find(i => i.slug === STATE.activeInboxSlug);
+    title = (inb?.icon || '📨') + ' ' + (inb?.name || STATE.activeInboxSlug);
+  } else if (STATE.filter === 'assigned') {
+    title = 'Assigned to me';
+  } else if (STATE.filter === 'archived') {
+    title = 'Archived threads';
+  } else {
+    title = 'All open threads';
+  }
+  document.getElementById('active-inbox-title').textContent = title;
 }
 
 async function loadInboxes() {
@@ -133,100 +455,297 @@ async function loadInboxes() {
     showToast(err.message, 'error');
     STATE.inboxes = [];
   }
-  const el = document.getElementById('inbox-list');
+  const el = document.getElementById('shared-list');
   if (!STATE.inboxes.length) {
-    el.innerHTML = `
-      <p class="text-muted text-sm">No shared inboxes yet.</p>
-      <a class="btn btn-primary btn-sm btn-full" href="/admin-shared.html" style="margin-top:10px;">Create one</a>
-    `;
+    el.innerHTML = `<p class="text-muted text-sm" style="padding:6px 10px;">None yet — click the <strong>+</strong> above to create one.</p>`;
     return;
   }
-  const items = [
-    `<div class="inbox-list-item ${!STATE.activeInboxSlug ? 'active' : ''}" onclick="selectInbox(null)">
-       <span>📬</span><span>All</span>
-     </div>`,
-    ...STATE.inboxes.map(i => `
-      <div class="inbox-list-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" onclick="selectInbox('${i.slug}')">
-        <span>${i.icon || '📨'}</span>
-        <span>${escapeHtml(i.name)}</span>
-        ${i.unread_count > 0 ? `<span class="badge badge-red">${i.unread_count}</span>` : ''}
-      </div>
-    `)
-  ];
-  el.innerHTML = items.join('');
-}
-
-function selectInbox(slug) {
-  STATE.activeInboxSlug = slug;
-  loadInboxes();
-  const title = slug
-    ? (STATE.inboxes.find(i => i.slug === slug)?.name || 'Inbox')
-    : 'All threads';
-  document.getElementById('active-inbox-title').textContent = title;
-  refreshThreads();
-}
-
-function attachPillHandlers() {
-  document.querySelectorAll('#filter-pills .pill').forEach(p => {
-    p.addEventListener('click', () => {
-      if (p.dataset.mine === '1') {
-        STATE.assignedToMe = !p.classList.contains('active');
-        document.querySelectorAll('#filter-pills .pill').forEach(x => x.classList.remove('active'));
-        if (STATE.assignedToMe) p.classList.add('active');
-      } else {
-        STATE.status = p.dataset.status;
-        STATE.assignedToMe = false;
-        document.querySelectorAll('#filter-pills .pill').forEach(x => x.classList.remove('active'));
-        p.classList.add('active');
-      }
+  el.innerHTML = STATE.inboxes.map(i => `
+    <div class="nav-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" data-inbox-slug="${i.slug}">
+      <span>${i.icon || '📨'}</span>
+      <span>${escapeHtml(i.name)}</span>
+      ${i.unread_count > 0 ? `<span class="count">${i.unread_count}</span>` : ''}
+    </div>
+  `).join('');
+  el.querySelectorAll('.nav-item').forEach(el2 => {
+    el2.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+      el2.classList.add('active');
+      STATE.activeInboxSlug = el2.dataset.inboxSlug;
+      STATE.filter = 'open';
+      updateActiveInboxTitle();
       refreshThreads();
     });
   });
 }
 
+// ── Search ─────────────────────────────────────────────────────
+function attachSearchHandler() {
+  let timer = null;
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      STATE.searchQuery = e.target.value.trim().toLowerCase();
+      renderThreadList();
+    }, 150);
+  });
+}
+function matchesSearch(t) {
+  if (!STATE.searchQuery) return true;
+  const haystack = [
+    t.subject || '',
+    (t.participants || []).join(' '),
+    t.address_line1 || '',
+    t.city || ''
+  ].join(' ').toLowerCase();
+  return haystack.includes(STATE.searchQuery);
+}
+
+// ── Thread list ────────────────────────────────────────────────
 async function refreshThreads() {
-  const params = { status: STATE.status };
+  const params = {};
   if (STATE.activeInboxSlug) params.inbox = STATE.activeInboxSlug;
-  if (STATE.assignedToMe) { params.assigned_to_me = '1'; delete params.status; }
-  let rows = [];
+  if (STATE.filter === 'archived') params.status = 'archived';
+  else if (STATE.filter === 'assigned') params.assigned_to_me = '1';
+  else params.status = 'open';
   try {
-    rows = await listThreads(params);
+    STATE.threads = await listThreads(params);
+  } catch (err) {
+    showToast(err.message, 'error');
+    STATE.threads = [];
+  }
+  renderThreadList();
+}
+function renderThreadList() {
+  const visible = STATE.threads.filter(matchesSearch);
+  const el = document.getElementById('threads');
+  if (!visible.length) {
+    el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No threads${STATE.searchQuery ? ' match your search' : ''}.</p>`;
+    return;
+  }
+  el.innerHTML = visible.map(t => threadCardHtml(t)).join('');
+  el.querySelectorAll('.thread-card').forEach(card => {
+    card.addEventListener('click', () => selectThread(card.dataset.threadId));
+  });
+}
+function threadCardHtml(t) {
+  const from = (t.participants && t.participants[0]) || '(no sender)';
+  const subj = t.subject || '(no subject)';
+  const tag = t.address_line1
+    ? `<span class="property-tag" title="${escapeHtml(propertyLabel(t))}">🏠 ${escapeHtml(t.address_line1)}</span>`
+    : '';
+  const att = t.has_attachments ? '<span class="attach-tag">📎</span>' : '';
+  const assigned = t.assigned_name ? `<span class="attach-tag">👤 ${escapeHtml(t.assigned_name.split(' ')[0])}</span>` : '';
+  const active = STATE.activeThreadId === t.id ? 'active' : '';
+  return `
+    <div class="thread-card ${t.unread ? 'unread' : ''} ${active}" data-thread-id="${t.id}">
+      <div class="thread-row1">
+        <span class="thread-from">${escapeHtml(from)}</span>
+        <span class="thread-time">${relativeTime(t.last_message_at)}</span>
+      </div>
+      <div class="thread-subject">${escapeHtml(subj)}</div>
+      <div class="thread-meta-row">
+        ${tag}${att}${assigned}
+      </div>
+    </div>
+  `;
+}
+
+// ── Selected thread (right pane) ───────────────────────────────
+async function selectThread(threadId) {
+  STATE.activeThreadId = threadId;
+  // Update URL without navigation so back/forward works and the link is bookmarkable.
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set('thread', threadId);
+    history.replaceState(null, '', u.toString());
+  } catch {}
+  // Re-render the list so the active highlight updates.
+  renderThreadList();
+  document.getElementById('thread-detail').innerHTML = '<div class="empty-pane">Loading…</div>';
+  try {
+    STATE.activeThread = await getThread(threadId);
+  } catch (err) {
+    document.getElementById('thread-detail').innerHTML = `<div class="empty-pane">${escapeHtml(err.message)}</div>`;
+    return;
+  }
+  renderThreadDetail();
+}
+
+function renderThreadDetail() {
+  const t = STATE.activeThread;
+  if (!t) return;
+  const headParts = [];
+  if (t.inbox_name) headParts.push(`<span>${t.inbox_icon || '📨'} ${escapeHtml(t.inbox_name)}</span>`);
+  headParts.push(`<span>${t.message_count} message${t.message_count === 1 ? '' : 's'}</span>`);
+  if (t.assigned_name) headParts.push(`<span>👤 ${escapeHtml(t.assigned_name)}</span>`);
+  if (t.address_line1) headParts.push(`<span class="property-tag">🏠 ${escapeHtml(t.address_line1)}, ${escapeHtml(t.city || '')}</span>`);
+
+  const lastInbound = [...(t.messages || [])].reverse().find(m => !m.is_outbound);
+  const replyTo = lastInbound
+    ? (lastInbound.from_name ? `${lastInbound.from_name} <${lastInbound.from_email}>` : lastInbound.from_email)
+    : (t.participants?.[0] || '(no recipient)');
+
+  const messagesHtml = (t.messages || []).map(m => messageHtml(m)).join('');
+
+  document.getElementById('thread-detail').innerHTML = `
+    <div class="thread-head">
+      <h2>${escapeHtml(t.subject || '(no subject)')}</h2>
+      <div class="thread-head-meta">${headParts.join(' • ')}</div>
+      <div class="thread-head-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('archived')">${t.status === 'archived' ? '📥 Unarchive' : '📁 Archive'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
+      </div>
+    </div>
+    <div class="messages-scroll" id="messages-scroll">
+      ${messagesHtml}
+      <div class="pulse-slot" id="pulse-slot" data-entity-type="inbox_thread" data-entity-id="${t.id}"></div>
+    </div>
+    <div class="reply-box">
+      <div class="text-muted text-sm" style="margin-bottom:6px;">Reply to <strong>${escapeHtml(replyTo)}</strong></div>
+      <textarea id="reply-body" placeholder="Type your reply…"></textarea>
+      <div class="reply-actions">
+        <button class="btn btn-primary" onclick="submitReply()">Send reply</button>
+      </div>
+    </div>
+  `;
+  // Scroll to latest message
+  const scroll = document.getElementById('messages-scroll');
+  if (scroll) scroll.scrollTop = scroll.scrollHeight;
+}
+function messageHtml(m) {
+  const who = m.is_outbound
+    ? `<strong>${escapeHtml(m.sent_by_name || 'You')}</strong> <span class="text-muted">via ${escapeHtml(m.delivered_to_alias || m.from_email)}</span>`
+    : `<strong>${escapeHtml(m.from_name || m.from_email)}</strong> <span class="text-muted">&lt;${escapeHtml(m.from_email)}&gt;</span>`;
+  const when = new Date(m.received_at).toLocaleString();
+  const body = m.body_html
+    ? `<iframe srcdoc="${escapeHtml(m.body_html)}" sandbox=""></iframe>`
+    : `<pre>${escapeHtml(m.body_text || m.snippet || '(empty)')}</pre>`;
+  const atts = (m.attachments || []).map(a => `
+    <span class="att-chip">
+      <a href="${attachmentUrl(a.id)}" target="_blank" rel="noopener">📎 ${escapeHtml(a.filename)}</a>
+      <span class="att-save" onclick="openSaveAtt('${a.id}', '${escapeHtml(a.filename)}')">↓ Save to property</span>
+      ${a.saved ? '<span class="badge badge-green">Saved</span>' : ''}
+    </span>
+  `).join('');
+  return `
+    <div class="msg">
+      <div class="msg-head">
+        <span class="who">${who}</span>
+        <span class="when">${when}</span>
+      </div>
+      <div class="msg-body">${body}</div>
+      ${atts ? `<div class="msg-atts">${atts}</div>` : ''}
+    </div>
+  `;
+}
+
+// ── Thread actions ─────────────────────────────────────────────
+async function submitReply() {
+  const body_text = document.getElementById('reply-body').value;
+  if (!body_text.trim()) return showToast('Reply is empty', 'error');
+  try {
+    await sendReply(STATE.activeThreadId, { body_text });
+    showToast('Reply sent');
+    setTimeout(() => selectThread(STATE.activeThreadId), 600);
   } catch (err) {
     showToast(err.message, 'error');
   }
-  const el = document.getElementById('threads');
-  if (!rows.length) {
-    el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No threads.</p>`;
-    return;
+}
+async function toggleStatus(target) {
+  const next = STATE.activeThread.status === target ? 'open' : target;
+  try {
+    await patchThread(STATE.activeThreadId, { status: next });
+    showToast(next === 'archived' ? 'Archived' : 'Reopened');
+    await refreshThreads();
+    selectThread(STATE.activeThreadId);
+  } catch (err) {
+    showToast(err.message, 'error');
   }
-  el.innerHTML = rows.map(t => {
-    const from = (t.participants && t.participants[0]) || '(unknown sender)';
-    const subj = t.subject || '(no subject)';
-    const tag = t.address_line1
-      ? `<span class="thread-property-tag" title="${escapeHtml(propertyLabel(t))}">🏠 ${escapeHtml(t.address_line1)}</span>`
-      : '';
-    const assigned = t.assigned_name ? `<span title="Assigned to ${escapeHtml(t.assigned_name)}">👤 ${escapeHtml(t.assigned_name.split(' ')[0])}</span>` : '';
-    const att = t.has_attachments ? '<span title="Has attachments">📎</span>' : '';
-    return `
-      <div class="thread-row ${t.unread ? 'unread' : ''}" onclick="location.href='/thread.html?id=${t.id}'">
-        <div class="thread-from">${escapeHtml(from)}</div>
-        <div class="thread-subject">
-          ${escapeHtml(subj)} ${tag}
-        </div>
-        <div class="thread-meta">
-          ${att}${assigned}<span>${relativeTime(t.last_message_at)}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
+}
+async function markUnread() {
+  try {
+    await patchThread(STATE.activeThreadId, { unread: true });
+    showToast('Marked unread');
+    refreshThreads();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
-// ── Compose ──────────────────────────────────────────────────────
+// ── Property linking ───────────────────────────────────────────
+let lpSearchTimer = null;
+function searchPropertiesDebounced(q) { clearTimeout(lpSearchTimer); lpSearchTimer = setTimeout(() => doLpSearch(q), 200); }
+async function doLpSearch(q) {
+  const sel = document.getElementById('lp-results');
+  try {
+    const rows = await searchProperties(q);
+    sel.innerHTML = rows.map(p => `<option value="${p.id}">${escapeHtml(propertyLabel(p))}</option>`).join('');
+  } catch {}
+}
+function openLinkPropertyDialog() {
+  document.getElementById('modal-link-prop').classList.add('open');
+  document.getElementById('lp-unlink-btn').style.display = STATE.activeThread.property_id ? '' : 'none';
+  doLpSearch('');
+}
+function closeLinkPropertyDialog() { document.getElementById('modal-link-prop').classList.remove('open'); }
+async function confirmLinkProperty() {
+  const id = document.getElementById('lp-results').value;
+  if (!id) return showToast('Pick a property first', 'error');
+  try {
+    await patchThread(STATE.activeThreadId, { property_id: id });
+    showToast('Linked');
+    closeLinkPropertyDialog();
+    selectThread(STATE.activeThreadId);
+    refreshThreads();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+async function unlinkProperty() {
+  try {
+    await patchThread(STATE.activeThreadId, { property_id: null });
+    showToast('Unlinked');
+    closeLinkPropertyDialog();
+    selectThread(STATE.activeThreadId);
+    refreshThreads();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Save attachment ────────────────────────────────────────────
+let saSearchTimer = null;
+function saSearchDebounced(q) { clearTimeout(saSearchTimer); saSearchTimer = setTimeout(() => doSaSearch(q), 200); }
+async function doSaSearch(q) {
+  const sel = document.getElementById('sa-results');
+  try {
+    const rows = await searchProperties(q);
+    sel.innerHTML = rows.map(p => `<option value="${p.id}">${escapeHtml(propertyLabel(p))}</option>`).join('');
+  } catch {}
+}
+function openSaveAtt(attId, filename) {
+  document.getElementById('sa-att-id').value = attId;
+  document.getElementById('sa-filename').value = filename;
+  document.getElementById('modal-save-att').classList.add('open');
+  doSaSearch('');
+}
+function closeSaveAtt() { document.getElementById('modal-save-att').classList.remove('open'); }
+async function confirmSaveAtt() {
+  const attId = document.getElementById('sa-att-id').value;
+  const property_id = document.getElementById('sa-results').value;
+  const filename = document.getElementById('sa-filename').value.trim();
+  const folder = document.getElementById('sa-folder').value.trim() || 'Email attachments';
+  if (!property_id) return showToast('Pick a property', 'error');
+  if (!filename) return showToast('Filename required', 'error');
+  try {
+    await saveAttachmentToProperty(attId, { property_id, folder, filename });
+    showToast('Saved to property');
+    closeSaveAtt();
+    selectThread(STATE.activeThreadId);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Compose ────────────────────────────────────────────────────
 async function openCompose() {
   document.getElementById('modal-compose').classList.add('open');
-  // Load aliases the user can send from. We use the alias-routes endpoint,
-  // which returns routed aliases. Non-owners may get a 403; we fall back to
-  // listing inboxes and resolving an alias from their first mailbox.
   try {
     const data = await listAliasRoutes();
     STATE.composeAliases = (data.routed || []).map(r => ({
@@ -246,9 +765,7 @@ async function openCompose() {
       .join('');
   }
 }
-function closeCompose() {
-  document.getElementById('modal-compose').classList.remove('open');
-}
+function closeCompose() { document.getElementById('modal-compose').classList.remove('open'); }
 async function submitCompose(e) {
   e.preventDefault();
   const fromVal = document.getElementById('c-from').value;
@@ -266,7 +783,8 @@ async function submitCompose(e) {
     const r = await composeMessage(body);
     showToast('Email sent');
     closeCompose();
-    setTimeout(() => { location.href = '/thread.html?id=' + r.thread_id; }, 600);
+    await refreshThreads();
+    if (r.thread_id) selectThread(r.thread_id);
   } catch (err) {
     showToast(err.message, 'error');
   }
