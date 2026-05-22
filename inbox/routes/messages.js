@@ -55,6 +55,17 @@ router.post('/threads/:id/reply', async (req, res) => {
     ? `${lastHeaders['References']} ${messageIdHeader || ''}`.trim()
     : messageIdHeader || null;
 
+  // Load signature when caller didn't opt out.
+  const includeSig = req.body.include_signature !== false;
+  let signatureHtml = null;
+  if (includeSig && thread.shared_inbox_id) {
+    const { rows: sigRows } = await query(
+      `SELECT signature_html FROM inbox_shared WHERE id = $1`,
+      [thread.shared_inbox_id]
+    );
+    signatureHtml = sigRows[0]?.signature_html || null;
+  }
+
   const raw = buildRawMessage({
     from: fromAlias,
     to: replyTo,
@@ -63,7 +74,8 @@ router.post('/threads/:id/reply', async (req, res) => {
     bodyText: req.body.body_text,
     bodyHtml: req.body.body_html,
     inReplyTo: messageIdHeader,
-    references: referencesHeader
+    references: referencesHeader,
+    signatureHtml
   });
 
   try {
@@ -110,13 +122,24 @@ router.post('/compose', async (req, res) => {
     return res.status(403).json({ error: 'No access to that shared inbox' });
   }
 
+  const includeSig = req.body.include_signature !== false;
+  let signatureHtml = null;
+  if (includeSig && sharedInboxId) {
+    const { rows: sigRows } = await query(
+      `SELECT signature_html FROM inbox_shared WHERE id = $1`,
+      [sharedInboxId]
+    );
+    signatureHtml = sigRows[0]?.signature_html || null;
+  }
+
   const raw = buildRawMessage({
     from: from_alias,
     to,
     cc,
     subject,
     bodyText: body_text,
-    bodyHtml: body_html
+    bodyHtml: body_html,
+    signatureHtml
   });
   try {
     const { rows: mboxRows } = await query(`SELECT * FROM inbox_mailboxes WHERE id = $1`, [mailbox_id]);
