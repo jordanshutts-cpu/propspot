@@ -1,87 +1,76 @@
-# FieldCam
+# Prop Spot
 
-Field photo capture for the **Prop Spot** OS.
+A property-operations platform for real-estate teams. This is a Node.js
+monorepo — one Postgres database, one JWT secret, one team of users, and
+several satellite apps that each own a piece of the workflow.
 
-FieldCam is a satellite app — not a standalone service. Sign-in, user
-management, properties, and contacts all live in Prop Spot. FieldCam's
-job is the camera/photo flow: capture, GPS tag, upload to Cloudinary,
-write a row into Prop Spot's `photos` table.
+## Apps in this repo
 
-## How it connects
+| Folder | Service | URL | What it does |
+|---|---|---|---|
+| `propspot-os/` | `propspot` | os.propspot.io | The hub: auth, users, properties, contacts, pipeline (prospects → leads → opportunities → purchases → projects), app registry, per-user app grants. The other apps verify the JWT it mints and read/write its shared Postgres. |
+| `fieldcam/` | `fieldcam` | fieldcam.propspot.io | Field photo capture with GPS, folder organization, sharing, comments. |
+| `maintenance/` | `maintenance` | maintenance.propspot.io | Work-order tracking and lawn-maintenance routing per property. |
+| `pulse/` | `pulse` | pulse.propspot.io | Team chat — channels, DMs, mentions (in progress). |
+| `holdings/` | `holdings` | holdings.propspot.io | Per-property obligations: utilities, insurance, taxes, mortgages, licenses, HOA. |
 
-```
-                       Prop Spot Postgres
-                              ▲
-            ┌─────────────────┴────────────────┐
-            │                                  │
-   ┌────────┴────────┐                ┌────────┴────────┐
-   │  Prop Spot      │                │  FieldCam       │
-   │  (the OS)       │                │  (this service) │
-   │                 │                │                 │
-   │  os.propspot.io │                │  fieldcam.…     │
-   └─────────────────┘                └─────────────────┘
-            ▲                                  ▲
-            └─── same JWT_SECRET ──────────────┘
-```
+Future: `inbox/` — shared team email (Phase 1 of that app is on the
+`claude/add-inbox-app` branch).
 
-- `DATABASE_URL` points at Prop Spot's Postgres.
-- `JWT_SECRET` is byte-identical to Prop Spot's so any token issued at
-  the OS works here.
-- Users sign in at Prop Spot, click the FieldCam tile, get deep-linked
-  here with `?token=…`; `public/app.js` consumes the token.
-- Anything FieldCam needs to know about a user (full_name, email,
-  grants) it asks Prop Spot via `/api/me` (proxied to `/api/os/me`).
+## How they connect
 
-## What lives here
+Each satellite app is its own Railway service deployed from this same
+GitHub repo with a different "Root Directory" setting (so Railway only
+builds and watches the relevant subfolder). All services share:
+
+- The same `JWT_SECRET` (referenced via Railway's `${{propspot-os.JWT_SECRET}}` syntax)
+- The same Postgres database (referenced via `${{Postgres.DATABASE_URL}}`)
+- The propspot-os `/api/os/me` endpoint to resolve a user's identity and
+  per-app grants on every request
 
 ```
-server.js              Express entry — mounts /api/properties, /api/photos,
-                       /api/health, /api/config, and the /api/me proxy.
-middleware/auth.js     16 lines: verify JWT, set req.userId.
-db/index.js            Postgres pool + query() wrapper. No schema runner —
-                       Prop Spot owns the DDL.
-lib/address.js         Copy of Prop Spot's address normalizer.
-routes/properties.js   Reads/writes Prop Spot's properties table. Exposes
-                       FieldCam-shaped `name` and `address` aliases so the
-                       UI HTML stays unchanged.
-routes/photos.js       Cloudinary upload + Prop Spot photos table.
-public/                Camera, dashboard, property gallery, add-property,
-                       import. The `/index.html` page just bounces to
-                       Prop Spot for sign-in.
+                                propspot-os (os.propspot.io)
+                                       │
+                ┌──────────────────────┼──────────────────────┐
+                ▼                      ▼                      ▼
+            fieldcam              maintenance              holdings           pulse
+                       \           |                  /                /
+                        \          |                 /                /
+                         ▼         ▼                ▼                ▼
+                                   Shared Postgres
 ```
 
-## Local development
+## Local dev
 
-```bash
-npm install
+Each app folder has its own `package.json`, `.env.example`, and
+`server.js`. To run one locally:
+
+```
+cd <app-folder>           # e.g. cd fieldcam, cd maintenance, etc.
 cp .env.example .env
-# Fill in: DATABASE_URL (Prop Spot's), JWT_SECRET, Cloudinary keys,
-# OS_URL (Prop Spot's public URL)
-
-npm run dev    # nodemon
+# Fill in DATABASE_URL and JWT_SECRET (copy from Railway), then:
+npm install
+npm run dev
 ```
-
-You'll need Prop Spot running too (or at least reachable at `OS_URL`)
-for `/api/me` and the sign-in redirect.
 
 ## Deploy
 
-Push to GitHub → Railway redeploys. Required env vars on the FieldCam
-Railway service:
+GitHub-push to `main` triggers Railway auto-deploy for any service whose
+Root Directory was touched in the push. Schema changes go in
+`propspot-os/db/schema.sql` and run on every propspot-os boot (idempotent
+— `CREATE TABLE IF NOT EXISTS`).
 
-| Variable | Notes |
-|---|---|
-| `DATABASE_URL` | Reference Prop Spot's Postgres: `${{Postgres.DATABASE_URL}}` from the Prop Spot project |
-| `JWT_SECRET` | Identical to Prop Spot's |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Photo storage |
-| `OS_URL` | Public URL of Prop Spot |
-| `OS_INTERNAL_URL` | Railway-internal Prop Spot hostname (optional, faster) |
-| `APP_URL` | This service's public URL |
-| `GOOGLE_MAPS_API_KEY` | Frontend map rendering |
+## Conventions
 
-## Tips for field use
-
-- Bookmark this URL on your phone's home screen.
-- The camera page auto-highlights the nearest property (within 300m).
-- Photos store the exact GPS coordinates of where they were taken.
-- Workers can add notes to each photo ("north wall framing done").
+- **Frontend** — vanilla HTML + CSS + JS, no framework. Each app has its
+  own `public/` folder; `app.js` includes the shared left-nav code that
+  renders all five satellite tiles (hidden per-user via `app_grants`).
+- **Backend** — Express. Routes under `routes/`. Middleware under
+  `middleware/`. Auth verifies the propspot-os JWT and looks up the user's
+  app grant.
+- **Database** — all tables owned by propspot-os. Satellites read/write
+  but don't define schema.
+- **Branches** — feature work goes on `claude/<feature-name>` branches.
+  PR'd into the active integration branch
+  (`acquisitions-rename-under-contract` at time of writing) and merged
+  into `main` on a deploy.

@@ -199,9 +199,9 @@ function toggleSidebar() {
   }
 }
 
-// ── Unified satellite + OS nav (shared across propspot-os, holdings-desk,
-//    maintenance, fieldcam). Each anchor with data-app="holdings|
-//    maintenance|fieldcam" is wired to that satellite's URL with the
+// ── Unified satellite + OS nav (shared across propspot-os, holdings,
+//    maintenance, fieldcam, pulse). Each anchor with data-app="holdings|
+//    maintenance|fieldcam|pulse" is wired to that satellite's URL with the
 //    SSO token; data-osnav="dashboard|properties|contacts|team|apps"
 //    is wired to the OS URL. Set window.NAV_CURRENT to highlight the
 //    active item. ─────────────────────────────────────────────────────
