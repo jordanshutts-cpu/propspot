@@ -310,11 +310,7 @@ function renderTopHeader() {
       <a class="top-nav-icon-btn" href="/contacts.html" data-osnav="contacts" title="Contacts">📇</a>
       <a class="top-nav-icon-btn" href="/team.html"     data-osnav="team"     title="Team">👥</a>
       <button type="button" class="top-nav-avatar" id="user-avatar"
-              onclick="toggleUserMenu(event)" title="Account">${
-                getCachedUser()?.full_name
-                  ? escHtml(getCachedUser().full_name.charAt(0).toUpperCase())
-                  : '👤'
-              }</button>
+              onclick="toggleUserMenu(event)" title="Account">${avatarContent(getCachedUser())}</button>
     </div>
   `;
   // Highlight active section
@@ -350,15 +346,30 @@ function renderAppsRail() {
   wireUnifiedNav();
 }
 
+// Render the avatar circle's inner content — either an <img> (when the
+// user has uploaded a picture) or a single-letter initial fallback.
+function avatarContent(u, sizeClass = '') {
+  if (u?.avatar_url) {
+    return `<img class="avatar-img ${sizeClass}" src="${escHtml(u.avatar_url)}" alt="">`;
+  }
+  if (u?.full_name) return escHtml(u.full_name.charAt(0).toUpperCase());
+  if (u?.email)     return escHtml(u.email.charAt(0).toUpperCase());
+  return '👤';
+}
+
 function renderUserMenu() {
   const el = document.getElementById('user-menu');
   if (!el) return;
   const u = getCachedUser() || {};
   el.innerHTML = `
-    <div class="user-info">
-      <div class="user-name">${escHtml(u.full_name || u.email || 'You')}</div>
-      <div class="user-email">${escHtml(u.email || '')}</div>
+    <div class="user-info" style="display:flex;gap:10px;align-items:center;">
+      <div class="user-avatar-big">${avatarContent(u, 'avatar-img--big')}</div>
+      <div style="min-width:0;">
+        <div class="user-name">${escHtml(u.full_name || u.email || 'You')}</div>
+        <div class="user-email">${escHtml(u.email || '')}</div>
+      </div>
     </div>
+    <button type="button" onclick="openEditProfile()">👤 Edit Profile</button>
     <button type="button" onclick="openChangePassword()">🔑 Change Password</button>
     <div class="menu-divider"></div>
     <button type="button" class="danger" onclick="signOut()">🚪 Sign Out</button>
@@ -515,6 +526,114 @@ function closeSearchOnOutsideClick(e) {
   if (!results || !results.classList.contains('open')) return;
   if (results.contains(e.target) || (search && search.contains(e.target))) return;
   results.classList.remove('open');
+}
+
+// ── Edit Profile modal ─────────────────────────────────────────
+async function openEditProfile() {
+  document.getElementById('user-menu')?.classList.remove('open');
+  const u = getCachedUser() || {};
+  let modal = document.getElementById('edit-profile-modal');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'edit-profile-modal';
+  modal.className = 'modal-backdrop';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:20px;">
+      <div class="section-header"><span class="section-title">Edit Profile</span>
+        <button class="icon-btn" style="background:#eee;color:#000;" onclick="document.getElementById('edit-profile-modal').remove()">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin:6px 0 16px;">
+        <div class="user-avatar-big" id="ep-preview" style="width:88px;height:88px;font-size:2rem;">${avatarContent(u, 'avatar-img--xl')}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+          <label class="btn btn-secondary" style="cursor:pointer;padding:8px 14px;font-size:.85rem;">
+            📷 Upload Photo
+            <input type="file" id="ep-avatar-input" accept="image/*" style="display:none;" onchange="uploadAvatarFile(event)">
+          </label>
+          ${u.avatar_url ? `<button type="button" class="btn btn-secondary" style="padding:8px 14px;font-size:.85rem;" onclick="removeAvatar()">Remove</button>` : ''}
+        </div>
+        <p id="ep-avatar-err" class="text-sm" style="color:var(--danger);display:none;"></p>
+      </div>
+      <form id="ep-form">
+        <div class="form-group">
+          <label class="form-label">Full name</label>
+          <input class="form-input" type="text" id="ep-name" required maxlength="200" value="${escHtml(u.full_name || '')}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" id="ep-email" value="${escHtml(u.email || '')}" disabled style="background:#f5f5f5;">
+          <p class="text-xs text-muted" style="margin-top:4px;">Email changes aren't supported yet — contact an owner if needed.</p>
+        </div>
+        <p id="ep-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+        <button class="btn btn-primary btn-full" type="submit" id="ep-btn">Save</button>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('ep-form').addEventListener('submit', submitEditProfile);
+}
+
+async function submitEditProfile(e) {
+  e.preventDefault();
+  const btn = document.getElementById('ep-btn');
+  const err = document.getElementById('ep-err');
+  err.style.display = 'none';
+  const fullName = document.getElementById('ep-name').value.trim();
+  if (!fullName) { err.textContent = 'Name is required'; err.style.display = 'block'; return; }
+  showSpinner(btn, 'Saving…');
+  try {
+    const updated = await apiFetch('/api/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ full_name: fullName })
+    });
+    setCachedUser(updated);
+    document.getElementById('edit-profile-modal')?.remove();
+    renderTopHeader(); renderUserMenu();
+    showToast('Profile saved');
+  } catch (e2) {
+    err.textContent = e2.message; err.style.display = 'block';
+    hideSpinner(btn);
+  }
+}
+
+async function uploadAvatarFile(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const err = document.getElementById('ep-avatar-err');
+  err.style.display = 'none';
+  // Optimistic local preview while we upload.
+  const preview = document.getElementById('ep-preview');
+  const tmpUrl = URL.createObjectURL(file);
+  preview.innerHTML = `<img class="avatar-img avatar-img--xl" src="${tmpUrl}" alt="">`;
+  try {
+    const fd = new FormData();
+    fd.append('avatar', file);
+    const updated = await apiFetch('/api/auth/me/avatar', { method: 'POST', body: fd });
+    setCachedUser(updated);
+    preview.innerHTML = avatarContent(updated, 'avatar-img--xl');
+    renderTopHeader(); renderUserMenu();
+    showToast('Photo updated');
+    // Re-open to show the "Remove" button now that avatar exists.
+    openEditProfile();
+  } catch (e2) {
+    err.textContent = e2.message; err.style.display = 'block';
+    // Revert preview
+    const u = getCachedUser() || {};
+    preview.innerHTML = avatarContent(u, 'avatar-img--xl');
+  } finally {
+    URL.revokeObjectURL(tmpUrl);
+    e.target.value = '';
+  }
+}
+
+async function removeAvatar() {
+  if (!confirm('Remove your profile photo?')) return;
+  try {
+    const updated = await apiFetch('/api/auth/me/avatar', { method: 'DELETE' });
+    setCachedUser(updated);
+    document.getElementById('edit-profile-modal')?.remove();
+    renderTopHeader(); renderUserMenu();
+    showToast('Photo removed');
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 async function openChangePassword() {

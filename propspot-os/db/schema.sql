@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
   is_owner        BOOLEAN NOT NULL DEFAULT FALSE,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+-- Profile fields added later (idempotent).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url           TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_cloudinary_id TEXT;
 
 -- ── Apps Registry ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS apps (

@@ -1,6 +1,8 @@
 const express = require('express');
 const bcrypt  = require('bcryptjs');
 const crypto  = require('crypto');
+const multer  = require('multer');
+const cloudinary = require('cloudinary').v2;
 const { query, pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { signToken, safeUser } = require('../lib/jwt');
@@ -9,6 +11,37 @@ const { logActivity } = require('../lib/activity');
 const { recomputeScopeForUser } = require('../lib/scope');
 
 const router = express.Router();
+
+// Avatar uploads — image only, 5 MB cap, memory storage so we can stream
+// straight to Cloudinary without writing to disk.
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed'));
+    }
+    cb(null, true);
+  }
+});
+
+function uploadAvatarToCloudinary(buffer, userId) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'propspot/avatars',
+        public_id: userId,                  // one row per user → overwrite on re-upload
+        overwrite: true,
+        resource_type: 'image',
+        transformation: [
+          { width: 400, height: 400, crop: 'fill', gravity: 'face' }
+        ]
+      },
+      (err, result) => err ? reject(err) : resolve(result)
+    );
+    stream.end(buffer);
+  });
+}
 
 // ── POST /api/auth/signup ───────────────────────────────────────
 // First user becomes the owner with full grants on every app.
@@ -121,6 +154,76 @@ router.get('/me', requireAuth, async (req, res) => {
     res.json({ ...safeUser(userRows[0]), grants });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// ── PATCH /api/auth/me ──────────────────────────────────────────
+// Edit your own profile. Allowed fields: full_name. Email changes
+// would need a verification flow — not supported here yet.
+router.patch('/me', requireAuth, async (req, res) => {
+  const fullName = typeof req.body?.full_name === 'string'
+    ? req.body.full_name.trim()
+    : null;
+  if (fullName === null) return res.status(400).json({ error: 'nothing to update' });
+  if (fullName.length === 0) return res.status(400).json({ error: 'full_name cannot be empty' });
+  if (fullName.length > 200) return res.status(400).json({ error: 'full_name too long' });
+  try {
+    const { rows } = await query(
+      `UPDATE users SET full_name = $1 WHERE id = $2 RETURNING *`,
+      [fullName, req.userId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    res.json(safeUser(rows[0]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// ── POST /api/auth/me/avatar ────────────────────────────────────
+// Upload a new profile picture. Body: multipart/form-data with
+// field name "avatar" (image/*, capped at 5 MB). Server crops to a
+// 400x400 face-centered square and stores the URL on the user row.
+router.post('/me/avatar', requireAuth, avatarUpload.single('avatar'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No avatar file provided' });
+  try {
+    const result = await uploadAvatarToCloudinary(req.file.buffer, req.userId);
+    const { rows } = await query(
+      `UPDATE users
+          SET avatar_url = $1, avatar_cloudinary_id = $2
+        WHERE id = $3
+        RETURNING *`,
+      [result.secure_url, result.public_id, req.userId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    res.json(safeUser(rows[0]));
+  } catch (err) {
+    console.error('avatar upload failed:', err);
+    res.status(500).json({ error: err.message || 'Avatar upload failed' });
+  }
+});
+
+// ── DELETE /api/auth/me/avatar ──────────────────────────────────
+router.delete('/me/avatar', requireAuth, async (req, res) => {
+  try {
+    const { rows: cur } = await query(
+      `SELECT avatar_cloudinary_id FROM users WHERE id = $1`,
+      [req.userId]
+    );
+    if (cur[0]?.avatar_cloudinary_id) {
+      await cloudinary.uploader.destroy(cur[0].avatar_cloudinary_id).catch(() => {});
+    }
+    const { rows } = await query(
+      `UPDATE users
+          SET avatar_url = NULL, avatar_cloudinary_id = NULL
+        WHERE id = $1
+        RETURNING *`,
+      [req.userId]
+    );
+    res.json(safeUser(rows[0]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove avatar' });
   }
 });
 
