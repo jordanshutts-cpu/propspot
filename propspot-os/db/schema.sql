@@ -927,15 +927,12 @@ CREATE TABLE IF NOT EXISTS pulse_entity_threads (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (entity_type, entity_id)
 );
-CREATE INDEX IF NOT EXISTS pulse_entity_threads_lookup_idx
-  ON pulse_entity_threads(entity_type, entity_id);
-
 -- C) chat_messages picks up a third optional target (entity_thread_id).
 ALTER TABLE chat_messages
   ADD COLUMN IF NOT EXISTS entity_thread_id UUID
     REFERENCES pulse_entity_threads(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS chat_messages_entity_thread_idx
-  ON chat_messages(entity_thread_id, created_at);
+  ON chat_messages(entity_thread_id, created_at DESC);
 
 -- D) Swap the channel-xor-dm check for channel-xor-dm-xor-entity_thread.
 DO $$ BEGIN
