@@ -1,5 +1,5 @@
 {
-  "name": "holdings-desk",
+  "name": "holdings",
   "version": "1.0.0",
   "description": "Holdings Desk — per-property obligations (utilities, insurance, taxes, mortgages, licenses, HOA). Satellite app that shares Prop Spot's Postgres + JWT.",
   "main": "server.js",
