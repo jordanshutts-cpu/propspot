@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
     where = 'WHERE i.id = ANY($1::uuid[])';
   }
   const { rows } = await query(`
-    SELECT i.id, i.slug, i.name, i.description, i.icon, i.created_at,
+    SELECT i.id, i.slug, i.name, i.description, i.icon, i.signature_html, i.created_at,
            (SELECT COUNT(*) FROM inbox_threads t
              WHERE t.shared_inbox_id = i.id AND t.status = 'open')::int AS open_count,
            (SELECT COUNT(*) FROM inbox_threads t
@@ -52,7 +52,7 @@ router.post('/', requireOwner, async (req, res) => {
 
 // PATCH /api/shared-inboxes/:id — owner-only.
 router.patch('/:id', requireOwner, async (req, res) => {
-  const allowed = ['name', 'description', 'icon'];
+  const allowed = ['name', 'description', 'icon', 'signature_html'];
   const sets = [];
   const vals = [];
   let i = 1;
