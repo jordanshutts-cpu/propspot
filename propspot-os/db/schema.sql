@@ -911,6 +911,74 @@ UPDATE inbox_messages
    AND raw_headers ? 'X-Original-To'
    AND TRIM(raw_headers->>'X-Original-To') <> '';
 
+-- ── 2026-05-22: Inbox HTML signatures + Pulse entity-comments ──────────────
+
+-- A) Per-shared-inbox HTML signature. NULL/empty = no signature appended.
+ALTER TABLE inbox_shared
+  ADD COLUMN IF NOT EXISTS signature_html TEXT;
+
+-- B) Pulse entity-threads — one row per "comments-on-external-entity" thread.
+-- entity_id has no FK so Pulse stays decoupled from consumer apps' tables.
+CREATE TABLE IF NOT EXISTS pulse_entity_threads (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type  TEXT NOT NULL,
+  entity_id    UUID NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (entity_type, entity_id)
+);
+CREATE INDEX IF NOT EXISTS pulse_entity_threads_lookup_idx
+  ON pulse_entity_threads(entity_type, entity_id);
+
+-- C) chat_messages picks up a third optional target (entity_thread_id).
+ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS entity_thread_id UUID
+    REFERENCES pulse_entity_threads(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS chat_messages_entity_thread_idx
+  ON chat_messages(entity_thread_id, created_at);
+
+-- D) Swap the channel-xor-dm check for channel-xor-dm-xor-entity_thread.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chat_messages_target_check') THEN
+    ALTER TABLE chat_messages DROP CONSTRAINT chat_messages_target_check;
+  END IF;
+  ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_target_check
+    CHECK (
+      (channel_id       IS NOT NULL)::int +
+      (dm_id            IS NOT NULL)::int +
+      (entity_thread_id IS NOT NULL)::int = 1
+    );
+END $$;
+
+-- E) Per-(user, entity_thread) read grants. Mention writes a row here;
+-- ambient access (owner / inbox-grant) is computed via the authz view below.
+CREATE TABLE IF NOT EXISTS pulse_entity_thread_grants (
+  entity_thread_id UUID NOT NULL REFERENCES pulse_entity_threads(id) ON DELETE CASCADE,
+  user_id          UUID NOT NULL REFERENCES users(id)                ON DELETE CASCADE,
+  granted_via      TEXT NOT NULL,
+  granted_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  granted_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (entity_thread_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS pulse_entity_thread_grants_user_idx
+  ON pulse_entity_thread_grants(user_id);
+
+-- F) Ambient-authz view for entity_type='inbox_thread'.
+CREATE OR REPLACE VIEW pulse_authz_inbox_thread AS
+SELECT t.id AS entity_id, u.id AS user_id
+  FROM inbox_threads t
+  CROSS JOIN users u
+  LEFT JOIN app_grants ag
+    ON ag.user_id = u.id
+   AND ag.app_id  = (SELECT id FROM apps WHERE slug = 'inbox')
+ WHERE u.is_owner = TRUE
+    OR (ag.scope ? 'all')
+    OR (
+      ag.scope ? 'inbox_ids'
+      AND t.shared_inbox_id IS NOT NULL
+      AND (ag.scope->'inbox_ids') @> to_jsonb(t.shared_inbox_id::text)
+    );
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -924,7 +992,8 @@ BEGIN
     'holdings_items','holdings_payments','holdings_documents',
     'work_orders','lawn_maintenance',
     'chat_channels',
-    'inbox_threads'
+    'inbox_threads',
+    'pulse_entity_threads'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||
