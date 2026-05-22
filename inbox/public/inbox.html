@@ -10,7 +10,10 @@
   <style>
     .inbox-layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; max-width: 1400px; margin: 0 auto; padding: 16px; }
     .inbox-list-sidebar { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px; height: fit-content; position: sticky; top: 16px; }
-    .inbox-list-sidebar h3 { font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 6px 0 8px; }
+    .inbox-list-sidebar .sidebar-header { display: flex; align-items: center; gap: 4px; margin: 6px 0 8px; }
+    .inbox-list-sidebar .sidebar-header h3 { flex: 1; font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 0; }
+    .inbox-list-sidebar .sidebar-icon-btn { background: none; border: none; cursor: pointer; padding: 3px 6px; font-size: .95rem; line-height: 1; border-radius: 4px; color: var(--text-muted); }
+    .inbox-list-sidebar .sidebar-icon-btn:hover { background: var(--bg); color: var(--text); }
     .inbox-list-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; font-size: .9rem; }
     .inbox-list-item:hover { background: var(--bg); }
     .inbox-list-item.active { background: var(--brand-light); color: var(--brand-dark); font-weight: 600; }
@@ -43,7 +46,11 @@
 
 <main class="inbox-layout">
   <aside class="inbox-list-sidebar">
-    <h3>Shared inboxes</h3>
+    <div class="sidebar-header">
+      <h3>Shared inboxes</h3>
+      <button class="sidebar-icon-btn" onclick="location.href='/admin-shared.html'" title="Create a new shared inbox">+</button>
+      <button class="sidebar-icon-btn" onclick="location.href='/admin-mailboxes.html'" title="Mailboxes &amp; aliases (admin)">⚙️</button>
+    </div>
     <div id="inbox-list">
       <p class="text-muted text-sm">Loading…</p>
     </div>
@@ -52,7 +59,10 @@
   <section>
     <div class="section-header">
       <span class="section-title" id="active-inbox-title">All threads</span>
-      <button class="btn btn-secondary btn-sm" onclick="refreshThreads()">Refresh</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-primary btn-sm" onclick="openCompose()">✏️ Compose</button>
+        <button class="btn btn-secondary btn-sm" onclick="refreshThreads()">Refresh</button>
+      </div>
     </div>
 
     <div class="pills" id="filter-pills">
