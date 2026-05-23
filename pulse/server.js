@@ -10,14 +10,33 @@ const app = express();
 // If you ever need compression for non-SSE routes, gate it with a path filter
 // that excludes /api/pulse/stream.
 
-app.use(cors({ origin: process.env.APP_URL || '*', credentials: true }));
+const SATELLITE_ENVS = [
+  'OS_URL', 'APP_URL', 'INBOX_URL', 'HOLDINGS_URL',
+  'MAINTENANCE_URL', 'FIELDCAM_URL', 'UNDERWRITING_URL'
+];
+const ALLOWED_ORIGINS = SATELLITE_ENVS
+  .map(k => process.env[k])
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, cb) {
+    // Same-origin (no Origin header) — allow.
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    // In dev with no satellite envs set, accept anything to keep localhost testing easy.
+    if (ALLOWED_ORIGINS.length === 0) return cb(null, true);
+    cb(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── API Routes ────────────────────────────────────────────────────
-app.use('/api/pulse/messages', require('./routes/messages'));
-app.use('/api/pulse/channels', require('./routes/channels'));
-app.use('/api/pulse/stream',   require('./routes/stream'));
+app.use('/api/pulse/messages',      require('./routes/messages'));
+app.use('/api/pulse/channels',      require('./routes/channels'));
+app.use('/api/pulse/stream',        require('./routes/stream'));
+app.use('/api/pulse/entity-threads', require('./routes/entity-threads'));
 
 // /api/me — pass-through to Prop Spot OS (mirrors maintenance/server.js)
 const OS_URL = process.env.OS_INTERNAL_URL || process.env.OS_URL || '';
