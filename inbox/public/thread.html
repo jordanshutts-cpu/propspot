@@ -318,9 +318,10 @@ loadThread();
       const r = await fetch('/api/config');
       const cfg = await r.json();
       if (!cfg.pulseUrl) return;  // Pulse not configured in this env
+      // Dynamically-appended scripts are async-by-default in all browsers,
+      // which is what we want — the widget shouldn't block other rendering.
       const s = document.createElement('script');
       s.src = cfg.pulseUrl + '/widget.js';
-      s.defer = true;
       document.body.appendChild(s);
     } catch (err) {
       console.warn('[Inbox] could not load Pulse widget:', err);
