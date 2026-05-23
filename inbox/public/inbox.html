@@ -281,6 +281,14 @@
                           cursor: pointer; font-size: 1rem; padding: 0 2px; }
     .rt-att-chip button:hover { color: #b00; }
 
+    /* Signature preview in the compose modal. Bordered card with a sandboxed
+       iframe rendering the inbox's signature_html so Jordan sees exactly
+       what will be appended before hitting Send. */
+    .sig-preview-box { border: 1px solid var(--border); border-radius: 6px;
+                       background: #fff; overflow: hidden; }
+    .sig-preview-box iframe { width: 100%; min-height: 80px; max-height: 160px;
+                              border: 0; display: block; }
+
     /* Contact autocomplete dropdown for compose To / Cc inputs. */
     .contact-wrap { position: relative; }
     .contact-dropdown {
@@ -412,9 +420,13 @@
         <label class="form-label">Message *</label>
         <div id="c-body-rich"></div>
       </div>
+      <div id="compose-sig-preview-card" style="display:none;margin-bottom:8px;">
+        <div class="text-muted text-sm" style="margin-bottom:4px;">Signature preview</div>
+        <div class="sig-preview-box"><iframe id="compose-sig-preview" sandbox=""></iframe></div>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <label id="compose-sig-row" class="text-sm text-muted" style="display:none;">
-          <input type="checkbox" id="compose-include-sig" checked> Include signature
+          <input type="checkbox" id="compose-include-sig" checked onchange="updateComposeSigPreview()"> Include signature
         </label>
         <div style="display:flex;gap:8px;margin-left:auto;">
           <button type="button" class="btn btn-secondary" onclick="closeCompose()">Cancel</button>
@@ -1285,18 +1297,40 @@ function attachContactAutocomplete(inputId, dropdownId) {
 }
 
 async function refreshComposeSignatureRow() {
+  const row = document.getElementById('compose-sig-row');
+  const previewCard = document.getElementById('compose-sig-preview-card');
+  const previewFrame = document.getElementById('compose-sig-preview');
+  const hide = () => {
+    row.style.display = 'none';
+    previewCard.style.display = 'none';
+    previewFrame.srcdoc = '';
+  };
   const aliasId = document.getElementById('c-from')?.value;
   const alias = STATE.composeAliases.find(a => `${a.mailbox_id}::${a.alias_email}` === aliasId);
   const sharedInboxId = alias?.shared_inbox_id;
-  if (!sharedInboxId) {
-    document.getElementById('compose-sig-row').style.display = 'none';
-    return;
-  }
+  if (!sharedInboxId) return hide();
+
   const all = STATE.sharedInboxes || (await listSharedInboxes());
   STATE.sharedInboxes = all;
   const inbox = all.find(s => s.id === sharedInboxId);
-  document.getElementById('compose-sig-row').style.display =
-    (inbox && inbox.signature_html && inbox.signature_html.trim()) ? '' : 'none';
+  const sig = (inbox && inbox.signature_html && inbox.signature_html.trim()) ? inbox.signature_html : '';
+  if (!sig) return hide();
+
+  row.style.display = '';
+  previewFrame.srcdoc = sig;
+  updateComposeSigPreview();
+}
+
+// Show / hide the preview card based on the Include-signature checkbox state.
+// Called from the checkbox's onchange AND from refreshComposeSignatureRow.
+function updateComposeSigPreview() {
+  const row = document.getElementById('compose-sig-row');
+  const cb = document.getElementById('compose-include-sig');
+  const previewCard = document.getElementById('compose-sig-preview-card');
+  // Only show the preview when the row itself is visible (i.e. the inbox has
+  // a signature to begin with) AND the checkbox is checked.
+  const rowVisible = row && row.style.display !== 'none';
+  previewCard.style.display = (rowVisible && cb && cb.checked) ? '' : 'none';
 }
 let COMPOSE_COMPOSER = null;
 function closeCompose() {
