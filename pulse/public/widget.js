@@ -257,7 +257,7 @@
       const v = taEl.value;
       const caret = taEl.selectionStart;
       const before = v.slice(0, caret);
-      const match = before.match(/(^|\s)@([\w.\- ]*)$/);
+      const match = before.match(/(^|\s)@([\w.-]*)$/);
       if (match) {
         const tokenStart = caret - match[2].length - 1;
         if (!pickerOpen || pickerAnchor !== tokenStart) openPicker(tokenStart);
