@@ -498,3 +498,73 @@
 
 /* "+ New" button in sidebar headings */
 .pulse-sidebar-heading .pulse-sidebar-add { margin-left: auto; }
+
+/* ── Archive: per-channel button + modal list ─────────────────── */
+.pulse-channel-archive-btn {
+  display: none;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 1px 5px;
+  font-size: .9rem;
+  line-height: 1;
+  color: #6b7280;
+  border-radius: 4px;
+}
+.pulse-channel-archive-btn:hover { background: #f3f4f6; color: #111; }
+.pulse-channel-item:hover .pulse-channel-archive-btn { display: inline-block; }
+
+.pulse-archive-trigger {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: .25rem .55rem;
+  color: #9ca3af;
+  font-size: .75rem;
+  font-style: italic;
+}
+.pulse-archive-trigger:hover { color: #111; text-decoration: underline; }
+
+.pulse-archived-list {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: .5rem 0;
+}
+.pulse-archived-row {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .55rem .65rem;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+.pulse-archived-row .meta {
+  flex: 1;
+  min-width: 0;
+}
+.pulse-archived-row .name {
+  font-weight: 600;
+  font-size: .92rem;
+}
+.pulse-archived-row .sub {
+  color: #6b7280;
+  font-size: .78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pulse-archived-note {
+  font-size: .75rem;
+  color: #9ca3af;
+}
+.pulse-archived-row .pulse-modal-submit {
+  font-size: .8rem;
+  padding: .35rem .75rem;
+}
