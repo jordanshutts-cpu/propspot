@@ -281,6 +281,23 @@
                           cursor: pointer; font-size: 1rem; padding: 0 2px; }
     .rt-att-chip button:hover { color: #b00; }
 
+    /* Per-shared-inbox tabs (Unassigned / Assigned / Snoozed / Archived /
+       Trash / Spam). Sits between the middle column header and the thread
+       list. Active tab gets a brand-colored underline. */
+    .inbox-tabs {
+      display: flex; gap: 4px; padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      overflow-x: auto; flex-shrink: 0;
+    }
+    .inbox-tab {
+      background: none; border: 0; padding: 10px 8px;
+      font-size: .85rem; color: var(--text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .inbox-tab:hover { color: var(--text); }
+    .inbox-tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
     /* Signature preview in the compose modal. Bordered card with a sandboxed
        iframe rendering the inbox's signature_html so Jordan sees exactly
        what will be appended before hitting Send. */
@@ -367,6 +384,15 @@
       </div>
       <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
     </div>
+    <!-- Per-shared-inbox tabs. Shown only when a shared inbox is selected. -->
+    <nav class="inbox-tabs" id="inbox-tabs" style="display:none;">
+      <button class="inbox-tab" data-tab="unassigned">Unassigned</button>
+      <button class="inbox-tab" data-tab="assigned">Assigned</button>
+      <button class="inbox-tab" data-tab="snoozed">Snoozed</button>
+      <button class="inbox-tab" data-tab="archived">Archived</button>
+      <button class="inbox-tab" data-tab="trash">Trash</button>
+      <button class="inbox-tab" data-tab="spam">Spam</button>
+    </nav>
     <div class="thread-list" id="threads">
       <p class="text-muted text-sm" style="padding:14px;">Loading threads…</p>
     </div>
@@ -496,8 +522,9 @@
 const STATE = {
   user:            null,
   inboxes:         [],         // shared inboxes
-  filter:          'open',     // 'open' | 'archived' | 'assigned'
-  activeInboxSlug: null,       // null = all
+  filter:          'open',     // 'open' | 'archived' | 'assigned' — used when no inbox is selected
+  activeInboxSlug: null,       // null = all (no shared inbox selected)
+  activeTab:       'unassigned', // per-inbox tab; only meaningful when activeInboxSlug is set
   threads:         [],         // currently loaded thread list
   searchQuery:     '',
   activeThreadId:  null,       // selected thread (right pane)
@@ -576,9 +603,27 @@ function attachLeftNavHandlers() {
       STATE.filter = el.dataset.filter;
       STATE.activeInboxSlug = null;
       updateActiveInboxTitle();
+      updateInboxTabsVisibility();
       refreshThreads();
     });
   });
+  document.querySelectorAll('.inbox-tab[data-tab]').forEach(el => {
+    el.addEventListener('click', () => {
+      STATE.activeTab = el.dataset.tab;
+      document.querySelectorAll('.inbox-tab').forEach(x => x.classList.toggle('active', x === el));
+      refreshThreads();
+    });
+  });
+}
+function updateInboxTabsVisibility() {
+  const bar = document.getElementById('inbox-tabs');
+  if (!bar) return;
+  if (STATE.activeInboxSlug) {
+    bar.style.display = '';
+    bar.querySelectorAll('.inbox-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === STATE.activeTab));
+  } else {
+    bar.style.display = 'none';
+  }
 }
 function updateActiveInboxTitle() {
   let title;
@@ -620,7 +665,9 @@ async function loadInboxes() {
       el2.classList.add('active');
       STATE.activeInboxSlug = el2.dataset.inboxSlug;
       STATE.filter = 'open';
+      STATE.activeTab = 'unassigned';
       updateActiveInboxTitle();
+      updateInboxTabsVisibility();
       refreshThreads();
     });
   });
@@ -651,10 +698,18 @@ function matchesSearch(t) {
 // ── Thread list ────────────────────────────────────────────────
 async function refreshThreads() {
   const params = {};
-  if (STATE.activeInboxSlug) params.inbox = STATE.activeInboxSlug;
-  if (STATE.filter === 'archived') params.status = 'archived';
-  else if (STATE.filter === 'assigned') params.assigned_to_me = '1';
-  else params.status = 'open';
+  if (STATE.activeInboxSlug) {
+    // Per-inbox view: tab filter (Unassigned / Assigned / Snoozed / Archived /
+    // Trash / Spam) overrides the left-nav filter.
+    params.inbox = STATE.activeInboxSlug;
+    params.tab = STATE.activeTab || 'unassigned';
+  } else if (STATE.filter === 'archived') {
+    params.status = 'archived';
+  } else if (STATE.filter === 'assigned') {
+    params.assigned_to_me = '1';
+  } else {
+    params.status = 'open';
+  }
   try {
     STATE.threads = await listThreads(params);
   } catch (err) {
@@ -746,7 +801,10 @@ function renderThreadDetail() {
       <div class="thread-head-meta">${headParts.join(' • ')}</div>
       <div class="thread-head-actions">
         <button class="btn btn-secondary btn-sm" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('snoozed')">${t.status === 'snoozed' ? '⏰ Wake up' : '😴 Snooze'}</button>
         <button class="btn btn-secondary btn-sm" onclick="toggleStatus('archived')">${t.status === 'archived' ? '📥 Unarchive' : '📁 Archive'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore' : '🗑 Trash'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Spam'}</button>
         <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
       </div>
     </div>
@@ -927,9 +985,10 @@ async function submitReply() {
 }
 async function toggleStatus(target) {
   const next = STATE.activeThread.status === target ? 'open' : target;
+  const TOAST = { open: 'Reopened', archived: 'Archived', snoozed: 'Snoozed', trash: 'Moved to trash', spam: 'Marked as spam' };
   try {
     await patchThread(STATE.activeThreadId, { status: next });
-    showToast(next === 'archived' ? 'Archived' : 'Reopened');
+    showToast(TOAST[next] || 'Updated');
     await refreshThreads();
     selectThread(STATE.activeThreadId);
   } catch (err) {
