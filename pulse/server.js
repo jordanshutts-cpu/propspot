@@ -33,9 +33,14 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── API Routes ────────────────────────────────────────────────────
-app.use('/api/pulse/messages',      require('./routes/messages'));
-app.use('/api/pulse/channels',      require('./routes/channels'));
-app.use('/api/pulse/stream',        require('./routes/stream'));
+app.use('/api/pulse/messages',       require('./routes/messages'));
+app.use('/api/pulse/channels',       require('./routes/channels'));
+app.use('/api/pulse/dms',            require('./routes/dms'));
+app.use('/api/pulse/attachments',    require('./routes/attachments'));
+app.use('/api/pulse/unread',         require('./routes/unread'));
+app.use('/api/pulse/sections',       require('./routes/sections'));
+app.use('/api/pulse/users',          require('./routes/users'));
+app.use('/api/pulse/stream',         require('./routes/stream'));
 app.use('/api/pulse/entity-threads', require('./routes/entity-threads'));
 
 // /api/me — pass-through to Prop Spot OS (mirrors maintenance/server.js)

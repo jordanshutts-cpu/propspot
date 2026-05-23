@@ -21,10 +21,16 @@ function authQuery(req, res, next) {
 }
 
 // GET /api/pulse/stream?token=<JWT>&channel_id=<UUID>
+// GET /api/pulse/stream?token=<JWT>&dm_id=<UUID>
 // GET /api/pulse/stream?token=<JWT>&entity_type=<type>&entity_id=<id>
-// Long-lived Server-Sent Events stream. One per channel/entity-thread per tab.
+//
+// Long-lived Server-Sent Events stream. One per scope per tab.
+// Every connection ALSO subscribes to `user:<userId>` so cross-scope events
+// (unread_update, mention) reach the user regardless of which scope they're
+// currently viewing.
 router.get('/', authQuery, async (req, res) => {
-  const channelId = req.query.channel_id;
+  const channelId  = req.query.channel_id;
+  const dmId       = req.query.dm_id;
   const entityType = req.query.entity_type;
   const entityId   = req.query.entity_id;
 
@@ -42,8 +48,16 @@ router.get('/', authQuery, async (req, res) => {
        LIMIT 1
     `, [channelId, req.userId]);
     if (!rows.length) return res.status(403).end();
-    subscribeKey = channelId;
+    subscribeKey = 'channel:' + channelId;
     helloPayload = { type: 'hello', channel_id: channelId, user_id: req.userId };
+  } else if (dmId) {
+    const { rows } = await query(
+      `SELECT 1 FROM chat_dm_members WHERE dm_id = $1 AND user_id = $2 LIMIT 1`,
+      [dmId, req.userId]
+    );
+    if (!rows.length) return res.status(403).end();
+    subscribeKey = 'dm:' + dmId;
+    helloPayload = { type: 'hello', dm_id: dmId, user_id: req.userId };
   } else if (entityType && entityId) {
     const { isEntityTypeSupported, canAccessEntity } = require('../lib/authz');
     if (!isEntityTypeSupported(entityType)) return res.status(400).end();
@@ -72,7 +86,10 @@ router.get('/', authQuery, async (req, res) => {
   res.write('retry: 5000\n\n'); // tell client to retry every 5s if dropped
   res.write(`data: ${JSON.stringify(helloPayload)}\n\n`);
 
-  const unsubscribe = hub.subscribe(subscribeKey, res);
+  // Subscribe to BOTH the scope key (channel/dm/entity-thread) AND the
+  // per-user key. The per-user key catches unread_update + mention events
+  // that originate in a different scope than the one this tab is viewing.
+  const unsubscribe = hub.subscribe([subscribeKey, 'user:' + req.userId], res);
 
   const heartbeat = setInterval(() => { try { res.write(':\n\n'); } catch {} }, 25000);
   const cleanup = () => { clearInterval(heartbeat); unsubscribe(); };

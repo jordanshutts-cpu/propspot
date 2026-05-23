@@ -750,6 +750,36 @@ CREATE TABLE IF NOT EXISTS chat_user_presence (
 CREATE INDEX IF NOT EXISTS chat_user_presence_last_seen_idx
   ON chat_user_presence(last_seen_at DESC);
 
+-- ── Pulse: per-user sidebar sections (v2) ───────────────────────────────────
+-- Each user organizes their own sidebar. A section is a named, ordered group;
+-- an item links a channel or DM into a section (XOR). Channels/DMs not in any
+-- section render under a default "Channels" / "Direct Messages" group.
+CREATE TABLE IF NOT EXISTS chat_sidebar_sections (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  position   INT NOT NULL DEFAULT 0,
+  collapsed  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS chat_sidebar_sections_user_idx
+  ON chat_sidebar_sections(user_id, position);
+
+CREATE TABLE IF NOT EXISTS chat_sidebar_items (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id UUID NOT NULL REFERENCES chat_sidebar_sections(id) ON DELETE CASCADE,
+  channel_id UUID REFERENCES chat_channels(id) ON DELETE CASCADE,
+  dm_id      UUID REFERENCES chat_dms(id)      ON DELETE CASCADE,
+  position   INT NOT NULL DEFAULT 0,
+  CHECK ((channel_id IS NULL) <> (dm_id IS NULL))
+);
+CREATE INDEX IF NOT EXISTS chat_sidebar_items_section_idx
+  ON chat_sidebar_items(section_id, position);
+CREATE UNIQUE INDEX IF NOT EXISTS chat_sidebar_items_channel_uniq
+  ON chat_sidebar_items(section_id, channel_id) WHERE channel_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_sidebar_items_dm_uniq
+  ON chat_sidebar_items(section_id, dm_id) WHERE dm_id IS NOT NULL;
+
 -- ── Inbox satellite (email collaboration) ───────────────────────────────────
 -- Owned by Prop Spot; read/written by the inbox.propspot.io app via Gmail API
 -- (Microsoft Graph in Phase 2). Shared team inboxes route alias mail into
