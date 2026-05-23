@@ -1215,3 +1215,49 @@ BEGIN
     INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_all_acquisitions_2026_05_23');
   END IF;
 END $$;
+
+-- ── 2026-05-23 one-time: backfill shared_inbox_id on orphaned outbound
+-- threads. A bug in the compose path (see inbox/routes/messages.js) means
+-- some outbound emails get persisted with shared_inbox_id=NULL — they then
+-- appear in the global "Open" view but don't count toward any individual
+-- inbox's open_count, causing the sidebar-vs-list mismatch Jordan reported.
+--
+-- This UPDATE looks at every orphan thread, finds its outbound messages,
+-- looks up the alias_route matching that from_email + mailbox, and writes
+-- the resulting shared_inbox_id back onto the thread. The mailbox_id join
+-- prevents cross-mailbox bleed when the same alias address lives in
+-- multiple connected Google Workspace mailboxes.
+--
+-- After this UPDATE, the very next block below catches any orphan that
+-- just got routed to Acquisitions and archives it too (so Jordan's
+-- requested "Acquisitions empty" state is restored end-to-end).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'backfill_orphan_outbound_2026_05_23') THEN
+    UPDATE inbox_threads t
+       SET shared_inbox_id = ar.shared_inbox_id
+      FROM inbox_messages m
+      JOIN inbox_alias_routes ar
+        ON LOWER(m.from_email) = LOWER(ar.alias_email)
+       AND ar.mailbox_id = t.mailbox_id
+     WHERE t.id = m.thread_id
+       AND t.shared_inbox_id IS NULL
+       AND m.is_outbound = TRUE;
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('backfill_orphan_outbound_2026_05_23');
+  END IF;
+END $$;
+
+-- ── 2026-05-23 one-time: re-run the Acquisitions archive after the
+-- orphan backfill above, so any thread that just got routed into
+-- Acquisitions also gets archived. Without this second pass, those
+-- newly-routed orphans would still show as 'open' in Acquisitions.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_acquisitions_after_backfill_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE shared_inbox_id = (SELECT id FROM inbox_shared WHERE slug = 'acquisitions')
+       AND status <> 'archived';
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_acquisitions_after_backfill_2026_05_23');
+  END IF;
+END $$;
