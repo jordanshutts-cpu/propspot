@@ -17,6 +17,7 @@ app.use('/api/threads',         require('./routes/threads'));
 app.use('/api/messages',        require('./routes/messages'));
 app.use('/api/attachments',     require('./routes/attachments'));
 app.use('/api/properties',      require('./routes/properties'));
+app.use('/api/contacts',        require('./routes/contacts'));
 
 // /api/me — pass-through to Prop Spot
 const OS_URL = process.env.OS_INTERNAL_URL || process.env.OS_URL || '';
