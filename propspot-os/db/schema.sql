@@ -1261,3 +1261,96 @@ BEGIN
     INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_acquisitions_after_backfill_2026_05_23');
   END IF;
 END $$;
+
+-- ── 2026-05-23 one-time: backfill orphan INBOUND threads. Companion to
+-- the outbound backfill above. Some inbound messages have a
+-- `delivered_to_alias` set (when our routing logic identified the alias
+-- at sync time); others don't but the alias still appears in `to_emails`.
+-- We try both paths.
+--
+-- Pass A: match by delivered_to_alias.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'backfill_orphan_inbound_alias_2026_05_23') THEN
+    UPDATE inbox_threads t
+       SET shared_inbox_id = ar.shared_inbox_id
+      FROM inbox_messages m
+      JOIN inbox_alias_routes ar
+        ON LOWER(m.delivered_to_alias) = LOWER(ar.alias_email)
+       AND ar.mailbox_id = t.mailbox_id
+     WHERE t.id = m.thread_id
+       AND t.shared_inbox_id IS NULL
+       AND m.is_outbound = FALSE
+       AND m.delivered_to_alias IS NOT NULL;
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('backfill_orphan_inbound_alias_2026_05_23');
+  END IF;
+END $$;
+
+-- Pass B: match by to_emails array (catches inbound where
+-- delivered_to_alias wasn't captured by older syncs).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'backfill_orphan_inbound_to_2026_05_23') THEN
+    UPDATE inbox_threads t
+       SET shared_inbox_id = ar.shared_inbox_id
+      FROM inbox_messages m
+      JOIN inbox_alias_routes ar
+        ON ar.mailbox_id = t.mailbox_id
+       AND EXISTS (
+         SELECT 1 FROM unnest(m.to_emails) AS recipient
+          WHERE LOWER(recipient) = LOWER(ar.alias_email)
+       )
+     WHERE t.id = m.thread_id
+       AND t.shared_inbox_id IS NULL
+       AND m.is_outbound = FALSE;
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('backfill_orphan_inbound_to_2026_05_23');
+  END IF;
+END $$;
+
+-- ── 2026-05-23 one-time: re-archive every open thread inactive 30+ days.
+-- The original archive_stale_open_2026_05_23 migration already ran, but
+-- Gmail sync has been backfilling MORE historical mail since then —
+-- those threads arrive freshly inserted with status='open' but a very
+-- old `last_message_at`, and they keep cluttering the Open view.
+-- Re-runs the same cutoff with a fresh op_id.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_stale_open_v2_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE status = 'open'
+       AND last_message_at < NOW() - INTERVAL '30 days';
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_stale_open_v2_2026_05_23');
+  END IF;
+END $$;
+
+-- ── 2026-05-23 PERMANENT: auto-archive newly-inserted threads whose
+-- `last_message_at` is already older than 30 days. Stops the recurring
+-- problem of Gmail re-syncs introducing stale "open" mail to the queue.
+--
+-- BEFORE INSERT trigger flips status='open' → status='archived' when
+-- the thread is already stale at insertion time. Doesn't touch threads
+-- where `last_message_at` is recent — those flow through normally.
+--
+-- We also handle UPDATE of `last_message_at` going forward: if an old
+-- thread gets a new message (last_message_at moves to recent), the
+-- thread's status stays whatever the message route sets it to (an
+-- inbound message can flip status='archived' → 'open' via existing app
+-- logic; we don't touch that).
+CREATE OR REPLACE FUNCTION inbox_auto_archive_stale()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'open'
+     AND NEW.last_message_at IS NOT NULL
+     AND NEW.last_message_at < NOW() - INTERVAL '30 days' THEN
+    NEW.status := 'archived';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS inbox_threads_auto_archive_stale ON inbox_threads;
+CREATE TRIGGER inbox_threads_auto_archive_stale
+  BEFORE INSERT ON inbox_threads
+  FOR EACH ROW
+  EXECUTE FUNCTION inbox_auto_archive_stale();
