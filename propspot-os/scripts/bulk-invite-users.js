@@ -1,200 +1,160 @@
 #!/usr/bin/env node
 /**
- * One-off: bulk-invite Google Workspace members into Prop Spot.
+ * One-off: bulk-create Prop Spot accounts for Google Workspace members.
+ *
+ * Designed for the SSO flow — no invite tokens, no invite emails. Each
+ * user we create has no password_hash; they sign in by clicking
+ * "Sign in with Google" at os.propspot.io. Their row's primary `email`
+ * IS their Workspace address, so the SSO route matches them directly
+ * and backfills google_sub on first sign-in.
  *
  * Two modes:
- *   (default)  Dry run. Connects to DB, reports per-user status, sends nothing.
- *   --invite   Real run. Upserts users, mints 48-hour invite tokens, emails
- *              the invite link via lib/email.js (or prints links if SMTP
- *              isn't configured), logs to the activity table.
+ *   (default)  Dry run. Reports per-user status, no writes.
+ *   --create   Real run. Upserts users into the `users` table.
  *
- * Idempotent: already-active users (with a password_hash) are skipped.
- * Users with a still-valid pending invite are skipped unless --force.
+ * Idempotent: users that already exist (any active method — password
+ * OR google linked) are skipped. Rows with only a stale legacy invite
+ * token are refreshed by stripping the token (the user can just
+ * Google-sign-in now).
  *
  * Usage:
  *   DATABASE_URL='postgres://...' node scripts/bulk-invite-users.js
- *   DATABASE_URL='postgres://...' node scripts/bulk-invite-users.js --invite
- *   DATABASE_URL='postgres://...' node scripts/bulk-invite-users.js --invite --force
+ *   DATABASE_URL='postgres://...' node scripts/bulk-invite-users.js --create
  */
 
 require('dotenv').config();
-const crypto = require('crypto');
 const { Pool } = require('pg');
-const { sendInviteEmail } = require('../lib/email');
 const { logActivity } = require('../lib/activity');
 
-// ── User roster (Google Workspace → Prop Spot) ──────────────────────────
-// type=Owner   → is_owner=TRUE  (auto-grants all enabled apps via seed logic)
-// type=other   → is_owner=FALSE (no grants; promote later in admin UI)
+// ── Roster to create ────────────────────────────────────────────────────
+// Already-active Workspace users (Adam, Alex, Carson, Erika, Jen Slipakoff,
+// Sofia) are NOT in this list — they already have rows that the SSO
+// route will match by email on first Google sign-in.
+//
+// Jordan handles his own merge (jordan@sellrh.com → linked to Google)
+// via Edit Profile, not via this script.
+//
+// Jen Ott's existing jenngunnels@gmail.com row is left alone; this
+// script creates her work account jott@rentdwella.com so she can
+// switch to Google sign-in. Jordan can sort out the duplicate later.
 const USERS = [
-  { name: 'Aira',            email: 'aira@restorationhomes.com',            type: 'VA' },
-  { name: 'Billy',           email: 'billy@restorationhomes.com',           type: 'VA' },
-  { name: 'Camille',         email: 'camille@restorationhomes.com',         type: 'VA' },
-  { name: 'Daniel',          email: 'daniel@restorationhomes.com',          type: 'VA' },
-  { name: 'Frederick',       email: 'frederick@restorationhomes.com',       type: 'VA' },
-  { name: 'Manpreet',        email: 'manpreet@restorationhomes.com',        type: 'VA' },
-  { name: 'Sofia',           email: 'sofia@restorationhomes.com',           type: 'VA' },
-  { name: 'Adam Slipakoff',  email: 'adam.slipakoff@restorationhomes.com',  type: 'Owner' },
-  { name: 'Alex Fisher',     email: 'alex.fisher@restorationhomes.com',     type: 'Owner' },
-  { name: 'Carson Gantz',    email: 'carson.gantz@restorationhomes.com',    type: 'Employee' },
-  { name: 'Erika Templin',   email: 'erika.templin@restorationhomes.com',   type: 'Contractor' },
-  { name: 'Giewel Amparo',   email: 'giewel.amparo@rentdwella.com',         type: 'VA' },
-  { name: 'Jennifer Ott',    email: 'jott@rentdwella.com',                  type: 'Employee' },
-  { name: 'Jen Slipakoff',   email: 'jen.slipakoff@restorationhomes.com',   type: 'Employee' },
-  { name: 'Jordan Shutts',   email: 'jordan.shutts@restorationhomes.com',   type: 'Owner' },
-  { name: 'Megan Price',     email: 'megan.price@restorationhomes.com',     type: 'Contractor' },
-  { name: 'Sheri Merriam',   email: 'sheri.merriam@restorationhomes.com',   type: 'Employee' },
+  { name: 'Jennifer Ott',  email: 'jott@rentdwella.com',                  type: 'Employee' },
+  { name: 'Aira',          email: 'aira@restorationhomes.com',            type: 'VA' },
+  { name: 'Billy',         email: 'billy@restorationhomes.com',           type: 'VA' },
+  { name: 'Camille',       email: 'camille@restorationhomes.com',         type: 'VA' },
+  { name: 'Daniel',        email: 'daniel@restorationhomes.com',          type: 'VA' },
+  { name: 'Frederick',     email: 'frederick@restorationhomes.com',       type: 'VA' },
+  { name: 'Manpreet',      email: 'manpreet@restorationhomes.com',        type: 'VA' },
+  { name: 'Giewel Amparo', email: 'giewel.amparo@rentdwella.com',         type: 'VA' },
+  { name: 'Megan Price',   email: 'megan.price@restorationhomes.com',     type: 'Contractor' },
+  { name: 'Sheri Merriam', email: 'sheri.merriam@restorationhomes.com',   type: 'Employee' },
 ];
 
 const args     = process.argv.slice(2);
-const DO_WRITE = args.includes('--invite');
-const FORCE    = args.includes('--force');
+const DO_WRITE = args.includes('--create') || args.includes('--invite'); // --invite kept for muscle memory
 
 const url = process.env.DATABASE_URL;
 if (!url) { console.error('DATABASE_URL not set'); process.exit(1); }
 const db = new Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
 
 function fmtRow(status, u, extra = '') {
-  const owner = u.type === 'Owner' ? ' [OWNER]' : '';
-  return `${status}  ${u.email.padEnd(42)} ${u.name.padEnd(18)} ${u.type.padEnd(11)}${owner ? owner : ''}${extra ? '  ' + extra : ''}`;
+  return `${status}  ${u.email.padEnd(42)} ${u.name.padEnd(16)} ${u.type.padEnd(11)}${extra ? '  ' + extra : ''}`;
 }
 
 (async () => {
-  const banner = DO_WRITE
-    ? (FORCE ? '=== LIVE RUN (--invite --force) ===' : '=== LIVE RUN (--invite) ===')
-    : '=== DRY RUN — no writes, no emails ===';
+  const banner = DO_WRITE ? '=== LIVE RUN — writing to DB ===' : '=== DRY RUN — no writes ===';
   console.log(banner);
   console.log(`Roster size: ${USERS.length}\n`);
 
   const report = {
-    active_skipped:  0,
-    pending_skipped: 0,
-    invited:         0,
-    reinvited:       0,
-    errors:          0,
-    unsent_links:    [],
+    active_skipped: 0,
+    created:        0,
+    refreshed:      0,
+    errors:         0,
   };
 
-  // Resolve actor — prefer Jordan's row in the DB so activity log attributes correctly.
+  // Owner attribution for activity log.
   let actorUserId = null;
   try {
     const { rows } = await db.query(
-      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
-      ['jordan.shutts@restorationhomes.com']
+      `SELECT id FROM users WHERE email = $1 OR google_email = $1 LIMIT 1`,
+      ['jordan@sellrh.com']
     );
     actorUserId = rows[0]?.id || null;
-  } catch (_) { /* leave null */ }
+  } catch (_) {}
 
   for (const u of USERS) {
     const email    = u.email.toLowerCase().trim();
     const fullName = u.name;
-    const isOwner  = u.type === 'Owner';
 
     try {
       const { rows } = await db.query(
-        `SELECT id, password_hash, invite_token, invite_expires, is_owner
+        `SELECT id, password_hash, google_sub, invite_token
            FROM users WHERE email = $1 LIMIT 1`,
         [email]
       );
       const existing = rows[0];
 
-      // 1. Already active — never re-invite.
-      if (existing && existing.password_hash) {
-        console.log(fmtRow('✓ ACTIVE     ', u, `(id=${existing.id.slice(0,8)})`));
+      // Already active — skip. "Active" here means either method works:
+      // they've set a password, OR they've already linked Google.
+      if (existing && (existing.password_hash || existing.google_sub)) {
+        console.log(fmtRow('✓ ACTIVE   ', u, `(id=${existing.id.slice(0,8)})`));
         report.active_skipped++;
         continue;
       }
 
-      // 2. Has a pending invite that is still valid — skip unless --force.
-      const stillValid = existing
-        && existing.invite_token
-        && existing.invite_expires
-        && new Date(existing.invite_expires) > new Date();
-      if (stillValid && !FORCE) {
-        const expiresIn = Math.round(
-          (new Date(existing.invite_expires) - new Date()) / 3600000
-        );
-        console.log(fmtRow('⏳ PENDING   ', u, `(expires in ${expiresIn}h, use --force to re-invite)`));
-        report.pending_skipped++;
-        continue;
-      }
-
-      // 3. Either brand new, expired invite, or --force on a pending.
       if (!DO_WRITE) {
-        const label = !existing
-          ? '➕ NEW       '
-          : (stillValid ? '🔁 REINVITE  ' : '⌛ EXPIRED   ');
-        console.log(fmtRow(label, u, '(would invite)'));
+        const label = existing ? '🔁 REFRESH ' : '➕ NEW     ';
+        const detail = existing ? '(has stale legacy invite — would clear)' : '(would create)';
+        console.log(fmtRow(label, u, detail));
         continue;
       }
 
-      const token   = crypto.randomBytes(32).toString('hex');
-      const expires = new Date(Date.now() + 48 * 60 * 60 * 1000);
-
+      // Upsert: create new, or strip stale legacy invite token from an
+      // existing row that was never accepted (so it doesn't litter the
+      // dashboard with a "Pending" badge — the user just signs in with
+      // Google now).
       const { rows: upserted } = await db.query(
-        `INSERT INTO users (email, full_name, invite_token, invite_expires, is_owner)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO users (email, full_name, is_owner)
+         VALUES ($1, $2, FALSE)
          ON CONFLICT (email) DO UPDATE
-           SET invite_token   = EXCLUDED.invite_token,
-               invite_expires = EXCLUDED.invite_expires,
-               full_name      = COALESCE(users.full_name, EXCLUDED.full_name),
-               is_owner       = users.is_owner OR EXCLUDED.is_owner
-         RETURNING id, is_owner`,
-        [email, fullName, token, expires, isOwner]
+           SET full_name      = COALESCE(users.full_name, EXCLUDED.full_name),
+               invite_token   = NULL,
+               invite_expires = NULL
+         RETURNING id, (xmax = 0) AS inserted`,
+        [email, fullName]
       );
-      const invitedUser = upserted[0];
-
-      // Owners get full app grants — mirrors the signup/seed behavior.
-      if (invitedUser.is_owner) {
-        await db.query(`
-          INSERT INTO app_grants (user_id, app_id, role, scope, granted_by)
-          SELECT $1, a.id, 'owner', '{"all": true}'::jsonb, $1
-            FROM apps a
-            WHERE a.enabled = TRUE
-            ON CONFLICT (user_id, app_id) DO UPDATE
-              SET role = 'owner', scope = '{"all": true}'::jsonb
-        `, [invitedUser.id]);
-      }
-
-      const appUrl     = process.env.APP_URL || 'https://os.propspot.io';
-      const inviteLink = `${appUrl}/accept-invite.html?token=${token}`;
-      const inviterName = 'Jordan Shutts';
-      const emailSent  = await sendInviteEmail({
-        to: email, inviteLink, inviterName,
-        appsList: invitedUser.is_owner ? ['Prop Spot (full access)'] : ['Prop Spot'],
-      });
+      const row = upserted[0];
 
       await logActivity({
-        actorUserId, entityType: 'user', entityId: invitedUser.id,
-        action: 'invited', payload: { email, bulk: true, type: u.type }
+        actorUserId, entityType: 'user', entityId: row.id,
+        action: row.inserted ? 'created' : 'invite_cleared',
+        payload: { email, bulk_sso: true, type: u.type }
       });
 
-      const wasReinvite = !!existing;
-      if (wasReinvite) report.reinvited++; else report.invited++;
-
-      const status = wasReinvite ? '🔁 REINVITED ' : '✅ INVITED   ';
-      console.log(fmtRow(status, u, emailSent ? '(email sent)' : '(NO SMTP — link below)'));
-      if (!emailSent) report.unsent_links.push({ email, inviteLink });
+      if (row.inserted) {
+        report.created++;
+        console.log(fmtRow('✅ CREATED ', u, `(id=${row.id.slice(0,8)})`));
+      } else {
+        report.refreshed++;
+        console.log(fmtRow('🔁 REFRESHED', u, `(cleared stale invite, id=${row.id.slice(0,8)})`));
+      }
     } catch (err) {
-      console.error(fmtRow('❌ ERROR     ', u, err.message));
+      console.error(fmtRow('❌ ERROR   ', u, err.message));
       report.errors++;
     }
   }
 
   console.log('\n=== Summary ===');
-  console.log(`Active (skipped):        ${report.active_skipped}`);
-  console.log(`Pending (skipped):       ${report.pending_skipped}`);
+  console.log(`Active (skipped):  ${report.active_skipped}`);
   if (DO_WRITE) {
-    console.log(`Newly invited:           ${report.invited}`);
-    console.log(`Re-invited (expired):    ${report.reinvited}`);
+    console.log(`Newly created:     ${report.created}`);
+    console.log(`Refreshed:         ${report.refreshed}`);
   }
-  console.log(`Errors:                  ${report.errors}`);
+  console.log(`Errors:            ${report.errors}`);
 
-  if (report.unsent_links.length) {
-    console.log('\n=== Invite links to share manually (SMTP not configured) ===');
-    for (const { email, inviteLink } of report.unsent_links) {
-      console.log(`${email}\n  ${inviteLink}`);
-    }
+  if (DO_WRITE && (report.created + report.refreshed) > 0) {
+    console.log('\nNext: tell these folks to visit https://os.propspot.io and click "Sign in with Google".');
   }
 
   await db.end();
