@@ -50,7 +50,7 @@ router.get('/', authQuery, async (req, res) => {
     const access = await canAccessEntity({
       userId: req.userId, entityType, entityId
     });
-    if (!access.allowed) return res.status(403).end();
+    if (!access.allowed || !access.entityThreadId) return res.status(403).end();
     subscribeKey = `et:${access.entityThreadId}`;
     helloPayload = {
       type: 'hello',
@@ -66,10 +66,10 @@ router.get('/', authQuery, async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable proxy buffering
   res.flushHeaders();
   if (res.socket && res.socket.setNoDelay) res.socket.setNoDelay(true);
-  res.write('retry: 5000\n\n');
+  res.write('retry: 5000\n\n'); // tell client to retry every 5s if dropped
   res.write(`data: ${JSON.stringify(helloPayload)}\n\n`);
 
   const unsubscribe = hub.subscribe(subscribeKey, res);
