@@ -268,11 +268,11 @@
 
 <main class="inbox-3col">
 
-  <!-- ─── LEFT: nav + search ─────────────────────────────── -->
+  <!-- ─── LEFT: nav (compose lives here now) ─────────────── -->
   <aside class="col col-left" id="col-left">
     <div class="col-head">
       <div class="brand"><span>📧</span><span>Inbox</span></div>
-      <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
+      <button class="btn btn-primary" onclick="openCompose()" style="width:100%;margin-top:8px;">✏️ Compose</button>
     </div>
     <div class="nav-scroll">
       <div class="nav-section">
@@ -296,12 +296,14 @@
 
   <div class="resizer" id="rz-left" data-resize-prev="#col-left" data-storage-key="inbox_col_left_w" data-min="180" data-max="400"></div>
 
-  <!-- ─── MIDDLE: thread list ───────────────────────────── -->
+  <!-- ─── MIDDLE: thread list (search now lives here) ────── -->
   <section class="col col-middle" id="col-middle">
-    <div class="col-head">
-      <h3 id="active-inbox-title">All open threads</h3>
-      <button class="btn btn-primary btn-sm" onclick="openCompose()">✏️ Compose</button>
-      <button class="btn btn-secondary btn-sm" onclick="refreshThreads()" title="Refresh">↻</button>
+    <div class="col-head" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <h3 id="active-inbox-title" style="flex:1;margin:0;">All open threads</h3>
+        <button class="btn btn-secondary btn-sm" onclick="refreshThreads()" title="Refresh">↻</button>
+      </div>
+      <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
     </div>
     <div class="thread-list" id="threads">
       <p class="text-muted text-sm" style="padding:14px;">Loading threads…</p>
