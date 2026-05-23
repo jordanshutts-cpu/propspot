@@ -51,7 +51,10 @@ router.get('/', async (req, res) => {
     ORDER BY m.created_at ASC
     `, [access.entityThreadId]);
 
-    res.json({ thread: tRows[0], messages: mRows });
+    // caller_user_id lets the widget show edit/delete controls only on
+    // messages the caller authored (server-side PATCH/DELETE re-check the
+    // same condition; this is just for hiding the UI).
+    res.json({ thread: tRows[0], messages: mRows, caller_user_id: req.userId });
   } catch (err) {
     console.error('entity-threads GET failed:', err);
     res.status(500).json({ error: 'Failed to load entity thread' });

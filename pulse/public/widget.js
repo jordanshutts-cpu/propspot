@@ -118,6 +118,7 @@
 
     let MENTIONABLE = [];   // { id, full_name, email, has_ambient }
     let USERS_BY_ID = new Map();
+    let CALLER_ID = null;   // populated by loadInitial; drives edit/delete visibility
     // displayName → uuid for mentions picked from the picker. Used by
     // postMessage to convert "@Jordan Shutts" back to "<@uuid>" on the
     // way to the server. The textarea stores plain text — there's no
@@ -156,6 +157,7 @@
         ]);
         MENTIONABLE = users || [];
         rebuildUserMap();
+        CALLER_ID = data.caller_user_id || null;
         renderMessages(data.messages || []);
         api(`/api/pulse/entity-threads/mark-read?type=${encodeURIComponent(entityType)}&id=${encodeURIComponent(entityId)}`, { method: 'POST' }).catch(() => {});
         openStream();
@@ -164,19 +166,41 @@
       }
     }
 
+    // Build the inner head + body markup for a message row. Own messages
+    // get edit/delete buttons; everyone else's are read-only.
+    function messageInnerHtml(m) {
+      const isMine = CALLER_ID && m.sender_id && m.sender_id.toLowerCase() === CALLER_ID.toLowerCase();
+      const actions = isMine ? `
+        <div class="pulse-embed-msg-actions">
+          <button type="button" data-action="edit" title="Edit">✏️</button>
+          <button type="button" class="danger" data-action="delete" title="Delete">🗑</button>
+        </div>` : '';
+      return `
+        <div class="pulse-embed-msg-head">
+          <span class="pulse-embed-msg-author">${escapeHtml(m.sender_name || 'Unknown')}</span>
+          <span>${fmtTime(m.created_at)}</span>
+          ${m.edited_at ? '<span title="Edited">(edited)</span>' : ''}
+          ${actions}
+        </div>
+        <div class="pulse-embed-msg-body">${renderBody(m.body, USERS_BY_ID)}</div>
+        <div class="pulse-embed-msg-edit">
+          <textarea data-role="edit-textarea"></textarea>
+          <div class="pulse-embed-msg-edit-actions">
+            <button type="button" class="cancel" data-action="cancel-edit">Cancel</button>
+            <button type="button" class="save" data-action="save-edit">Save</button>
+          </div>
+        </div>
+      `;
+    }
+
     function renderMessages(messages) {
       if (!messages.length) {
         msgEl.innerHTML = '<div class="pulse-embed-empty">No comments yet — leave the first one.</div>';
         return;
       }
       msgEl.innerHTML = messages.map(m => `
-        <div class="pulse-embed-msg" data-id="${escapeHtml(m.id)}">
-          <div class="pulse-embed-msg-head">
-            <span class="pulse-embed-msg-author">${escapeHtml(m.sender_name || 'Unknown')}</span>
-            <span>${fmtTime(m.created_at)}</span>
-            ${m.edited_at ? '<span title="Edited">(edited)</span>' : ''}
-          </div>
-          <div class="pulse-embed-msg-body">${renderBody(m.body, USERS_BY_ID)}</div>
+        <div class="pulse-embed-msg" data-id="${escapeHtml(m.id)}" data-raw-body="${escapeHtml(m.body || '')}">
+          ${messageInnerHtml(m)}
         </div>
       `).join('');
       msgEl.scrollTop = msgEl.scrollHeight;
@@ -189,16 +213,61 @@
       const div = document.createElement('div');
       div.className = 'pulse-embed-msg';
       div.dataset.id = m.id;
-      div.innerHTML = `
-        <div class="pulse-embed-msg-head">
-          <span class="pulse-embed-msg-author">${escapeHtml(m.sender_name || 'Unknown')}</span>
-          <span>${fmtTime(m.created_at)}</span>
-        </div>
-        <div class="pulse-embed-msg-body">${renderBody(m.body, USERS_BY_ID)}</div>
-      `;
+      div.dataset.rawBody = m.body || '';
+      div.innerHTML = messageInnerHtml(m);
       msgEl.appendChild(div);
       msgEl.scrollTop = msgEl.scrollHeight;
     }
+
+    // Click delegation for per-message actions (edit / delete / save / cancel).
+    msgEl.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const card = btn.closest('.pulse-embed-msg');
+      if (!card) return;
+      const action = btn.dataset.action;
+      const msgId = card.dataset.id;
+
+      if (action === 'edit') {
+        const ta = card.querySelector('[data-role="edit-textarea"]');
+        ta.value = card.dataset.rawBody || '';
+        card.classList.add('editing');
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      } else if (action === 'cancel-edit') {
+        card.classList.remove('editing');
+      } else if (action === 'save-edit') {
+        const ta = card.querySelector('[data-role="edit-textarea"]');
+        const newBody = ta.value.trim();
+        if (!newBody) return;
+        btn.disabled = true;
+        try {
+          const updated = await api(`/api/pulse/entity-threads/messages/${encodeURIComponent(msgId)}`,
+            { method: 'PATCH', body: JSON.stringify({ body: newBody }) });
+          // Replace card contents with the freshly-edited render. The SSE
+          // event will arrive shortly with the same payload; messageInnerHtml
+          // is idempotent so a double-render is harmless.
+          card.dataset.rawBody = updated.body || '';
+          card.innerHTML = messageInnerHtml(updated);
+          card.classList.remove('editing');
+        } catch (err) {
+          alert('Could not save: ' + err.message);
+        } finally {
+          btn.disabled = false;
+        }
+      } else if (action === 'delete') {
+        if (!confirm('Delete this comment? Other people on the thread will no longer see it.')) return;
+        try {
+          await api(`/api/pulse/entity-threads/messages/${encodeURIComponent(msgId)}`, { method: 'DELETE' });
+          card.remove();
+          if (!msgEl.querySelector('.pulse-embed-msg')) {
+            msgEl.innerHTML = '<div class="pulse-embed-empty">No comments yet — leave the first one.</div>';
+          }
+        } catch (err) {
+          alert('Could not delete: ' + err.message);
+        }
+      }
+    });
 
     function uuid() {
       return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
@@ -328,8 +397,14 @@
           const el = msgEl.querySelector(`[data-id="${payload.message_id}"]`);
           if (el) el.remove();
         } else if (payload.type === 'entity_thread.message_updated' && payload.message) {
-          const el = msgEl.querySelector(`[data-id="${payload.message.id}"] .pulse-embed-msg-body`);
-          if (el) el.innerHTML = renderBody(payload.message.body, USERS_BY_ID);
+          // Full card re-render keeps data-raw-body (used by the edit
+          // textarea pre-fill) and the "(edited)" badge in sync.
+          const card = msgEl.querySelector(`.pulse-embed-msg[data-id="${payload.message.id}"]`);
+          if (card) {
+            card.dataset.rawBody = payload.message.body || '';
+            card.classList.remove('editing');
+            card.innerHTML = messageInnerHtml(payload.message);
+          }
         }
       });
     }

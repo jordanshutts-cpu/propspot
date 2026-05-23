@@ -28,11 +28,37 @@
   overflow-y: auto;
 }
 .pulse-embed-empty { color: #888; font-size: .85rem; padding: 8px 0; }
-.pulse-embed-msg { padding: 8px 0; border-bottom: 1px dashed var(--border, #eee); }
+.pulse-embed-msg { padding: 8px 0; border-bottom: 1px dashed var(--border, #eee); position: relative; }
 .pulse-embed-msg:last-child { border-bottom: none; }
-.pulse-embed-msg-head { font-size: .82rem; color: #666; display: flex; gap: 6px; }
+.pulse-embed-msg-head { font-size: .82rem; color: #666; display: flex; gap: 6px; align-items: center; }
 .pulse-embed-msg-author { font-weight: 600; color: #222; }
 .pulse-embed-msg-body { font-size: .9rem; line-height: 1.45; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
+/* Edit/delete controls on own messages. Low-contrast, hover-revealed
+   so they don't compete with the message content. */
+.pulse-embed-msg-actions { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
+.pulse-embed-msg:hover .pulse-embed-msg-actions,
+.pulse-embed-msg.editing .pulse-embed-msg-actions { opacity: 1; }
+.pulse-embed-msg-actions button {
+  background: none; border: 0; padding: 2px 6px; border-radius: 4px;
+  font-size: .82rem; cursor: pointer; color: #666;
+}
+.pulse-embed-msg-actions button:hover { background: #f0f0f0; color: #222; }
+.pulse-embed-msg-actions button.danger:hover { background: #fde8e8; color: #b00; }
+.pulse-embed-msg-edit { display: none; margin-top: 4px; }
+.pulse-embed-msg.editing .pulse-embed-msg-edit { display: block; }
+.pulse-embed-msg.editing .pulse-embed-msg-body { display: none; }
+.pulse-embed-msg-edit textarea {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border, #e5e5e5); border-radius: 6px;
+  padding: 6px 8px; font: inherit; font-size: .9rem; resize: vertical;
+  min-height: 44px;
+}
+.pulse-embed-msg-edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
+.pulse-embed-msg-edit-actions button {
+  border: 0; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: .8rem; font-weight: 600;
+}
+.pulse-embed-msg-edit-actions .save { background: var(--brand, #61B746); color: #fff; }
+.pulse-embed-msg-edit-actions .cancel { background: #eee; color: #333; }
 .pulse-embed-mention { background: var(--brand-light, #e6f4dc); color: var(--brand-dark, #3a7a1f); padding: 1px 5px; border-radius: 4px; font-weight: 600; }
 .pulse-embed-composer { border-top: 1px solid var(--border, #e5e5e5); padding: 10px 14px; position: relative; }
 .pulse-embed-textarea {
