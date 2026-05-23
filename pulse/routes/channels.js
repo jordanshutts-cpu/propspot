@@ -187,6 +187,28 @@ router.delete('/:id/members/:userId', async (req, res) => {
   }
 });
 
+// POST /api/pulse/channels/:id/read — set caller's last_read_at = NOW().
+// Called when the user opens the channel or focuses the tab. Idempotent.
+router.post('/:id/read', async (req, res) => {
+  const channelId = req.params.id;
+  try {
+    const upd = await query(
+      `UPDATE chat_channel_members SET last_read_at = NOW()
+        WHERE channel_id = $1 AND user_id = $2`,
+      [channelId, req.userId]
+    );
+    if (upd.rowCount === 0) {
+      // Owners can read channels they're not a member of; nothing to track.
+      // Treat as no-op success so the frontend doesn't error noisily.
+      return res.json({ ok: true, noop: true });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update read' });
+  }
+});
+
 // GET /api/pulse/channels/:id/members — list members with display names.
 router.get('/:id/members', async (req, res) => {
   const channelId = req.params.id;
@@ -196,7 +218,7 @@ router.get('/:id/members', async (req, res) => {
     }
     const { rows } = await query(`
       SELECT m.user_id, m.role, m.joined_at,
-             u.full_name, u.email
+             u.full_name, u.email, u.avatar_url
         FROM chat_channel_members m
         LEFT JOIN users u ON u.id = m.user_id
        WHERE m.channel_id = $1
