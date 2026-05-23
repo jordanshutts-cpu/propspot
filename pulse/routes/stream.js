@@ -21,24 +21,48 @@ function authQuery(req, res, next) {
 }
 
 // GET /api/pulse/stream?token=<JWT>&channel_id=<UUID>
-// Long-lived Server-Sent Events stream. One per channel per tab.
+// GET /api/pulse/stream?token=<JWT>&entity_type=<type>&entity_id=<id>
+// Long-lived Server-Sent Events stream. One per channel/entity-thread per tab.
 router.get('/', authQuery, async (req, res) => {
   const channelId = req.query.channel_id;
-  if (!channelId) return res.status(400).end();
+  const entityType = req.query.entity_type;
+  const entityId   = req.query.entity_id;
 
-  // Membership check — owners always allowed, otherwise must be in chat_channel_members.
-  const { rows } = await query(`
-    SELECT 1
-      FROM users u
-      LEFT JOIN chat_channel_members m
-        ON m.user_id = u.id AND m.channel_id = $1
-     WHERE u.id = $2
-       AND (u.is_owner = TRUE OR m.user_id IS NOT NULL)
-     LIMIT 1
-  `, [channelId, req.userId]);
-  if (!rows.length) return res.status(403).end();
+  let subscribeKey;
+  let helloPayload;
 
-  // SSE headers — every line matters here.
+  if (channelId) {
+    const { rows } = await query(`
+      SELECT 1
+        FROM users u
+        LEFT JOIN chat_channel_members m
+          ON m.user_id = u.id AND m.channel_id = $1
+       WHERE u.id = $2
+         AND (u.is_owner = TRUE OR m.user_id IS NOT NULL)
+       LIMIT 1
+    `, [channelId, req.userId]);
+    if (!rows.length) return res.status(403).end();
+    subscribeKey = channelId;
+    helloPayload = { type: 'hello', channel_id: channelId, user_id: req.userId };
+  } else if (entityType && entityId) {
+    const { isEntityTypeSupported, canAccessEntity } = require('../lib/authz');
+    if (!isEntityTypeSupported(entityType)) return res.status(400).end();
+    const access = await canAccessEntity({
+      userId: req.userId, entityType, entityId
+    });
+    if (!access.allowed || !access.entityThreadId) return res.status(403).end();
+    subscribeKey = `et:${access.entityThreadId}`;
+    helloPayload = {
+      type: 'hello',
+      entity_type: entityType,
+      entity_id: entityId,
+      entity_thread_id: access.entityThreadId,
+      user_id: req.userId
+    };
+  } else {
+    return res.status(400).end();
+  }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -46,21 +70,12 @@ router.get('/', authQuery, async (req, res) => {
   res.flushHeaders();
   if (res.socket && res.socket.setNoDelay) res.socket.setNoDelay(true);
   res.write('retry: 5000\n\n'); // tell client to retry every 5s if dropped
+  res.write(`data: ${JSON.stringify(helloPayload)}\n\n`);
 
-  // Send a hello so the client can flip its "connected" dot immediately.
-  res.write(`data: ${JSON.stringify({ type: 'hello', channel_id: channelId, user_id: req.userId })}\n\n`);
+  const unsubscribe = hub.subscribe(subscribeKey, res);
 
-  const unsubscribe = hub.subscribe(channelId, res);
-
-  // Heartbeat to keep proxies (Railway, Cloudflare) from killing idle conns.
-  const heartbeat = setInterval(() => {
-    try { res.write(':\n\n'); } catch {}
-  }, 25000);
-
-  const cleanup = () => {
-    clearInterval(heartbeat);
-    unsubscribe();
-  };
+  const heartbeat = setInterval(() => { try { res.write(':\n\n'); } catch {} }, 25000);
+  const cleanup = () => { clearInterval(heartbeat); unsubscribe(); };
   req.on('close', cleanup);
   req.on('aborted', cleanup);
 });

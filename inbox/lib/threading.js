@@ -78,6 +78,27 @@ function detectDeliveredAlias(headers, isOutbound) {
   return null;
 }
 
+// Crude HTML → plain text. Strips tags, decodes a handful of entities,
+// collapses whitespace. Good enough for the plain-text branch of a multipart
+// email when all we have is the HTML signature. Don't reuse for arbitrary
+// untrusted HTML — this isn't a sanitizer.
+function htmlToText(html) {
+  if (!html) return '';
+  return String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\r?\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function parseGmailMessage(message, mailboxEmail) {
   const headers = message.payload?.headers || [];
   const from = parseFrom(headerLookup(headers, 'From'));
@@ -107,10 +128,22 @@ function parseGmailMessage(message, mailboxEmail) {
 }
 
 // Build an RFC2822 message for sending. Returns a base64url string Gmail will accept.
-function buildRawMessage({ from, to, cc, subject, bodyText, bodyHtml, inReplyTo, references }) {
+function buildRawMessage({ from, to, cc, subject, bodyText, bodyHtml, inReplyTo, references, signatureHtml }) {
   const toList = Array.isArray(to) ? to.join(', ') : (to || '');
   const ccList = Array.isArray(cc) ? cc.join(', ') : (cc || '');
   const boundary = 'inbox-' + Math.random().toString(36).slice(2);
+
+  const sig = (signatureHtml || '').trim();
+  const escapedText = (bodyText || '').replace(/[<>&]/g, ch => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;' }[ch]));
+  const finalHtml = bodyHtml
+    ? (sig ? `${bodyHtml}<br><br>--<br>${sig}` : bodyHtml)
+    : (sig
+        ? `<pre>${escapedText}</pre><br><br>--<br>${sig}`
+        : `<pre>${escapedText}</pre>`);
+  const finalText = sig
+    ? `${bodyText || ''}\n\n-- \n${htmlToText(sig)}`
+    : (bodyText || '');
+
   const lines = [
     `From: ${from}`,
     `To: ${toList}`,
@@ -125,13 +158,13 @@ function buildRawMessage({ from, to, cc, subject, bodyText, bodyHtml, inReplyTo,
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: 7bit',
     '',
-    bodyText || '',
+    finalText,
     '',
     `--${boundary}`,
     'Content-Type: text/html; charset="UTF-8"',
     'Content-Transfer-Encoding: 7bit',
     '',
-    bodyHtml || `<pre>${(bodyText || '').replace(/[<>&]/g, ch => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;' }[ch]))}</pre>`,
+    finalHtml,
     '',
     `--${boundary}--`,
     ''

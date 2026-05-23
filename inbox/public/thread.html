@@ -60,8 +60,11 @@
           <label class="form-label">Reply to <span id="t-reply-to"></span></label>
           <textarea class="form-textarea" id="reply-body" rows="6" placeholder="Type your reply…" required></textarea>
         </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;">
-          <button type="submit" class="btn btn-primary">Send reply</button>
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+          <label id="reply-sig-row" class="text-sm text-muted" style="display:none;">
+            <input type="checkbox" id="reply-include-sig" checked> Include signature
+          </label>
+          <button type="submit" class="btn btn-primary" style="margin-left:auto;">Send reply</button>
         </div>
       </form>
     </div>
@@ -120,6 +123,12 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
+  // Hand the host app's JWT to the Pulse widget under a known global.
+  // The widget reads window.PULSE_AUTH.token instead of any localStorage key
+  // (each propspot satellite namespaces its own token key like `inbox_token`).
+  window.PULSE_AUTH = { token: getToken() };
+</script>
+<script>
 const threadId = new URLSearchParams(location.search).get('id');
 let THREAD = null;
 
@@ -137,6 +146,18 @@ async function loadThread() {
   renderHeader();
   renderMessages();
   document.getElementById('pulse-slot').dataset.entityId = THREAD.id;
+  await maybeShowSignatureRow();
+}
+
+async function maybeShowSignatureRow() {
+  if (!THREAD.shared_inbox_id) return;
+  try {
+    const inboxes = await listSharedInboxes();
+    const me = inboxes.find(i => i.id === THREAD.shared_inbox_id);
+    if (me && me.signature_html && me.signature_html.trim()) {
+      document.getElementById('reply-sig-row').style.display = '';
+    }
+  } catch { /* if list fails, just leave the row hidden */ }
 }
 
 function renderHeader() {
@@ -195,8 +216,9 @@ async function submitReply(e) {
   e.preventDefault();
   const body_text = document.getElementById('reply-body').value;
   if (!body_text.trim()) return;
+  const include_signature = document.getElementById('reply-include-sig').checked;
   try {
-    await sendReply(threadId, { body_text });
+    await sendReply(threadId, { body_text, include_signature });
     document.getElementById('reply-body').value = '';
     showToast('Reply sent');
     setTimeout(loadThread, 800);
@@ -289,6 +311,22 @@ async function confirmSaveAtt() {
 }
 
 loadThread();
+</script>
+<script>
+  (async function loadPulseWidget() {
+    try {
+      const r = await fetch('/api/config');
+      const cfg = await r.json();
+      if (!cfg.pulseUrl) return;  // Pulse not configured in this env
+      // Dynamically-appended scripts are async-by-default in all browsers,
+      // which is what we want — the widget shouldn't block other rendering.
+      const s = document.createElement('script');
+      s.src = cfg.pulseUrl + '/widget.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      console.warn('[Inbox] could not load Pulse widget:', err);
+    }
+  })();
 </script>
 </body>
 </html>
