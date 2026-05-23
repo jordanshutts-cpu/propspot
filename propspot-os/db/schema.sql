@@ -84,6 +84,14 @@ CREATE TABLE IF NOT EXISTS properties (
 CREATE INDEX IF NOT EXISTS properties_parcel_idx  ON properties(parcel_id);
 CREATE INDEX IF NOT EXISTS properties_created_idx ON properties(created_at DESC);
 
+-- CompanyCam project linkage: every property may carry the CC project ID
+-- it was migrated from, so we can later attach photos via the CC API.
+-- Partial unique index = many NULLs allowed, but no two rows share the
+-- same CC project.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS companycam_project_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS properties_companycam_project_uniq
+  ON properties (companycam_project_id) WHERE companycam_project_id IS NOT NULL;
+
 -- Operator-facing fields added later (idempotent ALTERs).
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS owner              TEXT;
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS county             TEXT;

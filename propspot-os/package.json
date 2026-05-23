@@ -11,7 +11,8 @@
     "dev": "nodemon server.js",
     "migrate-from-fieldcam": "node scripts/migrate-from-fieldcam.js",
     "geocode-properties": "node scripts/geocode-properties.js",
-    "bulk-invite-users": "node scripts/bulk-invite-users.js"
+    "bulk-invite-users": "node scripts/bulk-invite-users.js",
+    "import-companycam": "node scripts/import-companycam-projects.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
