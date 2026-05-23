@@ -209,7 +209,7 @@
 
 <!-- Mobile-only top bar (hidden on desktop by style.css line 332). -->
 <header class="app-header">
-  <span class="logo">📧 Inbox</span>
+  <span class="logo">📧 Inbox</span><span id="unread-total" class="text-muted text-sm" style="margin-left:8px;"></span>
   <div class="header-actions">
     <button class="icon-btn" onclick="location.href='/admin-mailboxes.html'" title="Admin">⚙️</button>
     <button class="icon-btn" onclick="openCompose()" title="Compose">✏️</button>
@@ -391,6 +391,8 @@ async function init() {
   // Deep-link support: ?thread=<uuid>
   const initialThread = new URLSearchParams(location.search).get('thread');
   if (initialThread) selectThread(initialThread);
+
+  window.addEventListener('focus', refreshUnreadCounts);
 }
 
 // ── Column resizers ────────────────────────────────────────────
@@ -543,6 +545,7 @@ function renderThreadList() {
   el.querySelectorAll('.thread-card').forEach(card => {
     card.addEventListener('click', () => selectThread(card.dataset.threadId));
   });
+  refreshUnreadCounts();
 }
 function threadCardHtml(t) {
   const from = (t.participants && t.participants[0]) || '(no sender)';
@@ -812,6 +815,61 @@ async function confirmSaveAtt() {
     closeSaveAtt();
     selectThread(STATE.activeThreadId);
   } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Unread mention chips (Pulse entity-thread comments) ─────────
+let UNREAD_BY_THREAD = new Map();
+let _pulseUrlCache = null;
+
+async function _resolvePulseUrl() {
+  if (_pulseUrlCache !== null) return _pulseUrlCache;
+  try {
+    const r = await fetch('/api/config');
+    const cfg = await r.json();
+    _pulseUrlCache = cfg.pulseUrl || '';
+  } catch { _pulseUrlCache = ''; }
+  return _pulseUrlCache;
+}
+
+async function refreshUnreadCounts() {
+  const pulseUrl = await _resolvePulseUrl();
+  if (!pulseUrl) return;
+  try {
+    const r = await fetch(`${pulseUrl}/api/pulse/entity-threads/unread-counts?type=inbox_thread`, {
+      headers: { Authorization: 'Bearer ' + getToken() }
+    });
+    if (!r.ok) return;
+    const rows = await r.json();
+    UNREAD_BY_THREAD = new Map(rows.map(row => [row.entity_id, row.unread_mention_count]));
+    paintUnreadChips();
+    paintUnreadTotal();
+  } catch {
+    /* silent — chips just won't update this pass */
+  }
+}
+
+function paintUnreadChips() {
+  document.querySelectorAll('.thread-card[data-thread-id]').forEach(card => {
+    const id = card.dataset.threadId;
+    const n = UNREAD_BY_THREAD.get(id);
+    let chip = card.querySelector('.unread-mention-chip');
+    if (n && n > 0) {
+      if (!chip) {
+        chip = document.createElement('span');
+        chip.className = 'unread-mention-chip attach-tag';
+        card.querySelector('.thread-meta-row')?.appendChild(chip);
+      }
+      chip.textContent = `💬${n}`;
+    } else if (chip) {
+      chip.remove();
+    }
+  });
+}
+
+function paintUnreadTotal() {
+  const total = [...UNREAD_BY_THREAD.values()].reduce((a, b) => a + b, 0);
+  const el = document.getElementById('unread-total');
+  if (el) el.textContent = total > 0 ? `💬 ${total} unread mention${total === 1 ? '' : 's'}` : '';
 }
 
 // ── Compose ────────────────────────────────────────────────────
