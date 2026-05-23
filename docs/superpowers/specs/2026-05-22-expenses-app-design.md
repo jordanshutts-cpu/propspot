@@ -5,7 +5,7 @@
 
 ## 1. Goal
 
-Stand up a new PropSpot satellite app, **Expenses**, at `expenses.propspot.io`, that serves as the bookkeeper-facing transactional ledger of every bill Restoration Homes pays. Each expense is tied to a property and a vendor, can have an invoice file attached, and flows through a simple AP approval state machine (received → approved → paid). Vendors are a new first-class entity. Historical expenses currently stored in Salesforce are backfilled via a CSV import wizard. QuickBooks sync is stubbed in the schema but deferred to a phase-2 spec.
+Stand up a new PropSpot satellite app, **Expenses**, at `expenses.propspot.io`, that serves as the bookkeeper-facing transactional ledger of every bill Restoration Homes pays. Each expense is tied to a property and a vendor, can have an invoice file attached, and flows through a simple AP approval state machine (received → approved → paid). Vendors are a new first-class entity. Historical expenses currently stored in Salesforce are backfilled via an operator-run Node.js script (not a user-facing import surface). QuickBooks sync is stubbed in the schema but deferred to a phase-2 spec.
 
 The app must be usable for live expense entry on day one and must support a same-day import of historical Salesforce data.
 
@@ -20,7 +20,7 @@ The app must be usable for live expense entry on day one and must support a same
 - Full CRUD UI: list view with filters and totals, quick-add form, expense detail page, vendor list + edit, category admin page.
 - Invoice file uploads to Cloudinary (PDF, image, doc, xls, txt), one or more files per expense.
 - AP approval workflow: state machine with `received` / `approved` / `paid` / `rejected` / `void`; owner-only approval; back-entry-with-paid_on bypass.
-- Salesforce CSV import wizard: upload → field-mapping → preview → commit. Re-runnable via `(source, source_external_id)` idempotency.
+- One-time Salesforce backfill via a Node.js script under `expenses/scripts/import-salesforce-expenses.js`. **Not part of the user-facing app** — no UI, no menu item, no API endpoint. Operator-run (Jordan + Claude in a session, or via Railway one-off command). Idempotent on re-run via the `(source, source_external_id)` unique constraint.
 - Sidebar badge showing the count of expenses awaiting the viewing owner's approval, surfaced through the existing apps-tile sidebar mechanism.
 - Activity-log entries for all state transitions, written to the shared `activity` table.
 - New row in `apps` seed: `('expenses','Expenses','Bills, invoices, and property-level expense tracking','💵','https://expenses.propspot.io',TRUE)`. Owner auto-grants pick this up via the existing boot logic in `propspot-os/db/seed.sql`.
@@ -362,7 +362,6 @@ propspot/expenses/
 │   └── auth.js              # JWT verify → req.userId (copy of holdings/middleware/auth.js)
 ├── lib/
 │   ├── activity.js          # writes to shared `activity` table
-│   ├── csv.js               # minimal CSV parser for the importer (no big dependencies)
 │   └── approval.js          # state-machine helpers (canTransition, applyTransition)
 ├── routes/
 │   ├── expenses.js          # CRUD + /summary + /pending-approval-count + state transitions
@@ -370,8 +369,9 @@ propspot/expenses/
 │   ├── vendor-documents.js  # multipart upload + list + delete for W9 / WC / GL / other
 │   ├── categories.js        # GET list + admin PATCH (owners only)
 │   ├── documents.js         # multipart upload → Cloudinary → expense_documents (invoices)
-│   ├── import.js            # POST /preview, POST /commit
 │   └── lookups.js           # /properties (for picker), echoes through to propspot-os
+├── scripts/
+│   └── import-salesforce-expenses.js  # one-time backfill; NOT shipped in UI
 └── public/
     ├── index.html           # main list view with filters + totals
     ├── new.html             # quick-add (also embedded as a modal on index)
@@ -379,7 +379,6 @@ propspot/expenses/
     ├── vendors.html         # vendor list with compliance badges
     ├── vendor.html          # vendor detail + edit + compliance (W9/WC/GL) section
     ├── categories.html      # category admin (owners only)
-    ├── import.html          # Salesforce CSV import wizard
     ├── app.js               # auth + apiFetch (copy of holdings/public/app.js)
     ├── style.css
     └── config.js            # PUBLIC_CONFIG fetched from /api/config
@@ -455,14 +454,7 @@ Multer config same as expense documents: 20 MB cap, mime allowlist (pdf, image/*
 
 Multer config copied from holdings: 20 MB cap, mime allowlist (pdf, image/*, doc, docx, xls, xlsx, txt).
 
-### 6.6 Import
-
-| Method | Path | Notes |
-|---|---|---|
-| `POST`   | `/api/import/preview` | multipart, field `file`. Returns `{ columns, sample_rows: [...], total_rows }`. |
-| `POST`   | `/api/import/commit` | multipart, field `file`. Body fields: `mapping` (JSON), `default_status` (default 'paid'), `vendor_match_strategy` ('exact' \| 'create_missing'), `property_match_strategy` ('exact_address' \| 'exact_display_name' \| 'fail'). Returns `{ imported, skipped, errors }`. |
-
-Import runs in one DB transaction. Vendor and category-not-found errors per-row don't abort the batch — they go into the `errors` array and the row is skipped. Each imported row gets `source='salesforce_import'`, `source_external_id=<row's SF Id column>`, `requires_approval=FALSE`, `status='paid'` (default).
+No import endpoints. The Salesforce backfill is a Node script — see §9.
 
 ## 7. UI flows
 
@@ -478,7 +470,7 @@ Filter chips above the table: `Property ⌄  Vendor ⌄  Category ⌄  Status �
 
 Header tile row above filters: `This month: $X · YTD: $Y · Pending: N bills · Unpaid: $Z`.
 
-Top-right buttons: **+ New Expense** (opens `new.html` as a modal overlay), **Import** (links to `import.html`), **Export CSV** (downloads current filtered set).
+Top-right buttons: **+ New Expense** (opens `new.html` as a modal overlay), **Export CSV** (downloads current filtered set). No Import button — the Salesforce backfill is operator-only (see §9).
 
 Status badges color-coded: yellow=received, blue=approved, green=paid, red=rejected, gray=void.
 
@@ -597,18 +589,7 @@ Upload modal fields:
 
 Owners only. Drag-to-reorder; toggle enabled; edit label; set `qb_account` text field (unused in v1).
 
-### 7.7 Salesforce import (`import.html`)
-
-Four-step wizard:
-
-1. **Upload.** Drag-drop CSV, POST `/api/import/preview`.
-2. **Map columns.** Table with required and optional Expenses fields on the left, dropdown of CSV column names on the right. Pre-fill best-guesses by name match (case-insensitive, e.g. CSV column "Amount" auto-maps to `amount`). User adjusts.
-3. **Preview.** Shows first 50 rows mapped, flags errors per row (no vendor match, missing amount, bad date). User can choose `Create missing vendors` / `Fail on missing vendors`. Can re-edit mappings and re-preview.
-4. **Commit.** POST `/api/import/commit`. Result page: `Imported N · Skipped N · Errors N (download CSV)`.
-
-CSV parser is hand-rolled in `lib/csv.js` — no heavy dep needed for what this is. (Standard RFC 4180 quoting, no Excel-specific quirks expected.)
-
-### 7.8 propspot-os sidebar tile
+### 7.7 propspot-os sidebar tile
 
 Expenses tile shows on every app sidebar (per existing `apps` registry + `app_grants` mechanic). Badge logic: poll `GET expenses.propspot.io/api/expenses/pending-approval-count` from os.propspot.io's sidebar code when the viewing user is an owner, render `💵 ●N` if N > 0. v1 polls on page load and every 60s while focused. (Cross-app realtime badging is the same deferred work called out in the inbox-signatures spec — out of scope.)
 
@@ -658,18 +639,39 @@ Owner = `users.is_owner = TRUE`. v1 implements approver authority by checking `i
 
 v1 surface: sidebar badge from `pending-approval-count`. No email, no SMS, no Pulse mention. Phase 2 wires Pulse: when an expense lands in `received`, optionally mention the owners in a Pulse channel or DM.
 
-## 9. Salesforce import
+## 9. Salesforce backfill (one-time operator script)
 
-### 9.1 Expected CSV shape
+**Not user-facing.** No UI, no menu item, no HTTP endpoint. The Expenses app ships *without* an import surface to keep things simple for everyone except Jordan. Backfill happens once via a Node.js script that Jordan and Claude run together — Jordan provides the CSV, Claude runs the script, the historical data lands in the table.
 
-The actual columns depend on Jordan's custom-object schema in Salesforce. The importer makes no assumptions beyond "it's a CSV with a header row." Field-mapping happens client-side after preview.
+### 9.1 Script location and invocation
 
-Best-guess mapping rules (the UI pre-fills these; user can adjust):
+`propspot/expenses/scripts/import-salesforce-expenses.js`
+
+Invocation:
+
+```
+cd expenses
+node scripts/import-salesforce-expenses.js <path/to/salesforce-export.csv> [--dry-run] [--create-missing-vendors] [--mapping=path/to/mapping.json]
+```
+
+Flags:
+
+- `--dry-run` — parses, matches, and reports counts without writing. Use to sanity-check before committing.
+- `--create-missing-vendors` — when a vendor name from CSV doesn't exist in the DB, create a stub vendor row (just name + `notes='Created from Salesforce backfill'`). Without this flag, those rows are skipped and listed in the error report.
+- `--mapping=<path>` — supply a JSON file mapping CSV column names → expense fields. If omitted, the script uses the best-guess defaults below and prints a "here's what I mapped" summary up top for manual review before processing.
+
+The script connects to the same `DATABASE_URL` the deployed app uses — read from env. Can run locally (against Railway's hosted DB) or as a Railway one-off command (`railway run node scripts/import-salesforce-expenses.js ...`).
+
+### 9.2 Expected CSV shape
+
+The script assumes a CSV with a header row. Real columns depend on Jordan's Salesforce custom-object export — we'll inspect the actual file once and either hardcode the mapping or pass it via `--mapping`.
+
+Best-guess column→field heuristics (used when no mapping file supplied):
 
 | Expense field | Heuristic match (case-insensitive, contains) |
 |---|---|
 | amount | "amount", "total", "cost" |
-| bill_date | "bill date", "invoice date", "date" (if no paid date column) |
+| bill_date | "bill date", "invoice date", "date" (only if no paid-date column matches) |
 | paid_on | "paid", "paid on", "payment date" |
 | vendor (name) | "vendor", "payee", "supplier" |
 | property (address or display name) | "property", "address", "house" |
@@ -680,30 +682,82 @@ Best-guess mapping rules (the UI pre-fills these; user can adjust):
 | notes | "notes", "comments" |
 | source_external_id | "id" (always; SF Id is 15 or 18 chars) |
 
-### 9.2 Vendor matching
+A `--mapping` file overrides heuristics:
+
+```json
+{
+  "amount":             "Cost__c",
+  "paid_on":            "Payment_Date__c",
+  "vendor":             "Vendor_Name__c",
+  "property":           "Property__r.Address__c",
+  "category":           "Category__c",
+  "payment_method":     "How_Paid__c",
+  "reference":          "Check_Number__c",
+  "memo":               "Description__c",
+  "source_external_id": "Id"
+}
+```
+
+### 9.3 Vendor matching
 
 For each row's vendor column:
-1. Exact case-insensitive match on `vendors.name` → use that vendor_id.
-2. No match + strategy=`create_missing` → INSERT a new vendor with just the name; row's vendor_id = the new id. Created vendor gets `source='salesforce_import'` in notes for traceability.
-3. No match + strategy=`exact` → row is skipped, added to `errors[]`.
 
-### 9.3 Property matching
+1. Exact case-insensitive match on `vendors.name` → use that vendor_id.
+2. No match + `--create-missing-vendors` → INSERT a new vendor with just the name.
+3. No match + no flag → row is skipped, added to the error report.
+
+### 9.4 Property matching
 
 For each row's property column:
-1. Exact match on `properties.display_name` → use.
-2. Otherwise exact match on `properties.address_line1` (combined with `city`/`state` if disambiguation needed) → use.
-3. No match → row is skipped, added to `errors[]`. No "create property" in the importer (properties are a much heavier object owned by propspot-os; out of scope).
 
-### 9.4 Idempotency
+1. Exact case-insensitive match on `properties.display_name` → use.
+2. Otherwise exact match on `properties.address_line1` (disambiguated by `city`/`state` if multiple match) → use.
+3. No match → row is skipped, added to the error report. No "create property" — properties are a heavier object owned by propspot-os and would need addresses/coords/parcels we don't have in the export.
 
-`(source, source_external_id)` unique constraint catches re-imports. Default behavior: skip duplicates and report in `skipped`. Add a `mode='update'` option (Phase 2 polish) for re-imports that want to overwrite.
+### 9.5 Idempotency
 
-### 9.5 Imported row defaults
+The `(source, source_external_id)` unique constraint catches re-imports. If the script is re-run with the same CSV (e.g. after fixing missing vendors), already-imported rows hit the constraint and are reported in `skipped`, not re-inserted. Other rows commit. Safe to run multiple times.
 
-- `status='paid'` (these are historical, assume already paid)
+### 9.6 Imported row defaults
+
+- `source='salesforce_import'`
+- `source_external_id=<row's SF Id>`
+- `status='paid'`
 - `requires_approval=FALSE`
-- `approved_by=NULL`, `approved_at=NULL` (importer didn't approve — they're pre-approved by definition)
-- `paid_on` populated from the mapped CSV column. If no paid_on column maps and `default_status='paid'` is still set → row skipped, error: "row marked paid but no paid_on date."
+- `approved_by=NULL`, `approved_at=NULL` (script didn't approve — these are pre-approved by definition of being historical)
+- `paid_on` populated from the mapped column. If neither paid_on nor bill_date maps and amount is present → row skipped with error "row has amount but no date column."
+
+### 9.7 Output
+
+After running, the script prints:
+
+```
+Salesforce Expense Backfill
+───────────────────────────
+Source file:  ~/Desktop/sf-expenses-2026-05.csv
+Total rows:   1,243
+
+Mapping used (auto-detected):
+  amount           ← "Cost__c"
+  paid_on          ← "Payment_Date__c"
+  ...
+
+Results:
+  ✓ Imported:           1,201
+  ⊘ Skipped (dup):          5    (already imported in a prior run)
+  ✗ Errors:               37
+     - 22 rows: vendor not matched (use --create-missing-vendors)
+     - 11 rows: property not matched
+     -  4 rows: missing required field (amount or date)
+
+Error detail written to: ./import-errors-2026-05-22.csv
+```
+
+The error CSV contains the original row + the error reason so Jordan can fix in Salesforce and re-export, or hand-fix in DB.
+
+### 9.8 After backfill
+
+The script is left in the repo for reference / future audit. It can be re-run safely if more historical data shows up (the unique constraint protects against double-inserts). No need to remove it — but it never gets a UI surface in the Expenses app.
 
 ## 10. QuickBooks (phase 2 — out of scope)
 
@@ -757,7 +811,7 @@ Existing logic that auto-grants every owner full access to every enabled app pic
 1. **Merge schema + seed changes** → propspot-os auto-deploys → tables exist, categories seeded, `expenses` row in `apps` table, owner grants minted.
 2. **Set up Railway service** for `expenses/`: same GitHub repo, Root Directory = `expenses`, env vars (`DATABASE_URL`, `JWT_SECRET`, `OS_URL`, `OS_INTERNAL_URL`, `CLOUDINARY_*`, `APP_URL=https://expenses.propspot.io`), domain `expenses.propspot.io`.
 3. **Merge expenses/ app code** → Railway builds and deploys → app reachable. Jordan can start entering expenses.
-4. **Run Salesforce import** through the wizard. Backfill done.
+4. **Backfill historical Salesforce data**: Jordan exports his SF expense object as CSV → hands the file to Claude → Claude runs `node scripts/import-salesforce-expenses.js <file>` (locally or via `railway run`) → done. No user-facing import surface. Re-runnable safely if more historical data turns up.
 5. **(Optional v1.5)** propspot-os property-detail page gets an "Expenses" tab. Small change; one new fetch + render block on the existing property page.
 
 Each step is backwards-compatible with the previous deployed version. Step 3 can ship before any data is in the table — empty state UI is the first thing users see.
@@ -779,9 +833,9 @@ Manual smoke tests, matching the established propspot pattern (no automated test
 7. **Property/vendor delete protection** — try deleting a property that has an expense; verify 409/restricted.
 8. **Sidebar badge** — create 3 unapproved expenses; verify the Expenses tile shows ●3 for the owner and no badge for a non-owner test user.
 9. **List filters** — filter by status=paid, by date range, by property; verify totals tile updates.
-10. **CSV import — happy path** — upload a 10-row CSV with all expected columns; map; commit; verify all 10 land as `paid`, `source='salesforce_import'`, `requires_approval=FALSE`.
-11. **CSV import — missing vendor** — upload with one row referencing a vendor that doesn't exist; verify "create_missing" creates the vendor and the row imports; switch to "exact" mode and verify the row is skipped with an error.
-12. **CSV import — re-import** — re-run the same CSV; verify all 10 rows are skipped (dedup on source_external_id).
+10. **Backfill script — happy path** — run `node scripts/import-salesforce-expenses.js sample.csv` against a 10-row test CSV with all expected columns. Verify all 10 land as `status='paid'`, `source='salesforce_import'`, `requires_approval=FALSE`, with the SF Id captured in `source_external_id`.
+11. **Backfill script — missing vendor** — include a row whose vendor name doesn't match any `vendors.name`. Without `--create-missing-vendors`, verify the row appears in the error report and is NOT inserted. With the flag, verify the vendor is created and the row imports.
+12. **Backfill script — idempotency** — re-run the same CSV. Verify all 10 rows are reported in "Skipped (dup)" and the table count is unchanged.
 13. **Approval edit-locking** — verify you can't change amount on a `paid` expense via the UI; verify the API also rejects with 409.
 14. **Owner-only routes** — non-owner hits `POST /api/expenses/:id/approve` → 403.
 15. **Schema constraint** — try inserting an expense with `status='paid'` and `paid_on=NULL` directly via SQL; verify CHECK constraint blocks it.
@@ -792,7 +846,7 @@ Manual smoke tests, matching the established propspot pattern (no automated test
 20. **Vendor compliance — list filter** — filter vendor list by "Missing W9"; verify only vendors with no W9 row and (no W9-exempt — W9 has no exempt) show up.
 21. **Vendor compliance — view computes status correctly** — query `SELECT * FROM vendor_compliance_status WHERE vendor_id = '...'` directly; verify all three statuses match what the UI shows.
 
-Tests #1–9 are the v1 happy path; #10–12 cover the import; #13–15 cover edge / security; #16–21 cover vendor compliance.
+Tests #1–9 are the v1 happy path; #10–12 cover the operator-only backfill script (not user-facing); #13–15 cover edge / security; #16–21 cover vendor compliance.
 
 ## 13. Open questions
 
@@ -802,6 +856,6 @@ None. Design locked in:
 - One expense row = one transaction (`bill_date` + nullable `paid_on`).
 - AP approval workflow with owner-only approvers and back-entry bypass when `paid_on` is set at create time.
 - No vendor-level auto-approve and no approval thresholds in v1.
-- Salesforce import is a generic CSV+mapping wizard; imported rows land as `paid` with `requires_approval=FALSE`.
+- Salesforce backfill is an **operator-only Node.js script** (not a user-facing wizard, no UI, no API). Run once by Claude with Jordan's CSV; imported rows land as `paid` with `requires_approval=FALSE`. Re-runnable safely via the unique constraint on `(source, source_external_id)`.
 - QuickBooks columns stubbed now, sync deferred to phase 2.
 - Vendor compliance tracked via `vendor_documents` table with type ∈ {w9, workers_comp, general_liability, other}, expiration-aware status computed by `vendor_compliance_status` view, exempt flags on vendors for WC/GL only, history preserved on renewal, schema ready for phase-2 vendor self-upload portal.
