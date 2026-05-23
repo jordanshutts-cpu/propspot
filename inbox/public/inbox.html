@@ -11,7 +11,7 @@
     /* ── Three-column resizable inbox layout ─────────────────────────── */
     .inbox-3col {
       display: flex;
-      height: calc(100vh - 0px);
+      height: calc(100vh - var(--header-height, 56px));
       overflow: hidden;
       background: var(--bg);
     }
@@ -136,10 +136,19 @@
       flex: 1; color: var(--text-muted);
       font-size: .9rem; padding: 20px;
     }
+    /* Thread detail is the right column's only child; make it a flex column
+       so the messages area can scroll while the reply box stays pinned. */
+    #thread-detail {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
     .thread-head {
       padding: 14px 18px;
       border-bottom: 1px solid var(--border);
       background: var(--surface);
+      flex: 0 0 auto;
     }
     .thread-head h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; }
     .thread-head .thread-head-meta { font-size: .78rem; color: var(--text-muted); }
@@ -180,10 +189,48 @@
     .att-chip a { color: inherit; text-decoration: none; }
     .att-chip .att-save { color: var(--brand); font-weight: 600; cursor: pointer; }
 
+    /* Reply CTA — small bar shown by default after the last message.
+       Click to expand the inline reply panel below. */
+    .reply-cta {
+      padding: 10px 18px; border-top: 1px solid var(--border);
+      background: var(--surface); flex: 0 0 auto;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .reply-cta-info { color: var(--text-muted); font-size: .82rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
     .reply-box {
       padding: 12px 18px; border-top: 1px solid var(--border);
       background: var(--surface);
+      flex: 0 0 auto;
+      position: relative;
     }
+    .reply-box.hidden { display: none; }
+    /* Popped-out reply: floats above the page, big editing surface. */
+    .reply-box.popped {
+      position: fixed;
+      top: 56px; left: 50%; transform: translateX(-50%);
+      width: 92%; max-width: 760px; max-height: calc(100vh - 96px);
+      overflow-y: auto;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.22);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      z-index: 100;
+    }
+    .reply-box.popped textarea { min-height: 260px; }
+    .reply-popout-backdrop {
+      display: none;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 99;
+    }
+    .reply-popout-backdrop.open { display: block; }
+    .reply-box-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+      font-size: .82rem; color: var(--text-muted);
+    }
+    .reply-box-header .reply-to-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .reply-box-icon-btn {
+      background: none; border: 0; padding: 4px 6px; border-radius: 6px;
+      cursor: pointer; color: var(--text-muted); font-size: 1rem;
+    }
+    .reply-box-icon-btn:hover { background: var(--bg); color: var(--text); }
     .reply-box textarea {
       width: 100%; min-height: 80px; padding: 8px 10px;
       border: 1px solid var(--border); border-radius: 8px;
@@ -191,8 +238,89 @@
     }
     .reply-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
-    /* Pulse comments slot for Phase 3 integration */
-    .pulse-slot { margin: 0 18px 14px; }
+    /* Pulse comments slot — lives between the message scroll area and the
+       reply box so it's always visible without scrolling through messages. */
+    .pulse-slot { flex: 0 0 auto; max-height: 50%; overflow-y: auto;
+                  border-top: 1px solid var(--border); background: var(--bg); }
+
+    /* ── Rich-text composer (used by compose + reply) ──────────────── */
+    .rt-composer { border: 1px solid var(--border); border-radius: 8px;
+                   background: var(--surface); display: flex; flex-direction: column; }
+    .rt-toolbar { display: flex; flex-wrap: wrap; gap: 2px;
+                  padding: 6px 8px; border-bottom: 1px solid var(--border);
+                  background: var(--bg); align-items: center; border-radius: 8px 8px 0 0; }
+    .rt-toolbar button, .rt-toolbar select, .rt-toolbar input[type="color"] {
+      background: none; border: 0; padding: 4px 8px; border-radius: 4px;
+      cursor: pointer; font-size: .85rem; color: var(--text);
+      min-width: 28px; height: 28px;
+    }
+    .rt-toolbar button:hover, .rt-toolbar select:hover { background: var(--surface); }
+    .rt-toolbar button.active { background: var(--brand-light); color: var(--brand-dark); }
+    .rt-toolbar select { padding: 2px 6px; }
+    .rt-toolbar input[type="color"] { padding: 0; width: 28px; height: 28px; border-radius: 4px; }
+    .rt-toolbar .rt-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+    .rt-att-btn { display: inline-flex; align-items: center; justify-content: center;
+                  width: 28px; height: 28px; border-radius: 4px; cursor: pointer; }
+    .rt-att-btn:hover { background: var(--surface); }
+    .rt-body { padding: 10px 12px; min-height: 80px;
+               font-size: .92rem; line-height: 1.55; outline: none;
+               word-wrap: break-word; max-height: 360px; overflow-y: auto; }
+    .rt-body:empty:before {
+      content: attr(data-placeholder); color: var(--text-muted);
+      pointer-events: none;
+    }
+    .rt-body ul, .rt-body ol { padding-left: 24px; margin: 8px 0; }
+    .rt-attachments { display: flex; flex-wrap: wrap; gap: 6px;
+                      padding: 8px 12px; border-top: 1px dashed var(--border);
+                      background: var(--bg); border-radius: 0 0 8px 8px; }
+    .rt-attachments:empty { display: none; }
+    .rt-att-chip { display: inline-flex; align-items: center; gap: 6px;
+                   background: var(--surface); border: 1px solid var(--border);
+                   padding: 4px 8px; border-radius: 6px; font-size: .78rem; }
+    .rt-att-chip button { background: none; border: 0; color: var(--text-muted);
+                          cursor: pointer; font-size: 1rem; padding: 0 2px; }
+    .rt-att-chip button:hover { color: #b00; }
+
+    /* Per-shared-inbox tabs (Unassigned / Assigned / Snoozed / Archived /
+       Trash / Spam). Sits between the middle column header and the thread
+       list. Active tab gets a brand-colored underline. */
+    .inbox-tabs {
+      display: flex; gap: 4px; padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      overflow-x: auto; flex-shrink: 0;
+    }
+    .inbox-tab {
+      background: none; border: 0; padding: 10px 8px;
+      font-size: .85rem; color: var(--text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .inbox-tab:hover { color: var(--text); }
+    .inbox-tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
+    /* Signature preview in the compose modal. Bordered card with a sandboxed
+       iframe rendering the inbox's signature_html so Jordan sees exactly
+       what will be appended before hitting Send. */
+    .sig-preview-box { border: 1px solid var(--border); border-radius: 6px;
+                       background: #fff; overflow: hidden; }
+    .sig-preview-box iframe { width: 100%; min-height: 80px; max-height: 160px;
+                              border: 0; display: block; }
+
+    /* Contact autocomplete dropdown for compose To / Cc inputs. */
+    .contact-wrap { position: relative; }
+    .contact-dropdown {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+      max-height: 240px; overflow-y: auto; z-index: 5;
+      display: none; margin-top: 2px;
+    }
+    .contact-dropdown.open { display: block; }
+    .contact-item { padding: 8px 12px; cursor: pointer; font-size: .85rem;
+                    display: flex; flex-direction: column; gap: 1px; }
+    .contact-item:hover, .contact-item.active { background: var(--brand-light); }
+    .contact-item-name { font-weight: 600; color: var(--text); }
+    .contact-item-email { color: var(--text-muted); font-size: .78rem; }
 
     /* ── Mobile / narrow viewport ────────────────────────────────────── */
     @media (max-width: 900px) {
@@ -209,21 +337,20 @@
 
 <!-- Mobile-only top bar (hidden on desktop by style.css line 332). -->
 <header class="app-header">
-  <span class="logo">📧 Inbox</span>
+  <span class="logo">📧 Inbox</span><span id="unread-total" class="text-muted text-sm" style="margin-left:8px;"></span>
   <div class="header-actions">
     <button class="icon-btn" onclick="location.href='/admin-mailboxes.html'" title="Admin">⚙️</button>
     <button class="icon-btn" onclick="openCompose()" title="Compose">✏️</button>
-    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
   </div>
 </header>
 
 <main class="inbox-3col">
 
-  <!-- ─── LEFT: nav + search ─────────────────────────────── -->
+  <!-- ─── LEFT: nav (compose lives here now) ─────────────── -->
   <aside class="col col-left" id="col-left">
     <div class="col-head">
       <div class="brand"><span>📧</span><span>Inbox</span></div>
-      <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
+      <button class="btn btn-primary" onclick="openCompose()" style="width:100%;margin-top:8px;">✏️ Compose</button>
     </div>
     <div class="nav-scroll">
       <div class="nav-section">
@@ -247,13 +374,24 @@
 
   <div class="resizer" id="rz-left" data-resize-prev="#col-left" data-storage-key="inbox_col_left_w" data-min="180" data-max="400"></div>
 
-  <!-- ─── MIDDLE: thread list ───────────────────────────── -->
+  <!-- ─── MIDDLE: thread list (search now lives here) ────── -->
   <section class="col col-middle" id="col-middle">
-    <div class="col-head">
-      <h3 id="active-inbox-title">All open threads</h3>
-      <button class="btn btn-primary btn-sm" onclick="openCompose()">✏️ Compose</button>
-      <button class="btn btn-secondary btn-sm" onclick="refreshThreads()" title="Refresh">↻</button>
+    <div class="col-head" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <h3 id="active-inbox-title" style="flex:1;margin:0;">All open threads</h3>
+        <button class="btn btn-secondary btn-sm" onclick="refreshThreads()" title="Refresh">↻</button>
+      </div>
+      <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
     </div>
+    <!-- Per-shared-inbox tabs. Shown only when a shared inbox is selected. -->
+    <nav class="inbox-tabs" id="inbox-tabs" style="display:none;">
+      <button class="inbox-tab" data-tab="unassigned">Unassigned</button>
+      <button class="inbox-tab" data-tab="assigned">Assigned</button>
+      <button class="inbox-tab" data-tab="snoozed">Snoozed</button>
+      <button class="inbox-tab" data-tab="archived">Archived</button>
+      <button class="inbox-tab" data-tab="trash">Trash</button>
+      <button class="inbox-tab" data-tab="spam">Spam</button>
+    </nav>
     <div class="thread-list" id="threads">
       <p class="text-muted text-sm" style="padding:14px;">Loading threads…</p>
     </div>
@@ -280,17 +418,23 @@
     <form onsubmit="submitCompose(event)">
       <div class="form-group">
         <label class="form-label">Send from *</label>
-        <select class="form-select" id="c-from" required></select>
+        <select class="form-select" id="c-from" required onchange="refreshComposeSignatureRow()"></select>
         <div class="text-muted text-sm" style="margin-top:6px;">Only aliases routed to a shared inbox you can access are shown.</div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">To *</label>
-          <input class="form-input" id="c-to" type="email" placeholder="recipient@example.com" required>
+          <div class="contact-wrap">
+            <input class="form-input" id="c-to" type="text" placeholder="name@example.com (comma for multiple)" required autocomplete="off">
+            <div class="contact-dropdown" id="c-to-suggest"></div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Cc</label>
-          <input class="form-input" id="c-cc" type="text" placeholder="optional">
+          <div class="contact-wrap">
+            <input class="form-input" id="c-cc" type="text" placeholder="optional" autocomplete="off">
+            <div class="contact-dropdown" id="c-cc-suggest"></div>
+          </div>
         </div>
       </div>
       <div class="form-group">
@@ -299,11 +443,20 @@
       </div>
       <div class="form-group">
         <label class="form-label">Message *</label>
-        <textarea class="form-textarea" id="c-body" rows="8" required></textarea>
+        <div id="c-body-rich"></div>
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="closeCompose()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Send</button>
+      <div id="compose-sig-preview-card" style="display:none;margin-bottom:8px;">
+        <div class="text-muted text-sm" style="margin-bottom:4px;">Signature preview</div>
+        <div class="sig-preview-box"><iframe id="compose-sig-preview" sandbox=""></iframe></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <label id="compose-sig-row" class="text-sm text-muted" style="display:none;">
+          <input type="checkbox" id="compose-include-sig" checked onchange="updateComposeSigPreview()"> Include signature
+        </label>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button type="button" class="btn btn-secondary" onclick="closeCompose()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Send</button>
+        </div>
       </div>
     </form>
   </div>
@@ -358,17 +511,25 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
+  // Hand the host app's JWT to the Pulse widget under a known global.
+  // Each propspot satellite namespaces its own token key (inbox_token,
+  // pulse_token, …); the widget can't guess, so we publish it explicitly.
+  window.PULSE_AUTH = { token: getToken() };
+</script>
+<script>
 // ── Application state ──────────────────────────────────────────
 const STATE = {
   user:            null,
   inboxes:         [],         // shared inboxes
-  filter:          'open',     // 'open' | 'archived' | 'assigned'
-  activeInboxSlug: null,       // null = all
+  filter:          'open',     // 'open' | 'archived' | 'assigned' — used when no inbox is selected
+  activeInboxSlug: null,       // null = all (no shared inbox selected)
+  activeTab:       'unassigned', // per-inbox tab; only meaningful when activeInboxSlug is set
   threads:         [],         // currently loaded thread list
   searchQuery:     '',
   activeThreadId:  null,       // selected thread (right pane)
   activeThread:    null,       // full thread data + messages
-  composeAliases:  []
+  composeAliases:  [],
+  sharedInboxes:   null
 };
 
 // ── Init ───────────────────────────────────────────────────────
@@ -385,6 +546,8 @@ async function init() {
   // Deep-link support: ?thread=<uuid>
   const initialThread = new URLSearchParams(location.search).get('thread');
   if (initialThread) selectThread(initialThread);
+
+  window.addEventListener('focus', refreshUnreadCounts);
 }
 
 // ── Column resizers ────────────────────────────────────────────
@@ -439,9 +602,27 @@ function attachLeftNavHandlers() {
       STATE.filter = el.dataset.filter;
       STATE.activeInboxSlug = null;
       updateActiveInboxTitle();
+      updateInboxTabsVisibility();
       refreshThreads();
     });
   });
+  document.querySelectorAll('.inbox-tab[data-tab]').forEach(el => {
+    el.addEventListener('click', () => {
+      STATE.activeTab = el.dataset.tab;
+      document.querySelectorAll('.inbox-tab').forEach(x => x.classList.toggle('active', x === el));
+      refreshThreads();
+    });
+  });
+}
+function updateInboxTabsVisibility() {
+  const bar = document.getElementById('inbox-tabs');
+  if (!bar) return;
+  if (STATE.activeInboxSlug) {
+    bar.style.display = '';
+    bar.querySelectorAll('.inbox-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === STATE.activeTab));
+  } else {
+    bar.style.display = 'none';
+  }
 }
 function updateActiveInboxTitle() {
   let title;
@@ -483,7 +664,9 @@ async function loadInboxes() {
       el2.classList.add('active');
       STATE.activeInboxSlug = el2.dataset.inboxSlug;
       STATE.filter = 'open';
+      STATE.activeTab = 'unassigned';
       updateActiveInboxTitle();
+      updateInboxTabsVisibility();
       refreshThreads();
     });
   });
@@ -514,10 +697,18 @@ function matchesSearch(t) {
 // ── Thread list ────────────────────────────────────────────────
 async function refreshThreads() {
   const params = {};
-  if (STATE.activeInboxSlug) params.inbox = STATE.activeInboxSlug;
-  if (STATE.filter === 'archived') params.status = 'archived';
-  else if (STATE.filter === 'assigned') params.assigned_to_me = '1';
-  else params.status = 'open';
+  if (STATE.activeInboxSlug) {
+    // Per-inbox view: tab filter (Unassigned / Assigned / Snoozed / Archived /
+    // Trash / Spam) overrides the left-nav filter.
+    params.inbox = STATE.activeInboxSlug;
+    params.tab = STATE.activeTab || 'unassigned';
+  } else if (STATE.filter === 'archived') {
+    params.status = 'archived';
+  } else if (STATE.filter === 'assigned') {
+    params.assigned_to_me = '1';
+  } else {
+    params.status = 'open';
+  }
   try {
     STATE.threads = await listThreads(params);
   } catch (err) {
@@ -537,6 +728,7 @@ function renderThreadList() {
   el.querySelectorAll('.thread-card').forEach(card => {
     card.addEventListener('click', () => selectThread(card.dataset.threadId));
   });
+  refreshUnreadCounts();
 }
 function threadCardHtml(t) {
   const from = (t.participants && t.participants[0]) || '(no sender)';
@@ -608,21 +800,34 @@ function renderThreadDetail() {
       <div class="thread-head-meta">${headParts.join(' • ')}</div>
       <div class="thread-head-actions">
         <button class="btn btn-secondary btn-sm" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('snoozed')">${t.status === 'snoozed' ? '⏰ Wake up' : '😴 Snooze'}</button>
         <button class="btn btn-secondary btn-sm" onclick="toggleStatus('archived')">${t.status === 'archived' ? '📥 Unarchive' : '📁 Archive'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore' : '🗑 Trash'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Spam'}</button>
         <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
       </div>
     </div>
     <div class="messages-scroll" id="messages-scroll">
       ${messagesHtml}
-      <div class="pulse-slot" id="pulse-slot" data-entity-type="inbox_thread" data-entity-id="${t.id}"></div>
     </div>
-    <div class="reply-box">
-      <div class="text-muted text-sm" style="margin-bottom:6px;">Reply to <strong>${escapeHtml(replyTo)}</strong></div>
-      <textarea id="reply-body" placeholder="Type your reply…"></textarea>
+    <div class="reply-cta" id="reply-cta">
+      <span class="reply-cta-info">Reply to <strong>${escapeHtml(replyTo)}</strong></span>
+      <button class="btn btn-primary btn-sm" onclick="openInlineReply()">↩ Reply</button>
+    </div>
+    <div class="reply-popout-backdrop" id="reply-popout-backdrop" onclick="closeReplyPopout()"></div>
+    <div class="reply-box hidden" id="reply-box">
+      <div class="reply-box-header">
+        <span class="reply-to-label">Reply to <strong>${escapeHtml(replyTo)}</strong></span>
+        <button class="reply-box-icon-btn" id="reply-popout-btn" title="Pop out" onclick="toggleReplyPopout()">⤢</button>
+        <button class="reply-box-icon-btn" title="Close" onclick="closeInlineReply()">✕</button>
+      </div>
+      <div id="reply-body-rich"></div>
       <div class="reply-actions">
+        <button class="btn btn-secondary" onclick="closeInlineReply()">Cancel</button>
         <button class="btn btn-primary" onclick="submitReply()">Send reply</button>
       </div>
     </div>
+    <div class="pulse-slot" id="pulse-slot" data-entity-type="inbox_thread" data-entity-id="${t.id}"></div>
   `;
   // Scroll to latest message
   const scroll = document.getElementById('messages-scroll');
@@ -631,6 +836,13 @@ function renderThreadDetail() {
   // rendered content height (so emails don't get truncated at the 500px
   // min-height when they're actually taller).
   document.querySelectorAll('.msg.expanded iframe').forEach(autoSizeIframe);
+  // Tell the Pulse widget there's a fresh pulse-slot to mount into.
+  // Safe to call before widget.js loads — the call is a no-op until then,
+  // and the script's own init() will catch up when it finishes loading.
+  if (window.Pulse && window.Pulse.mountSlots) window.Pulse.mountSlots();
+  // Reply composer is bound to per-thread DOM; drop the previous instance so
+  // the next openInlineReply rebuilds against the fresh #reply-body-rich slot.
+  REPLY_COMPOSER = null;
 }
 
 // Toggle a message's collapsed/expanded state. Called from the msg-head
@@ -707,12 +919,64 @@ function messageHtml(m, isExpanded) {
 }
 
 // ── Thread actions ─────────────────────────────────────────────
+// ── Reply panel: open/close + pop-out ─────────────────────────
+// Reply is hidden by default behind a small "Reply" CTA. Click expands the
+// inline reply panel; the pop-out button floats it over the page with a
+// backdrop for a fuller composing surface.
+// Each thread's reply panel gets a fresh RichComposer the first time it opens.
+let REPLY_COMPOSER = null;
+function openInlineReply() {
+  const cta = document.getElementById('reply-cta');
+  const box = document.getElementById('reply-box');
+  if (cta) cta.style.display = 'none';
+  if (box) {
+    box.classList.remove('hidden');
+    box.classList.remove('popped');
+    const slot = document.getElementById('reply-body-rich');
+    if (slot && !REPLY_COMPOSER) {
+      REPLY_COMPOSER = createRichComposer(slot, { placeholder: 'Type your reply…' });
+    }
+    if (REPLY_COMPOSER) REPLY_COMPOSER.focus();
+  }
+}
+function closeInlineReply() {
+  const cta = document.getElementById('reply-cta');
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (box) { box.classList.add('hidden'); box.classList.remove('popped'); }
+  if (backdrop) backdrop.classList.remove('open');
+  if (cta) cta.style.display = '';
+}
+function toggleReplyPopout() {
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (!box) return;
+  const isPopped = box.classList.toggle('popped');
+  if (backdrop) backdrop.classList.toggle('open', isPopped);
+  if (REPLY_COMPOSER) REPLY_COMPOSER.focus();
+}
+function closeReplyPopout() {
+  // Clicked the backdrop — collapse the popout back into the inline state
+  // (preserves the textarea contents). The reply remains open inline.
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (box) box.classList.remove('popped');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
 async function submitReply() {
-  const body_text = document.getElementById('reply-body').value;
+  if (!REPLY_COMPOSER) return;
+  const body_text = REPLY_COMPOSER.getText();
+  const body_html = REPLY_COMPOSER.getHtml();
   if (!body_text.trim()) return showToast('Reply is empty', 'error');
+  let attachments;
+  try { attachments = await REPLY_COMPOSER.getAttachments(); }
+  catch { return showToast('Failed to read attachments', 'error'); }
   try {
-    await sendReply(STATE.activeThreadId, { body_text });
+    await sendReply(STATE.activeThreadId, { body_text, body_html, attachments });
     showToast('Reply sent');
+    REPLY_COMPOSER.clear();
+    closeInlineReply();
     setTimeout(() => selectThread(STATE.activeThreadId), 600);
   } catch (err) {
     showToast(err.message, 'error');
@@ -720,9 +984,10 @@ async function submitReply() {
 }
 async function toggleStatus(target) {
   const next = STATE.activeThread.status === target ? 'open' : target;
+  const TOAST = { open: 'Reopened', archived: 'Archived', snoozed: 'Snoozed', trash: 'Moved to trash', spam: 'Marked as spam' };
   try {
     await patchThread(STATE.activeThreadId, { status: next });
-    showToast(next === 'archived' ? 'Archived' : 'Reopened');
+    showToast(TOAST[next] || 'Updated');
     await refreshThreads();
     selectThread(STATE.activeThreadId);
   } catch (err) {
@@ -808,6 +1073,61 @@ async function confirmSaveAtt() {
   } catch (err) { showToast(err.message, 'error'); }
 }
 
+// ── Unread mention chips (Pulse entity-thread comments) ─────────
+let UNREAD_BY_THREAD = new Map();
+let _pulseUrlCache = null;
+
+async function _resolvePulseUrl() {
+  if (_pulseUrlCache !== null) return _pulseUrlCache;
+  try {
+    const r = await fetch('/api/config');
+    const cfg = await r.json();
+    _pulseUrlCache = cfg.pulseUrl || '';
+  } catch { _pulseUrlCache = ''; }
+  return _pulseUrlCache;
+}
+
+async function refreshUnreadCounts() {
+  const pulseUrl = await _resolvePulseUrl();
+  if (!pulseUrl) return;
+  try {
+    const r = await fetch(`${pulseUrl}/api/pulse/entity-threads/unread-counts?type=inbox_thread`, {
+      headers: { Authorization: 'Bearer ' + getToken() }
+    });
+    if (!r.ok) return;
+    const rows = await r.json();
+    UNREAD_BY_THREAD = new Map(rows.map(row => [row.entity_id, row.unread_mention_count]));
+    paintUnreadChips();
+    paintUnreadTotal();
+  } catch {
+    /* silent — chips just won't update this pass */
+  }
+}
+
+function paintUnreadChips() {
+  document.querySelectorAll('.thread-card[data-thread-id]').forEach(card => {
+    const id = card.dataset.threadId;
+    const n = UNREAD_BY_THREAD.get(id);
+    let chip = card.querySelector('.unread-mention-chip');
+    if (n && n > 0) {
+      if (!chip) {
+        chip = document.createElement('span');
+        chip.className = 'unread-mention-chip attach-tag';
+        card.querySelector('.thread-meta-row')?.appendChild(chip);
+      }
+      chip.textContent = `💬${n}`;
+    } else if (chip) {
+      chip.remove();
+    }
+  });
+}
+
+function paintUnreadTotal() {
+  const total = [...UNREAD_BY_THREAD.values()].reduce((a, b) => a + b, 0);
+  const el = document.getElementById('unread-total');
+  if (el) el.textContent = total > 0 ? `💬 ${total} unread mention${total === 1 ? '' : 's'}` : '';
+}
+
 // ── Compose ────────────────────────────────────────────────────
 async function openCompose() {
   document.getElementById('modal-compose').classList.add('open');
@@ -816,7 +1136,8 @@ async function openCompose() {
     STATE.composeAliases = (data.routed || []).map(r => ({
       mailbox_id: r.mailbox_id,
       alias_email: r.alias_email,
-      inbox: r.shared_inbox_name
+      inbox: r.shared_inbox_name,
+      shared_inbox_id: r.shared_inbox_id
     }));
   } catch {
     STATE.composeAliases = [];
@@ -829,20 +1150,272 @@ async function openCompose() {
       .map(a => `<option value="${a.mailbox_id}::${a.alias_email}">${escapeHtml(a.alias_email)} → ${escapeHtml(a.inbox)}</option>`)
       .join('');
   }
+  refreshComposeSignatureRow();
+  // Wire contact autocomplete to the To + Cc inputs (idempotent — only
+  // attaches listeners on the first openCompose).
+  attachContactAutocomplete('c-to', 'c-to-suggest');
+  attachContactAutocomplete('c-cc', 'c-cc-suggest');
+  // Hydrate the rich-text composer once per modal instance. The modal stays
+  // in the DOM after closeCompose, so we keep the composer too — only its
+  // contents get cleared on close.
+  const composeSlot = document.getElementById('c-body-rich');
+  if (composeSlot && !COMPOSE_COMPOSER) {
+    COMPOSE_COMPOSER = createRichComposer(composeSlot, { placeholder: 'Write your message…' });
+  }
 }
-function closeCompose() { document.getElementById('modal-compose').classList.remove('open'); }
+
+// ── Rich-text composer (used by both compose + reply) ────────
+// Renders a contenteditable body with a toolbar (bold / italic / underline /
+// size / color / lists / link / attachments) into `container`. The returned
+// object exposes getHtml / getText / getAttachments (async) / clear / focus.
+// Uses document.execCommand for formatting — it's deprecated in spec but
+// universally supported by Chrome / Firefox / Safari, and a full Selection-
+// API rewrite is out of scope for v1.
+function createRichComposer(container, opts) {
+  opts = opts || {};
+  container.innerHTML = `
+    <div class="rt-composer">
+      <div class="rt-toolbar">
+        <button type="button" data-cmd="bold" title="Bold (⌘B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Italic (⌘I)"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Underline (⌘U)"><u>U</u></button>
+        <span class="rt-sep"></span>
+        <select data-cmd="fontSize" title="Font size">
+          <option value="2">Small</option>
+          <option value="3" selected>Normal</option>
+          <option value="5">Large</option>
+          <option value="6">Huge</option>
+        </select>
+        <input type="color" data-cmd="foreColor" value="#222222" title="Text color">
+        <span class="rt-sep"></span>
+        <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">•</button>
+        <button type="button" data-cmd="insertOrderedList" title="Numbered list">1.</button>
+        <span class="rt-sep"></span>
+        <button type="button" data-cmd="createLink" title="Insert link">🔗</button>
+        <label class="rt-att-btn" title="Attach files">📎
+          <input type="file" multiple style="display:none;">
+        </label>
+      </div>
+      <div class="rt-body" contenteditable="true" data-placeholder="${escapeHtml(opts.placeholder || 'Type a message…')}"></div>
+      <div class="rt-attachments"></div>
+    </div>
+  `;
+
+  const root      = container.querySelector('.rt-composer');
+  const toolbar   = container.querySelector('.rt-toolbar');
+  const body      = container.querySelector('.rt-body');
+  const attsEl    = container.querySelector('.rt-attachments');
+  const fileInput = container.querySelector('input[type="file"]');
+  const attachments = []; // File objects, base64-encoded only at send time
+
+  // Keep selection inside the body when toolbar buttons are clicked.
+  toolbar.addEventListener('mousedown', (e) => {
+    const btn = e.target.closest('button[data-cmd]');
+    if (!btn) return;
+    e.preventDefault();
+    const cmd = btn.dataset.cmd;
+    let val = null;
+    if (cmd === 'createLink') {
+      val = prompt('Link URL:', 'https://');
+      if (!val) return;
+    }
+    document.execCommand(cmd, false, val);
+    body.focus();
+  });
+  toolbar.querySelector('[data-cmd="fontSize"]').addEventListener('change', (e) => {
+    if (e.target.value) document.execCommand('fontSize', false, e.target.value);
+    body.focus();
+  });
+  toolbar.querySelector('[data-cmd="foreColor"]').addEventListener('input', (e) => {
+    document.execCommand('foreColor', false, e.target.value);
+    body.focus();
+  });
+
+  fileInput.addEventListener('change', () => {
+    for (const f of fileInput.files) attachments.push(f);
+    fileInput.value = ''; // allow re-picking the same file later
+    renderAtts();
+  });
+
+  function formatBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  function renderAtts() {
+    attsEl.innerHTML = attachments.map((f, i) =>
+      `<span class="rt-att-chip">📎 ${escapeHtml(f.name)} <span class="text-muted">(${formatBytes(f.size)})</span><button type="button" data-i="${i}" title="Remove">×</button></span>`
+    ).join('');
+    attsEl.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        attachments.splice(parseInt(btn.dataset.i, 10), 1);
+        renderAtts();
+      });
+    });
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result;
+        const comma = r.indexOf(',');
+        resolve(comma >= 0 ? r.slice(comma + 1) : r);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  return {
+    getHtml: () => body.innerHTML,
+    getText: () => body.innerText,
+    async getAttachments() {
+      return Promise.all(attachments.map(async f => ({
+        filename: f.name,
+        mimeType: f.type || 'application/octet-stream',
+        data: await fileToBase64(f)
+      })));
+    },
+    clear() { body.innerHTML = ''; attachments.length = 0; renderAtts(); },
+    focus() { body.focus(); }
+  };
+}
+
+// ── Contact autocomplete ─────────────────────────────────────
+// Search /api/contacts as the user types, render matches under the input,
+// pick → insert "Name <email>" into the current comma-separated token.
+const _contactAttached = new Set();
+function attachContactAutocomplete(inputId, dropdownId) {
+  if (_contactAttached.has(inputId)) return;
+  _contactAttached.add(inputId);
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  if (!input || !dropdown) return;
+  let timer = null;
+  let cursor = 0;
+
+  function currentToken() {
+    const tokens = input.value.split(',');
+    return { tokens, current: tokens[tokens.length - 1].trimStart() };
+  }
+  function picked(c) {
+    const { tokens } = currentToken();
+    const display = c.name ? `${c.name} <${c.email}>` : c.email;
+    tokens[tokens.length - 1] = (tokens.length > 1 ? ' ' : '') + display;
+    input.value = tokens.join(',') + ', ';
+    closeDropdown();
+    input.focus();
+  }
+  function closeDropdown() {
+    dropdown.classList.remove('open');
+    dropdown.innerHTML = '';
+    cursor = 0;
+  }
+  function renderList(list) {
+    if (!list.length) { closeDropdown(); return; }
+    if (cursor >= list.length) cursor = list.length - 1;
+    dropdown.innerHTML = list.map((c, i) => `
+      <div class="contact-item ${i === cursor ? 'active' : ''}" data-i="${i}">
+        ${c.name ? `<span class="contact-item-name">${escapeHtml(c.name)}</span>` : ''}
+        <span class="contact-item-email">${escapeHtml(c.email)}</span>
+      </div>
+    `).join('');
+    dropdown.classList.add('open');
+    dropdown.querySelectorAll('.contact-item').forEach((el, i) => {
+      el.addEventListener('mousedown', (e) => { e.preventDefault(); picked(list[i]); });
+    });
+  }
+
+  let lastResults = [];
+  async function search() {
+    const { current } = currentToken();
+    if (current.length < 2) { closeDropdown(); return; }
+    try {
+      lastResults = await apiFetch('/api/contacts?q=' + encodeURIComponent(current));
+      renderList(lastResults);
+    } catch { closeDropdown(); }
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(search, 200);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (!dropdown.classList.contains('open') || !lastResults.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); cursor = (cursor + 1) % lastResults.length; renderList(lastResults); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cursor = (cursor - 1 + lastResults.length) % lastResults.length; renderList(lastResults); }
+    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); picked(lastResults[cursor]); }
+    else if (e.key === 'Escape') { closeDropdown(); }
+  });
+  input.addEventListener('blur', () => {
+    // Delay so a click on a dropdown item can fire first.
+    setTimeout(closeDropdown, 150);
+  });
+}
+
+async function refreshComposeSignatureRow() {
+  const row = document.getElementById('compose-sig-row');
+  const previewCard = document.getElementById('compose-sig-preview-card');
+  const previewFrame = document.getElementById('compose-sig-preview');
+  const hide = () => {
+    row.style.display = 'none';
+    previewCard.style.display = 'none';
+    previewFrame.srcdoc = '';
+  };
+  const aliasId = document.getElementById('c-from')?.value;
+  const alias = STATE.composeAliases.find(a => `${a.mailbox_id}::${a.alias_email}` === aliasId);
+  const sharedInboxId = alias?.shared_inbox_id;
+  if (!sharedInboxId) return hide();
+
+  const all = STATE.sharedInboxes || (await listSharedInboxes());
+  STATE.sharedInboxes = all;
+  const inbox = all.find(s => s.id === sharedInboxId);
+  const sig = (inbox && inbox.signature_html && inbox.signature_html.trim()) ? inbox.signature_html : '';
+  if (!sig) return hide();
+
+  row.style.display = '';
+  previewFrame.srcdoc = sig;
+  updateComposeSigPreview();
+}
+
+// Show / hide the preview card based on the Include-signature checkbox state.
+// Called from the checkbox's onchange AND from refreshComposeSignatureRow.
+function updateComposeSigPreview() {
+  const row = document.getElementById('compose-sig-row');
+  const cb = document.getElementById('compose-include-sig');
+  const previewCard = document.getElementById('compose-sig-preview-card');
+  // Only show the preview when the row itself is visible (i.e. the inbox has
+  // a signature to begin with) AND the checkbox is checked.
+  const rowVisible = row && row.style.display !== 'none';
+  previewCard.style.display = (rowVisible && cb && cb.checked) ? '' : 'none';
+}
+let COMPOSE_COMPOSER = null;
+function closeCompose() {
+  document.getElementById('modal-compose').classList.remove('open');
+  if (COMPOSE_COMPOSER) COMPOSE_COMPOSER.clear();
+}
 async function submitCompose(e) {
   e.preventDefault();
   const fromVal = document.getElementById('c-from').value;
   if (!fromVal) return showToast('Pick an alias to send from', 'error');
   const [mailbox_id, from_alias] = fromVal.split('::');
+  const body_text = COMPOSE_COMPOSER ? COMPOSE_COMPOSER.getText() : '';
+  const body_html = COMPOSE_COMPOSER ? COMPOSE_COMPOSER.getHtml() : '';
+  if (!body_text.trim()) return showToast('Message is empty', 'error');
+  let attachments;
+  try { attachments = COMPOSE_COMPOSER ? await COMPOSE_COMPOSER.getAttachments() : []; }
+  catch { return showToast('Failed to read attachments', 'error'); }
   const body = {
     mailbox_id,
     from_alias,
     to: document.getElementById('c-to').value.trim(),
     cc: document.getElementById('c-cc').value.trim() || undefined,
     subject: document.getElementById('c-subject').value.trim(),
-    body_text: document.getElementById('c-body').value
+    body_text,
+    body_html,
+    attachments,
+    include_signature: document.getElementById('compose-include-sig').checked
   };
   try {
     const r = await composeMessage(body);
@@ -856,6 +1429,23 @@ async function submitCompose(e) {
 }
 
 init();
+
+// Lazy-load the Pulse widget script from the configured pulseUrl. The widget
+// reads window.PULSE_AUTH.token (set above) and mounts into any <div
+// id="pulse-slot"> currently in the DOM. Subsequent thread switches call
+// window.Pulse.mountSlots() from renderThreadDetail to mount the fresh slot.
+(async function loadPulseWidget() {
+  try {
+    const r = await fetch('/api/config');
+    const cfg = await r.json();
+    if (!cfg.pulseUrl) return;
+    const s = document.createElement('script');
+    s.src = cfg.pulseUrl + '/widget.js';
+    document.body.appendChild(s);
+  } catch (err) {
+    console.warn('[Inbox] could not load Pulse widget:', err);
+  }
+})();
 </script>
 </body>
 </html>

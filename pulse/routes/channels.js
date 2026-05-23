@@ -39,7 +39,13 @@ async function isAdmin(channelId, userId) {
 
 // GET /api/pulse/channels — list channels the caller can see.
 //   Includes is_member + my_role so the UI can branch on "Join" vs "Open".
+//   Filters out archived channels by default. Pass ?archived=1 to get just
+//   the archived list (useful for the "Show archived" view).
 router.get('/', async (req, res) => {
+  const wantArchived = req.query.archived === '1' || req.query.archived === 'true';
+  const archivedFilter = wantArchived
+    ? 'AND c.archived_at IS NOT NULL'
+    : 'AND c.archived_at IS NULL';
   try {
     const { rows } = await query(`
       SELECT c.*,
@@ -49,9 +55,10 @@ router.get('/', async (req, res) => {
         FROM chat_channels c
         LEFT JOIN chat_channel_members m ON m.channel_id = c.id AND m.user_id = $1
         LEFT JOIN users u ON u.id = $1
-       WHERE u.is_owner = TRUE
-          OR m.user_id IS NOT NULL
-          OR c.is_private = FALSE
+       WHERE (u.is_owner = TRUE
+              OR m.user_id IS NOT NULL
+              OR c.is_private = FALSE)
+         ${archivedFilter}
        ORDER BY
          (c.slug = 'general') DESC,
          c.is_private ASC,
@@ -187,6 +194,28 @@ router.delete('/:id/members/:userId', async (req, res) => {
   }
 });
 
+// POST /api/pulse/channels/:id/read — set caller's last_read_at = NOW().
+// Called when the user opens the channel or focuses the tab. Idempotent.
+router.post('/:id/read', async (req, res) => {
+  const channelId = req.params.id;
+  try {
+    const upd = await query(
+      `UPDATE chat_channel_members SET last_read_at = NOW()
+        WHERE channel_id = $1 AND user_id = $2`,
+      [channelId, req.userId]
+    );
+    if (upd.rowCount === 0) {
+      // Owners can read channels they're not a member of; nothing to track.
+      // Treat as no-op success so the frontend doesn't error noisily.
+      return res.json({ ok: true, noop: true });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update read' });
+  }
+});
+
 // GET /api/pulse/channels/:id/members — list members with display names.
 router.get('/:id/members', async (req, res) => {
   const channelId = req.params.id;
@@ -196,7 +225,7 @@ router.get('/:id/members', async (req, res) => {
     }
     const { rows } = await query(`
       SELECT m.user_id, m.role, m.joined_at,
-             u.full_name, u.email
+             u.full_name, u.email, u.avatar_url
         FROM chat_channel_members m
         LEFT JOIN users u ON u.id = m.user_id
        WHERE m.channel_id = $1
@@ -206,6 +235,65 @@ router.get('/:id/members', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load members' });
+  }
+});
+
+// ── Archive / unarchive ─────────────────────────────────────────────────
+// An archived channel disappears from the default sidebar list but keeps its
+// members and message history. Anyone can unarchive it via the "Show archived"
+// view. #general can never be archived. Authz: channel admin or account owner.
+
+async function canArchiveChannel(channelId, userId) {
+  if (await isOwner(userId)) return true;
+  return await isAdmin(channelId, userId);
+}
+
+// POST /api/pulse/channels/:id/archive
+router.post('/:id/archive', async (req, res) => {
+  const channelId = req.params.id;
+  try {
+    const slugRow = await query(`SELECT slug, archived_at FROM chat_channels WHERE id = $1`, [channelId]);
+    if (!slugRow.rows.length) return res.status(404).json({ error: 'Channel not found' });
+    if (slugRow.rows[0].slug === 'general') {
+      return res.status(400).json({ error: "You can't archive #general" });
+    }
+    if (slugRow.rows[0].archived_at) {
+      return res.json({ ok: true, already_archived: true });
+    }
+    if (!(await canArchiveChannel(channelId, req.userId))) {
+      return res.status(403).json({ error: 'Only channel admins or account owners can archive a channel' });
+    }
+    await query(
+      `UPDATE chat_channels SET archived_at = NOW(), archived_by = $2 WHERE id = $1`,
+      [channelId, req.userId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to archive channel' });
+  }
+});
+
+// POST /api/pulse/channels/:id/unarchive
+router.post('/:id/unarchive', async (req, res) => {
+  const channelId = req.params.id;
+  try {
+    const row = await query(`SELECT archived_at FROM chat_channels WHERE id = $1`, [channelId]);
+    if (!row.rows.length) return res.status(404).json({ error: 'Channel not found' });
+    if (!row.rows[0].archived_at) {
+      return res.json({ ok: true, already_active: true });
+    }
+    if (!(await canArchiveChannel(channelId, req.userId))) {
+      return res.status(403).json({ error: 'Only channel admins or account owners can unarchive a channel' });
+    }
+    await query(
+      `UPDATE chat_channels SET archived_at = NULL, archived_by = NULL WHERE id = $1`,
+      [channelId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to unarchive channel' });
   }
 });
 

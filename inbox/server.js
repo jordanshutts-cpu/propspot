@@ -6,8 +6,12 @@ const path    = require('path');
 const app = express();
 
 app.use(cors({ origin: process.env.APP_URL || '*', credentials: true }));
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Compose/reply send attachments inline as base64 (so we don't need
+// multer + multipart upload). Gmail's per-message limit is 25MB; with
+// base64 inflation we cap the JSON body at 35MB to stay under that
+// ceiling once the data is decoded.
+app.use(express.json({ limit: '35mb' }));
+app.use(express.urlencoded({ extended: true, limit: '35mb' }));
 
 // ── API Routes ────────────────────────────────────────────────────
 app.use('/api/mailboxes',       require('./routes/mailboxes'));
@@ -17,6 +21,7 @@ app.use('/api/threads',         require('./routes/threads'));
 app.use('/api/messages',        require('./routes/messages'));
 app.use('/api/attachments',     require('./routes/attachments'));
 app.use('/api/properties',      require('./routes/properties'));
+app.use('/api/contacts',        require('./routes/contacts'));
 
 // /api/me — pass-through to Prop Spot
 const OS_URL = process.env.OS_INTERNAL_URL || process.env.OS_URL || '';

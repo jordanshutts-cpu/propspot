@@ -1,0 +1,633 @@
+/* ──────────────────────────────────────────────────────────────────
+   Pulse v2 chat-specific styles.
+   Loaded from chat.html in addition to the shared style.css.
+   All classes are pulse- prefixed and additive — nothing here
+   modifies pre-existing pulse-* rules in style.css.
+   ────────────────────────────────────────────────────────────────── */
+
+/* ── Date dividers ─────────────────────────────────────────────── */
+.pulse-date-divider {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 1.25rem 0 .25rem;
+  color: #6b7280;
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.pulse-date-divider::before,
+.pulse-date-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+.pulse-date-divider > span {
+  font-weight: 600;
+  padding: 0 .5rem;
+  white-space: nowrap;
+}
+
+/* ── Message hover actions (edit / delete) ─────────────────────── */
+.pulse-msg { position: relative; }
+.pulse-msg-actions {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  display: none;
+  gap: 2px;
+  padding: 2px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  z-index: 5;
+}
+.pulse-msg:hover .pulse-msg-actions,
+.pulse-msg.active-actions .pulse-msg-actions {
+  display: flex;
+}
+.pulse-msg-action-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: .85rem;
+  line-height: 1;
+  border-radius: 4px;
+  color: #374151;
+}
+.pulse-msg-action-btn:hover { background: #f3f4f6; }
+.pulse-msg-action-btn.danger:hover { background: #fef2f2; color: #b91c1c; }
+
+.pulse-msg-edited {
+  margin-left: .35rem;
+  color: #9ca3af;
+  font-size: .72rem;
+  font-style: italic;
+}
+
+/* Inline edit textarea */
+.pulse-msg-edit {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  margin-top: .25rem;
+}
+.pulse-msg-edit-input {
+  width: 100%;
+  min-height: 60px;
+  font: inherit;
+  padding: .4rem .5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  resize: vertical;
+}
+.pulse-msg-edit-actions {
+  display: flex;
+  gap: .35rem;
+  justify-content: flex-end;
+}
+.pulse-msg-edit-actions button {
+  font-size: .8rem;
+  padding: .25rem .65rem;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+}
+.pulse-msg-edit-actions .save {
+  background: #61B746;
+  border-color: #61B746;
+  color: #fff;
+}
+
+/* ── Mention pills ─────────────────────────────────────────────── */
+.pulse-mention {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 500;
+  cursor: default;
+  user-select: text;
+}
+.pulse-mention.self {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ── Mention popover ───────────────────────────────────────────── */
+.pulse-mention-popup {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.12);
+  min-width: 220px;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 80;
+  padding: 4px;
+}
+.pulse-mention-popup.hidden { display: none; }
+.pulse-mention-item {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .35rem .5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: .9rem;
+}
+.pulse-mention-item:hover,
+.pulse-mention-item.active {
+  background: #f3f4f6;
+}
+.pulse-mention-item .ava {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: .7rem;
+  color: #374151;
+  overflow: hidden;
+}
+.pulse-mention-item .ava img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Quill composer overrides ──────────────────────────────────── */
+.pulse-quill-host {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pulse-quill-host .ql-toolbar.ql-snow {
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+  padding: 4px 6px;
+}
+.pulse-quill-host .ql-container.ql-snow {
+  border: 0;
+  font-size: .95rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.pulse-quill-host .ql-editor {
+  padding: .55rem .75rem;
+  min-height: 36px;
+}
+.pulse-quill-host .ql-editor.ql-blank::before {
+  font-style: normal;
+  color: #9ca3af;
+  left: .75rem;
+}
+
+/* ── Composer attachment tray ──────────────────────────────────── */
+.pulse-composer-wrap {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+.pulse-composer-wrap.drag-active {
+  border-color: #61B746;
+  background: #f0fdf4;
+}
+.pulse-attach-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding: .5rem .5rem 0;
+}
+.pulse-attach-tray:empty { display: none; }
+.pulse-attach-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .25rem .4rem;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-size: .8rem;
+  max-width: 200px;
+}
+.pulse-attach-chip img.thumb {
+  width: 32px; height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.pulse-attach-chip .icon {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+.pulse-attach-chip .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pulse-attach-chip.uploading { opacity: .65; }
+.pulse-attach-chip .remove {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: .9rem;
+  line-height: 1;
+  padding: 2px 4px;
+  color: #6b7280;
+}
+.pulse-attach-chip .remove:hover { color: #b91c1c; }
+
+.pulse-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: .35rem;
+  padding: .35rem;
+}
+.pulse-composer-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: .4rem .5rem;
+  font-size: 1.05rem;
+  color: #6b7280;
+  border-radius: 6px;
+}
+.pulse-composer-btn:hover { color: #111; background: #f3f4f6; }
+.pulse-composer-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Rich text in rendered messages ────────────────────────────── */
+.pulse-msg-text { line-height: 1.45; }
+.pulse-msg-text p { margin: 0; }
+.pulse-msg-text p + p { margin-top: .35rem; }
+.pulse-msg-text ul, .pulse-msg-text ol {
+  margin: .25rem 0; padding-left: 1.4rem;
+}
+.pulse-msg-text blockquote {
+  margin: .25rem 0;
+  padding-left: .75rem;
+  border-left: 3px solid #d1d5db;
+  color: #4b5563;
+}
+.pulse-msg-text code {
+  background: #f3f4f6;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: .9em;
+}
+.pulse-msg-text pre {
+  background: #f3f4f6;
+  padding: .5rem .75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: .85rem;
+}
+.pulse-msg-text a { color: #0369a1; text-decoration: underline; }
+
+/* ── Message attachments ───────────────────────────────────────── */
+.pulse-msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: .35rem;
+}
+.pulse-msg-image {
+  max-width: 320px;
+  max-height: 280px;
+  border-radius: 8px;
+  cursor: zoom-in;
+  display: block;
+}
+.pulse-msg-file {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .45rem .65rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  font-size: .85rem;
+  max-width: 320px;
+}
+.pulse-msg-file:hover { background: #e5e7eb; }
+.pulse-msg-file .icon { font-size: 1.25rem; }
+.pulse-msg-file .meta { display: flex; flex-direction: column; min-width: 0; }
+.pulse-msg-file .name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pulse-msg-file .size { color: #6b7280; font-size: .75rem; }
+
+/* Lightbox for images */
+.pulse-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  cursor: zoom-out;
+}
+.pulse-lightbox.hidden { display: none; }
+.pulse-lightbox img {
+  max-width: 92vw;
+  max-height: 92vh;
+}
+
+/* ── Sidebar: unread / mention dots ───────────────────────────── */
+.pulse-channel-item, .pulse-dm-item {
+  position: relative;
+}
+.pulse-unread-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  background: #6b7280;
+  border-radius: 50%;
+  margin-left: .35rem;
+}
+.pulse-mention-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #dc2626;
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 700;
+  border-radius: 9px;
+  margin-left: .35rem;
+}
+.pulse-channel-item.has-unread > span,
+.pulse-dm-item.has-unread > span {
+  font-weight: 600;
+}
+
+/* ── Sidebar sections ──────────────────────────────────────────── */
+.pulse-section-header {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem .5rem .25rem;
+  color: #6b7280;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+.pulse-section-header .chevron {
+  display: inline-block;
+  transition: transform .15s;
+  width: 10px;
+}
+.pulse-section-header.collapsed .chevron { transform: rotate(-90deg); }
+.pulse-section-header .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pulse-section-header .actions {
+  display: none;
+  gap: 2px;
+}
+.pulse-section-header:hover .actions { display: flex; }
+.pulse-section-body { display: flex; flex-direction: column; gap: 1px; }
+.pulse-section-header.collapsed + .pulse-section-body { display: none; }
+.pulse-section-drop {
+  border: 2px dashed transparent;
+  border-radius: 4px;
+}
+.pulse-section-drop.drag-over {
+  border-color: #61B746;
+  background: rgba(97, 183, 70, .08);
+}
+.pulse-channel-item.dragging,
+.pulse-dm-item.dragging {
+  opacity: .5;
+}
+
+.pulse-dm-item {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .35rem .55rem;
+  border-radius: 4px;
+  text-decoration: none;
+  color: inherit;
+  font-size: .9rem;
+}
+.pulse-dm-item:hover { background: #f3f4f6; }
+.pulse-dm-item.active { background: #ecfdf5; color: #065f46; font-weight: 600; }
+.pulse-dm-avatar {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem; font-weight: 600;
+  overflow: hidden;
+}
+.pulse-dm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── User picker modal (DM creation, section moves) ────────────── */
+.pulse-user-picker {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.pulse-user-picker input.search {
+  width: 100%;
+  padding: .45rem .55rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+.pulse-user-picker .list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: block !important;
+}
+
+/* User-row layout (DM picker).
+ *
+ * Implementation: inline-block columns with explicit widths inside a
+ * `white-space: nowrap` row. Predates flex and grid by a decade — works
+ * even if a parent has misbehaving display/flex/grid rules. !important
+ * is used to override any later cascaded layout rules in case something
+ * else on the page tries to flex/grid the row.
+ *
+ * Row width budget (modal ~460px wide, padding ~32px each side):
+ *   avatar (40)  +  gap (12)  +  body (calc(100% - 80))  +  gap (12)  +  check (24)  =  100%
+ *                                                                                       (≈ 388px usable)
+ */
+.pulse-user-row {
+  display: block !important;
+  position: relative;
+  width: 100%;
+  padding: 8px 10px !important;
+  margin: 0 0 4px 0 !important;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0;                  /* kill inter-block whitespace between inline-blocks */
+  min-height: 48px;
+  box-sizing: border-box;
+}
+.pulse-user-row:hover { background: #f3f4f6; }
+.pulse-user-row.selected { background: #ecfdf5; }
+
+.pulse-user-row > .ava,
+.pulse-user-row > .body,
+.pulse-user-row > .check {
+  display: inline-block !important;
+  vertical-align: middle;
+  font-size: .85rem;             /* restore font-size killed by parent */
+  box-sizing: border-box;
+}
+
+.pulse-user-row > .ava {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #374151;
+  text-align: center;
+  line-height: 32px;
+  font-weight: 600;
+  font-size: .85rem;
+  overflow: hidden;
+}
+.pulse-user-row > .ava img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  vertical-align: top;
+}
+
+.pulse-user-row > .body {
+  width: calc(100% - 80px);      /* total row width minus ava + check + gaps */
+  padding: 0 12px;
+  white-space: normal;
+  overflow: hidden;
+  text-align: left;
+}
+.pulse-user-row > .body > .name {
+  display: block;
+  font-weight: 500;
+  font-size: .92rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pulse-user-row > .body > .email {
+  display: block;
+  color: #6b7280;
+  font-size: .75rem;
+  line-height: 1.2;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pulse-user-row > .check {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  text-align: center;
+  line-height: 18px;
+  font-size: .8rem;
+  color: transparent;
+}
+.pulse-user-row.selected > .check {
+  background: #61B746;
+  border-color: #61B746;
+  color: #fff;
+}
+
+/* "+ New" button in sidebar headings */
+.pulse-sidebar-heading .pulse-sidebar-add { margin-left: auto; }
+
+/* ── Archive: per-channel button + modal list ─────────────────── */
+.pulse-channel-archive-btn {
+  display: none;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 1px 5px;
+  font-size: .9rem;
+  line-height: 1;
+  color: #6b7280;
+  border-radius: 4px;
+}
+.pulse-channel-archive-btn:hover { background: #f3f4f6; color: #111; }
+.pulse-channel-item:hover .pulse-channel-archive-btn { display: inline-block; }
+
+.pulse-archive-trigger {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: .25rem .55rem;
+  color: #9ca3af;
+  font-size: .75rem;
+  font-style: italic;
+}
+.pulse-archive-trigger:hover { color: #111; text-decoration: underline; }
+
+.pulse-archived-list {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: .5rem 0;
+}
+.pulse-archived-row {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .55rem .65rem;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+.pulse-archived-row .meta {
+  flex: 1;
+  min-width: 0;
+}
+.pulse-archived-row .name {
+  font-weight: 600;
+  font-size: .92rem;
+}
+.pulse-archived-row .sub {
+  color: #6b7280;
+  font-size: .78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pulse-archived-note {
+  font-size: .75rem;
+  color: #9ca3af;
+}
+.pulse-archived-row .pulse-modal-submit {
+  font-size: .8rem;
+  padding: .35rem .75rem;
+}

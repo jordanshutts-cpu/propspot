@@ -55,18 +55,32 @@ router.post('/threads/:id/reply', async (req, res) => {
     ? `${lastHeaders['References']} ${messageIdHeader || ''}`.trim()
     : messageIdHeader || null;
 
-  const raw = buildRawMessage({
-    from: fromAlias,
-    to: replyTo,
-    cc: req.body.cc,
-    subject,
-    bodyText: req.body.body_text,
-    bodyHtml: req.body.body_html,
-    inReplyTo: messageIdHeader,
-    references: referencesHeader
-  });
+  // Load signature when caller didn't opt out.
+  const includeSig = req.body.include_signature !== false;
 
   try {
+    let signatureHtml = null;
+    if (includeSig && thread.shared_inbox_id) {
+      const { rows: sigRows } = await query(
+        `SELECT signature_html FROM inbox_shared WHERE id = $1`,
+        [thread.shared_inbox_id]
+      );
+      signatureHtml = sigRows[0]?.signature_html || null;
+    }
+
+    const raw = buildRawMessage({
+      from: fromAlias,
+      to: replyTo,
+      cc: req.body.cc,
+      subject,
+      bodyText: req.body.body_text,
+      bodyHtml: req.body.body_html,
+      inReplyTo: messageIdHeader,
+      references: referencesHeader,
+      signatureHtml,
+      attachments: req.body.attachments
+    });
+
     const mailbox = await query(`SELECT * FROM inbox_mailboxes WHERE id = $1`, [thread.mailbox_id]);
     const sent = await gmail.sendRaw(mailbox.rows[0], raw, thread.provider_thread_id);
     // Pull the sent message back so it lands in the thread with proper threading.
@@ -110,15 +124,29 @@ router.post('/compose', async (req, res) => {
     return res.status(403).json({ error: 'No access to that shared inbox' });
   }
 
-  const raw = buildRawMessage({
-    from: from_alias,
-    to,
-    cc,
-    subject,
-    bodyText: body_text,
-    bodyHtml: body_html
-  });
+  const includeSig = req.body.include_signature !== false;
+
   try {
+    let signatureHtml = null;
+    if (includeSig) {
+      const { rows: sigRows } = await query(
+        `SELECT signature_html FROM inbox_shared WHERE id = $1`,
+        [sharedInboxId]
+      );
+      signatureHtml = sigRows[0]?.signature_html || null;
+    }
+
+    const raw = buildRawMessage({
+      from: from_alias,
+      to,
+      cc,
+      subject,
+      bodyText: body_text,
+      bodyHtml: body_html,
+      signatureHtml,
+      attachments: req.body.attachments
+    });
+
     const { rows: mboxRows } = await query(`SELECT * FROM inbox_mailboxes WHERE id = $1`, [mailbox_id]);
     const mailbox = mboxRows[0];
     if (!mailbox) return res.status(404).json({ error: 'Mailbox not found' });

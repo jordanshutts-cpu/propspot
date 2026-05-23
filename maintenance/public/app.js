@@ -46,6 +46,7 @@ async function requireAuth() {
   try {
     const me = await apiFetch('/api/auth/me');
     setCachedUser(me);
+    try { renderTopbarAvatar(); } catch {}
     return me;
   } catch {
     clearToken();
@@ -279,9 +280,6 @@ function renderUnifiedNav() {
     <a class="nav-link" data-app="inbox" href="#" style="display:none;"><span class="nav-icon">📧</span><span class="nav-label">Inbox</span></a>
     <a class="nav-link" data-app="underwriting" href="#" style="display:none;"><span class="nav-icon">📊</span><span class="nav-label">Underwriting</span></a>
     <div class="nav-spacer"></div>
-    <button class="nav-signout" onclick="signOut()" title="Sign Out">
-      <span class="nav-icon">🚪</span><span class="nav-label">Sign Out</span>
-    </button>
   `;
   const btn = document.getElementById('nav-collapse-btn');
   if (btn) {
@@ -291,10 +289,70 @@ function renderUnifiedNav() {
   }
   wireUnifiedNav();
 }
+
+// ── Topbar avatar + dropdown menu (consistent across all apps) ──
+function avatarContent(u) {
+  if (u?.avatar_url) return `<img class="avatar-img" src="${escHtml(u.avatar_url)}" alt="">`;
+  if (u?.full_name)  return escHtml(u.full_name.charAt(0).toUpperCase());
+  if (u?.email)      return escHtml(u.email.charAt(0).toUpperCase());
+  return '👤';
+}
+function renderTopbarAvatar() {
+  const u = getCachedUser() || {};
+  const target = document.querySelector('.header-actions') || document.querySelector('.pulse-topbar-right');
+  if (!target) return;
+  let btn = target.querySelector('.topbar-avatar');
+  if (!btn) {
+    target.querySelector('.header-signout, .pulse-signout')?.remove();
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'topbar-avatar';
+    btn.id = 'topbar-user-avatar';
+    btn.title = 'Account';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('topbar-user-menu')?.classList.toggle('open');
+    });
+    target.appendChild(btn);
+  }
+  btn.innerHTML = avatarContent(u);
+  let menu = document.getElementById('topbar-user-menu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = 'topbar-user-menu';
+    menu.className = 'topbar-user-menu';
+    document.body.appendChild(menu);
+    document.addEventListener('click', (e) => {
+      if (!menu.classList.contains('open')) return;
+      if (menu.contains(e.target) || btn.contains(e.target)) return;
+      menu.classList.remove('open');
+    });
+  }
+  menu.innerHTML = `
+    <div class="user-info">
+      <div class="user-avatar-big">${avatarContent(u)}</div>
+      <div style="min-width:0;">
+        <div class="user-name">${escHtml(u.full_name || u.email || 'You')}</div>
+        <div class="user-email">${escHtml(u.email || '')}</div>
+      </div>
+    </div>
+    <a class="topbar-menu-item" href="#" onclick="goEditProfile(event)">👤 Edit Profile</a>
+    <div class="menu-divider"></div>
+    <button type="button" class="topbar-menu-item danger" onclick="signOut()">🚪 Sign Out</button>
+  `;
+}
+async function goEditProfile(e) {
+  e.preventDefault();
+  const cfg = await _loadNavConfig();
+  if (!cfg.osUrl) return;
+  const url = cfg.osUrl.replace(/\/$/, '') + '/dashboard.html?action=edit_profile';
+  window.location.href = _appendToken(url);
+}
+
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { renderUnifiedNav(); });
+    document.addEventListener('DOMContentLoaded', () => { renderUnifiedNav(); renderTopbarAvatar(); });
   } else {
-    renderUnifiedNav();
+    renderUnifiedNav(); renderTopbarAvatar();
   }
 }

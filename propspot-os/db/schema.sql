@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
   is_owner        BOOLEAN NOT NULL DEFAULT FALSE,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+-- Profile fields added later (idempotent).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url           TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_cloudinary_id TEXT;
 
 -- ── Apps Registry ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS apps (
@@ -747,6 +750,47 @@ CREATE TABLE IF NOT EXISTS chat_user_presence (
 CREATE INDEX IF NOT EXISTS chat_user_presence_last_seen_idx
   ON chat_user_presence(last_seen_at DESC);
 
+-- ── Pulse: per-user sidebar sections (v2) ───────────────────────────────────
+-- Each user organizes their own sidebar. A section is a named, ordered group;
+-- an item links a channel or DM into a section (XOR). Channels/DMs not in any
+-- section render under a default "Channels" / "Direct Messages" group.
+CREATE TABLE IF NOT EXISTS chat_sidebar_sections (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       TEXT NOT NULL,
+  position   INT NOT NULL DEFAULT 0,
+  collapsed  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS chat_sidebar_sections_user_idx
+  ON chat_sidebar_sections(user_id, position);
+
+CREATE TABLE IF NOT EXISTS chat_sidebar_items (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  section_id UUID NOT NULL REFERENCES chat_sidebar_sections(id) ON DELETE CASCADE,
+  channel_id UUID REFERENCES chat_channels(id) ON DELETE CASCADE,
+  dm_id      UUID REFERENCES chat_dms(id)      ON DELETE CASCADE,
+  position   INT NOT NULL DEFAULT 0,
+  CHECK ((channel_id IS NULL) <> (dm_id IS NULL))
+);
+CREATE INDEX IF NOT EXISTS chat_sidebar_items_section_idx
+  ON chat_sidebar_items(section_id, position);
+CREATE UNIQUE INDEX IF NOT EXISTS chat_sidebar_items_channel_uniq
+  ON chat_sidebar_items(section_id, channel_id) WHERE channel_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_sidebar_items_dm_uniq
+  ON chat_sidebar_items(section_id, dm_id) WHERE dm_id IS NOT NULL;
+
+-- ── Pulse: channel archiving ────────────────────────────────────────────────
+-- An archived channel disappears from the default sidebar but keeps its
+-- members + message history. Anyone can unarchive (subject to the same authz
+-- as archiving — channel admins or account owners). #general can't be archived.
+ALTER TABLE chat_channels
+  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE chat_channels
+  ADD COLUMN IF NOT EXISTS archived_by UUID REFERENCES users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS chat_channels_archived_idx
+  ON chat_channels(archived_at) WHERE archived_at IS NOT NULL;
+
 -- ── Inbox satellite (email collaboration) ───────────────────────────────────
 -- Owned by Prop Spot; read/written by the inbox.propspot.io app via Gmail API
 -- (Microsoft Graph in Phase 2). Shared team inboxes route alias mail into
@@ -911,6 +955,81 @@ UPDATE inbox_messages
    AND raw_headers ? 'X-Original-To'
    AND TRIM(raw_headers->>'X-Original-To') <> '';
 
+-- ── 2026-05-22: Inbox HTML signatures + Pulse entity-comments ──────────────
+
+-- A) Per-shared-inbox HTML signature. NULL/empty = no signature appended.
+ALTER TABLE inbox_shared
+  ADD COLUMN IF NOT EXISTS signature_html TEXT;
+
+-- B) Pulse entity-threads — one row per "comments-on-external-entity" thread.
+-- entity_id has no FK so Pulse stays decoupled from consumer apps' tables.
+CREATE TABLE IF NOT EXISTS pulse_entity_threads (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type  TEXT NOT NULL,
+  entity_id    UUID NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (entity_type, entity_id)
+);
+-- C) chat_messages picks up a third optional target (entity_thread_id).
+ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS entity_thread_id UUID
+    REFERENCES pulse_entity_threads(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS chat_messages_entity_thread_idx
+  ON chat_messages(entity_thread_id, created_at DESC);
+
+-- D) Swap the channel-xor-dm check for channel-xor-dm-xor-entity_thread.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chat_messages_target_check') THEN
+    ALTER TABLE chat_messages DROP CONSTRAINT chat_messages_target_check;
+  END IF;
+  ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_target_check
+    CHECK (
+      (channel_id       IS NOT NULL)::int +
+      (dm_id            IS NOT NULL)::int +
+      (entity_thread_id IS NOT NULL)::int = 1
+    );
+END $$;
+
+-- E) Per-(user, entity_thread) read grants. Mention writes a row here;
+-- ambient access (owner / inbox-grant) is computed via the authz view below.
+CREATE TABLE IF NOT EXISTS pulse_entity_thread_grants (
+  entity_thread_id UUID NOT NULL REFERENCES pulse_entity_threads(id) ON DELETE CASCADE,
+  user_id          UUID NOT NULL REFERENCES users(id)                ON DELETE CASCADE,
+  granted_via      TEXT NOT NULL,
+  granted_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  granted_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (entity_thread_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS pulse_entity_thread_grants_user_idx
+  ON pulse_entity_thread_grants(user_id);
+
+-- F) Ambient-authz view for entity_type='inbox_thread'.
+CREATE OR REPLACE VIEW pulse_authz_inbox_thread AS
+SELECT t.id AS entity_id, u.id AS user_id
+  FROM inbox_threads t
+  CROSS JOIN users u
+  LEFT JOIN app_grants ag
+    ON ag.user_id = u.id
+   AND ag.app_id  = (SELECT id FROM apps WHERE slug = 'inbox')
+ WHERE u.is_owner = TRUE
+    OR (ag.scope ? 'all')
+    OR (
+      ag.scope ? 'inbox_ids'
+      AND t.shared_inbox_id IS NOT NULL
+      AND (ag.scope->'inbox_ids') @> to_jsonb(t.shared_inbox_id::text)
+    );
+
+-- G) Per-(user, entity_thread) read marker. Powers unread-mention counts.
+CREATE TABLE IF NOT EXISTS pulse_entity_thread_reads (
+  entity_thread_id UUID NOT NULL REFERENCES pulse_entity_threads(id) ON DELETE CASCADE,
+  user_id          UUID NOT NULL REFERENCES users(id)                ON DELETE CASCADE,
+  last_read_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (entity_thread_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS pulse_entity_thread_reads_user_idx
+  ON pulse_entity_thread_reads(user_id);
+
 -- ── updated_at triggers ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -924,7 +1043,8 @@ BEGIN
     'holdings_items','holdings_payments','holdings_documents',
     'work_orders','lawn_maintenance',
     'chat_channels',
-    'inbox_threads'
+    'inbox_threads',
+    'pulse_entity_threads'
   ]) LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS %I_set_updated ON %I; ' ||
@@ -987,5 +1107,68 @@ BEGIN
   ) THEN
     CREATE INDEX IF NOT EXISTS uw_audit_deal_idx
       ON uw_audit_log(deal_id, changed_at DESC);
+  END IF;
+END $$;
+
+-- ── Marker table for one-time data operations (so embedded UPDATE blocks
+-- in this file don't re-run on every initDb startup). Tiny and reusable —
+-- any future "run this exactly once on deploy" cleanup uses the same table.
+CREATE TABLE IF NOT EXISTS inbox_one_time_ops (
+  op_id  TEXT PRIMARY KEY,
+  ran_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── 2026-05-23: per-shared-inbox tabs (unassigned / assigned / snoozed /
+-- archived / trash / spam). Expand the inbox_threads.status CHECK to allow
+-- the two new states. Idempotent — drops the existing CHECK (whatever PG
+-- auto-named it) and re-adds under a named constraint.
+DO $$
+DECLARE
+  cname TEXT;
+BEGIN
+  SELECT conname INTO cname
+    FROM pg_constraint
+   WHERE conrelid = 'inbox_threads'::regclass
+     AND contype = 'c'
+     AND pg_get_constraintdef(oid) LIKE '%status%'
+   LIMIT 1;
+  IF cname IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE inbox_threads DROP CONSTRAINT %I', cname);
+  END IF;
+  ALTER TABLE inbox_threads
+    ADD CONSTRAINT inbox_threads_status_check
+    CHECK (status IN ('open','archived','snoozed','trash','spam'));
+END $$;
+
+-- ── 2026-05-23 one-time: archive every open thread with no activity in the
+-- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
+-- without years of backfilled history cluttering the lists. Owners can
+-- still un-archive any thread individually from the Archived tab.
+-- Guarded by inbox_one_time_ops so re-running schema.sql is a no-op.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_stale_open_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE status = 'open'
+       AND last_message_at < NOW() - INTERVAL '30 days';
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_stale_open_2026_05_23');
+  END IF;
+END $$;
+
+-- ── 2026-05-23 one-time: archive every currently-unassigned open thread,
+-- regardless of age. The 30-day cleanup above caught old backlog; this
+-- pass catches everything else in the Unassigned tab so Jordan can start
+-- from zero. New mail arriving AFTER this runs still defaults to
+-- status=open + assigned_to_user_id=NULL and shows up in Unassigned
+-- normally — the marker prevents the UPDATE from firing again on those.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_all_unassigned_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE status = 'open'
+       AND assigned_to_user_id IS NULL;
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_all_unassigned_2026_05_23');
   END IF;
 END $$;

@@ -18,6 +18,13 @@
     .si-row .si-title { font-weight: 700; }
     .member-row { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
     .member-row:last-child { border-bottom: none; }
+    .sig-card { margin-top: 16px; }
+    .sig-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 880px) { .sig-editor { grid-template-columns: 1fr; } }
+    .sig-editor textarea { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .82rem; height: 220px; }
+    .sig-preview { border: 1px solid var(--border); border-radius: var(--radius); background: #fff; overflow: hidden; }
+    .sig-preview iframe { width: 100%; min-height: 220px; border: 0; }
+    .sig-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -42,12 +49,39 @@
       <div class="card"><div id="shared-list"><p class="text-muted text-sm" style="padding:14px;">Loading…</p></div></div>
     </section>
 
-    <section>
-      <div class="section-header">
-        <span class="section-title" id="member-title">Pick a shared inbox →</span>
-      </div>
-      <div class="card"><div id="member-list"></div></div>
-    </section>
+    <div>
+      <section>
+        <div class="section-header" style="align-items:center;">
+          <span class="section-title" id="member-title">Pick a shared inbox →</span>
+          <button id="edit-shared-btn" class="btn btn-secondary btn-sm" style="display:none;" onclick="openEditShared()">✏️ Edit name / icon</button>
+          <button id="delete-shared-btn" class="btn btn-danger btn-sm" style="display:none;" onclick="confirmDeleteShared()">🗑 Delete</button>
+        </div>
+        <div class="card"><div id="member-list"></div></div>
+      </section>
+
+      <section class="sig-card" id="sig-card" style="display:none;">
+        <div class="section-header">
+          <span class="section-title">Email signature</span>
+          <span class="text-muted text-sm">Appended to outgoing mail from this shared inbox.</span>
+        </div>
+        <div class="card" style="padding:14px;">
+          <div class="sig-editor">
+            <div>
+              <label class="form-label">HTML</label>
+              <textarea id="sig-html" class="form-textarea" placeholder="<p>Best,<br><b>Jordan</b></p>"></textarea>
+            </div>
+            <div>
+              <label class="form-label">Preview</label>
+              <div class="sig-preview"><iframe id="sig-preview" sandbox=""></iframe></div>
+            </div>
+          </div>
+          <div class="sig-actions">
+            <button class="btn btn-secondary" onclick="clearSignature()">Clear</button>
+            <button class="btn btn-primary" onclick="saveSignature()">Save signature</button>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 </main>
 
@@ -78,6 +112,35 @@
       <div style="display:flex;justify-content:flex-end;gap:8px;">
         <button type="button" class="btn btn-secondary" onclick="closeCreate()">Cancel</button>
         <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal-backdrop" id="modal-edit">
+  <div class="modal">
+    <div class="modal-title">Edit shared inbox</div>
+    <form onsubmit="submitEditShared(event)">
+      <div class="form-group">
+        <label class="form-label">Name *</label>
+        <input class="form-input" id="e-name" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Icon</label>
+          <input class="form-input" id="e-icon">
+          <div class="text-muted text-sm">Paste any emoji.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input class="form-input" id="e-desc">
+        </div>
+      </div>
+      <div class="text-muted text-sm" style="margin-bottom:8px;">Slug stays the same (it's in URLs).</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeEditShared()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save changes</button>
       </div>
     </form>
   </div>
@@ -130,7 +193,62 @@ async function selectShared(id) {
   ACTIVE = SHARED.find(s => s.id === id);
   await loadShared();
   document.getElementById('member-title').textContent = `Members of "${ACTIVE.name}"`;
+  document.getElementById('edit-shared-btn').style.display = '';
+  document.getElementById('delete-shared-btn').style.display = '';
   await loadMembers();
+  loadSignature();
+}
+
+// ── Edit shared inbox (name / icon / description) ──────────────
+function openEditShared() {
+  if (!ACTIVE) return;
+  document.getElementById('e-name').value = ACTIVE.name || '';
+  document.getElementById('e-icon').value = ACTIVE.icon || '📨';
+  document.getElementById('e-desc').value = ACTIVE.description || '';
+  document.getElementById('modal-edit').classList.add('open');
+  document.getElementById('e-name').focus();
+}
+function closeEditShared() { document.getElementById('modal-edit').classList.remove('open'); }
+async function submitEditShared(e) {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('e-name').value.trim(),
+    icon: document.getElementById('e-icon').value || '📨',
+    description: document.getElementById('e-desc').value.trim() || null
+  };
+  if (!body.name) return showToast('Name is required', 'error');
+  try {
+    const updated = await patchSharedInbox(ACTIVE.id, body);
+    // Mutate in-memory copies so the UI updates without a refresh.
+    Object.assign(ACTIVE, updated);
+    const i = SHARED.findIndex(s => s.id === ACTIVE.id);
+    if (i >= 0) SHARED[i] = { ...SHARED[i], ...updated };
+    document.getElementById('member-title').textContent = `Members of "${ACTIVE.name}"`;
+    closeEditShared();
+    await loadShared();  // re-render left column
+    showToast('Saved');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function confirmDeleteShared() {
+  if (!ACTIVE) return;
+  const ok = confirm(`Delete shared inbox "${ACTIVE.name}"?\n\nThreads that route to it will become uncategorized (the thread data itself is kept). This can't be undone.`);
+  if (!ok) return;
+  try {
+    await deleteSharedInbox(ACTIVE.id);
+    ACTIVE = null;
+    document.getElementById('member-title').textContent = 'Pick a shared inbox →';
+    document.getElementById('edit-shared-btn').style.display = 'none';
+    document.getElementById('delete-shared-btn').style.display = 'none';
+    document.getElementById('member-list').innerHTML = '';
+    document.getElementById('sig-card').style.display = 'none';
+    await loadShared();
+    showToast('Deleted');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 async function loadMembers() {
@@ -201,6 +319,44 @@ async function submitCreate(e) {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+function loadSignature() {
+  const card = document.getElementById('sig-card');
+  if (!ACTIVE) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const html = ACTIVE.signature_html || '';
+  document.getElementById('sig-html').value = html;
+  renderSignaturePreview(html);
+}
+
+function renderSignaturePreview(html) {
+  const iframe = document.getElementById('sig-preview');
+  iframe.srcdoc = html || '<p style="color:#888;font-family:sans-serif;padding:12px;">No signature set.</p>';
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'sig-html') {
+    renderSignaturePreview(e.target.value);
+  }
+});
+
+async function saveSignature() {
+  const html = document.getElementById('sig-html').value;
+  try {
+    const updated = await patchSharedInbox(ACTIVE.id, { signature_html: html });
+    ACTIVE.signature_html = updated.signature_html;
+    const i = SHARED.findIndex(s => s.id === ACTIVE.id);
+    if (i >= 0) SHARED[i] = { ...SHARED[i], signature_html: updated.signature_html };
+    showToast('Signature saved');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function clearSignature() {
+  document.getElementById('sig-html').value = '';
+  renderSignaturePreview('');
 }
 
 init();

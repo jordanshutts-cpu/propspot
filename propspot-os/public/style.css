@@ -399,6 +399,25 @@ body.os-newlayout .page         { max-width: 1200px; padding: 24px; }
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: .82rem;
   cursor: pointer; border: none;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Profile picture rendered inside an avatar circle. The three size
+   variants (default / --big / --xl) match the contexts where avatars
+   render: topbar circle, user-menu header, edit-profile modal. */
+.avatar-img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.user-avatar-big {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--brand); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 1rem;
+  flex-shrink: 0; overflow: hidden;
 }
 
 /* ── User dropdown menu ──────────────────────────────────── */

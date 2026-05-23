@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#61B746">
   <title>Pulse</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="chat.css?v=4">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css">
   <link rel="icon" type="image/png" href="/logo.png">
 </head>
 <body class="pulse-body-2col">
 
 <nav class="bottom-nav" id="nav"></nav>
 <script>window.NAV_CURRENT = 'pulse';</script>
-
 
 <header class="pulse-topbar">
   <div class="pulse-topbar-left">
@@ -24,23 +25,36 @@
     <span id="channel-name">#general</span>
     <span class="pulse-conn-dot connecting" id="conn-dot" title="Connecting…"></span>
   </div>
-  <div class="pulse-topbar-right">
+  <div class="pulse-topbar-right header-actions">
     <span class="pulse-user" id="me-name">…</span>
-    <button class="pulse-signout" onclick="signOut()" title="Sign out">Sign out</button>
   </div>
 </header>
 
 <aside class="pulse-sidebar" id="sidebar">
+  <!-- Sections render here first (user-organized groups) -->
+  <div id="sidebar-sections"></div>
+
   <div class="pulse-sidebar-section">
     <div class="pulse-sidebar-heading">
       Channels
       <button class="pulse-sidebar-add" id="new-channel-btn" title="New channel">+</button>
     </div>
     <div id="channel-list"></div>
+    <button type="button" class="pulse-archive-trigger" id="show-archived-btn">Show archived channels</button>
   </div>
+
   <div class="pulse-sidebar-section">
-    <div class="pulse-sidebar-heading">Direct Messages</div>
-    <div class="pulse-channel-empty">Coming in Phase 3</div>
+    <div class="pulse-sidebar-heading">
+      Direct Messages
+      <button class="pulse-sidebar-add" id="new-dm-btn" title="New direct message">+</button>
+    </div>
+    <div id="dm-list"></div>
+  </div>
+
+  <div class="pulse-sidebar-section">
+    <div class="pulse-sidebar-heading" style="cursor:pointer" id="new-section-trigger" title="Create a section">
+      + New Section
+    </div>
   </div>
 </aside>
 
@@ -49,17 +63,30 @@
     <div class="pulse-history-loader hidden" id="history-loader">Loading older messages…</div>
     <div class="pulse-empty">Loading…</div>
   </div>
-  <form class="pulse-composer" id="composer" autocomplete="off">
-    <textarea
-      id="composer-input"
-      class="pulse-composer-input"
-      placeholder="Message"
-      rows="1"
-      maxlength="8000"></textarea>
-    <button type="submit" class="pulse-send" id="send-btn">Send</button>
+
+  <!-- Composer: Quill toolbar + editor + attachment tray + send. -->
+  <form class="pulse-composer-wrap" id="composer" autocomplete="off">
+    <div id="quill-host" class="pulse-quill-host">
+      <div id="quill-editor"></div>
+    </div>
+    <div id="attach-tray" class="pulse-attach-tray"></div>
+    <div class="pulse-composer-row">
+      <input type="file" id="attach-input" multiple hidden
+        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip">
+      <button type="button" class="pulse-composer-btn" id="attach-btn" title="Attach files">📎</button>
+      <div style="flex:1"></div>
+      <button type="submit" class="pulse-send" id="send-btn">Send</button>
+    </div>
   </form>
 </main>
 
+<!-- Mention popover (positioned absolutely in JS, anchored to caret) -->
+<div id="mention-popup" class="pulse-mention-popup hidden"></div>
+
+<!-- Lightbox for image attachments -->
+<div id="lightbox" class="pulse-lightbox hidden"><img id="lightbox-img" src="" alt=""></div>
+
+<!-- New channel modal -->
 <div class="pulse-modal-backdrop hidden" id="new-channel-modal">
   <div class="pulse-modal">
     <h2>New channel</h2>
@@ -81,26 +108,95 @@
   </div>
 </div>
 
+<!-- New DM modal — user picker (multi-select for groups) -->
+<div class="pulse-modal-backdrop hidden" id="new-dm-modal">
+  <div class="pulse-modal">
+    <h2>New direct message</h2>
+    <div class="pulse-user-picker">
+      <input type="text" class="search" id="dm-search" placeholder="Search by name or email…" autocomplete="off">
+      <div class="list" id="dm-user-list"></div>
+    </div>
+    <div class="pulse-modal-error hidden" id="dm-error"></div>
+    <div class="pulse-modal-actions">
+      <button type="button" class="pulse-modal-cancel" id="dm-cancel">Cancel</button>
+      <button type="button" class="pulse-modal-submit" id="dm-submit" disabled>Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- New section modal -->
+<div class="pulse-modal-backdrop hidden" id="new-section-modal">
+  <div class="pulse-modal">
+    <h2>New section</h2>
+    <form id="new-section-form">
+      <label for="ns-name">Name</label>
+      <input type="text" id="ns-name" placeholder="e.g. Acquisitions" maxlength="80" required>
+      <div class="pulse-modal-error hidden" id="ns-error"></div>
+      <div class="pulse-modal-actions">
+        <button type="button" class="pulse-modal-cancel" id="ns-cancel">Cancel</button>
+        <button type="submit" class="pulse-modal-submit" id="ns-submit">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete-message confirmation modal -->
+<div class="pulse-modal-backdrop hidden" id="delete-msg-modal">
+  <div class="pulse-modal">
+    <h2>Delete message?</h2>
+    <p>This can't be undone.</p>
+    <div class="pulse-modal-actions">
+      <button type="button" class="pulse-modal-cancel" id="del-cancel">Cancel</button>
+      <button type="button" class="pulse-modal-submit" id="del-confirm" style="background:#dc2626;border-color:#dc2626">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Archived channels modal -->
+<div class="pulse-modal-backdrop hidden" id="archived-modal">
+  <div class="pulse-modal" style="max-width:520px">
+    <h2>Archived channels</h2>
+    <div class="pulse-archived-list" id="archived-list">
+      <div class="pulse-channel-empty">Loading…</div>
+    </div>
+    <div class="pulse-modal-actions">
+      <button type="button" class="pulse-modal-cancel" id="archived-close">Close</button>
+    </div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script src="chat-helpers.js?v=4"></script>
 <script>
-  // ── State ────────────────────────────────────────────────────────
-  let CURRENT_USER = null;
-  let CHANNELS = [];
-  let ACTIVE_CHANNEL = null;
-  let SSE = null;
-  let RENDERED_IDS = new Set();
-  let OLDEST_MESSAGE_TIME = null;
-  let HAS_MORE_HISTORY = false;
-  let LOADING_HISTORY = false;
-  let AT_BOTTOM = true;
+  /* ── State ──────────────────────────────────────────────────── */
+  let CURRENT_USER  = null;
+  let CHANNELS      = [];
+  let DMS           = [];
+  let SECTIONS      = [];
+  let ACTIVE_SCOPE  = null;   // { kind: 'channel'|'dm', id, name, members?, is_private? }
+  let SSE           = null;
+  let RENDERED_IDS  = new Set();
+  let LAST_DATE     = null;   // YYYY-MM-DD of last rendered message — drives dividers
+  let OLDEST_TIME   = null;
+  let HAS_MORE      = false;
+  let LOADING_HIST  = false;
+  let AT_BOTTOM     = true;
+  let UNREAD        = new Map(); // key 'channel:<id>' | 'dm:<id>' -> {unread, mentions}
+  let DELETE_TARGET = null;      // message id pending delete confirm
+  let QUILL         = null;
+  let TRAY          = null;      // attachment tray controller
+  let MENTION_PV    = null;
+  let PENDING_DM_USERS = new Set();
+  let ALL_USERS     = null;      // cached for DM picker
 
-  const SCROLL_LOAD_THRESHOLD_PX = 60;
+  const SCROLL_LOAD_THRESHOLD = 60;
 
-  // ── DOM helpers ───────────────────────────────────────────────────
   const $ = (id) => document.getElementById(id);
-  function show(el) { el.classList.remove('hidden'); }
-  function hide(el) { el.classList.add('hidden'); }
+  const show = (el) => el.classList.remove('hidden');
+  const hide = (el) => el.classList.add('hidden');
 
   function setConnDot(state) {
     const el = $('conn-dot');
@@ -110,49 +206,341 @@
       : state === 'connecting' ? 'Connecting…' : 'Disconnected — retrying';
   }
 
-  // ── Channel list rendering ────────────────────────────────────────
-  function renderChannelList() {
-    const list = $('channel-list');
-    if (!CHANNELS.length) {
-      list.innerHTML = '<div class="pulse-channel-empty">No channels yet.</div>';
-      return;
-    }
-    list.innerHTML = CHANNELS.map(c => {
-      const isActive = ACTIVE_CHANNEL && ACTIVE_CHANNEL.id === c.id;
-      const lock = c.is_private ? '<span class="pulse-channel-lock">🔒</span>' : '<span class="pulse-channel-hash">#</span>';
-      return `<a class="pulse-channel-item ${isActive ? 'active' : ''}" data-channel-id="${c.id}" href="#" title="${escHtml(c.description || '')}">
-        ${lock}<span>${escHtml(c.name)}</span>
+  function scopeKey(scope) {
+    if (!scope) return null;
+    return scope.kind + ':' + scope.id;
+  }
+
+  function isActive(kind, id) {
+    return ACTIVE_SCOPE && ACTIVE_SCOPE.kind === kind && ACTIVE_SCOPE.id === id;
+  }
+
+  /* ── Sidebar rendering ─────────────────────────────────────── */
+  function unreadFor(kind, id) {
+    return UNREAD.get(kind + ':' + id) || { unread: 0, mentions: 0 };
+  }
+
+  function canArchiveChannel(c) {
+    if (!c || c.slug === 'general') return false;
+    if (CURRENT_USER && CURRENT_USER.is_owner) return true;
+    return c.my_role === 'admin';
+  }
+
+  function buildChannelLink(c) {
+    const u = unreadFor('channel', c.id);
+    const isActiveItem = isActive('channel', c.id);
+    const lock = c.is_private ? '🔒' : '#';
+    const dots = (u.mentions > 0
+        ? `<span class="pulse-mention-dot">${u.mentions}</span>`
+        : (u.unread > 0 ? '<span class="pulse-unread-dot"></span>' : ''));
+    const archiveBtn = canArchiveChannel(c)
+      ? `<button type="button" class="pulse-channel-archive-btn" data-archive="${c.id}" title="Archive channel">🗄</button>`
+      : '';
+    return `<a class="pulse-channel-item ${isActiveItem ? 'active' : ''} ${u.unread > 0 ? 'has-unread' : ''}"
+              data-kind="channel" data-id="${c.id}" draggable="true" href="#"
+              title="${escHtml(c.description || '')}">
+        <span class="pulse-channel-hash">${lock}</span>
+        <span>${escHtml(c.name)}</span>
+        ${dots}
+        ${archiveBtn}
       </a>`;
-    }).join('');
-    list.querySelectorAll('[data-channel-id]').forEach(el => {
+  }
+
+  function buildDmLink(d) {
+    const u = unreadFor('dm', d.id);
+    const isActiveItem = isActive('dm', d.id);
+    const title = d.title || 'Direct message';
+    const dots = (u.mentions > 0
+        ? `<span class="pulse-mention-dot">${u.mentions}</span>`
+        : (u.unread > 0 ? '<span class="pulse-unread-dot"></span>' : ''));
+    const initial = avatarInitial(title);
+    return `<a class="pulse-dm-item ${isActiveItem ? 'active' : ''} ${u.unread > 0 ? 'has-unread' : ''}"
+              data-kind="dm" data-id="${d.id}" draggable="true" href="#">
+        <span class="pulse-dm-avatar">${escHtml(initial)}</span>
+        <span>${escHtml(title)}</span>
+        ${dots}
+      </a>`;
+  }
+
+  // Which channels/DMs live outside of any section
+  function unsectionedItems() {
+    const inSection = new Set();
+    for (const s of SECTIONS) for (const it of s.items) {
+      inSection.add((it.channel_id ? 'channel:' : 'dm:') + (it.channel_id || it.dm_id));
+    }
+    return {
+      channels: CHANNELS.filter(c => !inSection.has('channel:' + c.id)),
+      dms: DMS.filter(d => !inSection.has('dm:' + d.id))
+    };
+  }
+
+  function renderSidebar() {
+    const secWrap = $('sidebar-sections');
+    secWrap.innerHTML = '';
+    for (const s of SECTIONS) {
+      const sec = document.createElement('div');
+      sec.className = 'pulse-sidebar-section';
+      sec.dataset.sectionId = s.id;
+
+      const items = (s.items || []).map(it => {
+        if (it.channel_id) {
+          const c = CHANNELS.find(x => x.id === it.channel_id);
+          return c ? buildChannelLink(c) : '';
+        }
+        const d = DMS.find(x => x.id === it.dm_id);
+        return d ? buildDmLink(d) : '';
+      }).join('');
+
+      sec.innerHTML = `
+        <div class="pulse-section-header ${s.collapsed ? 'collapsed' : ''}" data-id="${s.id}">
+          <span class="chevron">▾</span>
+          <span class="name">${escHtml(s.name)}</span>
+          <span class="actions">
+            <button class="pulse-msg-action-btn" data-act="rename" title="Rename">✎</button>
+            <button class="pulse-msg-action-btn danger" data-act="delete" title="Delete section">🗑</button>
+          </span>
+        </div>
+        <div class="pulse-section-body pulse-section-drop" data-section-drop="${s.id}">${items || ''}</div>
+      `;
+      secWrap.appendChild(sec);
+    }
+
+    const { channels, dms } = unsectionedItems();
+    const chList = $('channel-list');
+    chList.dataset.sectionDrop = ''; // empty marker => "unsectioned"
+    chList.classList.add('pulse-section-drop');
+    chList.innerHTML = channels.length
+      ? channels.map(buildChannelLink).join('')
+      : '<div class="pulse-channel-empty">No channels yet.</div>';
+
+    const dmList = $('dm-list');
+    dmList.dataset.sectionDrop = '';
+    dmList.classList.add('pulse-section-drop');
+    dmList.innerHTML = dms.length
+      ? dms.map(buildDmLink).join('')
+      : '<div class="pulse-channel-empty">No direct messages yet.</div>';
+
+    wireSidebarInteractions();
+  }
+
+  function wireSidebarInteractions() {
+    document.querySelectorAll('[data-kind][data-id]').forEach(el => {
       el.addEventListener('click', (e) => {
+        // Inline archive button: swallow the parent-link click.
+        if (e.target.closest('[data-archive]')) return;
         e.preventDefault();
-        const id = el.dataset.channelId;
-        const c = CHANNELS.find(x => x.id === id);
-        if (c) switchChannel(c);
+        const kind = el.dataset.kind, id = el.dataset.id;
+        if (kind === 'channel') {
+          const c = CHANNELS.find(x => x.id === id);
+          if (c) switchScope({ kind: 'channel', id: c.id, name: c.name, is_private: c.is_private });
+        } else if (kind === 'dm') {
+          const d = DMS.find(x => x.id === id);
+          if (d) switchScope({ kind: 'dm', id: d.id, name: d.title, members: d.members });
+        }
         if (window.innerWidth <= 720) $('sidebar').classList.remove('open');
+      });
+
+      // Drag/drop (desktop)
+      el.addEventListener('dragstart', (e) => {
+        el.classList.add('dragging');
+        e.dataTransfer.setData('application/x-pulse-item',
+          JSON.stringify({ kind: el.dataset.kind, id: el.dataset.id }));
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    });
+
+    document.querySelectorAll('.pulse-section-drop').forEach(zone => {
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        zone.classList.add('drag-over');
+      });
+      zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+      zone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        let payload;
+        try { payload = JSON.parse(e.dataTransfer.getData('application/x-pulse-item')); } catch { return; }
+        const targetSection = zone.dataset.sectionDrop || ''; // '' = unsectioned
+        await moveItemToSection(payload, targetSection);
+      });
+    });
+
+    document.querySelectorAll('.pulse-section-header').forEach(h => {
+      h.addEventListener('click', async (e) => {
+        // Skip if the click was on an action button
+        if (e.target.closest('[data-act]')) return;
+        const id = h.dataset.id;
+        const sec = SECTIONS.find(s => s.id === id);
+        if (!sec) return;
+        sec.collapsed = !sec.collapsed;
+        renderSidebar();
+        try { await apiFetch(`/api/pulse/sections/${id}`, { method: 'PATCH',
+          body: JSON.stringify({ collapsed: sec.collapsed }) }); }
+        catch (err) { showToast(err.message || 'Could not save section state', 'error'); }
+      });
+    });
+
+    document.querySelectorAll('[data-act="rename"]').forEach(b => {
+      b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = b.closest('.pulse-section-header').dataset.id;
+        const sec = SECTIONS.find(s => s.id === id);
+        const name = prompt('Rename section', sec ? sec.name : '');
+        if (!name || !name.trim()) return;
+        try {
+          const upd = await apiFetch(`/api/pulse/sections/${id}`, { method: 'PATCH',
+            body: JSON.stringify({ name: name.trim() }) });
+          sec.name = upd.name;
+          renderSidebar();
+        } catch (err) { showToast(err.message || 'Rename failed', 'error'); }
+      });
+    });
+
+    document.querySelectorAll('[data-act="delete"]').forEach(b => {
+      b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = b.closest('.pulse-section-header').dataset.id;
+        if (!confirm('Delete this section? Channels and DMs in it will move back to the default group.')) return;
+        try {
+          await apiFetch(`/api/pulse/sections/${id}`, { method: 'DELETE' });
+          await refreshSections();
+        } catch (err) { showToast(err.message || 'Delete failed', 'error'); }
+      });
+    });
+
+    // Per-channel archive button (admins / account owners only)
+    document.querySelectorAll('[data-archive]').forEach(b => {
+      b.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = b.dataset.archive;
+        const c = CHANNELS.find(x => x.id === id);
+        if (!c) return;
+        if (!confirm(`Archive #${c.name}? It will disappear from the sidebar but messages and members are preserved — you can unarchive from "Show archived channels".`)) return;
+        try {
+          await apiFetch(`/api/pulse/channels/${id}/archive`, { method: 'POST' });
+          // Remove from CHANNELS in-memory so the sidebar updates without a full reload
+          CHANNELS = CHANNELS.filter(x => x.id !== id);
+          // If the archived channel was active, fall back to #general
+          if (ACTIVE_SCOPE && ACTIVE_SCOPE.kind === 'channel' && ACTIVE_SCOPE.id === id) {
+            const next = CHANNELS.find(x => x.slug === 'general') || CHANNELS[0];
+            if (next) await switchScope({ kind: 'channel', id: next.id, name: next.name, is_private: next.is_private });
+          }
+          renderSidebar();
+          showToast(`Archived #${c.name}`, 'info');
+        } catch (err) { showToast(err.message || 'Archive failed', 'error'); }
       });
     });
   }
 
-  // ── Message rendering ─────────────────────────────────────────────
+  async function moveItemToSection({ kind, id }, sectionId) {
+    try {
+      if (!sectionId) {
+        // Drop on unsectioned: find and remove any existing item
+        for (const s of SECTIONS) {
+          const item = (s.items || []).find(it =>
+            (kind === 'channel' && it.channel_id === id) ||
+            (kind === 'dm'      && it.dm_id      === id));
+          if (item) {
+            await apiFetch(`/api/pulse/sections/${s.id}/items/${item.id}`, { method: 'DELETE' });
+          }
+        }
+      } else {
+        const body = kind === 'channel' ? { channel_id: id } : { dm_id: id };
+        await apiFetch(`/api/pulse/sections/${sectionId}/items`, {
+          method: 'POST', body: JSON.stringify(body)
+        });
+      }
+      await refreshSections();
+    } catch (err) { showToast(err.message || 'Move failed', 'error'); }
+  }
+
+  async function refreshSections() {
+    try { SECTIONS = await apiFetch('/api/pulse/sections'); }
+    catch (err) { SECTIONS = []; }
+    renderSidebar();
+  }
+
+  /* ── Message rendering ───────────────────────────────────────── */
+  function buildDateDividerEl(iso) {
+    const div = document.createElement('div');
+    div.className = 'pulse-date-divider';
+    div.innerHTML = `<span>${escHtml(PulseChat.formatDateDivider(iso))}</span>`;
+    return div;
+  }
+
+  function dayKey(iso) {
+    const d = new Date(iso);
+    return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+  }
+
+  function renderAttachments(attachments) {
+    if (!attachments || !attachments.length) return '';
+    return '<div class="pulse-msg-attachments">' + attachments.map(a => {
+      if (a.mime_type && a.mime_type.startsWith('image/')) {
+        return `<img class="pulse-msg-image" src="${escHtml(a.url)}"
+                 alt="${escHtml(a.filename || '')}" data-full="${escHtml(a.url)}">`;
+      }
+      const size = a.size_bytes ? `<span class="size">${escHtml(PulseChat.bytesHuman(a.size_bytes))}</span>` : '';
+      return `<a class="pulse-msg-file" href="${escHtml(a.url)}" target="_blank" rel="noopener" download>
+          <span class="icon">${PulseChat.fileIcon(a.mime_type)}</span>
+          <span class="meta">
+            <span class="name">${escHtml(a.filename || 'file')}</span>
+            ${size}
+          </span>
+        </a>`;
+    }).join('') + '</div>';
+  }
+
   function buildMessageEl(msg) {
     const initial = avatarInitial(msg.sender_name || msg.sender_email);
     const time = formatTime(msg.created_at);
     const row = document.createElement('div');
     row.className = 'pulse-msg';
     row.dataset.id = msg.id;
+    row.dataset.senderId = msg.sender_id || '';
     row.dataset.createdAt = msg.created_at;
+
+    const isMine = CURRENT_USER && msg.sender_id === CURRENT_USER.id;
+    const editedTag = msg.edited_at ? '<span class="pulse-msg-edited">(edited)</span>' : '';
+
+    const safeBody = PulseChat.highlightSelfMentions(
+      PulseChat.sanitizeHtml(msg.body || ''),
+      CURRENT_USER && CURRENT_USER.id
+    );
+
+    const avatar = (msg.sender_avatar_url)
+      ? `<img class="avatar-img" src="${escHtml(msg.sender_avatar_url)}" alt="">`
+      : escHtml(initial);
+
     row.innerHTML = `
-      <div class="pulse-avatar">${escHtml(initial)}</div>
+      <div class="pulse-avatar">${avatar}</div>
       <div class="pulse-msg-body">
         <div class="pulse-msg-head">
           <span class="pulse-msg-author">${escHtml(msg.sender_name || msg.sender_email || 'Unknown')}</span>
           <span class="pulse-msg-time">${escHtml(time)}</span>
+          ${editedTag}
         </div>
-        <div class="pulse-msg-text">${escHtml(msg.body || '')}</div>
+        <div class="pulse-msg-text" data-role="body">${safeBody}</div>
+        ${renderAttachments(msg.attachments)}
       </div>
+      ${isMine ? `
+        <div class="pulse-msg-actions">
+          <button class="pulse-msg-action-btn" data-act="edit" title="Edit">✏️</button>
+          <button class="pulse-msg-action-btn danger" data-act="delete" title="Delete">🗑</button>
+        </div>
+      ` : ''}
     `;
+
+    if (isMine) {
+      row.querySelector('[data-act="edit"]').addEventListener('click', () => startEditMessage(row, msg));
+      row.querySelector('[data-act="delete"]').addEventListener('click', () => promptDelete(msg.id));
+    }
+    row.querySelectorAll('.pulse-msg-image').forEach(img => {
+      img.addEventListener('click', () => openLightbox(img.dataset.full));
+    });
     return row;
   }
 
@@ -162,8 +550,34 @@
     const wrap = $('messages');
     const emptyMarker = wrap.querySelector('.pulse-empty');
     if (emptyMarker) emptyMarker.remove();
+
+    // Day divider: if this message's day differs from the last one rendered
+    const k = dayKey(msg.created_at);
+    if (k !== LAST_DATE) {
+      wrap.appendChild(buildDateDividerEl(msg.created_at));
+      LAST_DATE = k;
+    }
     wrap.appendChild(buildMessageEl(msg));
     if (opts.scroll !== false && AT_BOTTOM) wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  function rebuildMessageList(msgs) {
+    // Used on initial load + after switching scope. Always rebuilds dividers from scratch.
+    const wrap = $('messages');
+    wrap.innerHTML = `<div class="pulse-history-loader hidden" id="history-loader">Loading older messages…</div>`;
+    RENDERED_IDS = new Set();
+    LAST_DATE = null;
+    if (!msgs.length) {
+      const empty = document.createElement('div');
+      empty.className = 'pulse-empty';
+      const title = ACTIVE_SCOPE
+        ? (ACTIVE_SCOPE.kind === 'channel' ? `#${ACTIVE_SCOPE.name}` : ACTIVE_SCOPE.name)
+        : '';
+      empty.textContent = `No messages in ${title} yet. Be the first to say hi.`;
+      wrap.appendChild(empty);
+      return;
+    }
+    for (const m of msgs) appendMessage(m, { scroll: false });
   }
 
   function prependMessages(msgs) {
@@ -172,149 +586,280 @@
     const prevHeight = wrap.scrollHeight;
     const prevTop = wrap.scrollTop;
     const frag = document.createDocumentFragment();
+
+    // Track day boundaries in the prepended block. We DON'T re-track LAST_DATE
+    // for these because they're older — the boundary between this block and
+    // the existing-rendered messages will get one divider below.
+    let blockLastDay = null;
     for (const m of msgs) {
       if (RENDERED_IDS.has(m.id)) continue;
       RENDERED_IDS.add(m.id);
+      const k = dayKey(m.created_at);
+      if (k !== blockLastDay) {
+        frag.appendChild(buildDateDividerEl(m.created_at));
+        blockLastDay = k;
+      }
       frag.appendChild(buildMessageEl(m));
     }
-    // Insert after the loader element (which stays at top)
+    // Insert the older block right after the loader.
     if (loader.nextSibling) wrap.insertBefore(frag, loader.nextSibling);
     else wrap.appendChild(frag);
-    // Preserve user's relative scroll position
+
     const heightDelta = wrap.scrollHeight - prevHeight;
     wrap.scrollTop = prevTop + heightDelta;
   }
 
-  // ── History loading + pagination ──────────────────────────────────
-  async function loadInitialHistory() {
-    const wrap = $('messages');
-    wrap.innerHTML = `
-      <div class="pulse-history-loader hidden" id="history-loader">Loading older messages…</div>
-      <div class="pulse-empty">Loading…</div>
-    `;
-    RENDERED_IDS = new Set();
-    OLDEST_MESSAGE_TIME = null;
-    HAS_MORE_HISTORY = false;
-
-    try {
-      const data = await apiFetch(`/api/pulse/messages?channel_id=${encodeURIComponent(ACTIVE_CHANNEL.id)}&limit=50`);
-      const msgs = data.messages || [];
-      HAS_MORE_HISTORY = !!data.has_more;
-      const emptyEl = wrap.querySelector('.pulse-empty');
-      if (emptyEl) emptyEl.remove();
-
-      if (!msgs.length) {
-        const empty = document.createElement('div');
-        empty.className = 'pulse-empty';
-        empty.textContent = `No messages in #${ACTIVE_CHANNEL.name} yet. Be the first to say hi.`;
-        wrap.appendChild(empty);
+  /* ── Edit / delete handlers ──────────────────────────────────── */
+  function startEditMessage(row, msg) {
+    const bodyEl = row.querySelector('[data-role="body"]');
+    if (!bodyEl) return;
+    const original = bodyEl.innerHTML;
+    // Convert sanitized HTML back into plain text for editing. Quill in the
+    // composer handles rich edits at compose-time; for inline edit we keep it
+    // simple with a textarea on the raw body.
+    const draft = msg.body || '';
+    bodyEl.innerHTML = `
+      <div class="pulse-msg-edit">
+        <textarea class="pulse-msg-edit-input">${escHtml(draft.replace(/<[^>]+>/g, ''))}</textarea>
+        <div class="pulse-msg-edit-actions">
+          <button class="cancel" type="button">Cancel</button>
+          <button class="save" type="button">Save</button>
+        </div>
+      </div>`;
+    const ta = bodyEl.querySelector('textarea');
+    ta.focus();
+    ta.style.height = ta.scrollHeight + 'px';
+    bodyEl.querySelector('.cancel').addEventListener('click', () => {
+      bodyEl.innerHTML = original;
+    });
+    bodyEl.querySelector('.save').addEventListener('click', async () => {
+      const newText = ta.value.trim();
+      if (!newText) {
+        bodyEl.innerHTML = original;
         return;
       }
-      for (const m of msgs) appendMessage(m, { scroll: false });
-      OLDEST_MESSAGE_TIME = msgs[0].created_at;
+      try {
+        // Plain-text edit becomes a <p>-wrapped body so it renders consistently.
+        const newBody = '<p>' + escHtml(newText) + '</p>';
+        await apiFetch('/api/pulse/messages/' + msg.id, {
+          method: 'PATCH', body: JSON.stringify({ body: newBody })
+        });
+        // The SSE message_updated will repaint the row.
+      } catch (err) {
+        showToast(err.message || 'Edit failed', 'error');
+        bodyEl.innerHTML = original;
+      }
+    });
+  }
+
+  function promptDelete(id) {
+    DELETE_TARGET = id;
+    show($('delete-msg-modal'));
+  }
+
+  $('del-cancel').addEventListener('click', () => { hide($('delete-msg-modal')); DELETE_TARGET = null; });
+  $('del-confirm').addEventListener('click', async () => {
+    if (!DELETE_TARGET) return;
+    try {
+      await apiFetch('/api/pulse/messages/' + DELETE_TARGET, { method: 'DELETE' });
+    } catch (err) { showToast(err.message || 'Delete failed', 'error'); }
+    hide($('delete-msg-modal'));
+    DELETE_TARGET = null;
+  });
+
+  /* ── Lightbox ────────────────────────────────────────────────── */
+  function openLightbox(url) {
+    $('lightbox-img').src = url;
+    show($('lightbox'));
+  }
+  $('lightbox').addEventListener('click', () => hide($('lightbox')));
+
+  /* ── History loading ─────────────────────────────────────────── */
+  async function loadInitialHistory() {
+    const wrap = $('messages');
+    wrap.innerHTML = '<div class="pulse-empty">Loading…</div>';
+    RENDERED_IDS = new Set();
+    LAST_DATE = null;
+    OLDEST_TIME = null;
+    HAS_MORE = false;
+
+    const param = ACTIVE_SCOPE.kind === 'channel'
+      ? 'channel_id=' + encodeURIComponent(ACTIVE_SCOPE.id)
+      : 'dm_id='      + encodeURIComponent(ACTIVE_SCOPE.id);
+    try {
+      const data = await apiFetch(`/api/pulse/messages?${param}&limit=50`);
+      HAS_MORE = !!data.has_more;
+      rebuildMessageList(data.messages || []);
+      if (data.messages && data.messages.length) {
+        OLDEST_TIME = data.messages[0].created_at;
+      }
       AT_BOTTOM = true;
       wrap.scrollTop = wrap.scrollHeight;
+      // Mark read on the server side.
+      markScopeRead();
     } catch (err) {
       showToast('Could not load messages: ' + err.message, 'error');
     }
   }
 
   async function loadOlderHistory() {
-    if (LOADING_HISTORY || !HAS_MORE_HISTORY || !OLDEST_MESSAGE_TIME) return;
-    LOADING_HISTORY = true;
+    if (LOADING_HIST || !HAS_MORE || !OLDEST_TIME || !ACTIVE_SCOPE) return;
+    LOADING_HIST = true;
     const loader = $('history-loader');
-    show(loader);
+    if (loader) show(loader);
+    const param = ACTIVE_SCOPE.kind === 'channel'
+      ? 'channel_id=' + encodeURIComponent(ACTIVE_SCOPE.id)
+      : 'dm_id='      + encodeURIComponent(ACTIVE_SCOPE.id);
     try {
       const data = await apiFetch(
-        `/api/pulse/messages?channel_id=${encodeURIComponent(ACTIVE_CHANNEL.id)}&before=${encodeURIComponent(OLDEST_MESSAGE_TIME)}&limit=50`
+        `/api/pulse/messages?${param}&before=${encodeURIComponent(OLDEST_TIME)}&limit=50`
       );
       const msgs = data.messages || [];
-      HAS_MORE_HISTORY = !!data.has_more;
+      HAS_MORE = !!data.has_more;
       if (msgs.length) {
         prependMessages(msgs);
-        OLDEST_MESSAGE_TIME = msgs[0].created_at;
+        OLDEST_TIME = msgs[0].created_at;
       }
     } catch (err) {
       showToast('Could not load older messages: ' + err.message, 'error');
     } finally {
-      hide(loader);
-      LOADING_HISTORY = false;
+      if (loader) hide(loader);
+      LOADING_HIST = false;
     }
   }
 
-  // ── SSE ───────────────────────────────────────────────────────────
+  /* ── Read tracking + unread fanout ──────────────────────────── */
+  async function markScopeRead() {
+    if (!ACTIVE_SCOPE) return;
+    const path = ACTIVE_SCOPE.kind === 'channel'
+      ? `/api/pulse/channels/${ACTIVE_SCOPE.id}/read`
+      : `/api/pulse/dms/${ACTIVE_SCOPE.id}/read`;
+    try { await apiFetch(path, { method: 'POST' }); } catch {}
+    // Local clear (server will also broadcast unread_update via SSE)
+    UNREAD.set(scopeKey(ACTIVE_SCOPE), { unread: 0, mentions: 0 });
+    renderSidebar();
+  }
+
+  async function refreshUnread() {
+    try {
+      const u = await apiFetch('/api/pulse/unread');
+      UNREAD = new Map();
+      for (const c of (u.channels || [])) UNREAD.set('channel:' + c.channel_id, { unread: c.unread, mentions: c.mentions });
+      for (const d of (u.dms || []))      UNREAD.set('dm:' + d.dm_id,           { unread: d.unread, mentions: d.mentions });
+    } catch {}
+  }
+
+  /* ── SSE ─────────────────────────────────────────────────────── */
   function connectSse() {
     setConnDot('connecting');
     if (SSE) { SSE.close(); SSE = null; }
-    const url = `/api/pulse/stream?channel_id=${encodeURIComponent(ACTIVE_CHANNEL.id)}&token=${encodeURIComponent(getToken())}`;
+    if (!ACTIVE_SCOPE) return;
+    const param = ACTIVE_SCOPE.kind === 'channel'
+      ? 'channel_id=' + encodeURIComponent(ACTIVE_SCOPE.id)
+      : 'dm_id='      + encodeURIComponent(ACTIVE_SCOPE.id);
+    const url = `/api/pulse/stream?${param}&token=${encodeURIComponent(getToken())}`;
     SSE = new EventSource(url);
     SSE.onopen = () => setConnDot('connected');
     SSE.onerror = () => setConnDot('disconnected');
     SSE.onmessage = (e) => {
-      try {
-        const event = JSON.parse(e.data);
-        if (event.type === 'message' && event.message
-            && event.message.channel_id === ACTIVE_CHANNEL.id) {
-          appendMessage(event.message);
-        }
-      } catch {}
+      let event;
+      try { event = JSON.parse(e.data); } catch { return; }
+      handleSseEvent(event);
     };
   }
 
-  // ── Channel switching ─────────────────────────────────────────────
-  async function switchChannel(channel) {
-    if (ACTIVE_CHANNEL && ACTIVE_CHANNEL.id === channel.id) return;
-    ACTIVE_CHANNEL = channel;
-    $('channel-name').textContent = (channel.is_private ? '🔒 ' : '#') + channel.name;
-    $('composer-input').placeholder = `Message ${channel.is_private ? '🔒' : '#'}${channel.name}`;
-    renderChannelList();
-
-    // If not a member, auto-join (for public channels). Owners can always read.
-    if (!channel.is_member && !channel.is_private) {
-      try {
-        await apiFetch(`/api/pulse/channels/${channel.id}/join`, { method: 'POST' });
-        channel.is_member = true;
-      } catch { /* fine if owner / already joined */ }
+  function handleSseEvent(event) {
+    if (!event || !event.type) return;
+    if (event.type === 'message' && event.message
+        && ((ACTIVE_SCOPE.kind === 'channel' && event.message.channel_id === ACTIVE_SCOPE.id)
+         || (ACTIVE_SCOPE.kind === 'dm'      && event.message.dm_id      === ACTIVE_SCOPE.id))) {
+      appendMessage(event.message);
+      if (document.visibilityState === 'visible') markScopeRead();
+    } else if (event.type === 'message_updated' && event.message) {
+      replaceMessageInPlace(event.message);
+    } else if (event.type === 'message_deleted') {
+      removeMessageFromView(event.message_id);
+    } else if (event.type === 'unread_update') {
+      // The server signals "something changed in scope X"; we just re-fetch
+      // counts. Cheap relative to SSE volume on a small team.
+      refreshUnread().then(renderSidebar);
+    } else if (event.type === 'mention' && event.message) {
+      const from = event.message.sender_name || 'Someone';
+      const text = (event.message.body || '').replace(/<[^>]+>/g, '').slice(0, 120);
+      PulseChat.notify(from + ' mentioned you', text);
     }
+  }
 
+  function replaceMessageInPlace(msg) {
+    const row = document.querySelector(`.pulse-msg[data-id="${msg.id}"]`);
+    if (!row) return;
+    const newRow = buildMessageEl(msg);
+    row.replaceWith(newRow);
+  }
+
+  function removeMessageFromView(id) {
+    const row = document.querySelector(`.pulse-msg[data-id="${id}"]`);
+    if (!row) return;
+    row.remove();
+  }
+
+  /* ── Scope switching ─────────────────────────────────────────── */
+  async function switchScope(scope) {
+    if (ACTIVE_SCOPE && scopeKey(ACTIVE_SCOPE) === scopeKey(scope)) return;
+    ACTIVE_SCOPE = scope;
+
+    if (scope.kind === 'channel') {
+      const c = CHANNELS.find(x => x.id === scope.id);
+      $('channel-name').textContent = (c && c.is_private ? '🔒 ' : '#') + scope.name;
+      $('quill-editor').dataset.placeholder = 'Message ' + (c && c.is_private ? '🔒' : '#') + scope.name;
+      // Auto-join public channels (matches v1 behavior)
+      if (c && !c.is_member && !c.is_private) {
+        try { await apiFetch(`/api/pulse/channels/${c.id}/join`, { method: 'POST' }); c.is_member = true; } catch {}
+      }
+    } else {
+      $('channel-name').textContent = '🗨 ' + scope.name;
+      $('quill-editor').dataset.placeholder = 'Message ' + scope.name;
+    }
+    renderSidebar();
     await loadInitialHistory();
     connectSse();
   }
 
-  // ── Sending ───────────────────────────────────────────────────────
+  /* ── Sending ─────────────────────────────────────────────────── */
   async function send() {
-    const input = $('composer-input');
-    const body = input.value.trim();
-    if (!body || !ACTIVE_CHANNEL) return;
+    if (!ACTIVE_SCOPE) return;
+    const html = QUILL.root.innerHTML;
+    const plain = QUILL.getText().trim();
+    const attachments = TRAY.getAttachments();
+    if (!plain && !attachments.length) return;
+    if (TRAY && !TRAY.isReady()) {
+      showToast('Wait for uploads to finish', 'error');
+      return;
+    }
     const btn = $('send-btn');
     btn.disabled = true;
     try {
-      await apiFetch('/api/pulse/messages', {
-        method: 'POST',
-        body: JSON.stringify({
-          channel_id: ACTIVE_CHANNEL.id,
-          body,
-          client_message_id: crypto.randomUUID()
-        })
-      });
-      input.value = '';
-      input.style.height = 'auto';
+      const body = { client_message_id: crypto.randomUUID() };
+      if (ACTIVE_SCOPE.kind === 'channel') body.channel_id = ACTIVE_SCOPE.id;
+      else                                 body.dm_id      = ACTIVE_SCOPE.id;
+      body.body = PulseChat.sanitizeHtml(html);
+      if (attachments.length) body.attachments = attachments;
+      await apiFetch('/api/pulse/messages', { method: 'POST', body: JSON.stringify(body) });
+      QUILL.setContents([{ insert: '\n' }]);
+      TRAY.clear();
       AT_BOTTOM = true;
     } catch (err) {
       showToast('Send failed: ' + err.message, 'error');
     } finally {
       btn.disabled = false;
-      input.focus();
+      QUILL.focus();
     }
   }
 
-  // ── New-channel modal ─────────────────────────────────────────────
+  /* ── New-channel modal ───────────────────────────────────────── */
   function openNewChannelModal() {
-    $('nc-name').value = '';
-    $('nc-desc').value = '';
-    $('nc-private').checked = false;
-    $('nc-error').classList.add('hidden');
-    $('nc-submit').disabled = false;
+    $('nc-name').value = ''; $('nc-desc').value = ''; $('nc-private').checked = false;
+    hide($('nc-error')); $('nc-submit').disabled = false;
     show($('new-channel-modal'));
     setTimeout(() => $('nc-name').focus(), 50);
   }
@@ -327,32 +872,251 @@
     const description = $('nc-desc').value.trim();
     const is_private = $('nc-private').checked;
     const err = $('nc-error');
-    err.classList.add('hidden');
+    hide(err);
     $('nc-submit').disabled = true;
     try {
       const created = await apiFetch('/api/pulse/channels', {
-        method: 'POST',
-        body: JSON.stringify({ name, description, is_private })
+        method: 'POST', body: JSON.stringify({ name, description, is_private })
       });
       CHANNELS.push(created);
+      renderSidebar();
       closeNewChannelModal();
-      switchChannel(created);
+      switchScope({ kind: 'channel', id: created.id, name: created.name, is_private: created.is_private });
     } catch (e2) {
       err.textContent = e2.message || 'Failed to create channel';
-      err.classList.remove('hidden');
+      show(err);
       $('nc-submit').disabled = false;
     }
   }
 
-  // ── Scroll tracking (auto-scroll + pagination) ────────────────────
+  /* ── New DM modal ────────────────────────────────────────────── */
+  async function openNewDmModal() {
+    PENDING_DM_USERS = new Set();
+    $('dm-search').value = '';
+    $('dm-submit').disabled = true;
+    hide($('dm-error'));
+    if (!ALL_USERS) {
+      try { ALL_USERS = await apiFetch('/api/pulse/users'); }
+      catch (err) { showToast('Could not load users: ' + err.message, 'error'); ALL_USERS = []; }
+    }
+    renderDmUserList('');
+    show($('new-dm-modal'));
+    setTimeout(() => $('dm-search').focus(), 50);
+  }
+  function closeNewDmModal() { hide($('new-dm-modal')); }
+
+  function renderDmUserList(q) {
+    const list = $('dm-user-list');
+    const needle = (q || '').toLowerCase();
+    const rows = (ALL_USERS || []).filter(u => {
+      const name  = (u.full_name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return !needle || name.includes(needle) || email.includes(needle);
+    });
+    if (!rows.length) {
+      list.innerHTML = '<div class="pulse-channel-empty">No matches.</div>';
+      return;
+    }
+    list.innerHTML = rows.map(u => {
+      const sel = PENDING_DM_USERS.has(u.id);
+      const ava = u.avatar_url
+        ? `<img src="${escHtml(u.avatar_url)}" alt="">`
+        : escHtml(avatarInitial(u.full_name || u.email));
+      return `
+        <div class="pulse-user-row ${sel ? 'selected' : ''}" data-uid="${u.id}">
+          <div class="ava">${ava}</div>
+          <div class="body">
+            <div class="name">${escHtml(u.full_name || u.email || '')}</div>
+            <div class="email">${escHtml(u.email || '')}</div>
+          </div>
+          <div class="check">${sel ? '✓' : ''}</div>
+        </div>
+      `;
+    }).join('');
+    list.querySelectorAll('.pulse-user-row').forEach(el => {
+      el.addEventListener('click', () => {
+        const uid = el.dataset.uid;
+        if (PENDING_DM_USERS.has(uid)) PENDING_DM_USERS.delete(uid);
+        else PENDING_DM_USERS.add(uid);
+        $('dm-submit').disabled = PENDING_DM_USERS.size === 0;
+        renderDmUserList($('dm-search').value);
+      });
+    });
+  }
+
+  async function submitNewDm() {
+    const uids = Array.from(PENDING_DM_USERS);
+    if (!uids.length) return;
+    try {
+      const created = await apiFetch('/api/pulse/dms', {
+        method: 'POST', body: JSON.stringify({ user_ids: uids })
+      });
+      // Reload DM list to get title + members
+      DMS = await apiFetch('/api/pulse/dms');
+      const dm = DMS.find(d => d.id === created.id) || created;
+      renderSidebar();
+      closeNewDmModal();
+      switchScope({ kind: 'dm', id: dm.id, name: dm.title || 'Direct message' });
+    } catch (err) {
+      $('dm-error').textContent = err.message || 'Failed to start DM';
+      show($('dm-error'));
+    }
+  }
+
+  /* ── New section modal ───────────────────────────────────────── */
+  function openNewSectionModal() {
+    $('ns-name').value = '';
+    hide($('ns-error'));
+    $('ns-submit').disabled = false;
+    show($('new-section-modal'));
+    setTimeout(() => $('ns-name').focus(), 50);
+  }
+  function closeNewSectionModal() { hide($('new-section-modal')); }
+
+  async function submitNewSection(e) {
+    e.preventDefault();
+    const name = $('ns-name').value.trim();
+    if (!name) return;
+    $('ns-submit').disabled = true;
+    try {
+      const created = await apiFetch('/api/pulse/sections', {
+        method: 'POST', body: JSON.stringify({ name })
+      });
+      SECTIONS.push({ ...created, items: [] });
+      renderSidebar();
+      closeNewSectionModal();
+    } catch (err) {
+      $('ns-error').textContent = err.message || 'Failed to create section';
+      show($('ns-error'));
+      $('ns-submit').disabled = false;
+    }
+  }
+
+  /* ── Archived channels modal ─────────────────────────────────── */
+  async function openArchivedModal() {
+    const listEl = $('archived-list');
+    listEl.innerHTML = '<div class="pulse-channel-empty">Loading…</div>';
+    show($('archived-modal'));
+    try {
+      const archived = await apiFetch('/api/pulse/channels?archived=1');
+      renderArchivedList(archived);
+    } catch (err) {
+      listEl.innerHTML = `<div class="pulse-channel-empty">Could not load: ${escHtml(err.message || '')}</div>`;
+    }
+  }
+  function closeArchivedModal() { hide($('archived-modal')); }
+
+  function renderArchivedList(items) {
+    const listEl = $('archived-list');
+    if (!items.length) {
+      listEl.innerHTML = '<div class="pulse-channel-empty">No archived channels.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(c => {
+      const lock = c.is_private ? '🔒' : '#';
+      const canUnarchive = (CURRENT_USER && CURRENT_USER.is_owner) || c.my_role === 'admin';
+      return `
+        <div class="pulse-archived-row" data-id="${c.id}">
+          <div class="meta">
+            <div class="name">${lock}${escHtml(c.name)}</div>
+            <div class="sub">${escHtml(c.description || '')}</div>
+          </div>
+          ${canUnarchive
+            ? `<button type="button" class="pulse-modal-submit" data-unarchive="${c.id}">Unarchive</button>`
+            : `<span class="pulse-archived-note">Admin-only</span>`}
+        </div>
+      `;
+    }).join('');
+    listEl.querySelectorAll('[data-unarchive]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const id = b.dataset.unarchive;
+        b.disabled = true;
+        try {
+          await apiFetch(`/api/pulse/channels/${id}/unarchive`, { method: 'POST' });
+          // Re-pull the full channel list so the unarchived one reappears in the sidebar
+          CHANNELS = await apiFetch('/api/pulse/channels');
+          renderSidebar();
+          // Update modal contents
+          const archived = await apiFetch('/api/pulse/channels?archived=1');
+          renderArchivedList(archived);
+          showToast('Channel unarchived', 'info');
+        } catch (err) {
+          showToast(err.message || 'Unarchive failed', 'error');
+          b.disabled = false;
+        }
+      });
+    });
+  }
+
+  /* ── Scroll tracking ─────────────────────────────────────────── */
   function onMessagesScroll() {
     const wrap = $('messages');
     const nearBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 24;
     AT_BOTTOM = nearBottom;
-    if (wrap.scrollTop < SCROLL_LOAD_THRESHOLD_PX) loadOlderHistory();
+    if (wrap.scrollTop < SCROLL_LOAD_THRESHOLD) loadOlderHistory();
   }
 
-  // ── Init ──────────────────────────────────────────────────────────
+  /* ── Quill + composer setup ──────────────────────────────────── */
+  function setupQuill() {
+    PulseChat.registerMentionBlot(Quill);
+    QUILL = new Quill('#quill-editor', {
+      theme: 'snow',
+      placeholder: 'Message',
+      modules: {
+        toolbar: [
+          ['bold','italic','strike','code'],
+          [{ list: 'ordered' }, { list: 'bullet' }, 'blockquote'],
+          ['link','clean']
+        ],
+        keyboard: {
+          bindings: {
+            send: {
+              key: 'Enter',
+              shiftKey: false,
+              handler: () => { send(); return false; }
+            }
+          }
+        }
+      }
+    });
+
+    // Sync placeholder updates (we mutate data-placeholder on scope switch)
+    const editorEl = $('quill-editor');
+    const obs = new MutationObserver(() => {
+      const ph = editorEl.dataset.placeholder;
+      if (ph) QUILL.root.dataset.placeholder = ph;
+    });
+    obs.observe(editorEl, { attributes: true });
+
+    TRAY = PulseChat.setupAttachmentTray({
+      trayEl: $('attach-tray'),
+      dropEl: $('composer'),
+      onError: (m) => showToast(m, 'error')
+    });
+    $('attach-btn').addEventListener('click', () => $('attach-input').click());
+    $('attach-input').addEventListener('change', (e) => {
+      TRAY.addFiles(e.target.files);
+      e.target.value = '';
+    });
+
+    MENTION_PV = PulseChat.setupMentionPopover({
+      quill: QUILL,
+      popupEl: $('mention-popup'),
+      getCandidates: async () => {
+        if (!ACTIVE_SCOPE) return [];
+        const path = ACTIVE_SCOPE.kind === 'channel'
+          ? `/api/pulse/channels/${ACTIVE_SCOPE.id}/members`
+          : `/api/pulse/dms/${ACTIVE_SCOPE.id}/members`;
+        const list = await apiFetch(path);
+        return (list || [])
+          .filter(m => m.user_id !== (CURRENT_USER && CURRENT_USER.id))
+          .map(m => ({ id: m.user_id, full_name: m.full_name, email: m.email, avatar_url: m.avatar_url }));
+      },
+      onError: (m) => showToast(m, 'error')
+    });
+  }
+
+  /* ── Init ────────────────────────────────────────────────────── */
   async function init() {
     const me = await requireAuth();
     if (!me) return;
@@ -370,21 +1134,24 @@
       }
     } catch {}
 
-    // Load channels
-    try { CHANNELS = await apiFetch('/api/pulse/channels'); }
-    catch (err) {
+    // Load channels + DMs + sections + unread in parallel
+    try {
+      const [ch, dm, secs] = await Promise.all([
+        apiFetch('/api/pulse/channels'),
+        apiFetch('/api/pulse/dms').catch(() => []),
+        apiFetch('/api/pulse/sections').catch(() => [])
+      ]);
+      CHANNELS = ch;
+      DMS = dm || [];
+      SECTIONS = secs || [];
+    } catch (err) {
       showToast('Could not load channels: ' + err.message, 'error');
       return;
     }
-    // Wire global controls FIRST so they work even if channel loading later errors.
-    const input = $('composer-input');
-    input.addEventListener('input', () => {
-      input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 160) + 'px';
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-    });
+    await refreshUnread();
+
+    // Wire global controls
+    setupQuill();
     $('composer').addEventListener('submit', (e) => { e.preventDefault(); send(); });
     $('messages').addEventListener('scroll', onMessagesScroll);
 
@@ -394,26 +1161,64 @@
     $('new-channel-modal').addEventListener('click', (e) => {
       if (e.target.id === 'new-channel-modal') closeNewChannelModal();
     });
+
+    $('new-dm-btn').addEventListener('click', openNewDmModal);
+    $('dm-cancel').addEventListener('click', closeNewDmModal);
+    $('dm-submit').addEventListener('click', submitNewDm);
+    $('dm-search').addEventListener('input', () => renderDmUserList($('dm-search').value));
+    $('new-dm-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'new-dm-modal') closeNewDmModal();
+    });
+
+    $('new-section-trigger').addEventListener('click', openNewSectionModal);
+    $('ns-cancel').addEventListener('click', closeNewSectionModal);
+    $('new-section-form').addEventListener('submit', submitNewSection);
+    $('new-section-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'new-section-modal') closeNewSectionModal();
+    });
+
+    // Archived channels modal
+    $('show-archived-btn').addEventListener('click', openArchivedModal);
+    $('archived-close').addEventListener('click', closeArchivedModal);
+    $('archived-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'archived-modal') closeArchivedModal();
+    });
+
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !$('new-channel-modal').classList.contains('hidden')) {
-        closeNewChannelModal();
-      }
+      if (e.key !== 'Escape') return;
+      if (!$('new-channel-modal').classList.contains('hidden'))   closeNewChannelModal();
+      else if (!$('new-dm-modal').classList.contains('hidden'))   closeNewDmModal();
+      else if (!$('new-section-modal').classList.contains('hidden')) closeNewSectionModal();
+      else if (!$('archived-modal').classList.contains('hidden')) closeArchivedModal();
+      else if (!$('delete-msg-modal').classList.contains('hidden')) { hide($('delete-msg-modal')); DELETE_TARGET = null; }
+      else if (!$('lightbox').classList.contains('hidden'))        hide($('lightbox'));
     });
     $('sidebar-toggle').addEventListener('click', () => {
       $('sidebar').classList.toggle('open');
     });
 
-    if (!CHANNELS.length) {
-      $('messages').innerHTML = '<div class="pulse-empty">No channels found. Click + to create one.</div>';
+    // Re-mark read whenever the tab regains focus while we're viewing a scope
+    window.addEventListener('focus', () => { if (ACTIVE_SCOPE) markScopeRead(); });
+
+    // One-time browser-notification permission prompt — only after first interaction.
+    document.addEventListener('click', () => {
+      PulseChat.requestNotificationPermission();
+    }, { once: true });
+
+    if (!CHANNELS.length && !DMS.length) {
+      $('messages').innerHTML = '<div class="pulse-empty">No channels yet. Click + to create one.</div>';
+      renderSidebar();
       return;
     }
-    renderChannelList();
+    renderSidebar();
 
-    // Pick #general or first
+    // Pick #general or first channel
     const initial = CHANNELS.find(c => c.slug === 'general') || CHANNELS[0];
-    await switchChannel(initial);
-
-    input.focus();
+    if (initial) {
+      await switchScope({ kind: 'channel', id: initial.id, name: initial.name, is_private: initial.is_private });
+    } else if (DMS[0]) {
+      await switchScope({ kind: 'dm', id: DMS[0].id, name: DMS[0].title });
+    }
   }
 
   init();
