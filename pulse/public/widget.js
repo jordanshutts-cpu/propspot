@@ -310,6 +310,18 @@
     slots.forEach(mountSlot);
   }
 
+  // Public API: hosts that re-render their DOM (e.g. inbox.html's right pane
+  // when the user clicks a different thread) call window.Pulse.mountSlots()
+  // after innerHTML replacement to mount the widget into the fresh slot.
+  // Slots already populated (containing a .pulse-embed) are skipped.
+  window.Pulse = window.Pulse || {};
+  window.Pulse.mountSlots = function () {
+    document.querySelectorAll('[id="pulse-slot"], [data-pulse-slot]').forEach(slot => {
+      if (slot.querySelector('.pulse-embed')) return;  // already mounted
+      mountSlot(slot);
+    });
+  };
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
