@@ -136,10 +136,19 @@
       flex: 1; color: var(--text-muted);
       font-size: .9rem; padding: 20px;
     }
+    /* Thread detail is the right column's only child; make it a flex column
+       so the messages area can scroll while the reply box stays pinned. */
+    #thread-detail {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
     .thread-head {
       padding: 14px 18px;
       border-bottom: 1px solid var(--border);
       background: var(--surface);
+      flex: 0 0 auto;
     }
     .thread-head h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; }
     .thread-head .thread-head-meta { font-size: .78rem; color: var(--text-muted); }
@@ -183,6 +192,7 @@
     .reply-box {
       padding: 12px 18px; border-top: 1px solid var(--border);
       background: var(--surface);
+      flex: 0 0 auto;
     }
     .reply-box textarea {
       width: 100%; min-height: 80px; padding: 8px 10px;
@@ -191,8 +201,10 @@
     }
     .reply-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
-    /* Pulse comments slot for Phase 3 integration */
-    .pulse-slot { margin: 0 18px 14px; }
+    /* Pulse comments slot — lives between the message scroll area and the
+       reply box so it's always visible without scrolling through messages. */
+    .pulse-slot { flex: 0 0 auto; max-height: 50%; overflow-y: auto;
+                  border-top: 1px solid var(--border); background: var(--bg); }
 
     /* ── Mobile / narrow viewport ────────────────────────────────────── */
     @media (max-width: 900px) {
@@ -362,6 +374,12 @@
 
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script>
+  // Hand the host app's JWT to the Pulse widget under a known global.
+  // Each propspot satellite namespaces its own token key (inbox_token,
+  // pulse_token, …); the widget can't guess, so we publish it explicitly.
+  window.PULSE_AUTH = { token: getToken() };
+</script>
 <script>
 // ── Application state ──────────────────────────────────────────
 const STATE = {
@@ -623,8 +641,8 @@ function renderThreadDetail() {
     </div>
     <div class="messages-scroll" id="messages-scroll">
       ${messagesHtml}
-      <div class="pulse-slot" id="pulse-slot" data-entity-type="inbox_thread" data-entity-id="${t.id}"></div>
     </div>
+    <div class="pulse-slot" id="pulse-slot" data-entity-type="inbox_thread" data-entity-id="${t.id}"></div>
     <div class="reply-box">
       <div class="text-muted text-sm" style="margin-bottom:6px;">Reply to <strong>${escapeHtml(replyTo)}</strong></div>
       <textarea id="reply-body" placeholder="Type your reply…"></textarea>
@@ -640,6 +658,10 @@ function renderThreadDetail() {
   // rendered content height (so emails don't get truncated at the 500px
   // min-height when they're actually taller).
   document.querySelectorAll('.msg.expanded iframe').forEach(autoSizeIframe);
+  // Tell the Pulse widget there's a fresh pulse-slot to mount into.
+  // Safe to call before widget.js loads — the call is a no-op until then,
+  // and the script's own init() will catch up when it finishes loading.
+  if (window.Pulse && window.Pulse.mountSlots) window.Pulse.mountSlots();
 }
 
 // Toggle a message's collapsed/expanded state. Called from the msg-head
@@ -937,6 +959,23 @@ async function submitCompose(e) {
 }
 
 init();
+
+// Lazy-load the Pulse widget script from the configured pulseUrl. The widget
+// reads window.PULSE_AUTH.token (set above) and mounts into any <div
+// id="pulse-slot"> currently in the DOM. Subsequent thread switches call
+// window.Pulse.mountSlots() from renderThreadDetail to mount the fresh slot.
+(async function loadPulseWidget() {
+  try {
+    const r = await fetch('/api/config');
+    const cfg = await r.json();
+    if (!cfg.pulseUrl) return;
+    const s = document.createElement('script');
+    s.src = cfg.pulseUrl + '/widget.js';
+    document.body.appendChild(s);
+  } catch (err) {
+    console.warn('[Inbox] could not load Pulse widget:', err);
+  }
+})();
 </script>
 </body>
 </html>
