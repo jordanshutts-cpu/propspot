@@ -7,7 +7,13 @@
   <title>Prop Spot — Sign In</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
-  <style>body{padding-bottom:0;background:linear-gradient(160deg,#edf7e9 0%,#ffffff 100%)}</style>
+  <style>
+    body{padding-bottom:0;background:linear-gradient(160deg,#edf7e9 0%,#ffffff 100%)}
+    .sso-row{display:flex;justify-content:center;margin-bottom:16px}
+    .sso-divider{display:flex;align-items:center;gap:12px;margin:8px 0 16px;color:#9ca3af;font-size:12px}
+    .sso-divider::before,.sso-divider::after{content:"";flex:1;height:1px;background:#e5e7eb}
+  </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="login-wrap">
@@ -19,6 +25,12 @@
       <button class="tab-btn active" id="tab-login"  onclick="showTab('login')">Sign In</button>
       <button class="tab-btn"        id="tab-signup" onclick="showTab('signup')">Create Account</button>
     </div>
+
+    <div id="google-signin-wrap" style="display:none;">
+      <div class="sso-row"><div id="google-signin-btn"></div></div>
+      <div class="sso-divider">or sign in with email</div>
+    </div>
+    <p id="sso-error" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
 
     <form id="login-form" onsubmit="handleLogin(event)">
       <div class="form-group">
@@ -65,7 +77,63 @@
     document.getElementById('signup-form').classList.toggle('hidden',tab!=='signup');
     document.getElementById('tab-login').classList.toggle('active',tab==='login');
     document.getElementById('tab-signup').classList.toggle('active',tab==='signup');
+    // Google button only makes sense on the sign-in tab.
+    const ssoWrap = document.getElementById('google-signin-wrap');
+    if (ssoWrap.dataset.ready === '1') {
+      ssoWrap.style.display = (tab === 'login') ? '' : 'none';
+    }
   }
+
+  async function handleGoogleCredential(response){
+    const errEl = document.getElementById('sso-error');
+    errEl.style.display = 'none';
+    try{
+      const{token,user} = await apiFetch('/api/auth/google',{
+        method:'POST',
+        body: JSON.stringify({ credential: response.credential })
+      });
+      setToken(token); setCachedUser(user);
+      window.location.href = '/dashboard.html';
+    }catch(err){
+      errEl.textContent = err.message || 'Google sign-in failed';
+      errEl.style.display = 'block';
+    }
+  }
+
+  function initGoogleSignIn(clientId){
+    if (!clientId || typeof google === 'undefined' || !google.accounts) return false;
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleCredential,
+      auto_select: false,
+      ux_mode: 'popup'
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('google-signin-btn'),
+      { theme:'outline', size:'large', text:'signin_with', shape:'rectangular', logo_alignment:'left', width: 280 }
+    );
+    const wrap = document.getElementById('google-signin-wrap');
+    wrap.style.display = '';
+    wrap.dataset.ready = '1';
+    return true;
+  }
+
+  // Wait for both /api/config (gives us client_id) and the GSI script to load.
+  (async () => {
+    try{
+      const cfg = await fetch('/api/config').then(r => r.json());
+      const clientId = cfg.googleClientId;
+      if (!clientId) return; // not configured — silently skip
+      const tryInit = () => initGoogleSignIn(clientId);
+      if (!tryInit()){
+        // GSI script not loaded yet; poll briefly.
+        let attempts = 0;
+        const handle = setInterval(() => {
+          if (tryInit() || ++attempts > 20) clearInterval(handle);
+        }, 200);
+      }
+    }catch(_){ /* config fetch failed — login still works via password */ }
+  })();
   async function handleLogin(e){
     e.preventDefault();
     const btn=document.getElementById('login-btn'),errEl=document.getElementById('login-error');

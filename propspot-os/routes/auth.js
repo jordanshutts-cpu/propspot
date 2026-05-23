@@ -9,6 +9,7 @@ const { signToken, safeUser } = require('../lib/jwt');
 const { sendInviteEmail, sendPasswordResetEmail } = require('../lib/email');
 const { logActivity } = require('../lib/activity');
 const { recomputeScopeForUser } = require('../lib/scope');
+const { verifyGoogleIdToken } = require('../lib/google-auth');
 
 const router = express.Router();
 
@@ -133,6 +134,56 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ── POST /api/auth/google ───────────────────────────────────────
+// Sign in with a Google ID token from Google Identity Services.
+// Body: { credential: "<google-id-token>" }
+//
+// Rejects unknown emails — the user must already exist in `users`
+// (created via signup, invite, or the bulk-invite script). This keeps
+// access control tight and avoids surprise account creation.
+router.post('/google', async (req, res) => {
+  const { credential } = req.body || {};
+  if (!credential) return res.status(400).json({ error: 'Missing credential' });
+
+  let claims;
+  try {
+    claims = await verifyGoogleIdToken(credential);
+  } catch (err) {
+    if (err.code === 'DOMAIN_NOT_ALLOWED') {
+      return res.status(403).json({
+        error: 'Your Google Workspace domain is not allowed to sign in to Prop Spot.'
+      });
+    }
+    console.error('Google token verify failed:', err.message);
+    return res.status(401).json({ error: 'Invalid Google sign-in' });
+  }
+
+  try {
+    const { rows } = await query(
+      'SELECT * FROM users WHERE email = $1',
+      [claims.email]
+    );
+    const user = rows[0];
+    if (!user) {
+      return res.status(403).json({
+        error: `No Prop Spot account for ${claims.email}. Ask an admin to add you.`
+      });
+    }
+
+    // Backfill full_name from Google if the row is missing one.
+    if (claims.name && (!user.full_name || user.full_name === user.email.split('@')[0])) {
+      await query('UPDATE users SET full_name = $1 WHERE id = $2', [claims.name, user.id]);
+      user.full_name = claims.name;
+    }
+
+    const token = signToken(user.id, user.email);
+    res.json({ token, user: safeUser(user) });
+  } catch (err) {
+    console.error('Google sign-in error:', err);
+    res.status(500).json({ error: 'Sign-in failed' });
   }
 });
 
