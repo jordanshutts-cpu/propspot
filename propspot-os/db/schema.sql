@@ -21,6 +21,18 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url           TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_cloudinary_id TEXT;
 
+-- Google Workspace SSO linkage. google_sub is Google's stable user ID
+-- (the `sub` claim). google_email is captured at link time so users
+-- can see which Workspace account they linked. Partial unique indexes
+-- prevent two users from claiming the same Google account, while
+-- allowing many users with NULL (not yet linked).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub   TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_email TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_uniq
+  ON users (google_sub)   WHERE google_sub   IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_email_uniq
+  ON users (google_email) WHERE google_email IS NOT NULL;
+
 -- ── Apps Registry ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS apps (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
