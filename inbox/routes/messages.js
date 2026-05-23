@@ -77,7 +77,8 @@ router.post('/threads/:id/reply', async (req, res) => {
       bodyHtml: req.body.body_html,
       inReplyTo: messageIdHeader,
       references: referencesHeader,
-      signatureHtml
+      signatureHtml,
+      attachments: req.body.attachments
     });
 
     const mailbox = await query(`SELECT * FROM inbox_mailboxes WHERE id = $1`, [thread.mailbox_id]);
@@ -142,7 +143,8 @@ router.post('/compose', async (req, res) => {
       subject,
       bodyText: body_text,
       bodyHtml: body_html,
-      signatureHtml
+      signatureHtml,
+      attachments: req.body.attachments
     });
 
     const { rows: mboxRows } = await query(`SELECT * FROM inbox_mailboxes WHERE id = $1`, [mailbox_id]);
