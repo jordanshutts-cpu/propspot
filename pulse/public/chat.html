@@ -40,6 +40,7 @@
       <button class="pulse-sidebar-add" id="new-channel-btn" title="New channel">+</button>
     </div>
     <div id="channel-list"></div>
+    <button type="button" class="pulse-archive-trigger" id="show-archived-btn">Show archived channels</button>
   </div>
 
   <div class="pulse-sidebar-section">
@@ -151,6 +152,19 @@
   </div>
 </div>
 
+<!-- Archived channels modal -->
+<div class="pulse-modal-backdrop hidden" id="archived-modal">
+  <div class="pulse-modal" style="max-width:520px">
+    <h2>Archived channels</h2>
+    <div class="pulse-archived-list" id="archived-list">
+      <div class="pulse-channel-empty">Loading…</div>
+    </div>
+    <div class="pulse-modal-actions">
+      <button type="button" class="pulse-modal-cancel" id="archived-close">Close</button>
+    </div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
@@ -206,6 +220,12 @@
     return UNREAD.get(kind + ':' + id) || { unread: 0, mentions: 0 };
   }
 
+  function canArchiveChannel(c) {
+    if (!c || c.slug === 'general') return false;
+    if (CURRENT_USER && CURRENT_USER.is_owner) return true;
+    return c.my_role === 'admin';
+  }
+
   function buildChannelLink(c) {
     const u = unreadFor('channel', c.id);
     const isActiveItem = isActive('channel', c.id);
@@ -213,12 +233,16 @@
     const dots = (u.mentions > 0
         ? `<span class="pulse-mention-dot">${u.mentions}</span>`
         : (u.unread > 0 ? '<span class="pulse-unread-dot"></span>' : ''));
+    const archiveBtn = canArchiveChannel(c)
+      ? `<button type="button" class="pulse-channel-archive-btn" data-archive="${c.id}" title="Archive channel">🗄</button>`
+      : '';
     return `<a class="pulse-channel-item ${isActiveItem ? 'active' : ''} ${u.unread > 0 ? 'has-unread' : ''}"
               data-kind="channel" data-id="${c.id}" draggable="true" href="#"
               title="${escHtml(c.description || '')}">
         <span class="pulse-channel-hash">${lock}</span>
         <span>${escHtml(c.name)}</span>
         ${dots}
+        ${archiveBtn}
       </a>`;
   }
 
@@ -302,6 +326,8 @@
   function wireSidebarInteractions() {
     document.querySelectorAll('[data-kind][data-id]').forEach(el => {
       el.addEventListener('click', (e) => {
+        // Inline archive button: swallow the parent-link click.
+        if (e.target.closest('[data-archive]')) return;
         e.preventDefault();
         const kind = el.dataset.kind, id = el.dataset.id;
         if (kind === 'channel') {
@@ -381,6 +407,30 @@
           await apiFetch(`/api/pulse/sections/${id}`, { method: 'DELETE' });
           await refreshSections();
         } catch (err) { showToast(err.message || 'Delete failed', 'error'); }
+      });
+    });
+
+    // Per-channel archive button (admins / account owners only)
+    document.querySelectorAll('[data-archive]').forEach(b => {
+      b.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = b.dataset.archive;
+        const c = CHANNELS.find(x => x.id === id);
+        if (!c) return;
+        if (!confirm(`Archive #${c.name}? It will disappear from the sidebar but messages and members are preserved — you can unarchive from "Show archived channels".`)) return;
+        try {
+          await apiFetch(`/api/pulse/channels/${id}/archive`, { method: 'POST' });
+          // Remove from CHANNELS in-memory so the sidebar updates without a full reload
+          CHANNELS = CHANNELS.filter(x => x.id !== id);
+          // If the archived channel was active, fall back to #general
+          if (ACTIVE_SCOPE && ACTIVE_SCOPE.kind === 'channel' && ACTIVE_SCOPE.id === id) {
+            const next = CHANNELS.find(x => x.slug === 'general') || CHANNELS[0];
+            if (next) await switchScope({ kind: 'channel', id: next.id, name: next.name, is_private: next.is_private });
+          }
+          renderSidebar();
+          showToast(`Archived #${c.name}`, 'info');
+        } catch (err) { showToast(err.message || 'Archive failed', 'error'); }
       });
     });
   }
@@ -874,12 +924,12 @@
         : escHtml(avatarInitial(u.full_name || u.email));
       return `
         <div class="pulse-user-row ${sel ? 'selected' : ''}" data-uid="${u.id}">
-          <span class="ava">${ava}</span>
-          <span class="body">
+          <div class="ava">${ava}</div>
+          <div class="body">
             <div class="name">${escHtml(u.full_name || u.email || '')}</div>
             <div class="email">${escHtml(u.email || '')}</div>
-          </span>
-          <span class="check">${sel ? '✓' : ''}</span>
+          </div>
+          <div class="check">${sel ? '✓' : ''}</div>
         </div>
       `;
     }).join('');
@@ -940,6 +990,62 @@
       show($('ns-error'));
       $('ns-submit').disabled = false;
     }
+  }
+
+  /* ── Archived channels modal ─────────────────────────────────── */
+  async function openArchivedModal() {
+    const listEl = $('archived-list');
+    listEl.innerHTML = '<div class="pulse-channel-empty">Loading…</div>';
+    show($('archived-modal'));
+    try {
+      const archived = await apiFetch('/api/pulse/channels?archived=1');
+      renderArchivedList(archived);
+    } catch (err) {
+      listEl.innerHTML = `<div class="pulse-channel-empty">Could not load: ${escHtml(err.message || '')}</div>`;
+    }
+  }
+  function closeArchivedModal() { hide($('archived-modal')); }
+
+  function renderArchivedList(items) {
+    const listEl = $('archived-list');
+    if (!items.length) {
+      listEl.innerHTML = '<div class="pulse-channel-empty">No archived channels.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(c => {
+      const lock = c.is_private ? '🔒' : '#';
+      const canUnarchive = (CURRENT_USER && CURRENT_USER.is_owner) || c.my_role === 'admin';
+      return `
+        <div class="pulse-archived-row" data-id="${c.id}">
+          <div class="meta">
+            <div class="name">${lock}${escHtml(c.name)}</div>
+            <div class="sub">${escHtml(c.description || '')}</div>
+          </div>
+          ${canUnarchive
+            ? `<button type="button" class="pulse-modal-submit" data-unarchive="${c.id}">Unarchive</button>`
+            : `<span class="pulse-archived-note">Admin-only</span>`}
+        </div>
+      `;
+    }).join('');
+    listEl.querySelectorAll('[data-unarchive]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const id = b.dataset.unarchive;
+        b.disabled = true;
+        try {
+          await apiFetch(`/api/pulse/channels/${id}/unarchive`, { method: 'POST' });
+          // Re-pull the full channel list so the unarchived one reappears in the sidebar
+          CHANNELS = await apiFetch('/api/pulse/channels');
+          renderSidebar();
+          // Update modal contents
+          const archived = await apiFetch('/api/pulse/channels?archived=1');
+          renderArchivedList(archived);
+          showToast('Channel unarchived', 'info');
+        } catch (err) {
+          showToast(err.message || 'Unarchive failed', 'error');
+          b.disabled = false;
+        }
+      });
+    });
   }
 
   /* ── Scroll tracking ─────────────────────────────────────────── */
@@ -1071,11 +1177,19 @@
       if (e.target.id === 'new-section-modal') closeNewSectionModal();
     });
 
+    // Archived channels modal
+    $('show-archived-btn').addEventListener('click', openArchivedModal);
+    $('archived-close').addEventListener('click', closeArchivedModal);
+    $('archived-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'archived-modal') closeArchivedModal();
+    });
+
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       if (!$('new-channel-modal').classList.contains('hidden'))   closeNewChannelModal();
       else if (!$('new-dm-modal').classList.contains('hidden'))   closeNewDmModal();
       else if (!$('new-section-modal').classList.contains('hidden')) closeNewSectionModal();
+      else if (!$('archived-modal').classList.contains('hidden')) closeArchivedModal();
       else if (!$('delete-msg-modal').classList.contains('hidden')) { hide($('delete-msg-modal')); DELETE_TARGET = null; }
       else if (!$('lightbox').classList.contains('hidden'))        hide($('lightbox'));
     });

@@ -780,6 +780,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS chat_sidebar_items_channel_uniq
 CREATE UNIQUE INDEX IF NOT EXISTS chat_sidebar_items_dm_uniq
   ON chat_sidebar_items(section_id, dm_id) WHERE dm_id IS NOT NULL;
 
+-- ── Pulse: channel archiving ────────────────────────────────────────────────
+-- An archived channel disappears from the default sidebar but keeps its
+-- members + message history. Anyone can unarchive (subject to the same authz
+-- as archiving — channel admins or account owners). #general can't be archived.
+ALTER TABLE chat_channels
+  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE chat_channels
+  ADD COLUMN IF NOT EXISTS archived_by UUID REFERENCES users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS chat_channels_archived_idx
+  ON chat_channels(archived_at) WHERE archived_at IS NOT NULL;
+
 -- ── Inbox satellite (email collaboration) ───────────────────────────────────
 -- Owned by Prop Spot; read/written by the inbox.propspot.io app via Gmail API
 -- (Microsoft Graph in Phase 2). Shared team inboxes route alias mail into
