@@ -14,7 +14,8 @@ The app must be usable for live expense entry on day one and must support a same
 **In scope:**
 
 - New satellite app at `propspot/expenses/`, deployed as its own Railway service at `expenses.propspot.io`, mirroring the structure of `holdings/`.
-- Four new tables in the shared schema: `vendors`, `expenses`, `expense_documents`, `expense_categories`.
+- Five new tables in the shared schema: `vendors`, `vendor_documents`, `expenses`, `expense_documents`, `expense_categories`.
+- **Vendor compliance tracking**: each vendor has dedicated upload slots for W9, Workers Comp insurance, and General Liability insurance. Insurance docs carry policy number, carrier, effective date, expiration date. Exemption flags for vendors who legitimately don't need WC/GL (e.g. material-only suppliers, sole proprietors without employees). Status badges (on file / expiring soon / expired / missing / exempt) surface on the vendor list and edit drawer.
 - Seeded category list (utility, insurance, property_tax, mortgage, hoa, business_license, repairs, maintenance, materials, contractor_labor, supplies, professional_fees, legal, travel, marketing, other), admin-editable.
 - Full CRUD UI: list view with filters and totals, quick-add form, expense detail page, vendor list + edit, category admin page.
 - Invoice file uploads to Cloudinary (PDF, image, doc, xls, txt), one or more files per expense.
@@ -35,6 +36,8 @@ The app must be usable for live expense entry on day one and must support a same
 - Phase 2 — Email/SMS notifications on approval requests. v1 has in-app sidebar badge only.
 - Phase 2 — Recurring-expense templates ("create the rent expense the 1st of every month"). Holdings already handles this for recurring obligations; this would be the non-holdings recurring case (e.g. monthly subscriptions).
 - Phase 2 — Category splits (one bill across two categories). Single category per expense in v1.
+- Phase 2 — **Vendor self-service compliance portal**: magic-link login for vendors to upload their own W9 / WC / GL certs and update on renewal. Schema is built compatibility-first (`vendor_documents.uploaded_via` distinguishes staff vs vendor-uploaded), but no portal UI in v1.
+- Phase 2 — Expiration reminders (email vendors and ourselves when WC/GL is within 30 days of expiry). v1 surfaces status visually only.
 - Property-detail "Expenses" tab inside `propspot-os` — included in v1 if it lands cheaply, otherwise punted to a phase-1.5 follow-up. The standalone app is the day-one shipping target.
 
 ## 3. Architecture overview
@@ -42,7 +45,8 @@ The app must be usable for live expense entry on day one and must support a same
 ```
                   ┌─────────────────────────────────────────┐
                   │              shared Postgres            │
-                  │  (existing tables + vendors, expenses,  │
+                  │  (existing tables + vendors,            │
+                  │   vendor_documents, expenses,           │
                   │   expense_documents, expense_categories)│
                   └─────────────────────────────────────────┘
                                      ▲
@@ -96,6 +100,11 @@ CREATE TABLE IF NOT EXISTS vendors (
   account_number         TEXT,            -- our account number with them
   tax_id                 TEXT,            -- EIN/SSN if 1099-eligible
   is_1099                BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Compliance exemptions (some vendors don't need certain certs)
+  workers_comp_exempt        BOOLEAN NOT NULL DEFAULT FALSE,
+  workers_comp_exempt_reason TEXT,                       -- "sole prop, no employees" etc.
+  general_liability_exempt   BOOLEAN NOT NULL DEFAULT FALSE,
+  general_liability_exempt_reason TEXT,                  -- "material-only supplier" etc.
   notes                  TEXT,
   status                 TEXT NOT NULL DEFAULT 'active',  -- active | archived
   -- QuickBooks (phase 2; columns exist now to avoid a later migration)
@@ -114,7 +123,102 @@ CREATE INDEX IF NOT EXISTS vendors_qb_id_idx  ON vendors(qb_vendor_id);
 
 No `auto_approve` column — Jordan explicitly rejected vendor-level auto-approve.
 
-### 4.2 `expenses`
+W9 has no exemption flag — it's required for all 1099-eligible vendors, and tracking "missing" is more useful than tracking "exempt" for compliance.
+
+### 4.2 `vendor_documents`
+
+Compliance certificates and tax forms attached to a vendor. Distinct from `expense_documents` (which are invoices). Designed to support both staff-upload (v1) and future vendor-self-upload (phase 2) via `uploaded_via`. History is preserved — a new GL cert doesn't overwrite the old; the most recent per `(vendor_id, doc_type)` is "current."
+
+```sql
+CREATE TABLE IF NOT EXISTS vendor_documents (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id       UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+  doc_type        TEXT NOT NULL,           -- w9 | workers_comp | general_liability | other
+  label           TEXT,
+  -- Insurance metadata (NULL for w9 / other)
+  policy_number   TEXT,
+  carrier         TEXT,
+  effective_date  DATE,
+  expires_on      DATE,                    -- drives expiring-soon / expired status badges
+  -- File (always present)
+  url             TEXT NOT NULL,
+  cloudinary_id   TEXT NOT NULL,
+  mime_type       TEXT,
+  size_bytes      BIGINT,
+  notes           TEXT,
+  -- Source tracking
+  uploaded_via    TEXT NOT NULL DEFAULT 'staff',  -- staff | vendor_portal | email_inbound
+  uploaded_by     UUID REFERENCES users(id) ON DELETE SET NULL,  -- NULL when vendor self-uploads (future)
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT vendor_documents_type_check
+    CHECK (doc_type IN ('w9','workers_comp','general_liability','other'))
+);
+CREATE INDEX IF NOT EXISTS vendor_documents_vendor_idx  ON vendor_documents(vendor_id);
+CREATE INDEX IF NOT EXISTS vendor_documents_type_idx    ON vendor_documents(vendor_id, doc_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS vendor_documents_expires_idx ON vendor_documents(expires_on)
+  WHERE expires_on IS NOT NULL;
+```
+
+**Status derivation (computed, not stored):** for each `(vendor, doc_type)`, the compliance status is:
+
+| State | Condition |
+|---|---|
+| `exempt` | Relevant `*_exempt` flag set on vendor (WC/GL only) |
+| `missing` | No `vendor_documents` row of this type, and not exempt |
+| `on_file` | Most recent row has `expires_on IS NULL` (W9, or insurance without expiry tracked) OR `expires_on > CURRENT_DATE + 30` |
+| `expiring_soon` | `expires_on BETWEEN CURRENT_DATE AND CURRENT_DATE + 30` |
+| `expired` | `expires_on < CURRENT_DATE` |
+
+A SQL view `vendor_compliance_status` materializes this per-vendor for the list query:
+
+```sql
+CREATE OR REPLACE VIEW vendor_compliance_status AS
+WITH latest AS (
+  SELECT DISTINCT ON (vendor_id, doc_type)
+    vendor_id, doc_type, expires_on, url
+  FROM vendor_documents
+  ORDER BY vendor_id, doc_type, created_at DESC
+)
+SELECT
+  v.id AS vendor_id,
+  -- W9
+  CASE
+    WHEN w9.vendor_id IS NULL THEN 'missing'
+    ELSE 'on_file'
+  END AS w9_status,
+  w9.url AS w9_url,
+  -- Workers Comp
+  CASE
+    WHEN v.workers_comp_exempt THEN 'exempt'
+    WHEN wc.vendor_id IS NULL THEN 'missing'
+    WHEN wc.expires_on IS NULL THEN 'on_file'
+    WHEN wc.expires_on < CURRENT_DATE THEN 'expired'
+    WHEN wc.expires_on < CURRENT_DATE + 30 THEN 'expiring_soon'
+    ELSE 'on_file'
+  END AS workers_comp_status,
+  wc.expires_on AS workers_comp_expires_on,
+  wc.url        AS workers_comp_url,
+  -- General Liability
+  CASE
+    WHEN v.general_liability_exempt THEN 'exempt'
+    WHEN gl.vendor_id IS NULL THEN 'missing'
+    WHEN gl.expires_on IS NULL THEN 'on_file'
+    WHEN gl.expires_on < CURRENT_DATE THEN 'expired'
+    WHEN gl.expires_on < CURRENT_DATE + 30 THEN 'expiring_soon'
+    ELSE 'on_file'
+  END AS general_liability_status,
+  gl.expires_on AS general_liability_expires_on,
+  gl.url        AS general_liability_url
+FROM vendors v
+LEFT JOIN latest w9 ON w9.vendor_id = v.id AND w9.doc_type = 'w9'
+LEFT JOIN latest wc ON wc.vendor_id = v.id AND wc.doc_type = 'workers_comp'
+LEFT JOIN latest gl ON gl.vendor_id = v.id AND gl.doc_type = 'general_liability';
+```
+
+The view is the single source of truth for status across the UI — vendor list query joins to it; the vendor detail page reads it; the optional dashboard widget queries it. Recomputed on read (it's a view, not a materialized view) — perf is fine at the scale of "a few hundred vendors max."
+
+### 4.3 `expenses`
 
 One row per bill. The transactional ledger.
 
@@ -178,7 +282,7 @@ Design notes:
 - `expenses_source_dedup_unique` makes Salesforce re-imports safe: a second import of the same SF row hits the unique constraint and is treated as a skip. Postgres' default `UNIQUE NULLS DISTINCT` behavior means `(manual, NULL)` rows don't conflict with each other, which is exactly what we want — only imports (always non-null external ID) participate in dedup.
 - `holdings_item_id` is a forward-link only; the v1 UI does not surface it. Phase 2 populates it when "Mark Paid" on a holdings item creates an expense.
 
-### 4.3 `expense_documents`
+### 4.4 `expense_documents`
 
 Same Cloudinary pattern as `holdings_documents`.
 
@@ -204,7 +308,7 @@ CREATE INDEX IF NOT EXISTS expense_documents_property_idx ON expense_documents(p
 
 `property_id` denormalized on the document row for fast "all docs for this property" queries, same denorm pattern as `holdings_documents.property_id`.
 
-### 4.4 `expense_categories`
+### 4.5 `expense_categories`
 
 Admin-editable lookup. Soft FK from `expenses.category` (text) to `expense_categories.slug`.
 
@@ -262,16 +366,18 @@ propspot/expenses/
 │   └── approval.js          # state-machine helpers (canTransition, applyTransition)
 ├── routes/
 │   ├── expenses.js          # CRUD + /summary + /pending-approval-count + state transitions
-│   ├── vendors.js           # CRUD + /search?q=
+│   ├── vendors.js           # CRUD + /search?q= + /compliance (list with status)
+│   ├── vendor-documents.js  # multipart upload + list + delete for W9 / WC / GL / other
 │   ├── categories.js        # GET list + admin PATCH (owners only)
-│   ├── documents.js         # multipart upload → Cloudinary → expense_documents
+│   ├── documents.js         # multipart upload → Cloudinary → expense_documents (invoices)
 │   ├── import.js            # POST /preview, POST /commit
 │   └── lookups.js           # /properties (for picker), echoes through to propspot-os
 └── public/
     ├── index.html           # main list view with filters + totals
     ├── new.html             # quick-add (also embedded as a modal on index)
     ├── item.html            # expense detail
-    ├── vendors.html         # vendor list / edit
+    ├── vendors.html         # vendor list with compliance badges
+    ├── vendor.html          # vendor detail + edit + compliance (W9/WC/GL) section
     ├── categories.html      # category admin (owners only)
     ├── import.html          # Salesforce CSV import wizard
     ├── app.js               # auth + apiFetch (copy of holdings/public/app.js)
@@ -308,16 +414,29 @@ State-machine enforcement lives in `lib/approval.js → applyTransition(currentS
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET`    | `/api/vendors` | Filters: `status`, `q` (name search). |
-| `GET`    | `/api/vendors/:id` | Vendor + counts (`expense_count`, `lifetime_total`, `last_paid_on`). |
+| `GET`    | `/api/vendors` | Filters: `status`, `q` (name search), `compliance` (csv of `w9_missing` \| `wc_missing` \| `gl_missing` \| `expiring_soon` \| `expired`). Always joins `vendor_compliance_status` view. |
+| `GET`    | `/api/vendors/:id` | Vendor + counts (`expense_count`, `lifetime_total`, `last_paid_on`) + full compliance status block + list of `vendor_documents`. |
 | `POST`   | `/api/vendors` | Create. |
-| `PATCH`  | `/api/vendors/:id` | Update. |
+| `PATCH`  | `/api/vendors/:id` | Update. Includes exemption flags + exemption reasons. |
 | `POST`   | `/api/vendors/:id/archive` | status='archived'. Doesn't touch existing expenses. |
 | `POST`   | `/api/vendors/:id/unarchive` | status='active'. |
 
 No DELETE — archive only. Hard delete would break referential history; this matches QuickBooks behavior anyway (QB vendors archive, never delete).
 
-### 6.3 Categories
+### 6.3 Vendor documents (W9 / Workers Comp / General Liability)
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST`   | `/api/vendors/:vendorId/documents` | multipart, field `file`. Body: `doc_type` (required: `w9` \| `workers_comp` \| `general_liability` \| `other`), `label`, `policy_number`, `carrier`, `effective_date`, `expires_on`, `notes`. Uploads to Cloudinary `folder=vendor-documents`. `uploaded_via='staff'`, `uploaded_by=req.userId`. |
+| `GET`    | `/api/vendors/:vendorId/documents` | Lists all docs for a vendor, ordered by `(doc_type, created_at DESC)`. Optional `?type=workers_comp` filter. |
+| `GET`    | `/api/vendor-documents/:id` | Single doc. |
+| `PATCH`  | `/api/vendor-documents/:id` | Update metadata (label, policy_number, carrier, effective_date, expires_on, notes). The file itself is immutable — to "replace" you upload a new row. |
+| `DELETE` | `/api/vendor-documents/:id` | Removes Cloudinary asset + row. The next most recent doc of the same type (if any) automatically becomes "current" because the view picks latest. |
+| `GET`    | `/api/vendors/compliance-summary` | Optional dashboard endpoint: returns `{ expired: [...], expiring_soon: [...], missing_w9: [...] }`. Drives a Phase 1.5 dashboard widget. |
+
+Multer config same as expense documents: 20 MB cap, mime allowlist (pdf, image/*, doc, docx, xls, xlsx, txt). W9 forms and insurance certs are typically PDF or image.
+
+### 6.4 Categories
 
 | Method | Path | Notes |
 |---|---|---|
@@ -325,7 +444,7 @@ No DELETE — archive only. Hard delete would break referential history; this ma
 | `PATCH`  | `/api/categories/:slug` | Owner-only. Updates label, sort_order, enabled, qb_account. |
 | `POST`   | `/api/categories` | Owner-only. Adds a new category. |
 
-### 6.4 Documents
+### 6.5 Expense documents (invoices)
 
 | Method | Path | Notes |
 |---|---|---|
@@ -336,7 +455,7 @@ No DELETE — archive only. Hard delete would break referential history; this ma
 
 Multer config copied from holdings: 20 MB cap, mime allowlist (pdf, image/*, doc, docx, xls, xlsx, txt).
 
-### 6.5 Import
+### 6.6 Import
 
 | Method | Path | Notes |
 |---|---|---|
@@ -406,13 +525,79 @@ Behavior:
 
 ### 7.4 Vendor list (`vendors.html`)
 
-Table: name, default category, # expenses, lifetime total, last paid on. Row click → drawer with edit + archive button.
+Table columns:
 
-### 7.5 Category admin (`categories.html`)
+```
+[ Name ] [ Default category ] [ # expenses ] [ Lifetime $ ] [ Last paid ] [ Compliance ] [ ⋮ ]
+```
+
+The **Compliance** column renders three small color-coded dots in a fixed order — **W9 · WC · GL**:
+
+| Dot color | State |
+|---|---|
+| 🟢 green | on file (no expiry, or expires > 30 days out) |
+| 🟡 yellow | expiring within 30 days |
+| 🔴 red | expired or missing |
+| ⚪ gray | exempt (WC/GL only) |
+
+Hover/tap any dot → tooltip with the doc's status text ("Expires 2026-08-14" / "Missing" / "Exempt — sole proprietor"). Click a dot → opens that vendor's compliance section in the detail page anchored to the relevant doc type.
+
+Filter chips above the table: `Status ⌄`, `Compliance ⌄` (multi-select: "Missing W9 / Missing WC / Missing GL / Expiring soon / Expired"), `Search`.
+
+Row click → navigates to `vendor.html?id=<uuid>` (the detail page below).
+
+### 7.5 Vendor detail (`vendor.html`)
+
+Two-pane layout.
+
+**Left pane — Vendor info.** Standard edit form: name, display name, contact (email/phone/website), address, default category, default payment method, account number, tax ID, `is_1099` checkbox, notes, archive button. Below contact info, an "Activity" panel: expense count, lifetime total, last paid on, link to filtered expense list ("View 47 expenses").
+
+**Right pane — Compliance.** Three stacked sub-cards in fixed order — **W9**, **Workers Comp**, **General Liability**. Each card looks like:
+
+```
+┌─ Workers Comp Insurance ──────────── 🟡 Expiring 2026-06-08 ──┐
+│                                                                │
+│ Policy #   ABC-12345-WC                                       │
+│ Carrier    The Hartford                                       │
+│ Effective  2025-06-08    Expires  2026-06-08                  │
+│                                                                │
+│ 📄 wc-cert-2025.pdf  (2.1 MB · uploaded by jordan · 11 mo ago)│
+│    [ View ] [ Download ] [ Replace with new cert ]            │
+│                                                                │
+│ Past certs (1) ▾                                              │
+│                                                                │
+│ ☐ This vendor is exempt from workers comp                     │
+└────────────────────────────────────────────────────────────────┘
+```
+
+- **No file uploaded** state: card shows the upload area instead of policy fields, with a button **[ Upload Workers Comp ]** that opens a modal with file + metadata fields.
+- **Exempt** checkbox toggles the `workers_comp_exempt` flag. When checked, a small text input appears for `workers_comp_exempt_reason`. The card collapses to: "Exempt — *(reason)*". Card switches to gray status.
+- **"Replace with new cert"** opens the upload modal pre-filled with a renewal helper (suggests `effective_date = today`, expiration = 1 year out, blank policy/carrier). Submitting creates a new `vendor_documents` row — does NOT overwrite the prior one. The new row becomes "current."
+- **"Past certs"** disclosure expands to show prior `vendor_documents` rows of the same type, each viewable/downloadable. Used for audit history.
+- The **W9 card** has no policy_number / carrier / expires_on fields — just upload area + "Date received" input that maps to `effective_date`. No exempt checkbox.
+- The **General Liability card** is identical in shape to the Workers Comp card.
+
+Upload modal fields:
+
+```
+┌─ Upload [W9 | Workers Comp | General Liability] ──┐
+│ File:           [ drag-drop or pick ]              │
+│ Policy #:       [ ___________ ]   (insurance only) │
+│ Carrier:        [ ___________ ]   (insurance only) │
+│ Effective:      [ 2026-05-22 ]                     │
+│ Expires:        [ 2027-05-22 ]    (insurance only) │
+│ Label:          [ optional ]                       │
+│ Notes:          [ ... ]                            │
+│                                                    │
+│ [ Cancel ]  [ Upload ]                             │
+└────────────────────────────────────────────────────┘
+```
+
+### 7.6 Category admin (`categories.html`)
 
 Owners only. Drag-to-reorder; toggle enabled; edit label; set `qb_account` text field (unused in v1).
 
-### 7.6 Salesforce import (`import.html`)
+### 7.7 Salesforce import (`import.html`)
 
 Four-step wizard:
 
@@ -423,7 +608,7 @@ Four-step wizard:
 
 CSV parser is hand-rolled in `lib/csv.js` — no heavy dep needed for what this is. (Standard RFC 4180 quoting, no Excel-specific quirks expected.)
 
-### 7.7 propspot-os sidebar tile
+### 7.8 propspot-os sidebar tile
 
 Expenses tile shows on every app sidebar (per existing `apps` registry + `app_grants` mechanic). Badge logic: poll `GET expenses.propspot.io/api/expenses/pending-approval-count` from os.propspot.io's sidebar code when the viewing user is an owner, render `💵 ●N` if N > 0. v1 polls on page load and every 60s while focused. (Cross-app realtime badging is the same deferred work called out in the inbox-signatures spec — out of scope.)
 
@@ -544,10 +729,12 @@ Single migration block appended to `propspot-os/db/schema.sql`:
 ```sql
 -- ── Expenses app ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS vendors            ( ... );
+CREATE TABLE IF NOT EXISTS vendor_documents   ( ... );
 CREATE TABLE IF NOT EXISTS expenses           ( ... );
 CREATE TABLE IF NOT EXISTS expense_documents  ( ... );
 CREATE TABLE IF NOT EXISTS expense_categories ( ... );
 CREATE INDEX IF NOT EXISTS ...;
+CREATE OR REPLACE VIEW vendor_compliance_status AS ( ... );
 ```
 
 `propspot-os/db/seed.sql` appended:
@@ -577,7 +764,7 @@ Each step is backwards-compatible with the previous deployed version. Step 3 can
 
 ### 11.2 Backout
 
-If something goes wrong after deploy: disable the app in the registry (`UPDATE apps SET enabled=FALSE WHERE slug='expenses'`) — sidebar tile vanishes for everyone, but the Railway service stays up. To fully back out: drop the four new tables (no other table references them). The phase 2 holdings_item_id FK in `expenses` is one-way (expenses → holdings), so holdings is unaffected.
+If something goes wrong after deploy: disable the app in the registry (`UPDATE apps SET enabled=FALSE WHERE slug='expenses'`) — sidebar tile vanishes for everyone, but the Railway service stays up. To fully back out: drop the five new tables and the view (no other table references them). The phase 2 holdings_item_id FK in `expenses` is one-way (expenses → holdings), so holdings is unaffected.
 
 ## 12. Testing strategy
 
@@ -598,8 +785,14 @@ Manual smoke tests, matching the established propspot pattern (no automated test
 13. **Approval edit-locking** — verify you can't change amount on a `paid` expense via the UI; verify the API also rejects with 409.
 14. **Owner-only routes** — non-owner hits `POST /api/expenses/:id/approve` → 403.
 15. **Schema constraint** — try inserting an expense with `status='paid'` and `paid_on=NULL` directly via SQL; verify CHECK constraint blocks it.
+16. **Vendor compliance — upload W9** — open a vendor with no compliance, click "Upload W9", attach a PDF, set Date received, save. Card status flips green, file appears with View/Download.
+17. **Vendor compliance — upload WC + expiration math** — upload a Workers Comp cert with expires_on=today+45 → status `on_file` (green). Edit expires_on to today+10 → status `expiring_soon` (yellow). Edit to yesterday → status `expired` (red).
+18. **Vendor compliance — replace cert keeps history** — upload a renewal WC cert; verify "current" is the new one and "Past certs (1)" shows the previous. Both files still downloadable.
+19. **Vendor compliance — exempt flag** — check "exempt from workers comp" with a reason; verify WC dot turns gray on list view and card collapses to the exempt state on the vendor detail.
+20. **Vendor compliance — list filter** — filter vendor list by "Missing W9"; verify only vendors with no W9 row and (no W9-exempt — W9 has no exempt) show up.
+21. **Vendor compliance — view computes status correctly** — query `SELECT * FROM vendor_compliance_status WHERE vendor_id = '...'` directly; verify all three statuses match what the UI shows.
 
-Tests #1–9 are the v1 happy path; #10–12 cover the import; #13–15 cover edge / security.
+Tests #1–9 are the v1 happy path; #10–12 cover the import; #13–15 cover edge / security; #16–21 cover vendor compliance.
 
 ## 13. Open questions
 
@@ -611,3 +804,4 @@ None. Design locked in:
 - No vendor-level auto-approve and no approval thresholds in v1.
 - Salesforce import is a generic CSV+mapping wizard; imported rows land as `paid` with `requires_approval=FALSE`.
 - QuickBooks columns stubbed now, sync deferred to phase 2.
+- Vendor compliance tracked via `vendor_documents` table with type ∈ {w9, workers_comp, general_liability, other}, expiration-aware status computed by `vendor_compliance_status` view, exempt flags on vendors for WC/GL only, history preserved on renewal, schema ready for phase-2 vendor self-upload portal.
