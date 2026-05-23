@@ -189,11 +189,48 @@
     .att-chip a { color: inherit; text-decoration: none; }
     .att-chip .att-save { color: var(--brand); font-weight: 600; cursor: pointer; }
 
+    /* Reply CTA — small bar shown by default after the last message.
+       Click to expand the inline reply panel below. */
+    .reply-cta {
+      padding: 10px 18px; border-top: 1px solid var(--border);
+      background: var(--surface); flex: 0 0 auto;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .reply-cta-info { color: var(--text-muted); font-size: .82rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
     .reply-box {
       padding: 12px 18px; border-top: 1px solid var(--border);
       background: var(--surface);
       flex: 0 0 auto;
+      position: relative;
     }
+    .reply-box.hidden { display: none; }
+    /* Popped-out reply: floats above the page, big editing surface. */
+    .reply-box.popped {
+      position: fixed;
+      top: 56px; left: 50%; transform: translateX(-50%);
+      width: 92%; max-width: 760px; max-height: calc(100vh - 96px);
+      overflow-y: auto;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.22);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      z-index: 100;
+    }
+    .reply-box.popped textarea { min-height: 260px; }
+    .reply-popout-backdrop {
+      display: none;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 99;
+    }
+    .reply-popout-backdrop.open { display: block; }
+    .reply-box-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+      font-size: .82rem; color: var(--text-muted);
+    }
+    .reply-box-header .reply-to-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .reply-box-icon-btn {
+      background: none; border: 0; padding: 4px 6px; border-radius: 6px;
+      cursor: pointer; color: var(--text-muted); font-size: 1rem;
+    }
+    .reply-box-icon-btn:hover { background: var(--bg); color: var(--text); }
     .reply-box textarea {
       width: 100%; min-height: 80px; padding: 8px 10px;
       border: 1px solid var(--border); border-radius: 8px;
@@ -642,10 +679,20 @@ function renderThreadDetail() {
     <div class="messages-scroll" id="messages-scroll">
       ${messagesHtml}
     </div>
-    <div class="reply-box">
-      <div class="text-muted text-sm" style="margin-bottom:6px;">Reply to <strong>${escapeHtml(replyTo)}</strong></div>
+    <div class="reply-cta" id="reply-cta">
+      <span class="reply-cta-info">Reply to <strong>${escapeHtml(replyTo)}</strong></span>
+      <button class="btn btn-primary btn-sm" onclick="openInlineReply()">↩ Reply</button>
+    </div>
+    <div class="reply-popout-backdrop" id="reply-popout-backdrop" onclick="closeReplyPopout()"></div>
+    <div class="reply-box hidden" id="reply-box">
+      <div class="reply-box-header">
+        <span class="reply-to-label">Reply to <strong>${escapeHtml(replyTo)}</strong></span>
+        <button class="reply-box-icon-btn" id="reply-popout-btn" title="Pop out" onclick="toggleReplyPopout()">⤢</button>
+        <button class="reply-box-icon-btn" title="Close" onclick="closeInlineReply()">✕</button>
+      </div>
       <textarea id="reply-body" placeholder="Type your reply…"></textarea>
       <div class="reply-actions">
+        <button class="btn btn-secondary" onclick="closeInlineReply()">Cancel</button>
         <button class="btn btn-primary" onclick="submitReply()">Send reply</button>
       </div>
     </div>
@@ -738,12 +785,54 @@ function messageHtml(m, isExpanded) {
 }
 
 // ── Thread actions ─────────────────────────────────────────────
+// ── Reply panel: open/close + pop-out ─────────────────────────
+// Reply is hidden by default behind a small "Reply" CTA. Click expands the
+// inline reply panel; the pop-out button floats it over the page with a
+// backdrop for a fuller composing surface.
+function openInlineReply() {
+  const cta = document.getElementById('reply-cta');
+  const box = document.getElementById('reply-box');
+  if (cta) cta.style.display = 'none';
+  if (box) {
+    box.classList.remove('hidden');
+    box.classList.remove('popped');
+    const ta = document.getElementById('reply-body');
+    if (ta) ta.focus();
+  }
+}
+function closeInlineReply() {
+  const cta = document.getElementById('reply-cta');
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (box) { box.classList.add('hidden'); box.classList.remove('popped'); }
+  if (backdrop) backdrop.classList.remove('open');
+  if (cta) cta.style.display = '';
+}
+function toggleReplyPopout() {
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (!box) return;
+  const isPopped = box.classList.toggle('popped');
+  if (backdrop) backdrop.classList.toggle('open', isPopped);
+  const ta = document.getElementById('reply-body');
+  if (ta) ta.focus();
+}
+function closeReplyPopout() {
+  // Clicked the backdrop — collapse the popout back into the inline state
+  // (preserves the textarea contents). The reply remains open inline.
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (box) box.classList.remove('popped');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
 async function submitReply() {
   const body_text = document.getElementById('reply-body').value;
   if (!body_text.trim()) return showToast('Reply is empty', 'error');
   try {
     await sendReply(STATE.activeThreadId, { body_text });
     showToast('Reply sent');
+    closeInlineReply();
     setTimeout(() => selectThread(STATE.activeThreadId), 600);
   } catch (err) {
     showToast(err.message, 'error');
