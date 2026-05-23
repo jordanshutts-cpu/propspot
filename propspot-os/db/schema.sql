@@ -1114,3 +1114,20 @@ BEGIN
     INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_stale_open_2026_05_23');
   END IF;
 END $$;
+
+-- ── 2026-05-23 one-time: archive every currently-unassigned open thread,
+-- regardless of age. The 30-day cleanup above caught old backlog; this
+-- pass catches everything else in the Unassigned tab so Jordan can start
+-- from zero. New mail arriving AFTER this runs still defaults to
+-- status=open + assigned_to_user_id=NULL and shows up in Unassigned
+-- normally — the marker prevents the UPDATE from firing again on those.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_all_unassigned_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE status = 'open'
+       AND assigned_to_user_id IS NULL;
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_all_unassigned_2026_05_23');
+  END IF;
+END $$;
