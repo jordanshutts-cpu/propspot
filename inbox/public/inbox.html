@@ -243,6 +243,22 @@
     .pulse-slot { flex: 0 0 auto; max-height: 50%; overflow-y: auto;
                   border-top: 1px solid var(--border); background: var(--bg); }
 
+    /* Contact autocomplete dropdown for compose To / Cc inputs. */
+    .contact-wrap { position: relative; }
+    .contact-dropdown {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+      max-height: 240px; overflow-y: auto; z-index: 5;
+      display: none; margin-top: 2px;
+    }
+    .contact-dropdown.open { display: block; }
+    .contact-item { padding: 8px 12px; cursor: pointer; font-size: .85rem;
+                    display: flex; flex-direction: column; gap: 1px; }
+    .contact-item:hover, .contact-item.active { background: var(--brand-light); }
+    .contact-item-name { font-weight: 600; color: var(--text); }
+    .contact-item-email { color: var(--text-muted); font-size: .78rem; }
+
     /* ── Mobile / narrow viewport ────────────────────────────────────── */
     @media (max-width: 900px) {
       .inbox-3col { flex-direction: column; height: auto; overflow: visible; }
@@ -337,11 +353,17 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">To *</label>
-          <input class="form-input" id="c-to" type="email" placeholder="recipient@example.com" required>
+          <div class="contact-wrap">
+            <input class="form-input" id="c-to" type="text" placeholder="name@example.com (comma for multiple)" required autocomplete="off">
+            <div class="contact-dropdown" id="c-to-suggest"></div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Cc</label>
-          <input class="form-input" id="c-cc" type="text" placeholder="optional">
+          <div class="contact-wrap">
+            <input class="form-input" id="c-cc" type="text" placeholder="optional" autocomplete="off">
+            <div class="contact-dropdown" id="c-cc-suggest"></div>
+          </div>
         </div>
       </div>
       <div class="form-group">
@@ -1008,7 +1030,84 @@ async function openCompose() {
       .join('');
   }
   refreshComposeSignatureRow();
+  // Wire contact autocomplete to the To + Cc inputs (idempotent — only
+  // attaches listeners on the first openCompose).
+  attachContactAutocomplete('c-to', 'c-to-suggest');
+  attachContactAutocomplete('c-cc', 'c-cc-suggest');
 }
+
+// ── Contact autocomplete ─────────────────────────────────────
+// Search /api/contacts as the user types, render matches under the input,
+// pick → insert "Name <email>" into the current comma-separated token.
+const _contactAttached = new Set();
+function attachContactAutocomplete(inputId, dropdownId) {
+  if (_contactAttached.has(inputId)) return;
+  _contactAttached.add(inputId);
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  if (!input || !dropdown) return;
+  let timer = null;
+  let cursor = 0;
+
+  function currentToken() {
+    const tokens = input.value.split(',');
+    return { tokens, current: tokens[tokens.length - 1].trimStart() };
+  }
+  function picked(c) {
+    const { tokens } = currentToken();
+    const display = c.name ? `${c.name} <${c.email}>` : c.email;
+    tokens[tokens.length - 1] = (tokens.length > 1 ? ' ' : '') + display;
+    input.value = tokens.join(',') + ', ';
+    closeDropdown();
+    input.focus();
+  }
+  function closeDropdown() {
+    dropdown.classList.remove('open');
+    dropdown.innerHTML = '';
+    cursor = 0;
+  }
+  function renderList(list) {
+    if (!list.length) { closeDropdown(); return; }
+    if (cursor >= list.length) cursor = list.length - 1;
+    dropdown.innerHTML = list.map((c, i) => `
+      <div class="contact-item ${i === cursor ? 'active' : ''}" data-i="${i}">
+        ${c.name ? `<span class="contact-item-name">${escapeHtml(c.name)}</span>` : ''}
+        <span class="contact-item-email">${escapeHtml(c.email)}</span>
+      </div>
+    `).join('');
+    dropdown.classList.add('open');
+    dropdown.querySelectorAll('.contact-item').forEach((el, i) => {
+      el.addEventListener('mousedown', (e) => { e.preventDefault(); picked(list[i]); });
+    });
+  }
+
+  let lastResults = [];
+  async function search() {
+    const { current } = currentToken();
+    if (current.length < 2) { closeDropdown(); return; }
+    try {
+      lastResults = await apiFetch('/api/contacts?q=' + encodeURIComponent(current));
+      renderList(lastResults);
+    } catch { closeDropdown(); }
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(search, 200);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (!dropdown.classList.contains('open') || !lastResults.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); cursor = (cursor + 1) % lastResults.length; renderList(lastResults); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cursor = (cursor - 1 + lastResults.length) % lastResults.length; renderList(lastResults); }
+    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); picked(lastResults[cursor]); }
+    else if (e.key === 'Escape') { closeDropdown(); }
+  });
+  input.addEventListener('blur', () => {
+    // Delay so a click on a dropdown item can fire first.
+    setTimeout(closeDropdown, 150);
+  });
+}
+
 async function refreshComposeSignatureRow() {
   const aliasId = document.getElementById('c-from')?.value;
   const alias = STATE.composeAliases.find(a => `${a.mailbox_id}::${a.alias_email}` === aliasId);
