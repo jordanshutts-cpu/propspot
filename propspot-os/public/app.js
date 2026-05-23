@@ -7,6 +7,31 @@
 const TOKEN_KEY = 'ros_token';
 const USER_KEY  = 'ros_user';
 
+// ── New-chrome feature flag (Phase 1 of UI redesign) ────────────
+// Enabled by ?newchrome=1 in URL OR localStorage.propspot_newchrome === '1'.
+// When on, sidebar.js + topbar.js render a 260px sidebar + new top bar.
+// The old renderTopHeader/renderAppsRail/renderUnifiedNav skip themselves.
+window.__newChromeEnabled = function () {
+  try {
+    if (new URLSearchParams(location.search).get('newchrome') === '1') return true;
+    if (localStorage.getItem('propspot_newchrome') === '1') return true;
+  } catch (e) {}
+  return false;
+};
+if (window.__newChromeEnabled()) {
+  // Persist the flag so navigating within the workspace keeps it on.
+  try { localStorage.setItem('propspot_newchrome', '1'); } catch (e) {}
+  // Dynamically load the new chrome scripts.
+  const s1 = document.createElement('script');
+  s1.src = '/sidebar.js';
+  s1.async = false;
+  document.head.appendChild(s1);
+  const s2 = document.createElement('script');
+  s2.src = '/topbar.js';
+  s2.async = false;
+  document.head.appendChild(s2);
+}
+
 // ── Auth Storage ────────────────────────────────────────────────────────
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t)      { localStorage.setItem(TOKEN_KEY, t); }
@@ -275,12 +300,15 @@ function renderUnifiedNav() {
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      if (window.__newChromeEnabled && window.__newChromeEnabled()) return;
       renderUnifiedNav();
       wireUnifiedNav();   // also wire any pre-existing nav (back-compat)
     });
   } else {
-    renderUnifiedNav();
-    wireUnifiedNav();
+    if (!(window.__newChromeEnabled && window.__newChromeEnabled())) {
+      renderUnifiedNav();
+      wireUnifiedNav();
+    }
   }
 }
 
@@ -816,10 +844,19 @@ if (typeof window !== 'undefined') {
   document.addEventListener('click', closeSearchOnOutsideClick);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      if (window.__newChromeEnabled && window.__newChromeEnabled()) {
+        // New chrome handles user-menu rendering via topbar.js; only render the menu body here.
+        renderUserMenu();
+        return;
+      }
       renderTopHeader(); renderAppsRail(); renderUserMenu();
     });
   } else {
-    renderTopHeader(); renderAppsRail(); renderUserMenu();
+    if (window.__newChromeEnabled && window.__newChromeEnabled()) {
+      renderUserMenu();
+    } else {
+      renderTopHeader(); renderAppsRail(); renderUserMenu();
+    }
   }
 }
 
