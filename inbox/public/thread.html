@@ -123,6 +123,12 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
+  // Hand the host app's JWT to the Pulse widget under a known global.
+  // The widget reads window.PULSE_AUTH.token instead of any localStorage key
+  // (each propspot satellite namespaces its own token key like `inbox_token`).
+  window.PULSE_AUTH = { token: getToken() };
+</script>
+<script>
 const threadId = new URLSearchParams(location.search).get('id');
 let THREAD = null;
 
@@ -305,6 +311,21 @@ async function confirmSaveAtt() {
 }
 
 loadThread();
+</script>
+<script>
+  (async function loadPulseWidget() {
+    try {
+      const r = await fetch('/api/config');
+      const cfg = await r.json();
+      if (!cfg.pulseUrl) return;  // Pulse not configured in this env
+      const s = document.createElement('script');
+      s.src = cfg.pulseUrl + '/widget.js';
+      s.defer = true;
+      document.body.appendChild(s);
+    } catch (err) {
+      console.warn('[Inbox] could not load Pulse widget:', err);
+    }
+  })();
 </script>
 </body>
 </html>
