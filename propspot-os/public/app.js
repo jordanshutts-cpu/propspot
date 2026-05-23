@@ -340,7 +340,6 @@ function renderAppsRail() {
     <a class="apps-rail-link" data-app="inbox"        data-label="Inbox"        style="display:none;" href="#">📧</a>
     <a class="apps-rail-link apps-rail-link--active-check" data-osnav="underwriting" data-label="Underwriting" href="/underwriting.html">📊</a>
     <div class="apps-rail-spacer"></div>
-    <button class="apps-rail-link apps-rail-signout" title="Sign out" onclick="signOut()">🚪</button>
   `;
   // Wire data-app and data-osnav links via existing helper (fetches /api/config).
   wireUnifiedNav();

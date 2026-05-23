@@ -142,6 +142,12 @@
   }
 
   init();
+
+  // Satellite apps deep-link here with ?action=edit_profile to open the
+  // shared profile editor on the OS (the modal lives here, not on every app).
+  if (new URLSearchParams(location.search).get('action') === 'edit_profile') {
+    setTimeout(() => { try { openEditProfile(); } catch {} }, 250);
+  }
 </script>
 </body>
 </html>
