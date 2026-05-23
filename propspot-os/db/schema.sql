@@ -1199,3 +1199,19 @@ BEGIN
     INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_all_unassigned_2026_05_23');
   END IF;
 END $$;
+
+-- ── 2026-05-23 one-time: archive every thread in the Acquisitions shared
+-- inbox (across all tabs — Unassigned, Assigned, Snoozed), except threads
+-- already archived. Jordan requested a clean reset for that inbox.
+-- New mail arriving AFTER this runs still lands in Acquisitions normally
+-- with status='open' — the marker only blocks THIS UPDATE from re-firing.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_all_acquisitions_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE shared_inbox_id = (SELECT id FROM inbox_shared WHERE slug = 'acquisitions')
+       AND status <> 'archived';
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_all_acquisitions_2026_05_23');
+  END IF;
+END $$;
