@@ -12,7 +12,8 @@
     "migrate-from-fieldcam": "node scripts/migrate-from-fieldcam.js",
     "geocode-properties": "node scripts/geocode-properties.js",
     "bulk-invite-users": "node scripts/bulk-invite-users.js",
-    "import-companycam": "node scripts/import-companycam-projects.js"
+    "import-companycam": "node scripts/import-companycam-projects.js",
+    "import-companycam-photos": "node scripts/import-companycam-photos.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
