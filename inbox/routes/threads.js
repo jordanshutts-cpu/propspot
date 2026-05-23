@@ -38,7 +38,25 @@ router.get('/', async (req, res) => {
       params.push(req.query.inbox);
       where.push(`i.slug = $${i++}`);
     }
-    if (req.query.status) {
+    // High-level tab filter for the per-shared-inbox view. Maps each tab to
+    // a (status, assignment) pair. When `tab=` is set it overrides `status=`
+    // and the `assigned_to_me` shortcut, so the caller doesn't have to
+    // duplicate logic.
+    const TAB_FILTERS = {
+      unassigned: { status: 'open',     assigned: 'none' },
+      assigned:   { status: 'open',     assigned: 'any'  },
+      snoozed:    { status: 'snoozed',  assigned: null    },
+      archived:   { status: 'archived', assigned: null    },
+      trash:      { status: 'trash',    assigned: null    },
+      spam:       { status: 'spam',     assigned: null    }
+    };
+    const tab = req.query.tab && TAB_FILTERS[req.query.tab];
+    if (tab) {
+      params.push(tab.status);
+      where.push(`t.status = $${i++}`);
+      if (tab.assigned === 'none') where.push(`t.assigned_to_user_id IS NULL`);
+      else if (tab.assigned === 'any') where.push(`t.assigned_to_user_id IS NOT NULL`);
+    } else if (req.query.status) {
       params.push(req.query.status);
       where.push(`t.status = $${i++}`);
     } else {
@@ -48,7 +66,7 @@ router.get('/', async (req, res) => {
       params.push(req.query.property_id);
       where.push(`t.property_id = $${i++}`);
     }
-    if (req.query.assigned_to_me === '1') {
+    if (!tab && req.query.assigned_to_me === '1') {
       params.push(req.userId);
       where.push(`t.assigned_to_user_id = $${i++}`);
     }

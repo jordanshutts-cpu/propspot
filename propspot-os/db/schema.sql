@@ -1068,3 +1068,25 @@ BEGIN
       ON uw_audit_log(deal_id, changed_at DESC);
   END IF;
 END $$;
+
+-- ── 2026-05-23: per-shared-inbox tabs (unassigned / assigned / snoozed /
+-- archived / trash / spam). Expand the inbox_threads.status CHECK to allow
+-- the two new states. Idempotent — drops the existing CHECK (whatever PG
+-- auto-named it) and re-adds under a named constraint.
+DO $$
+DECLARE
+  cname TEXT;
+BEGIN
+  SELECT conname INTO cname
+    FROM pg_constraint
+   WHERE conrelid = 'inbox_threads'::regclass
+     AND contype = 'c'
+     AND pg_get_constraintdef(oid) LIKE '%status%'
+   LIMIT 1;
+  IF cname IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE inbox_threads DROP CONSTRAINT %I', cname);
+  END IF;
+  ALTER TABLE inbox_threads
+    ADD CONSTRAINT inbox_threads_status_check
+    CHECK (status IN ('open','archived','snoozed','trash','spam'));
+END $$;
