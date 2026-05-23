@@ -243,6 +243,44 @@
     .pulse-slot { flex: 0 0 auto; max-height: 50%; overflow-y: auto;
                   border-top: 1px solid var(--border); background: var(--bg); }
 
+    /* ── Rich-text composer (used by compose + reply) ──────────────── */
+    .rt-composer { border: 1px solid var(--border); border-radius: 8px;
+                   background: var(--surface); display: flex; flex-direction: column; }
+    .rt-toolbar { display: flex; flex-wrap: wrap; gap: 2px;
+                  padding: 6px 8px; border-bottom: 1px solid var(--border);
+                  background: var(--bg); align-items: center; border-radius: 8px 8px 0 0; }
+    .rt-toolbar button, .rt-toolbar select, .rt-toolbar input[type="color"] {
+      background: none; border: 0; padding: 4px 8px; border-radius: 4px;
+      cursor: pointer; font-size: .85rem; color: var(--text);
+      min-width: 28px; height: 28px;
+    }
+    .rt-toolbar button:hover, .rt-toolbar select:hover { background: var(--surface); }
+    .rt-toolbar button.active { background: var(--brand-light); color: var(--brand-dark); }
+    .rt-toolbar select { padding: 2px 6px; }
+    .rt-toolbar input[type="color"] { padding: 0; width: 28px; height: 28px; border-radius: 4px; }
+    .rt-toolbar .rt-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+    .rt-att-btn { display: inline-flex; align-items: center; justify-content: center;
+                  width: 28px; height: 28px; border-radius: 4px; cursor: pointer; }
+    .rt-att-btn:hover { background: var(--surface); }
+    .rt-body { padding: 10px 12px; min-height: 80px;
+               font-size: .92rem; line-height: 1.55; outline: none;
+               word-wrap: break-word; max-height: 360px; overflow-y: auto; }
+    .rt-body:empty:before {
+      content: attr(data-placeholder); color: var(--text-muted);
+      pointer-events: none;
+    }
+    .rt-body ul, .rt-body ol { padding-left: 24px; margin: 8px 0; }
+    .rt-attachments { display: flex; flex-wrap: wrap; gap: 6px;
+                      padding: 8px 12px; border-top: 1px dashed var(--border);
+                      background: var(--bg); border-radius: 0 0 8px 8px; }
+    .rt-attachments:empty { display: none; }
+    .rt-att-chip { display: inline-flex; align-items: center; gap: 6px;
+                   background: var(--surface); border: 1px solid var(--border);
+                   padding: 4px 8px; border-radius: 6px; font-size: .78rem; }
+    .rt-att-chip button { background: none; border: 0; color: var(--text-muted);
+                          cursor: pointer; font-size: 1rem; padding: 0 2px; }
+    .rt-att-chip button:hover { color: #b00; }
+
     /* Contact autocomplete dropdown for compose To / Cc inputs. */
     .contact-wrap { position: relative; }
     .contact-dropdown {
@@ -372,7 +410,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Message *</label>
-        <textarea class="form-textarea" id="c-body" rows="8" required></textarea>
+        <div id="c-body-rich"></div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <label id="compose-sig-row" class="text-sm text-muted" style="display:none;">
@@ -714,7 +752,7 @@ function renderThreadDetail() {
         <button class="reply-box-icon-btn" id="reply-popout-btn" title="Pop out" onclick="toggleReplyPopout()">⤢</button>
         <button class="reply-box-icon-btn" title="Close" onclick="closeInlineReply()">✕</button>
       </div>
-      <textarea id="reply-body" placeholder="Type your reply…"></textarea>
+      <div id="reply-body-rich"></div>
       <div class="reply-actions">
         <button class="btn btn-secondary" onclick="closeInlineReply()">Cancel</button>
         <button class="btn btn-primary" onclick="submitReply()">Send reply</button>
@@ -733,6 +771,9 @@ function renderThreadDetail() {
   // Safe to call before widget.js loads — the call is a no-op until then,
   // and the script's own init() will catch up when it finishes loading.
   if (window.Pulse && window.Pulse.mountSlots) window.Pulse.mountSlots();
+  // Reply composer is bound to per-thread DOM; drop the previous instance so
+  // the next openInlineReply rebuilds against the fresh #reply-body-rich slot.
+  REPLY_COMPOSER = null;
 }
 
 // Toggle a message's collapsed/expanded state. Called from the msg-head
@@ -813,6 +854,8 @@ function messageHtml(m, isExpanded) {
 // Reply is hidden by default behind a small "Reply" CTA. Click expands the
 // inline reply panel; the pop-out button floats it over the page with a
 // backdrop for a fuller composing surface.
+// Each thread's reply panel gets a fresh RichComposer the first time it opens.
+let REPLY_COMPOSER = null;
 function openInlineReply() {
   const cta = document.getElementById('reply-cta');
   const box = document.getElementById('reply-box');
@@ -820,8 +863,11 @@ function openInlineReply() {
   if (box) {
     box.classList.remove('hidden');
     box.classList.remove('popped');
-    const ta = document.getElementById('reply-body');
-    if (ta) ta.focus();
+    const slot = document.getElementById('reply-body-rich');
+    if (slot && !REPLY_COMPOSER) {
+      REPLY_COMPOSER = createRichComposer(slot, { placeholder: 'Type your reply…' });
+    }
+    if (REPLY_COMPOSER) REPLY_COMPOSER.focus();
   }
 }
 function closeInlineReply() {
@@ -838,8 +884,7 @@ function toggleReplyPopout() {
   if (!box) return;
   const isPopped = box.classList.toggle('popped');
   if (backdrop) backdrop.classList.toggle('open', isPopped);
-  const ta = document.getElementById('reply-body');
-  if (ta) ta.focus();
+  if (REPLY_COMPOSER) REPLY_COMPOSER.focus();
 }
 function closeReplyPopout() {
   // Clicked the backdrop — collapse the popout back into the inline state
@@ -851,11 +896,17 @@ function closeReplyPopout() {
 }
 
 async function submitReply() {
-  const body_text = document.getElementById('reply-body').value;
+  if (!REPLY_COMPOSER) return;
+  const body_text = REPLY_COMPOSER.getText();
+  const body_html = REPLY_COMPOSER.getHtml();
   if (!body_text.trim()) return showToast('Reply is empty', 'error');
+  let attachments;
+  try { attachments = await REPLY_COMPOSER.getAttachments(); }
+  catch { return showToast('Failed to read attachments', 'error'); }
   try {
-    await sendReply(STATE.activeThreadId, { body_text });
+    await sendReply(STATE.activeThreadId, { body_text, body_html, attachments });
     showToast('Reply sent');
+    REPLY_COMPOSER.clear();
     closeInlineReply();
     setTimeout(() => selectThread(STATE.activeThreadId), 600);
   } catch (err) {
@@ -1034,6 +1085,131 @@ async function openCompose() {
   // attaches listeners on the first openCompose).
   attachContactAutocomplete('c-to', 'c-to-suggest');
   attachContactAutocomplete('c-cc', 'c-cc-suggest');
+  // Hydrate the rich-text composer once per modal instance. The modal stays
+  // in the DOM after closeCompose, so we keep the composer too — only its
+  // contents get cleared on close.
+  const composeSlot = document.getElementById('c-body-rich');
+  if (composeSlot && !COMPOSE_COMPOSER) {
+    COMPOSE_COMPOSER = createRichComposer(composeSlot, { placeholder: 'Write your message…' });
+  }
+}
+
+// ── Rich-text composer (used by both compose + reply) ────────
+// Renders a contenteditable body with a toolbar (bold / italic / underline /
+// size / color / lists / link / attachments) into `container`. The returned
+// object exposes getHtml / getText / getAttachments (async) / clear / focus.
+// Uses document.execCommand for formatting — it's deprecated in spec but
+// universally supported by Chrome / Firefox / Safari, and a full Selection-
+// API rewrite is out of scope for v1.
+function createRichComposer(container, opts) {
+  opts = opts || {};
+  container.innerHTML = `
+    <div class="rt-composer">
+      <div class="rt-toolbar">
+        <button type="button" data-cmd="bold" title="Bold (⌘B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Italic (⌘I)"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Underline (⌘U)"><u>U</u></button>
+        <span class="rt-sep"></span>
+        <select data-cmd="fontSize" title="Font size">
+          <option value="2">Small</option>
+          <option value="3" selected>Normal</option>
+          <option value="5">Large</option>
+          <option value="6">Huge</option>
+        </select>
+        <input type="color" data-cmd="foreColor" value="#222222" title="Text color">
+        <span class="rt-sep"></span>
+        <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">•</button>
+        <button type="button" data-cmd="insertOrderedList" title="Numbered list">1.</button>
+        <span class="rt-sep"></span>
+        <button type="button" data-cmd="createLink" title="Insert link">🔗</button>
+        <label class="rt-att-btn" title="Attach files">📎
+          <input type="file" multiple style="display:none;">
+        </label>
+      </div>
+      <div class="rt-body" contenteditable="true" data-placeholder="${escapeHtml(opts.placeholder || 'Type a message…')}"></div>
+      <div class="rt-attachments"></div>
+    </div>
+  `;
+
+  const root      = container.querySelector('.rt-composer');
+  const toolbar   = container.querySelector('.rt-toolbar');
+  const body      = container.querySelector('.rt-body');
+  const attsEl    = container.querySelector('.rt-attachments');
+  const fileInput = container.querySelector('input[type="file"]');
+  const attachments = []; // File objects, base64-encoded only at send time
+
+  // Keep selection inside the body when toolbar buttons are clicked.
+  toolbar.addEventListener('mousedown', (e) => {
+    const btn = e.target.closest('button[data-cmd]');
+    if (!btn) return;
+    e.preventDefault();
+    const cmd = btn.dataset.cmd;
+    let val = null;
+    if (cmd === 'createLink') {
+      val = prompt('Link URL:', 'https://');
+      if (!val) return;
+    }
+    document.execCommand(cmd, false, val);
+    body.focus();
+  });
+  toolbar.querySelector('[data-cmd="fontSize"]').addEventListener('change', (e) => {
+    if (e.target.value) document.execCommand('fontSize', false, e.target.value);
+    body.focus();
+  });
+  toolbar.querySelector('[data-cmd="foreColor"]').addEventListener('input', (e) => {
+    document.execCommand('foreColor', false, e.target.value);
+    body.focus();
+  });
+
+  fileInput.addEventListener('change', () => {
+    for (const f of fileInput.files) attachments.push(f);
+    fileInput.value = ''; // allow re-picking the same file later
+    renderAtts();
+  });
+
+  function formatBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  function renderAtts() {
+    attsEl.innerHTML = attachments.map((f, i) =>
+      `<span class="rt-att-chip">📎 ${escapeHtml(f.name)} <span class="text-muted">(${formatBytes(f.size)})</span><button type="button" data-i="${i}" title="Remove">×</button></span>`
+    ).join('');
+    attsEl.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        attachments.splice(parseInt(btn.dataset.i, 10), 1);
+        renderAtts();
+      });
+    });
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result;
+        const comma = r.indexOf(',');
+        resolve(comma >= 0 ? r.slice(comma + 1) : r);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  return {
+    getHtml: () => body.innerHTML,
+    getText: () => body.innerText,
+    async getAttachments() {
+      return Promise.all(attachments.map(async f => ({
+        filename: f.name,
+        mimeType: f.type || 'application/octet-stream',
+        data: await fileToBase64(f)
+      })));
+    },
+    clear() { body.innerHTML = ''; attachments.length = 0; renderAtts(); },
+    focus() { body.focus(); }
+  };
 }
 
 // ── Contact autocomplete ─────────────────────────────────────
@@ -1122,19 +1298,31 @@ async function refreshComposeSignatureRow() {
   document.getElementById('compose-sig-row').style.display =
     (inbox && inbox.signature_html && inbox.signature_html.trim()) ? '' : 'none';
 }
-function closeCompose() { document.getElementById('modal-compose').classList.remove('open'); }
+let COMPOSE_COMPOSER = null;
+function closeCompose() {
+  document.getElementById('modal-compose').classList.remove('open');
+  if (COMPOSE_COMPOSER) COMPOSE_COMPOSER.clear();
+}
 async function submitCompose(e) {
   e.preventDefault();
   const fromVal = document.getElementById('c-from').value;
   if (!fromVal) return showToast('Pick an alias to send from', 'error');
   const [mailbox_id, from_alias] = fromVal.split('::');
+  const body_text = COMPOSE_COMPOSER ? COMPOSE_COMPOSER.getText() : '';
+  const body_html = COMPOSE_COMPOSER ? COMPOSE_COMPOSER.getHtml() : '';
+  if (!body_text.trim()) return showToast('Message is empty', 'error');
+  let attachments;
+  try { attachments = COMPOSE_COMPOSER ? await COMPOSE_COMPOSER.getAttachments() : []; }
+  catch { return showToast('Failed to read attachments', 'error'); }
   const body = {
     mailbox_id,
     from_alias,
     to: document.getElementById('c-to').value.trim(),
     cc: document.getElementById('c-cc').value.trim() || undefined,
     subject: document.getElementById('c-subject').value.trim(),
-    body_text: document.getElementById('c-body').value,
+    body_text,
+    body_html,
+    attachments,
     include_signature: document.getElementById('compose-include-sig').checked
   };
   try {

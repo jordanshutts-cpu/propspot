@@ -128,10 +128,17 @@ function parseGmailMessage(message, mailboxEmail) {
 }
 
 // Build an RFC2822 message for sending. Returns a base64url string Gmail will accept.
-function buildRawMessage({ from, to, cc, subject, bodyText, bodyHtml, inReplyTo, references, signatureHtml }) {
+//
+// attachments: optional [{ filename, mimeType, data (base64 string) }]
+// When present, the outer Content-Type becomes multipart/mixed and the
+// alternative text/html pair becomes one of the parts.
+function buildRawMessage({ from, to, cc, subject, bodyText, bodyHtml, inReplyTo, references, signatureHtml, attachments }) {
   const toList = Array.isArray(to) ? to.join(', ') : (to || '');
   const ccList = Array.isArray(cc) ? cc.join(', ') : (cc || '');
-  const boundary = 'inbox-' + Math.random().toString(36).slice(2);
+  const altBoundary = 'alt-' + Math.random().toString(36).slice(2);
+  const mixedBoundary = 'mixed-' + Math.random().toString(36).slice(2);
+  const atts = Array.isArray(attachments) ? attachments.filter(a => a && a.filename && a.data) : [];
+  const hasAtts = atts.length > 0;
 
   const sig = (signatureHtml || '').trim();
   const escapedText = (bodyText || '').replace(/[<>&]/g, ch => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;' }[ch]));
@@ -144,6 +151,59 @@ function buildRawMessage({ from, to, cc, subject, bodyText, bodyHtml, inReplyTo,
     ? `${bodyText || ''}\n\n-- \n${htmlToText(sig)}`
     : (bodyText || '');
 
+  // The text/plain + text/html pair lives in a multipart/alternative section.
+  // If we have attachments, wrap that section + each attachment in
+  // multipart/mixed; otherwise the whole message IS the alternative.
+  const altLines = [
+    `--${altBoundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    finalText,
+    '',
+    `--${altBoundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    'Content-Transfer-Encoding: 7bit',
+    '',
+    finalHtml,
+    '',
+    `--${altBoundary}--`
+  ];
+
+  const attLines = [];
+  for (const a of atts) {
+    const safeName = String(a.filename).replace(/["\\]/g, '_');
+    // Re-flow base64 to 76-char lines per RFC 2045.
+    const b64 = String(a.data).replace(/\s+/g, '').match(/.{1,76}/g)?.join('\r\n') || '';
+    attLines.push(
+      `--${mixedBoundary}`,
+      `Content-Type: ${a.mimeType || 'application/octet-stream'}; name="${safeName}"`,
+      `Content-Disposition: attachment; filename="${safeName}"`,
+      'Content-Transfer-Encoding: base64',
+      '',
+      b64,
+      ''
+    );
+  }
+
+  let bodyLines;
+  let outerContentType;
+  if (hasAtts) {
+    outerContentType = `multipart/mixed; boundary="${mixedBoundary}"`;
+    bodyLines = [
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+      '',
+      ...altLines,
+      '',
+      ...attLines,
+      `--${mixedBoundary}--`
+    ];
+  } else {
+    outerContentType = `multipart/alternative; boundary="${altBoundary}"`;
+    bodyLines = altLines;
+  }
+
   const lines = [
     `From: ${from}`,
     `To: ${toList}`,
@@ -152,21 +212,9 @@ function buildRawMessage({ from, to, cc, subject, bodyText, bodyHtml, inReplyTo,
     inReplyTo  ? `In-Reply-To: ${inReplyTo}` : null,
     references ? `References: ${references}` : null,
     'MIME-Version: 1.0',
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    `Content-Type: ${outerContentType}`,
     '',
-    `--${boundary}`,
-    'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
-    '',
-    finalText,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
-    '',
-    finalHtml,
-    '',
-    `--${boundary}--`,
+    ...bodyLines,
     ''
   ].filter(Boolean);
   const raw = lines.join('\r\n');
