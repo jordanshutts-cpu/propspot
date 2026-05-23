@@ -11,7 +11,7 @@
     /* ── Three-column resizable inbox layout ─────────────────────────── */
     .inbox-3col {
       display: flex;
-      height: calc(100vh - 0px);
+      height: calc(100vh - var(--header-height, 56px));
       overflow: hidden;
       background: var(--bg);
     }
@@ -341,7 +341,6 @@
   <div class="header-actions">
     <button class="icon-btn" onclick="location.href='/admin-mailboxes.html'" title="Admin">⚙️</button>
     <button class="icon-btn" onclick="openCompose()" title="Compose">✏️</button>
-    <button class="icon-btn" onclick="signOut()" title="Sign out">🚪</button>
   </div>
 </header>
 

@@ -329,7 +329,7 @@ a { color: var(--brand-dark); }
   body { padding-bottom: 0; padding-left: 220px; }
   body.sidebar-collapsed,
   html.sidebar-collapsed body { padding-left: 64px; }
-  .app-header { display: none; }
+  /* .app-header stays visible on desktop — avatar lives in header-actions */
   .bottom-nav {
     top: 0; right: auto; bottom: 0; width: 220px; height: 100dvh;
     flex-direction: column; align-items: stretch; justify-content: flex-start;
