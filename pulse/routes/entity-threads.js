@@ -80,9 +80,17 @@ router.post('/messages', async (req, res) => {
     `, [access.entityThreadId, req.userId, client_message_id || null, body.trim()]);
     const message = ins.rows[0];
 
-    const mentionedIds = parseMentions(body);
-    const validIds = await writeMentionRows(message.id, mentionedIds);
-    await writeEntityThreadGrants(access.entityThreadId, validIds, req.userId);
+    // Mentions + grants are best-effort. Failures here must NOT roll back the
+    // saved message or fail the response — the caller already has a saved row
+    // and a retry would hit the dedupe path returning the same row.
+    let validIds = [];
+    try {
+      const mentionedIds = parseMentions(body);
+      validIds = await writeMentionRows(message.id, mentionedIds);
+      await writeEntityThreadGrants(access.entityThreadId, validIds, req.userId);
+    } catch (mentionErr) {
+      console.warn('entity-threads mention/grant write failed (message still saved):', mentionErr);
+    }
 
     const enriched = await hydrateMessage(message);
     hub.publish(streamKey(access.entityThreadId), {
@@ -121,15 +129,15 @@ router.patch('/messages/:id', async (req, res) => {
     `, [body.trim(), req.params.id, req.userId]);
     if (!rows[0]) return res.status(404).json({ error: 'Not found or not yours' });
 
+    const enriched = await hydrateMessage(rows[0]);
     if (rows[0].entity_thread_id) {
-      const enriched = await hydrateMessage(rows[0]);
       hub.publish(streamKey(rows[0].entity_thread_id), {
         type: 'entity_thread.message_updated',
         entity_thread_id: rows[0].entity_thread_id,
         message: enriched
       });
     }
-    res.json(rows[0]);
+    res.json(enriched);
   } catch (err) {
     console.error('entity-threads PATCH failed:', err);
     res.status(500).json({ error: 'Failed to edit message' });
