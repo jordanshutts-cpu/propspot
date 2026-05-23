@@ -1069,6 +1069,14 @@ BEGIN
   END IF;
 END $$;
 
+-- ── Marker table for one-time data operations (so embedded UPDATE blocks
+-- in this file don't re-run on every initDb startup). Tiny and reusable —
+-- any future "run this exactly once on deploy" cleanup uses the same table.
+CREATE TABLE IF NOT EXISTS inbox_one_time_ops (
+  op_id  TEXT PRIMARY KEY,
+  ran_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ── 2026-05-23: per-shared-inbox tabs (unassigned / assigned / snoozed /
 -- archived / trash / spam). Expand the inbox_threads.status CHECK to allow
 -- the two new states. Idempotent — drops the existing CHECK (whatever PG
@@ -1089,4 +1097,20 @@ BEGIN
   ALTER TABLE inbox_threads
     ADD CONSTRAINT inbox_threads_status_check
     CHECK (status IN ('open','archived','snoozed','trash','spam'));
+END $$;
+
+-- ── 2026-05-23 one-time: archive every open thread with no activity in the
+-- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
+-- without years of backfilled history cluttering the lists. Owners can
+-- still un-archive any thread individually from the Archived tab.
+-- Guarded by inbox_one_time_ops so re-running schema.sql is a no-op.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_stale_open_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE status = 'open'
+       AND last_message_at < NOW() - INTERVAL '30 days';
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_stale_open_2026_05_23');
+  END IF;
 END $$;
