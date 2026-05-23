@@ -489,6 +489,13 @@ CREATE TABLE IF NOT EXISTS photos (
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS folder_id  UUID REFERENCES folders(id) ON DELETE SET NULL;
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- CompanyCam migration linkage. Lets the photo importer resume safely
+-- if interrupted (and skip already-migrated photos on re-run).
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS companycam_photo_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS photos_companycam_uniq
+  ON photos (companycam_photo_id) WHERE companycam_photo_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS photos_property_id_idx ON photos(property_id);
 CREATE INDEX IF NOT EXISTS photos_taken_at_idx    ON photos(taken_at DESC);
 CREATE INDEX IF NOT EXISTS photos_uploader_idx    ON photos(uploaded_by);
