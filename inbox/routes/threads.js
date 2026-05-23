@@ -29,10 +29,20 @@ router.get('/', async (req, res) => {
     const params = [];
     let i = 1;
 
+    // Scope filter: a thread is visible if EITHER the caller has explicit
+    // access to its inbox, OR the thread is assigned to the caller. The
+    // assignment escape hatch covers the case where a teammate forwards
+    // work into the caller's queue from an inbox the caller can't normally
+    // see. Owners (allowed === null) bypass this entirely.
     if (allowed !== null) {
-      if (!allowed.length) return res.json([]);
-      params.push(allowed);
-      where.push(`t.shared_inbox_id = ANY($${i++}::uuid[])`);
+      if (!allowed.length) {
+        params.push(req.userId);
+        where.push(`t.assigned_to_user_id = $${i++}`);
+      } else {
+        params.push(allowed);
+        params.push(req.userId);
+        where.push(`(t.shared_inbox_id = ANY($${i++}::uuid[]) OR t.assigned_to_user_id = $${i++})`);
+      }
     }
     if (req.query.inbox) {
       params.push(req.query.inbox);
