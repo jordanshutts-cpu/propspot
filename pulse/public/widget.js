@@ -118,9 +118,34 @@
 
     let MENTIONABLE = [];   // { id, full_name, email, has_ambient }
     let USERS_BY_ID = new Map();
+    // displayName → uuid for mentions picked from the picker. Used by
+    // postMessage to convert "@Jordan Shutts" back to "<@uuid>" on the
+    // way to the server. The textarea stores plain text — there's no
+    // way to display a styled chip inline in a <textarea>, so we keep
+    // a side-table of picked names and re-attach uuids at send time.
+    const PICKED_MENTIONS = new Map();
 
     function rebuildUserMap() {
       USERS_BY_ID = new Map(MENTIONABLE.map(u => [u.id.toLowerCase(), u]));
+    }
+
+    function displayNameFor(u) {
+      return u.full_name || u.email || u.id.slice(0, 8);
+    }
+
+    // Replace each "@<displayName>" the user picked with its "<@uuid>" token
+    // before sending. Iterate longest-first so "@Jordan Shutts" wins over
+    // "@Jordan" if both happen to be mentionable.
+    function serializeMentions(text) {
+      const names = [...PICKED_MENTIONS.keys()].sort((a, b) => b.length - a.length);
+      let out = text;
+      for (const name of names) {
+        const uid = PICKED_MENTIONS.get(name);
+        // Escape regex special chars in the display name.
+        const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        out = out.replace(new RegExp(`@${esc}`, 'g'), `<@${uid}>`);
+      }
+      return out;
     }
 
     async function loadInitial() {
@@ -182,8 +207,9 @@
     }
 
     async function postMessage() {
-      const body = taEl.value.trim();
-      if (!body) return;
+      const raw = taEl.value.trim();
+      if (!raw) return;
+      const body = serializeMentions(raw);
       sendEl.disabled = true;
       try {
         const m = await api(
@@ -192,6 +218,7 @@
         );
         appendMessage(m);
         taEl.value = '';
+        PICKED_MENTIONS.clear();
       } catch (err) {
         msgEl.insertAdjacentHTML('beforeend', `<div class="pulse-embed-error">${escapeHtml(err.message)}</div>`);
       } finally {
@@ -246,10 +273,15 @@
       const list = filteredUsers();
       const u = list[pickerCursor];
       if (!u) return;
+      const name = displayNameFor(u);
+      PICKED_MENTIONS.set(name, u.id);
+      const insert = `@${name} `;
       const before = taEl.value.slice(0, pickerAnchor);
       const after  = taEl.value.slice(pickerAnchor + 1 + pickerToken.length);
-      taEl.value = `${before}<@${u.id}> ${after}`;
+      taEl.value = `${before}${insert}${after}`;
+      const caret = before.length + insert.length;
       taEl.focus();
+      taEl.setSelectionRange(caret, caret);
       closePicker();
     }
 
