@@ -11,7 +11,7 @@
   <style>
     /* ── Sticky result header ── */
     .uw-sticky-header {
-      position: sticky; top: 0; z-index: 200;
+      position: sticky; top: var(--top-header-height, 56px); z-index: 79;
       background: #fff; border-bottom: 1px solid var(--border,#e5e7eb);
     }
     .uw-header-row1 {
@@ -96,7 +96,7 @@
     }
     .uw-field-row input[type=number],
     .uw-field-row input[type=text] {
-      width: 82px; flex: 0 0 82px; font-size: .78rem; padding: 3px 5px;
+      width: 76px; flex: 0 0 76px; font-size: .78rem; padding: 3px 5px;
       border: 1px solid var(--border,#e5e7eb); border-radius: 5px; text-align: right;
     }
     .uw-field-row input[type=checkbox] { width: 15px; height: 15px; flex: 0 0 15px; }
@@ -336,8 +336,8 @@
         <div class="uw-field-row"><label>DSCR Rate %</label><input type="number" id="f-dscrRate" step="0.1" oninput="onFieldChange('dscrRate',pct(this.value))"></div>
         <div class="uw-field-row"><label>DSCR Max LTV %</label><input type="number" id="f-dscrMaxLTV" step="1" oninput="onFieldChange('dscrMaxLTV',pct(this.value))"></div>
         <div class="uw-field-row"><label>Appreciation %</label><input type="number" id="f-appreciationRate" step="0.1" oninput="onFieldChange('appreciationRate',pct(this.value))"></div>
-        <div class="uw-field-row"><label>Include Appreciation</label><input type="checkbox" id="f-includeAppreciation" onchange="onFieldChange('includeAppreciation',this.checked)"></div>
-        <div class="uw-field-row"><label>Sell After (years)</label><input type="number" id="f-sellAfterYears" step="1" min="1" oninput="onFieldChange('sellAfterYears',this.value)"></div>
+        <div class="uw-field-row"><label>Include Apprec.</label><input type="checkbox" id="f-includeAppreciation" onchange="onFieldChange('includeAppreciation',this.checked)"></div>
+        <div class="uw-field-row"><label>Hold Years</label><input type="number" id="f-sellAfterYears" step="1" min="1" oninput="onFieldChange('sellAfterYears',this.value)"></div>
         <div class="uw-field-row"><label>Vacancy Rate %</label><input type="number" id="f-vacancyRate" step="0.5" oninput="onFieldChange('vacancyRate',pct(this.value))"></div>
         <div class="uw-field-row"><label>Use Dwella PM</label><input type="checkbox" id="f-useDwellaPM" onchange="onFieldChange('useDwellaPM',this.checked)"></div>
         <div class="uw-field-row"><label>Borrow Max DSCR</label><input type="checkbox" id="f-borrowMaxDSCR" onchange="onFieldChange('borrowMaxDSCR',this.checked)"></div>
@@ -347,12 +347,12 @@
         <h3>Bridge / Flip</h3>
         <div class="uw-field-row"><label>Bridge Rate %</label><input type="number" id="f-bridgeRate" step="0.1" oninput="onFieldChange('bridgeRate',pct(this.value))"></div>
         <div class="uw-field-row"><label>Max LTV %</label><input type="number" id="f-maxLTV" step="1" oninput="onFieldChange('maxLTV',pct(this.value))"></div>
-        <div class="uw-field-row"><label>Loan Origination %</label><input type="number" id="f-bridgeOrigPct" step="0.1" oninput="onFieldChange('bridgeOrigPct',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Origination %</label><input type="number" id="f-bridgeOrigPct" step="0.1" oninput="onFieldChange('bridgeOrigPct',pct(this.value))"></div>
         <div class="uw-field-row"><label>Bridge UW Fee</label><input type="number" id="f-bridgeUWFee" step="100" oninput="onFieldChange('bridgeUWFee',this.value)"></div>
-        <div class="uw-field-row"><label>Bridge Closing Costs</label><input type="number" id="f-bridgeClosingCosts" step="100" oninput="onFieldChange('bridgeClosingCosts',this.value)"></div>
-        <div class="uw-field-row"><label>Pre-closing Expenses</label><input type="number" id="f-bridgePreClosingExpenses" step="100" oninput="onFieldChange('bridgePreClosingExpenses',this.value)"></div>
-        <div class="uw-field-row"><label>Dispo Commission %</label><input type="number" id="f-dispoCommissionPct" step="0.1" oninput="onFieldChange('dispoCommissionPct',pct(this.value))"></div>
-        <div class="uw-field-row"><label>Dispo Closing Costs</label><input type="number" id="f-dispoClosingCosts" step="100" oninput="onFieldChange('dispoClosingCosts',this.value)"></div>
+        <div class="uw-field-row"><label>Closing Costs</label><input type="number" id="f-bridgeClosingCosts" step="100" oninput="onFieldChange('bridgeClosingCosts',this.value)"></div>
+        <div class="uw-field-row"><label>Pre-closing</label><input type="number" id="f-bridgePreClosingExpenses" step="100" oninput="onFieldChange('bridgePreClosingExpenses',this.value)"></div>
+        <div class="uw-field-row"><label>Commission %</label><input type="number" id="f-dispoCommissionPct" step="0.1" oninput="onFieldChange('dispoCommissionPct',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Dispo Closing</label><input type="number" id="f-dispoClosingCosts" step="100" oninput="onFieldChange('dispoClosingCosts',this.value)"></div>
       </div>
 
     </div><!-- /right-col -->
