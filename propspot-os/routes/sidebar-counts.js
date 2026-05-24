@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 
   const [
     inbox, mentions, myTasks,
-    prospects, leads, opportunities, acquisitions, holdings, dispositions,
+    prospects, leads, opportunities, acquisitions, projects, holdings, dispositions, sold,
     photosToday, workOrders, pulse
   ] = await Promise.all([
     // ── For You ───────────────────────────────────────────────
@@ -59,13 +59,16 @@ router.get('/', async (req, res) => {
          AND (created_by = $1 OR reported_by = $1)
     `, [me]),
 
-    // ── Pipeline ──────────────────────────────────────────────
+    // ── Pipeline (Jordan's flow: prospect → lead → opportunity → acquisition
+    //    → project → holdings | disposition → sold; dead off-track) ────
     safeCount(`SELECT COUNT(*)::int AS count FROM prospects     WHERE status IN ('active','attempted')`),
     safeCount(`SELECT COUNT(*)::int AS count FROM leads         WHERE status IN ('new','working')`),
     safeCount(`SELECT COUNT(*)::int AS count FROM opportunities WHERE status IN ('active','appointment_set')`),
-    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status = 'purchasing'`),
-    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status IN ('renovating','renting','rented','listed_for_rent')`),
-    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status IN ('selling','listed_for_sale','under_contract_buyer')`),
+    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status = 'purchasing'`),                                              // acquisitions
+    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status = 'renovating'`),                                              // projects
+    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status IN ('renting','rented','listed_for_rent')`),                   // holdings (rentals only)
+    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status IN ('selling','listed_for_sale','under_contract_buyer')`),     // dispositions
+    safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status IN ('sold','assigned')`),                                      // sold
 
     // ── Tools ─────────────────────────────────────────────────
     safeCount(`SELECT COUNT(*)::int AS count FROM photos WHERE created_at >= CURRENT_DATE AND deleted_at IS NULL`),
@@ -88,7 +91,7 @@ router.get('/', async (req, res) => {
 
   res.json({
     inbox, mentions, myTasks,
-    prospects, leads, opportunities, acquisitions, holdings, dispositions,
+    prospects, leads, opportunities, acquisitions, projects, holdings, dispositions, sold,
     photosToday, workOrders, pulse
   });
 });
