@@ -20,6 +20,9 @@
     .badge-dscr { background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
     .badge-flip { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
     .badge-none { background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
+    .updated-cell { line-height: 1.3; }
+    .updated-cell .updated-by   { font-size: .82rem; font-weight: 600; color: var(--text, #111); }
+    .updated-cell .updated-when { font-size: .72rem; color: var(--text-muted, #6b7280); }
     /* Modal */
     .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center; }
     .modal-backdrop.open { display:flex; }
@@ -323,6 +326,13 @@
     if (!d) return '—';
     return new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
   }
+  function fmtDateTime(d) {
+    if (!d) return '—';
+    const date = new Date(d);
+    return date.toLocaleDateString('en-US', { month:'short', day:'numeric' }) +
+           ' · ' +
+           date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+  }
 
   // ── Render table ─────────────────────────────────────────────────────────
   let allDeals = [];
@@ -371,7 +381,10 @@
         <td class="num ${fiCls}">${fmtPct(r.flipIRR)}</td>
         <td class="num ${diCls}">${fmtPct(r.dscrIRR)}</td>
         <td>${stratBadge}</td>
-        <td>${fmtDate(deal.last_updated)}</td>
+        <td class="updated-cell">
+          <div class="updated-by">${escHtml(deal.last_updated_by_name || '—')}</div>
+          <div class="updated-when">${fmtDateTime(deal.last_updated)}</div>
+        </td>
       </tr>`;
     }).join('');
 

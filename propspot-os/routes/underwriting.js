@@ -32,7 +32,27 @@ router.get('/', async (req, res) => {
       SELECT d.*,
              pf.data_json AS pro_forma_data,
              ar.data_json AS actual_results_data,
-             COALESCE(ar.updated_at, pf.updated_at, d.created_at) AS last_updated
+             COALESCE(ar.updated_at, pf.updated_at, d.created_at) AS last_updated,
+             COALESCE(
+               CASE WHEN ar.updated_at IS NOT NULL
+                         AND (pf.updated_at IS NULL OR ar.updated_at >= pf.updated_at)
+                    THEN ar.updated_by
+                    ELSE pf.updated_by
+               END,
+               d.created_by
+             ) AS last_updated_by,
+             (
+               SELECT COALESCE(NULLIF(TRIM(u.full_name), ''), u.email)
+                 FROM users u
+                WHERE u.id = COALESCE(
+                  CASE WHEN ar.updated_at IS NOT NULL
+                            AND (pf.updated_at IS NULL OR ar.updated_at >= pf.updated_at)
+                       THEN ar.updated_by
+                       ELSE pf.updated_by
+                  END,
+                  d.created_by
+                )
+             ) AS last_updated_by_name
         FROM uw_deals d
         LEFT JOIN uw_snapshots pf ON pf.deal_id = d.id AND pf.kind = 'initial_pro_forma'
         LEFT JOIN uw_snapshots ar ON ar.deal_id = d.id AND ar.kind = 'actual_results'
