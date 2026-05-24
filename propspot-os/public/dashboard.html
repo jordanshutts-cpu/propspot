@@ -23,7 +23,22 @@
     .activity-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .85rem; align-items: flex-start; }
     .activity-row:last-child { border-bottom: none; }
     .activity-dot { width: 6px; height: 6px; background: var(--brand); border-radius: 50%; margin-top: 8px; flex-shrink: 0; }
-    .activity-time { color: var(--text-muted); font-size: .72rem; }
+    .activity-time { color: var(--text-muted); font-size: .72rem; margin-top: 2px; }
+    .activity-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+    .activity-prop {
+      display: inline-flex; align-items: baseline; gap: 4px;
+      padding: 2px 8px; margin-left: 2px;
+      background: rgba(97,183,70,0.08);
+      color: var(--brand-dark);
+      border-radius: 6px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: .82rem;
+      transition: background .12s, transform .1s;
+    }
+    .activity-prop:hover { background: rgba(97,183,70,0.16); transform: translateY(-1px); }
+    .activity-prop-arrow { color: var(--brand); font-weight: 700; }
+    .activity-prop-city { color: var(--text-muted); font-weight: 500; font-size: .76rem; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -141,15 +156,27 @@
       const rows = await getActivity({ limit: 8 });
       const el = document.getElementById('activity-list');
       if (!rows.length){ el.innerHTML = '<p class="text-muted text-sm">No activity yet.</p>'; return; }
-      el.innerHTML = rows.map(r => `
-        <div class="activity-row">
-          <div class="activity-dot"></div>
-          <div style="flex:1;">
-            <div><strong>${escHtml(r.actor_name || 'System')}</strong> ${escHtml(r.action)} <em>${escHtml(r.entity_type)}</em></div>
-            <div class="activity-time">${formatDate(r.created_at)}</div>
-          </div>
-        </div>
-      `).join('');
+      el.innerHTML = rows.map(r => {
+        const propLabel = r.prop_display_name || r.prop_address_line1 || '';
+        const propLink = (propLabel && r.prop_id)
+          ? `<a class="activity-prop" href="/property.html?id=${escHtml(r.prop_id)}" title="Open ${escHtml(propLabel)}">
+               <span class="activity-prop-arrow">→</span> ${escHtml(propLabel)}${r.prop_city ? `<span class="activity-prop-city"> · ${escHtml(r.prop_city)}${r.prop_state ? ', ' + escHtml(r.prop_state) : ''}</span>` : ''}
+             </a>`
+          : '';
+        return `
+          <div class="activity-row">
+            <div class="activity-dot"></div>
+            <div style="flex:1;min-width:0;">
+              <div class="activity-text">
+                <strong>${escHtml(r.actor_name || 'System')}</strong>
+                ${escHtml(r.action)}
+                <em>${escHtml(r.entity_type)}</em>
+                ${propLink}
+              </div>
+              <div class="activity-time">${formatDate(r.created_at)}</div>
+            </div>
+          </div>`;
+      }).join('');
     }catch(e){
       document.getElementById('activity-list').innerHTML = '<p class="text-muted text-sm">Could not load activity.</p>';
     }
