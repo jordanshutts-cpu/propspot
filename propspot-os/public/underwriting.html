@@ -444,8 +444,15 @@
   // ── Init ─────────────────────────────────────────────────────────────────
   async function init() {
     if (!await requireAuth()) return;
-    renderAppsRail();
-    renderTopHeader();
+    // Only call the OLD chrome renderers when newchrome is off. Otherwise
+    // sidebar.js / topbar.js have already rendered the new chrome into the
+    // same DOM placeholders, and calling these would overwrite them with
+    // the old top-nav (Acquisitions/Holdings/Dispositions/Closed) — which
+    // shoves the action icons into the section-header.
+    if (!(window.__newChromeEnabled && window.__newChromeEnabled())) {
+      renderAppsRail();
+      renderTopHeader();
+    }
     renderUserMenu();
     try {
       allDeals = await apiFetch('/api/underwriting');

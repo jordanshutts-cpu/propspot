@@ -970,8 +970,13 @@
   // ============================================================
   async function init() {
     if (!await requireAuth()) return;
-    renderAppsRail();
-    renderTopHeader();
+    // Skip OLD chrome renderers when newchrome is on — sidebar.js / topbar.js
+    // have already populated the same placeholders, and the old renderers
+    // would overwrite them, breaking the topbar layout.
+    if (!(window.__newChromeEnabled && window.__newChromeEnabled())) {
+      renderAppsRail();
+      renderTopHeader();
+    }
     renderUserMenu();
 
     if (!dealId) {
