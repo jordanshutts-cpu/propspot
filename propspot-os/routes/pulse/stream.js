@@ -59,7 +59,7 @@ router.get('/', authQuery, async (req, res) => {
     subscribeKey = 'dm:' + dmId;
     helloPayload = { type: 'hello', dm_id: dmId, user_id: req.userId };
   } else if (entityType && entityId) {
-    const { isEntityTypeSupported, canAccessEntity } = require('../lib/authz');
+    const { isEntityTypeSupported, canAccessEntity } = require('../../lib/authz');
     if (!isEntityTypeSupported(entityType)) return res.status(400).end();
     const access = await canAccessEntity({
       userId: req.userId, entityType, entityId

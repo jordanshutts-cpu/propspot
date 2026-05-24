@@ -1,7 +1,7 @@
 const express = require('express');
 const { query } = require('../../db');
 const { requireAuth, requirePulseGrant } = require('../../middleware/auth');
-const { canAccessEntity, isEntityTypeSupported } = require('../lib/authz');
+const { canAccessEntity, isEntityTypeSupported } = require('../../lib/authz');
 const { parseMentions, writeMentionRows, writeEntityThreadGrants } = require('../../lib/mentions');
 const hub = require('../../lib/hub');
 
