@@ -6,6 +6,37 @@
 const TOKEN_KEY = 'fieldcam_token';
 const USER_KEY  = 'fieldcam_user';
 
+// ── New-chrome feature flag (Phase 3 — same workspace chrome as OS) ─
+// Enabled by ?newchrome=1 in URL OR localStorage.propspot_newchrome === '1'.
+// When on, FieldCam loads sidebar.js + topbar.js + lifecycle-stepper.js +
+// chrome.css cross-origin from os.propspot.io so navigation looks the
+// same as on os.propspot.io itself.
+window.__newChromeEnabled = function () {
+  try {
+    if (new URLSearchParams(location.search).get('newchrome') === '1') return true;
+    if (localStorage.getItem('propspot_newchrome') === '1') return true;
+  } catch (e) {}
+  return false;
+};
+if (window.__newChromeEnabled()) {
+  try { localStorage.setItem('propspot_newchrome', '1'); } catch (e) {}
+  // Where OS lives. Override for local dev with window.__PROPSPOT_OS_URL.
+  const OS = window.__PROPSPOT_OS_URL || 'https://os.propspot.io';
+  // Chrome stylesheet (scoped to .os-newchrome — won't affect existing pages).
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = OS + '/chrome.css';
+  link.dataset.propspotChrome = '1';
+  document.head.appendChild(link);
+  // Chrome scripts — sidebar.js, topbar.js, lifecycle-stepper.js.
+  ['/sidebar.js', '/topbar.js', '/lifecycle-stepper.js'].forEach(src => {
+    const s = document.createElement('script');
+    s.src = OS + src;
+    s.async = false;
+    document.head.appendChild(s);
+  });
+}
+
 // SSO handoff: if Prop Spot deep-linked us with ?token=…, consume it
 // before any other code runs and clean it out of the URL bar. Must
 // stay above the storage helpers so the inline script in index.html

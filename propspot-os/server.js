@@ -14,7 +14,20 @@ cloudinary.config({
 
 const app = express();
 
-app.use(cors({ origin: process.env.APP_URL || '*', credentials: true }));
+// Allow propspot-os itself, every *.propspot.io satellite, and localhost
+// (for the local preview-server). Required so satellites like FieldCam can
+// load /sidebar.js, /topbar.js, /chrome.css and call /api/* (sidebar-counts,
+// pinned, recent) cross-origin with the JWT.
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);                               // same-origin / server-to-server
+    if (origin === process.env.APP_URL) return cb(null, true);
+    if (/^https?:\/\/[a-z0-9-]+\.propspot\.io$/.test(origin)) return cb(null, true);
+    if (/^https?:\/\/localhost(:\d+)?$/.test(origin))         return cb(null, true);
+    return cb(null, false);
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
