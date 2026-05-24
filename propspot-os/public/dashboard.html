@@ -107,10 +107,24 @@
       grid.innerHTML = '<p class="text-muted text-sm">No apps granted yet.</p>';
       return;
     }
+    // Apps with an OS-native page — always route here, never to the
+    // satellite base_url (which loads the old chrome/theme). Mirrors
+    // the OS_NATIVE_PAGES map in app.js's wireUnifiedNav and sidebar.js.
+    const OS_NATIVE_PAGES = {
+      holdings:     '/holdings-desk.html',
+      maintenance:  '/maintenance.html',
+      fieldcam:     '/fieldcam.html',
+      pulse:        '/pulse.html',
+      inbox:        '/inbox.html',
+      underwriting: '/underwriting.html'
+    };
     const token = getToken();
     grid.innerHTML = me.grants.map(g => {
       let url = '#';
-      if (g.base_url) {
+      if (OS_NATIVE_PAGES[g.slug]) {
+        // Native OS page — same origin, no token append needed.
+        url = OS_NATIVE_PAGES[g.slug];
+      } else if (g.base_url) {
         const sep = g.base_url.includes('?') ? '&' : '?';
         url = g.base_url + sep + 'token=' + encodeURIComponent(token);
       }
