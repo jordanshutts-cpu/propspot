@@ -1074,25 +1074,26 @@ body.os-newchrome .user-menu {
 
 /* ── Sidebar brand bar (logo + collapse toggle) ──────────────────
    Sits at the very top of the sidebar above the workspace row.
-   Logo gets generous real estate (44px), with the collapse button
-   pushed firmly to the right via flex-shrink:0 + margin-left:auto so
-   the two never overlap even at narrow widths. */
+   space-between pins logo to the left, button to the right. The logo
+   uses flex:0 1 auto so it occupies only its NATURAL width — its
+   hover background can't bleed into the button area. */
 .os-newchrome-brand-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px 10px 14px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
   height: 64px;
   border-bottom: 1px solid #e8eaed;
   background: linear-gradient(180deg, rgba(97,183,70,0.06) 0%, transparent 100%);
   flex-shrink: 0;
 }
 .os-newchrome-brand-logo {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;          /* allows the wordmark to ellipsize before pushing the button */
-  flex: 1 1 auto;
+  min-width: 0;          /* allows wordmark to ellipsize on a narrow sidebar */
+  flex: 0 1 auto;        /* natural width — does NOT grow into the button */
   text-decoration: none;
   color: inherit;
   border-radius: 8px;
@@ -1118,14 +1119,13 @@ body.os-newchrome .user-menu {
   background: none;
   border: none;
   cursor: pointer;
-  width: 28px; height: 28px;
+  width: 30px; height: 30px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #9ca3af;
-  flex-shrink: 0;
-  margin-left: auto;     /* belt-and-suspenders: always at the right edge */
+  flex: 0 0 30px;        /* fixed size, never shrinks */
   transition: background 0.12s, color 0.12s, transform 0.18s ease;
 }
 .os-newchrome-collapse-btn:hover {
