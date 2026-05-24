@@ -751,15 +751,16 @@ body.os-newchrome .user-menu {
 /* Scope chip host — anchored to <body> via JS. position:fixed pins it
    directly below the 56px top-header, spanning from the sidebar's
    right edge to the viewport right edge so it always shows there
-   regardless of the underlying page's flex/grid layout. */
+   regardless of the underlying page's flex/grid layout. The chip
+   itself is rendered as a flush sub-header bar (not a floating
+   card) so it reads as an extension of the chrome instead of an
+   overlay. */
 #os-newchrome-scope-chip-host {
   position: fixed;
   top: 56px;
   left: var(--sidebar-width);
   right: 0;
   z-index: 75;
-  padding: 8px 14px 0;
-  pointer-events: none;        /* let the page underneath handle clicks where the chip isn't */
   transition: left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #os-newchrome-scope-chip-host:empty { display: none; }
@@ -767,25 +768,22 @@ body.os-newchrome .user-menu {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #fff;
-  border: 1px solid rgba(97,183,70,0.25);
-  border-radius: 10px;
-  padding: 8px 12px 8px 14px;
-  font-size: 13px;
+  background: linear-gradient(180deg, rgba(97,183,70,0.08) 0%, rgba(97,183,70,0.04) 100%);
+  border-bottom: 1px solid rgba(97,183,70,0.20);
+  padding: 8px 22px;
+  font-size: 12.5px;
   color: #1f2937;
-  box-shadow: 0 6px 18px -8px rgba(0,0,0,0.18), 0 1px 0 rgba(97,183,70,0.05);
-  pointer-events: auto;        /* the chip itself IS clickable */
-  max-width: 720px;
-  margin: 0 auto;
+  height: 36px;
+  box-sizing: border-box;
 }
-/* Push the page content down so the floating chip doesn't cover it. */
-body.os-newchrome.has-scope-chip { padding-top: 104px; }   /* 56 header + 48 chip */
-body.os-newchrome.has-scope-chip .page { padding-top: 0; }
+/* Push the page content down so the chip doesn't cover it. Chip is
+   36px tall now (smaller than the floating-card variant). */
+body.os-newchrome.has-scope-chip { padding-top: 92px; }   /* 56 header + 36 chip */
 body.os-newchrome.has-scope-chip main.page,
 body.os-newchrome.has-scope-chip main.inbox-3col {
   /* Pages with a fixed-height main (inbox/pulse) need their height
      trimmed by the same amount so they don't blow past the viewport. */
-  height: calc(100vh - 104px) !important;
+  height: calc(100vh - 92px) !important;
 }
 .os-newchrome-scope-chip-dot {
   width: 8px;
