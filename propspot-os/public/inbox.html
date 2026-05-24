@@ -125,9 +125,14 @@
   function renderNav() {
     const el = document.getElementById('ib-nav-body');
     if (!inboxes.length) { el.innerHTML=`<p class="text-muted text-sm" style="padding:14px;">No inboxes configured.</p>`; return; }
+    // Pass the row's index rather than JSON.stringify(b) — any apostrophe
+    // in name / email_address / description would otherwise break the
+    // single-quoted onclick attribute and leak the rest of the JSON into
+    // the DOM as a sibling text node (visible as a garbage row labeled
+    // `","created_at":"…","open_cou…`).
     el.innerHTML = `<div class="ib-nav-section">Shared Inboxes</div>`+
-      inboxes.map(b => `
-        <div class="ib-nav-row ${activeInbox?.id===b.id?'active':''}" onclick='openInbox(${JSON.stringify(b)})'>
+      inboxes.map((b, i) => `
+        <div class="ib-nav-row ${activeInbox?.id===b.id?'active':''}" onclick="openInbox(inboxes[${i}])">
           <span>📬</span>
           <span class="ib-nav-name">${escHtml(b.name||b.email_address||'Inbox')}</span>
           ${b.unread_count>0?`<span class="ib-unread">${b.unread_count}</span>`:''}
