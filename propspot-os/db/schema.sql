@@ -1167,6 +1167,30 @@ BEGIN
     CHECK (status IN ('open','archived','snoozed','trash','spam'));
 END $$;
 
+-- ── New-chrome Phase 2: per-user sidebar state ─────────────────────────
+-- Pinned properties stay in the user's sidebar across sessions; recent
+-- properties auto-populate from /api/properties/:id GET hits so the
+-- "Recent" list always reflects what the user actually visited.
+
+CREATE TABLE IF NOT EXISTS pinned_properties (
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  pinned_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  position    INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, property_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pinned_user_position
+  ON pinned_properties (user_id, position, pinned_at);
+
+CREATE TABLE IF NOT EXISTS recent_properties (
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  visited_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, property_id)
+);
+CREATE INDEX IF NOT EXISTS idx_recent_user_time
+  ON recent_properties (user_id, visited_at DESC);
+
 -- ── 2026-05-23 one-time: archive every open thread with no activity in the
 -- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
 -- without years of backfilled history cluttering the lists. Owners can
