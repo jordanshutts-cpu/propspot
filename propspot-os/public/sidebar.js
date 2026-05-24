@@ -531,8 +531,8 @@
 
           ${sectionLabel('For you')}
           ${row({ icon: '📧', label: 'Inbox',    app: 'inbox',    badge: counts.inbox })}
-          ${row({ icon: '@',  label: 'Mentions', osnav: 'mentions', href: '#', badge: counts.mentions, badgeClass: 'amber' })}
-          ${row({ icon: '✓',  label: 'My Tasks', osnav: 'tasks',  href: '#', badge: counts.myTasks, badgeClass: 'muted' })}
+          ${row({ icon: '@',  label: 'Mentions', soon: true })}
+          ${row({ icon: '✓',  label: 'My Tasks', soon: true })}
 
           ${sectionLabel('Pipeline')}
           ${row({ icon: '🎯', label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html',                    badge: counts.prospects,     badgeClass: 'muted' })}
