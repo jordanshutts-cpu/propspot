@@ -7,63 +7,354 @@
   <title>Prop Spot — Inbox</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="widget.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
+    /* OS layout override: full-height, no max-width, no padding so the
+       3-column inbox fills the viewport below the OS top header. */
     body.os-newlayout .page { padding:0 !important; max-width:none !important; height:calc(100vh - 56px); display:flex; overflow:hidden; }
 
-    .ib-wrap { display:flex; width:100%; height:100%; overflow:hidden; }
+    /* ── Three-column resizable inbox layout ─────────────────────── */
+    .inbox-3col {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .col-left   { width: 240px; flex: 0 0 auto; border-right: 1px solid var(--border); }
+    .col-middle { width: 380px; flex: 0 0 auto; border-right: 1px solid var(--border); background: var(--bg); }
+    .col-right  { flex: 1 1 0; min-width: 0; }
 
-    /* Left nav */
-    .ib-nav { width:210px; flex:0 0 210px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); }
-    .ib-nav-head { padding:14px 14px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
-    .ib-nav-head .ib-app-name { font-weight:800; font-size:.95rem; }
-    .ib-nav-body { flex:1; overflow-y:auto; padding:6px 0; }
-    .ib-nav-section { padding:12px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; }
-    .ib-nav-row { display:flex; align-items:center; gap:8px; padding:8px 10px; margin:0 4px; border-radius:8px; cursor:pointer; font-size:.88rem; color:var(--text-muted); transition:background .1s,color .1s; }
-    .ib-nav-row:hover { background:var(--brand-light); color:var(--text); }
-    .ib-nav-row.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
-    .ib-nav-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .ib-unread { background:var(--brand); color:#fff; border-radius:100px; font-size:.62rem; font-weight:700; padding:1px 6px; }
+    /* Resizer between columns */
+    .resizer {
+      width: 4px;
+      flex: 0 0 4px;
+      cursor: col-resize;
+      background: transparent;
+      transition: background .12s;
+    }
+    .resizer:hover,
+    .resizer.dragging { background: var(--brand); }
 
-    /* Thread list */
-    .ib-threads { width:310px; flex:0 0 310px; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
-    .ib-threads-head { height:52px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 14px; gap:8px; background:var(--surface); flex-shrink:0; }
-    .ib-threads-head .ib-box-name { font-weight:700; font-size:.95rem; flex:1; }
-    .ib-threads-body { flex:1; overflow-y:auto; }
-    .thread-row { padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
-    .thread-row:hover { background:var(--brand-light); }
-    .thread-row.active { background:#edf7e9; border-left:3px solid var(--brand); padding-left:11px; }
-    .thread-row.unread .thr-subject { font-weight:700; }
-    .thr-from { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px; }
-    .thr-from-name { font-size:.82rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px; }
-    .thr-time { font-size:.68rem; color:var(--text-muted); flex-shrink:0; }
-    .thr-subject { font-size:.88rem; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .thr-preview { font-size:.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    /* ── Left column (nav) ───────────────────────────────────────── */
+    .col-left .col-head {
+      padding: 12px 12px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .col-left .col-head .brand {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1rem; font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: .85rem;
+      background: var(--bg);
+    }
+    .search-input:focus { outline: none; border-color: var(--brand); }
 
-    /* Thread detail */
-    .ib-detail { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--bg); }
-    .ib-detail-head { padding:14px 18px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
-    .ib-detail-subject { font-weight:700; font-size:1.05rem; margin-bottom:4px; }
-    .ib-detail-meta { font-size:.78rem; color:var(--text-muted); display:flex; gap:16px; flex-wrap:wrap; }
-    .ib-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
-    /* Email message card */
-    .email-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
-    .email-card-head { display:flex; gap:12px; align-items:flex-start; padding:12px 16px; border-bottom:1px solid var(--border); }
-    .email-avatar { width:36px; height:36px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; }
-    .email-sender { flex:1; min-width:0; }
-    .email-sender-name { font-weight:700; font-size:.88rem; }
-    .email-sender-addr { font-size:.72rem; color:var(--text-muted); }
-    .email-date { font-size:.72rem; color:var(--text-muted); flex-shrink:0; }
-    .email-card-body { padding:14px 16px; font-size:.9rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; max-height:400px; overflow-y:auto; color:var(--text); }
-    /* Reply composer */
-    .ib-composer { border-top:1px solid var(--border); padding:12px 16px; background:var(--surface); flex-shrink:0; }
-    .ib-composer textarea { width:100%; resize:none; border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; font-size:.9rem; font-family:inherit; line-height:1.5; background:var(--bg); color:var(--text); }
-    .ib-composer textarea:focus { outline:none; border-color:var(--brand); }
-    .ib-composer-actions { display:flex; justify-content:flex-end; margin-top:8px; gap:8px; }
-    /* Empty state */
-    .ib-empty { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--text-muted); }
+    .nav-section { padding: 12px 8px 4px; }
+    .nav-section-head {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 6px 6px;
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text-muted); font-weight: 700;
+    }
+    .nav-section-head .nav-head-title { flex: 1; }
+    .nav-section-head .nav-head-total {
+      font-size: .7rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      padding: 1px 6px;
+      background: rgba(0,0,0,.04);
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+    .nav-section-head .nav-head-total:empty { display: none; }
+    .nav-section-icon-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 2px 5px; font-size: .85rem;
+      border-radius: 4px; color: var(--text-muted); line-height: 1;
+    }
+    .nav-section-icon-btn:hover { background: var(--brand-light); color: var(--brand-dark); }
+    .ib-nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 6px;
+      cursor: pointer; font-size: .88rem;
+      color: var(--text);
+    }
+    .ib-nav-item:hover { background: var(--bg); }
+    .ib-nav-item.active { background: var(--brand-light); color: var(--brand-dark); font-weight: 600; }
+    .ib-nav-item .count {
+      margin-left: auto;
+      font-size: .72rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ib-nav-item.active .count { color: var(--brand-dark); }
+    .ib-nav-item .count.count-unread {
+      color: var(--brand-dark);
+      background: var(--brand-light);
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+    .ib-nav-item.active .count.count-unread {
+      background: var(--brand-dark);
+      color: #fff;
+    }
 
-    @media(max-width:900px) { .ib-nav { display:none; } .ib-threads { width:260px; flex:0 0 260px; } }
+    .col-left .nav-scroll {
+      flex: 1; overflow-y: auto;
+    }
+
+    /* ── Middle column (thread list) ─────────────────────────────── */
+    .col-middle .col-head {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface);
+    }
+    .col-middle .col-head h3 {
+      flex: 1; margin: 0; font-size: .95rem; font-weight: 700;
+    }
+    .col-middle .thread-list { flex: 1; overflow-y: auto; background: var(--surface); }
+
+    .thread-card {
+      display: block; padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      font-size: .85rem;
+    }
+    .thread-card:hover { background: var(--bg); }
+    .thread-card.active { background: var(--brand-light); }
+    .thread-card.unread .thread-from,
+    .thread-card.unread .thread-subject { font-weight: 700; }
+    .thread-card.unread::before {
+      content: ''; display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--brand);
+      margin-right: 6px; vertical-align: middle;
+    }
+    .thread-row1 { display: flex; gap: 8px; align-items: center; }
+    .thread-from { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-time { font-size: .72rem; color: var(--text-muted); flex-shrink: 0; }
+    .thread-subject { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-snippet { margin-top: 3px; font-size: .78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .thread-meta-row { display: flex; gap: 6px; margin-top: 5px; align-items: center; }
+    .property-tag {
+      background: var(--brand-light); color: var(--brand-dark);
+      padding: 1px 6px; border-radius: 4px;
+      font-size: .68rem; font-weight: 600;
+    }
+    .attach-tag { font-size: .72rem; color: var(--text-muted); }
+
+    /* Per-shared-inbox tabs */
+    .inbox-tabs {
+      display: flex; gap: 4px; padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      overflow-x: auto; flex-shrink: 0;
+    }
+    .inbox-tab {
+      background: none; border: 0; padding: 10px 8px;
+      font-size: .85rem; color: var(--text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .inbox-tab:hover { color: var(--text); }
+    .inbox-tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
+    /* ── Right column (thread detail) ────────────────────────────── */
+    .col-right .empty-pane {
+      display: flex; align-items: center; justify-content: center;
+      flex: 1; color: var(--text-muted);
+      font-size: .9rem; padding: 20px;
+    }
+    #thread-detail {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+    .thread-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex: 0 0 auto;
+    }
+    .thread-head h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; }
+    .thread-head .thread-head-meta { font-size: .78rem; color: var(--text-muted); }
+    .thread-head-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+    .messages-scroll { flex: 1; overflow-y: auto; padding: 14px 18px; }
+    .msg {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+    }
+    .msg-head {
+      display: flex; gap: 10px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border); font-size: .82rem;
+    }
+    .msg-head .who { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .msg-head .when { color: var(--text-muted); flex-shrink: 0; }
+    .msg-body { padding: 12px 18px; font-size: .92rem; line-height: 1.6; }
+    .msg-body iframe { width: 100%; border: 0; min-height: 500px; background: #fff; }
+    .msg-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; }
+    .msg.collapsed .msg-body,
+    .msg.collapsed .msg-atts { display: none; }
+    .msg.collapsed .msg-head { cursor: pointer; }
+    .msg.collapsed .msg-head:hover { background: var(--bg); }
+    .msg-snippet { display: none; padding: 0 18px 12px; color: var(--text-muted); font-size: .82rem; }
+    .msg.collapsed .msg-snippet { display: block; cursor: pointer; }
+    .msg.collapsed .msg-snippet:hover { background: var(--bg); }
+    .msg-toggle { font-size: .75rem; color: var(--text-muted); margin-right: 6px; user-select: none; }
+    .msg-atts { padding: 0 14px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .att-chip {
+      display: inline-flex; gap: 6px; align-items: center;
+      padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: .78rem; background: var(--bg);
+    }
+    .att-chip a { color: inherit; text-decoration: none; }
+    .att-chip .att-save { color: var(--brand); font-weight: 600; cursor: pointer; }
+
+    .reply-cta {
+      padding: 10px 18px; border-top: 1px solid var(--border);
+      background: var(--surface); flex: 0 0 auto;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .reply-cta-info { color: var(--text-muted); font-size: .82rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .reply-box {
+      padding: 12px 18px; border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex: 0 0 auto;
+      position: relative;
+    }
+    .reply-box.hidden { display: none; }
+    .reply-box.popped {
+      position: fixed;
+      top: 56px; left: 50%; transform: translateX(-50%);
+      width: 92%; max-width: 760px; max-height: calc(100vh - 96px);
+      overflow-y: auto;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.22);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      z-index: 100;
+    }
+    .reply-box.popped textarea { min-height: 260px; }
+    .reply-popout-backdrop {
+      display: none;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 99;
+    }
+    .reply-popout-backdrop.open { display: block; }
+    .reply-box-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+      font-size: .82rem; color: var(--text-muted);
+    }
+    .reply-box-header .reply-to-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .reply-box-icon-btn {
+      background: none; border: 0; padding: 4px 6px; border-radius: 6px;
+      cursor: pointer; color: var(--text-muted); font-size: 1rem;
+    }
+    .reply-box-icon-btn:hover { background: var(--bg); color: var(--text); }
+    .reply-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+    .pulse-slot { flex: 0 0 auto; max-height: 50%; overflow-y: auto;
+                  border-top: 1px solid var(--border); background: var(--bg); }
+
+    /* ── Rich-text composer ──────────────────────────────────────── */
+    .rt-composer { border: 1px solid var(--border); border-radius: 8px;
+                   background: var(--surface); display: flex; flex-direction: column; }
+    .rt-toolbar { display: flex; flex-wrap: wrap; gap: 2px;
+                  padding: 6px 8px; border-bottom: 1px solid var(--border);
+                  background: var(--bg); align-items: center; border-radius: 8px 8px 0 0; }
+    .rt-toolbar button, .rt-toolbar select, .rt-toolbar input[type="color"] {
+      background: none; border: 0; padding: 4px 8px; border-radius: 4px;
+      cursor: pointer; font-size: .85rem; color: var(--text);
+      min-width: 28px; height: 28px;
+    }
+    .rt-toolbar button:hover, .rt-toolbar select:hover { background: var(--surface); }
+    .rt-toolbar button.active { background: var(--brand-light); color: var(--brand-dark); }
+    .rt-toolbar select { padding: 2px 6px; }
+    .rt-toolbar input[type="color"] { padding: 0; width: 28px; height: 28px; border-radius: 4px; }
+    .rt-toolbar .rt-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+    .rt-att-btn { display: inline-flex; align-items: center; justify-content: center;
+                  width: 28px; height: 28px; border-radius: 4px; cursor: pointer; }
+    .rt-att-btn:hover { background: var(--surface); }
+    .rt-body { padding: 10px 12px; min-height: 80px;
+               font-size: .92rem; line-height: 1.55; outline: none;
+               word-wrap: break-word; max-height: 360px; overflow-y: auto; }
+    .rt-body:empty:before {
+      content: attr(data-placeholder); color: var(--text-muted);
+      pointer-events: none;
+    }
+    .rt-body ul, .rt-body ol { padding-left: 24px; margin: 8px 0; }
+    .rt-attachments { display: flex; flex-wrap: wrap; gap: 6px;
+                      padding: 8px 12px; border-top: 1px dashed var(--border);
+                      background: var(--bg); border-radius: 0 0 8px 8px; }
+    .rt-attachments:empty { display: none; }
+    .rt-att-chip { display: inline-flex; align-items: center; gap: 6px;
+                   background: var(--surface); border: 1px solid var(--border);
+                   padding: 4px 8px; border-radius: 6px; font-size: .78rem; }
+    .rt-att-chip button { background: none; border: 0; color: var(--text-muted);
+                          cursor: pointer; font-size: 1rem; padding: 0 2px; }
+    .rt-att-chip button:hover { color: #b00; }
+
+    /* Signature preview in compose modal */
+    .sig-preview-box { border: 1px solid var(--border); border-radius: 6px;
+                       background: #fff; overflow: hidden; }
+    .sig-preview-box iframe { width: 100%; min-height: 80px; max-height: 160px;
+                              border: 0; display: block; }
+
+    /* Contact autocomplete */
+    .contact-wrap { position: relative; }
+    .contact-dropdown {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+      max-height: 240px; overflow-y: auto; z-index: 5;
+      display: none; margin-top: 2px;
+    }
+    .contact-dropdown.open { display: block; }
+    .contact-item { padding: 8px 12px; cursor: pointer; font-size: .85rem;
+                    display: flex; flex-direction: column; gap: 1px; }
+    .contact-item:hover, .contact-item.active { background: var(--brand-light); }
+    .contact-item-name { font-weight: 600; color: var(--text); }
+    .contact-item-email { color: var(--text-muted); font-size: .78rem; }
+
+    /* ── Modal + form-row (not in OS style.css) ──────────────────── */
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center; padding:20px; }
+    .modal-backdrop.open { display:flex; }
+    .modal { background:#fff; border-radius:12px; padding:24px 28px; width:min(620px,100%); max-height:90vh; overflow-y:auto; }
+    .modal-title { font-size:1.05rem; font-weight:700; margin-bottom:16px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:560px) { .form-row { grid-template-columns:1fr; } }
+    .btn-sm { padding:5px 10px; font-size:.78rem; }
+    .btn-danger { background:#dc2626; color:#fff; border:none; }
+    .btn-danger:hover { background:#b91c1c; }
+    .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:.7rem; font-weight:700; }
+    .badge-green { background:#dcfce7; color:#15803d; }
+
+    /* ── Mobile ──────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .inbox-3col { flex-direction: column; height: auto; overflow: visible; }
+      .col-left, .col-middle, .col-right { width: 100% !important; flex: 0 0 auto; border-right: none; border-bottom: 1px solid var(--border); }
+      .resizer { display: none; }
+      .col-left .nav-scroll { max-height: 320px; }
+      .col-middle .thread-list { max-height: 480px; }
+      .messages-scroll { max-height: 60vh; }
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -72,180 +363,1094 @@
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
-  <div class="ib-wrap">
-    <!-- Left nav -->
-    <div class="ib-nav">
-      <div class="ib-nav-head">
-        <span style="font-size:1.2rem;">📧</span>
-        <span class="ib-app-name">Inbox</span>
-      </div>
-      <div class="ib-nav-body" id="ib-nav-body">
-        <p class="text-muted text-sm" style="padding:14px;">Loading…</p>
-      </div>
-    </div>
+  <main class="inbox-3col">
 
-    <!-- Thread list -->
-    <div class="ib-threads">
-      <div class="ib-threads-head">
-        <span class="ib-box-name" id="ib-box-name">Inbox</span>
-        <button style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;" onclick="loadThreads()" title="Refresh">↺</button>
+    <!-- LEFT: nav (compose lives here) -->
+    <aside class="col col-left" id="col-left">
+      <div class="col-head">
+        <div class="brand"><span>📧</span><span>Inbox</span></div>
+        <button class="btn btn-primary" onclick="openCompose()" style="width:100%;margin-top:8px;">✏️ Compose</button>
       </div>
-      <div class="ib-threads-body" id="ib-threads-body">
-        <div class="ib-empty" style="padding:48px 0;"><div style="font-size:2rem;">📬</div><p>Select an inbox</p></div>
+      <div class="nav-scroll">
+        <div class="nav-section">
+          <div class="nav-section-head"><span class="nav-head-title">Inbox</span></div>
+          <div class="ib-nav-item active" data-filter="open"><span>📬</span><span>Open</span><span class="count" id="count-open"></span></div>
+          <div class="ib-nav-item" data-filter="archived"><span>📁</span><span>Archived</span></div>
+          <div class="ib-nav-item" data-filter="assigned"><span>👤</span><span>Assigned to me</span></div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-head">
+            <span class="nav-head-title">Shared inboxes</span>
+            <span class="nav-head-total" id="shared-total" title="Total open across all shared inboxes"></span>
+          </div>
+          <div id="shared-list">
+            <p class="text-muted text-sm" style="padding: 6px 10px;">Loading…</p>
+          </div>
+        </div>
       </div>
-    </div>
+    </aside>
 
-    <!-- Detail -->
-    <div class="ib-detail" id="ib-detail">
-      <div class="ib-empty">
-        <div style="font-size:2.5rem;">📧</div>
-        <p>Select a thread to read</p>
+    <div class="resizer" id="rz-left" data-resize-prev="#col-left" data-storage-key="inbox_col_left_w" data-min="180" data-max="400"></div>
+
+    <!-- MIDDLE: thread list -->
+    <section class="col col-middle" id="col-middle">
+      <div class="col-head" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <h3 id="active-inbox-title" style="flex:1;margin:0;">All open threads</h3>
+          <button class="btn btn-secondary btn-sm" onclick="refreshThreads()" title="Refresh">↻</button>
+        </div>
+        <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
+      </div>
+      <nav class="inbox-tabs" id="inbox-tabs" style="display:none;">
+        <button class="inbox-tab" data-tab="unassigned">Unassigned</button>
+        <button class="inbox-tab" data-tab="assigned">Assigned</button>
+        <button class="inbox-tab" data-tab="snoozed">Snoozed</button>
+        <button class="inbox-tab" data-tab="archived">Archived</button>
+        <button class="inbox-tab" data-tab="trash">Trash</button>
+        <button class="inbox-tab" data-tab="spam">Spam</button>
+      </nav>
+      <div class="thread-list" id="threads">
+        <p class="text-muted text-sm" style="padding:14px;">Loading threads…</p>
+      </div>
+    </section>
+
+    <div class="resizer" id="rz-middle" data-resize-prev="#col-middle" data-storage-key="inbox_col_middle_w" data-min="280" data-max="600"></div>
+
+    <!-- RIGHT: selected thread -->
+    <section class="col col-right" id="col-right">
+      <div id="thread-detail">
+        <div class="empty-pane">Select a thread on the left to view it</div>
+      </div>
+    </section>
+
+  </main>
+</main>
+
+<!-- Compose modal -->
+<div class="modal-backdrop" id="modal-compose">
+  <div class="modal">
+    <div class="modal-title">New email</div>
+    <form onsubmit="submitCompose(event)">
+      <div class="form-group">
+        <label class="form-label">Send from *</label>
+        <select class="form-select" id="c-from" required onchange="refreshComposeSignatureRow()"></select>
+        <div class="text-muted text-sm" style="margin-top:6px;">Only aliases routed to a shared inbox you can access are shown.</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">To *</label>
+          <div class="contact-wrap">
+            <input class="form-input" id="c-to" type="text" placeholder="name@example.com (comma for multiple)" required autocomplete="off">
+            <div class="contact-dropdown" id="c-to-suggest"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cc</label>
+          <div class="contact-wrap">
+            <input class="form-input" id="c-cc" type="text" placeholder="optional" autocomplete="off">
+            <div class="contact-dropdown" id="c-cc-suggest"></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subject *</label>
+        <input class="form-input" id="c-subject" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message *</label>
+        <div id="c-body-rich"></div>
+      </div>
+      <div id="compose-sig-preview-card" style="display:none;margin-bottom:8px;">
+        <div class="text-muted text-sm" style="margin-bottom:4px;">Signature preview</div>
+        <div class="sig-preview-box"><iframe id="compose-sig-preview" sandbox=""></iframe></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <label id="compose-sig-row" class="text-sm text-muted" style="display:none;">
+          <input type="checkbox" id="compose-include-sig" checked onchange="updateComposeSigPreview()"> Include signature
+        </label>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button type="button" class="btn btn-secondary" onclick="closeCompose()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Send</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Link to property modal -->
+<div class="modal-backdrop" id="modal-link-prop">
+  <div class="modal">
+    <div class="modal-title">Link thread to a property</div>
+    <div class="form-group">
+      <label class="form-label">Search</label>
+      <input class="form-input" id="lp-search" placeholder="address, city, owner…" oninput="searchPropertiesDebounced(this.value)">
+      <select class="form-select" id="lp-results" size="6" style="margin-top:8px;"></select>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:8px;">
+      <button class="btn btn-danger btn-sm" onclick="unlinkProperty()" id="lp-unlink-btn" style="display:none;">Remove link</button>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn btn-secondary" onclick="closeLinkPropertyDialog()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmLinkProperty()">Link</button>
       </div>
     </div>
   </div>
-</main>
+</div>
+
+<!-- Save attachment to property modal -->
+<div class="modal-backdrop" id="modal-save-att">
+  <div class="modal">
+    <div class="modal-title">Save attachment to property</div>
+    <input type="hidden" id="sa-att-id">
+    <div class="form-group">
+      <label class="form-label">Property</label>
+      <input class="form-input" id="sa-search" placeholder="search…" oninput="saSearchDebounced(this.value)">
+      <select class="form-select" id="sa-results" size="6" style="margin-top:8px;"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Folder</label>
+        <input class="form-input" id="sa-folder" value="Email attachments">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Filename</label>
+        <input class="form-input" id="sa-filename" required>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-secondary" onclick="closeSaveAtt()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmSaveAtt()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script>window.NAV_CURRENT = 'inbox';</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  let inboxes=[], threads=[], activeInbox=null, activeThreadId=null;
-
-  async function init() {
-    const me = await requireAuth(); if (!me) return;
-    try {
-      inboxes = await satelliteApiFetch('inbox', '/api/shared-inboxes');
-      renderNav();
-      if (inboxes.length) openInbox(inboxes[0]);
-    } catch(e) {
-      document.getElementById('ib-nav-body').innerHTML = `<p class="text-muted text-sm" style="padding:14px;">Error: ${escHtml(e.message)}</p>`;
+  // Pulse widget needs the host's JWT under a known global.
+  window.PULSE_AUTH = { token: getToken() };
+</script>
+<script>
+// ── API path rewriter ─────────────────────────────────────────────
+// All inbox routes in the OS are mounted under /api/inbox/. The satellite
+// code below uses bare /api/shared-inboxes, /api/threads, etc. — wrap
+// apiFetch so those bare paths automatically route to /api/inbox/...
+(function () {
+  const INBOX_PREFIXES = [
+    '/api/shared-inboxes',
+    '/api/threads',
+    '/api/messages',
+    '/api/mailboxes',
+    '/api/alias-routes',
+    '/api/attachments',
+    '/api/contacts',
+    '/api/properties'
+  ];
+  const _orig = window.apiFetch;
+  window.apiFetch = function (path, opts) {
+    for (const pre of INBOX_PREFIXES) {
+      if (path === pre || path.startsWith(pre + '/') || path.startsWith(pre + '?')) {
+        path = '/api/inbox' + path;
+        break;
+      }
     }
-  }
+    return _orig(path, opts);
+  };
+})();
 
-  function renderNav() {
-    const el = document.getElementById('ib-nav-body');
-    if (!inboxes.length) { el.innerHTML=`<p class="text-muted text-sm" style="padding:14px;">No inboxes configured.</p>`; return; }
-    el.innerHTML = `<div class="ib-nav-section">Shared Inboxes</div>`+
-      inboxes.map(b => `
-        <div class="ib-nav-row ${activeInbox?.id===b.id?'active':''}" onclick='openInbox(${JSON.stringify(b)})'>
-          <span>📬</span>
-          <span class="ib-nav-name">${escHtml(b.name||b.email_address||'Inbox')}</span>
-          ${b.unread_count>0?`<span class="ib-unread">${b.unread_count}</span>`:''}
-        </div>`).join('');
-  }
+// ── HTML escape (escapes single quotes too) ───────────────────────
+function escapeHtml(s) {
+  return (s == null ? '' : String(s)).replace(/[<>&"']/g, ch => ({
+    '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
 
-  async function openInbox(inbox) {
-    activeInbox = inbox; activeThreadId = null;
-    document.getElementById('ib-box-name').textContent = inbox.name || inbox.email_address || 'Inbox';
-    document.getElementById('ib-detail').innerHTML = `<div class="ib-empty"><div style="font-size:2.5rem;">📧</div><p>Select a thread to read</p></div>`;
-    renderNav();
-    await loadThreads();
-  }
+// ── Inbox API wrappers ────────────────────────────────────────────
+async function listSharedInboxes()        { return apiFetch('/api/shared-inboxes'); }
+async function listAliasRoutes()          { return apiFetch('/api/alias-routes'); }
+async function listThreads(params = {})   {
+  const qs = new URLSearchParams(params).toString();
+  return apiFetch('/api/threads' + (qs ? '?' + qs : ''));
+}
+async function getThread(id)              { return apiFetch('/api/threads/' + id); }
+async function patchThread(id, body)      { return apiFetch('/api/threads/' + id, { method:'PATCH', body: JSON.stringify(body) }); }
+async function sendReply(threadId, body)  { return apiFetch('/api/messages/threads/' + threadId + '/reply', { method:'POST', body: JSON.stringify(body) }); }
+async function composeMessage(body)       { return apiFetch('/api/messages/compose', { method:'POST', body: JSON.stringify(body) }); }
+async function saveAttachmentToProperty(attId, body) {
+  return apiFetch('/api/attachments/' + attId + '/save-to-property', { method:'POST', body: JSON.stringify(body) });
+}
+function attachmentUrl(attId)             { return '/api/inbox/attachments/' + attId; }
+async function searchProperties(q)        { return apiFetch('/api/properties?q=' + encodeURIComponent(q || '')); }
 
-  async function loadThreads() {
-    if (!activeInbox) return;
-    const el = document.getElementById('ib-threads-body');
-    el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">Loading…</p>`;
+// ── Utility helpers ───────────────────────────────────────────────
+function relativeTime(iso) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60)        return 'just now';
+  if (diff < 3600)      return Math.floor(diff / 60) + 'm';
+  if (diff < 86400)     return Math.floor(diff / 3600) + 'h';
+  if (diff < 86400 * 7) return Math.floor(diff / 86400) + 'd';
+  return new Date(iso).toLocaleDateString();
+}
+function propertyLabel(p) {
+  if (!p) return '';
+  const addr = [p.address_line1, p.unit].filter(Boolean).join(' ');
+  const where = [p.city, p.state].filter(Boolean).join(', ');
+  return [addr, where].filter(Boolean).join(' — ');
+}
+
+// ── Application state ─────────────────────────────────────────────
+const STATE = {
+  user:            null,
+  inboxes:         [],
+  filter:          'open',
+  activeInboxSlug: null,
+  activeTab:       'unassigned',
+  threads:         [],
+  searchQuery:     '',
+  activeThreadId:  null,
+  activeThread:    null,
+  composeAliases:  [],
+  sharedInboxes:   null
+};
+
+// ── Init ──────────────────────────────────────────────────────────
+async function init() {
+  STATE.user = await requireAuth();
+  if (!STATE.user) return;
+  restoreColumnWidths();
+  setupResizers();
+  attachLeftNavHandlers();
+  attachSearchHandler();
+  await loadInboxes();
+  await refreshThreads();
+
+  const initialThread = new URLSearchParams(location.search).get('thread');
+  if (initialThread) selectThread(initialThread);
+
+  window.addEventListener('focus', refreshUnreadCounts);
+}
+
+// ── Column resizers ───────────────────────────────────────────────
+function restoreColumnWidths() {
+  document.querySelectorAll('.resizer').forEach(r => {
+    const prev = document.querySelector(r.dataset.resizePrev);
     try {
-      const qs = activeInbox.id ? `?shared_inbox_id=${activeInbox.id}` : '';
-      threads = await satelliteApiFetch('inbox', '/api/threads'+qs);
-      renderThreads();
-    } catch(e) { el.innerHTML=`<p class="text-muted text-sm" style="padding:14px;">Error: ${escHtml(e.message)}</p>`; }
+      const saved = parseInt(localStorage.getItem(r.dataset.storageKey), 10);
+      if (saved && !Number.isNaN(saved)) prev.style.width = saved + 'px';
+    } catch {}
+  });
+}
+function setupResizers() {
+  document.querySelectorAll('.resizer').forEach(r => {
+    const prev = document.querySelector(r.dataset.resizePrev);
+    const min = parseInt(r.dataset.min, 10) || 180;
+    const max = parseInt(r.dataset.max, 10) || 600;
+    r.addEventListener('mousedown', startResize);
+    function startResize(e) {
+      const startX = e.clientX;
+      const startW = prev.offsetWidth;
+      r.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      function onMove(ev) {
+        let w = startW + (ev.clientX - startX);
+        if (w < min) w = min;
+        if (w > max) w = max;
+        prev.style.width = w + 'px';
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        r.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        try { localStorage.setItem(r.dataset.storageKey, prev.offsetWidth); } catch {}
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    }
+  });
+}
+
+// ── Left nav ──────────────────────────────────────────────────────
+function attachLeftNavHandlers() {
+  document.querySelectorAll('.ib-nav-item[data-filter]').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.ib-nav-item').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      STATE.filter = el.dataset.filter;
+      STATE.activeInboxSlug = null;
+      updateActiveInboxTitle();
+      updateInboxTabsVisibility();
+      refreshThreads();
+    });
+  });
+  document.querySelectorAll('.inbox-tab[data-tab]').forEach(el => {
+    el.addEventListener('click', () => {
+      STATE.activeTab = el.dataset.tab;
+      document.querySelectorAll('.inbox-tab').forEach(x => x.classList.toggle('active', x === el));
+      refreshThreads();
+    });
+  });
+}
+function updateInboxTabsVisibility() {
+  const bar = document.getElementById('inbox-tabs');
+  if (!bar) return;
+  if (STATE.activeInboxSlug) {
+    bar.style.display = '';
+    bar.querySelectorAll('.inbox-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === STATE.activeTab));
+  } else {
+    bar.style.display = 'none';
+  }
+}
+function updateActiveInboxTitle() {
+  let title;
+  if (STATE.activeInboxSlug) {
+    const inb = STATE.inboxes.find(i => i.slug === STATE.activeInboxSlug);
+    title = (inb?.icon || '📨') + ' ' + (inb?.name || STATE.activeInboxSlug);
+  } else if (STATE.filter === 'assigned') {
+    title = 'Assigned to me';
+  } else if (STATE.filter === 'archived') {
+    title = 'Archived threads';
+  } else {
+    title = 'All open threads';
+  }
+  document.getElementById('active-inbox-title').textContent = title;
+}
+
+async function loadInboxes() {
+  try {
+    STATE.inboxes = await listSharedInboxes();
+  } catch (err) {
+    showToast(err.message, 'error');
+    STATE.inboxes = [];
+  }
+  const el = document.getElementById('shared-list');
+  const totalEl = document.getElementById('shared-total');
+  if (totalEl) totalEl.textContent = '';
+
+  if (!STATE.inboxes.length) {
+    el.innerHTML = `<p class="text-muted text-sm" style="padding:6px 10px;">None yet — ask an admin to create one.</p>`;
+    return;
   }
 
-  function renderThreads() {
-    const el = document.getElementById('ib-threads-body');
-    if (!threads.length) { el.innerHTML=`<div class="ib-empty" style="padding:40px 0;"><div style="font-size:2rem;">🎉</div><p>All caught up!</p></div>`; return; }
-    el.innerHTML = threads.map(t => {
-      const from = t.from_name || t.from_address || '(unknown)';
-      const time = t.last_message_at ? relTime(t.last_message_at) : '';
-      const isActive = t.id === activeThreadId;
-      return `<div class="thread-row ${t.unread_count>0?'unread':''} ${isActive?'active':''}" onclick="openThread('${t.id}')">
-        <div class="thr-from"><span class="thr-from-name">${escHtml(from)}</span><span class="thr-time">${time}</span></div>
-        <div class="thr-subject">${escHtml(t.subject||'(no subject)')}</div>
-        <div class="thr-preview">${escHtml(t.snippet||'')}</div>
-      </div>`;
-    }).join('');
-  }
+  const total = STATE.inboxes.reduce((acc, i) => acc + (i.open_count || 0), 0);
+  if (totalEl && total > 0) totalEl.textContent = total.toLocaleString();
+  const openCountEl = document.getElementById('count-open');
+  if (openCountEl) openCountEl.textContent = total > 0 ? total.toLocaleString() : '';
 
-  async function openThread(id) {
-    activeThreadId = id;
-    renderThreads();
-    const det = document.getElementById('ib-detail');
-    det.innerHTML = `<div class="ib-empty"><div style="font-size:1.5rem;">⏳</div><p>Loading…</p></div>`;
-    try {
-      const [thread, msgs] = await Promise.all([
-        satelliteApiFetch('inbox', '/api/threads/'+id),
-        satelliteApiFetch('inbox', '/api/threads/'+id+'/messages').catch(()=>[]),
-      ]);
-      renderDetail(thread, msgs);
-    } catch(e) { det.innerHTML=`<p class="text-muted text-sm" style="padding:16px;">Error: ${escHtml(e.message)}</p>`; }
-  }
-
-  function renderDetail(thread, msgs) {
-    const from = thread.from_name ? `${thread.from_name} <${thread.from_address}>` : thread.from_address||'';
-    const to   = (thread.to_addresses||[]).join(', ');
-    const msgCards = msgs.map(m => {
-      const senderName = m.from_name || m.from_address || 'Unknown';
-      const initial = senderName[0]?.toUpperCase() || '?';
-      const date = m.date ? new Date(m.date).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-      const body = (m.body_text || (m.body_html ? stripHtml(m.body_html) : '')) || '(no content)';
-      return `<div class="email-card">
-        <div class="email-card-head">
-          <div class="email-avatar" style="background:${avatarColor(m.from_address||senderName)}">${escHtml(initial)}</div>
-          <div class="email-sender">
-            <div class="email-sender-name">${escHtml(senderName)}</div>
-            <div class="email-sender-addr">${escHtml(m.from_address||'')}</div>
-          </div>
-          <div class="email-date">${date}</div>
-        </div>
-        <div class="email-card-body">${escHtml(body)}</div>
-      </div>`;
-    }).join('');
-
-    document.getElementById('ib-detail').innerHTML = `
-      <div class="ib-detail-head">
-        <div class="ib-detail-subject">${escHtml(thread.subject||'(no subject)')}</div>
-        <div class="ib-detail-meta">
-          ${from?`<span>From: ${escHtml(from)}</span>`:''}
-          ${to?`<span>To: ${escHtml(to)}</span>`:''}
-        </div>
+  el.innerHTML = STATE.inboxes.map(i => {
+    const open = i.open_count || 0;
+    const unread = i.unread_count || 0;
+    let badge = '';
+    if (unread > 0)      badge = `<span class="count count-unread" title="${unread} unread">${unread}</span>`;
+    else if (open > 0)   badge = `<span class="count" title="${open} open">${open}</span>`;
+    return `
+      <div class="ib-nav-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" data-inbox-slug="${escapeHtml(i.slug)}">
+        <span>${escapeHtml(i.icon || '📨')}</span>
+        <span>${escapeHtml(i.name)}</span>
+        ${badge}
       </div>
-      <div class="ib-messages" id="ib-msgs">${msgCards||'<p class="text-muted text-sm">No messages.</p>'}</div>
-      <div class="ib-composer">
-        <textarea id="reply-ta" rows="3" placeholder="Reply…"></textarea>
-        <div class="ib-composer-actions">
-          <button class="btn btn-secondary" style="padding:8px 16px;font-size:.85rem;" onclick="document.getElementById('reply-ta').value=''">Clear</button>
-          <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="sendReply('${thread.id}')">↩ Send Reply</button>
-        </div>
-      </div>`;
-    const msgEl = document.getElementById('ib-msgs');
-    if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
-  }
+    `;
+  }).join('');
+  el.querySelectorAll('.ib-nav-item').forEach(el2 => {
+    el2.addEventListener('click', () => {
+      document.querySelectorAll('.ib-nav-item').forEach(x => x.classList.remove('active'));
+      el2.classList.add('active');
+      STATE.activeInboxSlug = el2.dataset.inboxSlug;
+      STATE.filter = 'open';
+      STATE.activeTab = 'unassigned';
+      updateActiveInboxTitle();
+      updateInboxTabsVisibility();
+      refreshThreads();
+    });
+  });
+}
 
-  async function sendReply(threadId) {
-    const ta = document.getElementById('reply-ta'); if (!ta) return;
-    const text = ta.value.trim(); if (!text) return;
+// ── Search ────────────────────────────────────────────────────────
+function attachSearchHandler() {
+  let timer = null;
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      STATE.searchQuery = e.target.value.trim().toLowerCase();
+      renderThreadList();
+    }, 150);
+  });
+}
+function matchesSearch(t) {
+  if (!STATE.searchQuery) return true;
+  const haystack = [
+    t.subject || '',
+    (t.participants || []).join(' '),
+    t.address_line1 || '',
+    t.city || ''
+  ].join(' ').toLowerCase();
+  return haystack.includes(STATE.searchQuery);
+}
+
+// ── Thread list ───────────────────────────────────────────────────
+async function refreshThreads() {
+  const params = {};
+  if (STATE.activeInboxSlug) {
+    params.inbox = STATE.activeInboxSlug;
+    params.tab = STATE.activeTab || 'unassigned';
+  } else if (STATE.filter === 'archived') {
+    params.status = 'archived';
+  } else if (STATE.filter === 'assigned') {
+    params.assigned_to_me = '1';
+  } else {
+    params.status = 'open';
+  }
+  try {
+    STATE.threads = await listThreads(params);
+  } catch (err) {
+    showToast(err.message, 'error');
+    STATE.threads = [];
+  }
+  renderThreadList();
+}
+function renderThreadList() {
+  const visible = STATE.threads.filter(matchesSearch);
+  const el = document.getElementById('threads');
+  if (!visible.length) {
+    el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">No threads${STATE.searchQuery ? ' match your search' : ''}.</p>`;
+    return;
+  }
+  el.innerHTML = visible.map(t => threadCardHtml(t)).join('');
+  el.querySelectorAll('.thread-card').forEach(card => {
+    card.addEventListener('click', () => selectThread(card.dataset.threadId));
+  });
+  refreshUnreadCounts();
+}
+function threadCardHtml(t) {
+  const from = (t.participants && t.participants[0]) || '(no sender)';
+  const subj = t.subject || '(no subject)';
+  const tag = t.address_line1
+    ? `<span class="property-tag" title="${escapeHtml(propertyLabel(t))}">🏠 ${escapeHtml(t.address_line1)}</span>`
+    : '';
+  const att = t.has_attachments ? '<span class="attach-tag">📎</span>' : '';
+  const assigned = t.assigned_name ? `<span class="attach-tag">👤 ${escapeHtml(t.assigned_name.split(' ')[0])}</span>` : '';
+  const active = STATE.activeThreadId === t.id ? 'active' : '';
+  return `
+    <div class="thread-card ${t.unread ? 'unread' : ''} ${active}" data-thread-id="${escapeHtml(t.id)}">
+      <div class="thread-row1">
+        <span class="thread-from">${escapeHtml(from)}</span>
+        <span class="thread-time">${relativeTime(t.last_message_at)}</span>
+      </div>
+      <div class="thread-subject">${escapeHtml(subj)}</div>
+      <div class="thread-meta-row">${tag}${att}${assigned}</div>
+    </div>
+  `;
+}
+
+// ── Selected thread ───────────────────────────────────────────────
+async function selectThread(threadId) {
+  STATE.activeThreadId = threadId;
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set('thread', threadId);
+    history.replaceState(null, '', u.toString());
+  } catch {}
+  renderThreadList();
+  document.getElementById('thread-detail').innerHTML = '<div class="empty-pane">Loading…</div>';
+  try {
+    STATE.activeThread = await getThread(threadId);
+  } catch (err) {
+    document.getElementById('thread-detail').innerHTML = `<div class="empty-pane">${escapeHtml(err.message)}</div>`;
+    return;
+  }
+  renderThreadDetail();
+}
+
+function renderThreadDetail() {
+  const t = STATE.activeThread;
+  if (!t) return;
+  const headParts = [];
+  if (t.inbox_name) headParts.push(`<span>${escapeHtml(t.inbox_icon || '📨')} ${escapeHtml(t.inbox_name)}</span>`);
+  headParts.push(`<span>${t.message_count} message${t.message_count === 1 ? '' : 's'}</span>`);
+  if (t.assigned_name) headParts.push(`<span>👤 ${escapeHtml(t.assigned_name)}</span>`);
+  if (t.address_line1) headParts.push(`<span class="property-tag">🏠 ${escapeHtml(t.address_line1)}, ${escapeHtml(t.city || '')}</span>`);
+
+  const lastInbound = [...(t.messages || [])].reverse().find(m => !m.is_outbound);
+  const replyTo = lastInbound
+    ? (lastInbound.from_name ? `${lastInbound.from_name} <${lastInbound.from_email}>` : lastInbound.from_email)
+    : (t.participants?.[0] || '(no recipient)');
+
+  const lastIdx = (t.messages || []).length - 1;
+  const messagesHtml = (t.messages || []).map((m, i) => messageHtml(m, i === lastIdx)).join('');
+
+  document.getElementById('thread-detail').innerHTML = `
+    <div class="thread-head">
+      <h2>${escapeHtml(t.subject || '(no subject)')}</h2>
+      <div class="thread-head-meta">${headParts.join(' • ')}</div>
+      <div class="thread-head-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('snoozed')">${t.status === 'snoozed' ? '⏰ Wake up' : '😴 Snooze'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('archived')">${t.status === 'archived' ? '📥 Unarchive' : '📁 Archive'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore' : '🗑 Trash'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Spam'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
+      </div>
+    </div>
+    <div class="messages-scroll" id="messages-scroll">${messagesHtml}</div>
+    <div class="reply-cta" id="reply-cta">
+      <span class="reply-cta-info">Reply to <strong>${escapeHtml(replyTo)}</strong></span>
+      <button class="btn btn-primary btn-sm" onclick="openInlineReply()">↩ Reply</button>
+    </div>
+    <div class="reply-popout-backdrop" id="reply-popout-backdrop" onclick="closeReplyPopout()"></div>
+    <div class="reply-box hidden" id="reply-box">
+      <div class="reply-box-header">
+        <span class="reply-to-label">Reply to <strong>${escapeHtml(replyTo)}</strong></span>
+        <button class="reply-box-icon-btn" id="reply-popout-btn" title="Pop out" onclick="toggleReplyPopout()">⤢</button>
+        <button class="reply-box-icon-btn" title="Close" onclick="closeInlineReply()">✕</button>
+      </div>
+      <div id="reply-body-rich"></div>
+      <div class="reply-actions">
+        <button class="btn btn-secondary" onclick="closeInlineReply()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitReply()">Send reply</button>
+      </div>
+    </div>
+    <div class="pulse-slot" id="pulse-slot" data-entity-type="inbox_thread" data-entity-id="${escapeHtml(t.id)}"></div>
+  `;
+  const scroll = document.getElementById('messages-scroll');
+  if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  document.querySelectorAll('.msg.expanded iframe').forEach(autoSizeIframe);
+  if (window.Pulse && window.Pulse.mountSlots) window.Pulse.mountSlots();
+  REPLY_COMPOSER = null;
+}
+
+function toggleMsg(el) {
+  const msg = el.closest('.msg');
+  if (!msg) return;
+  const wasCollapsed = msg.classList.contains('collapsed');
+  msg.classList.toggle('collapsed');
+  msg.classList.toggle('expanded');
+  const toggle = msg.querySelector('.msg-toggle');
+  if (toggle) toggle.textContent = msg.classList.contains('expanded') ? '▾' : '▸';
+  if (wasCollapsed) {
+    const iframe = msg.querySelector('iframe');
+    if (iframe) autoSizeIframe(iframe);
+  }
+}
+
+function autoSizeIframe(iframe) {
+  const doSize = () => {
     try {
-      await satelliteApiFetch('inbox', '/api/messages/threads/'+threadId+'/reply', {method:'POST',body:JSON.stringify({body_text:text})});
-      ta.value = ''; showToast('Reply sent'); await openThread(threadId);
-    } catch(e) { showToast(e.message,'error'); }
+      const h = iframe.contentDocument?.body?.scrollHeight;
+      if (h && h > 100) iframe.style.height = (h + 20) + 'px';
+    } catch (e) {}
+  };
+  if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+    doSize();
+  } else {
+    iframe.addEventListener('load', doSize, { once: true });
+  }
+}
+
+function messageHtml(m, isExpanded) {
+  const who = m.is_outbound
+    ? `<strong>${escapeHtml(m.sent_by_name || 'You')}</strong> <span class="text-muted">via ${escapeHtml(m.delivered_to_alias || m.from_email)}</span>`
+    : `<strong>${escapeHtml(m.from_name || m.from_email)}</strong> <span class="text-muted">&lt;${escapeHtml(m.from_email)}&gt;</span>`;
+  const when = new Date(m.received_at).toLocaleString();
+  const body = m.body_html
+    ? `<iframe srcdoc="${escapeHtml(m.body_html)}" sandbox="allow-same-origin"></iframe>`
+    : `<pre>${escapeHtml(m.body_text || m.snippet || '(empty)')}</pre>`;
+  const atts = (m.attachments || []).map(a => `
+    <span class="att-chip">
+      <a href="${attachmentUrl(a.id)}" target="_blank" rel="noopener">📎 ${escapeHtml(a.filename)}</a>
+      <span class="att-save" onclick="openSaveAtt('${escapeHtml(a.id)}', '${escapeHtml(a.filename).replace(/'/g, '&#39;')}')">↓ Save to property</span>
+      ${a.saved ? '<span class="badge badge-green">Saved</span>' : ''}
+    </span>
+  `).join('');
+  const snippet = (m.snippet || m.body_text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  const stateClass = isExpanded ? 'expanded' : 'collapsed';
+  const toggleIcon = isExpanded ? '▾' : '▸';
+  return `
+    <div class="msg ${stateClass}">
+      <div class="msg-head" onclick="toggleMsg(this)">
+        <span class="msg-toggle">${toggleIcon}</span>
+        <span class="who">${who}</span>
+        <span class="when">${when}</span>
+      </div>
+      <div class="msg-snippet" onclick="toggleMsg(this)">${escapeHtml(snippet)}</div>
+      <div class="msg-body">${body}</div>
+      ${atts ? `<div class="msg-atts">${atts}</div>` : ''}
+    </div>
+  `;
+}
+
+// ── Reply panel ───────────────────────────────────────────────────
+let REPLY_COMPOSER = null;
+function openInlineReply() {
+  const cta = document.getElementById('reply-cta');
+  const box = document.getElementById('reply-box');
+  if (cta) cta.style.display = 'none';
+  if (box) {
+    box.classList.remove('hidden');
+    box.classList.remove('popped');
+    const slot = document.getElementById('reply-body-rich');
+    if (slot && !REPLY_COMPOSER) {
+      REPLY_COMPOSER = createRichComposer(slot, { placeholder: 'Type your reply…' });
+    }
+    if (REPLY_COMPOSER) REPLY_COMPOSER.focus();
+  }
+}
+function closeInlineReply() {
+  const cta = document.getElementById('reply-cta');
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (box) { box.classList.add('hidden'); box.classList.remove('popped'); }
+  if (backdrop) backdrop.classList.remove('open');
+  if (cta) cta.style.display = '';
+}
+function toggleReplyPopout() {
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (!box) return;
+  const isPopped = box.classList.toggle('popped');
+  if (backdrop) backdrop.classList.toggle('open', isPopped);
+  if (REPLY_COMPOSER) REPLY_COMPOSER.focus();
+}
+function closeReplyPopout() {
+  const box = document.getElementById('reply-box');
+  const backdrop = document.getElementById('reply-popout-backdrop');
+  if (box) box.classList.remove('popped');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
+async function submitReply() {
+  if (!REPLY_COMPOSER) return;
+  const body_text = REPLY_COMPOSER.getText();
+  const body_html = REPLY_COMPOSER.getHtml();
+  if (!body_text.trim()) return showToast('Reply is empty', 'error');
+  let attachments;
+  try { attachments = await REPLY_COMPOSER.getAttachments(); }
+  catch { return showToast('Failed to read attachments', 'error'); }
+  try {
+    await sendReply(STATE.activeThreadId, { body_text, body_html, attachments });
+    showToast('Reply sent');
+    REPLY_COMPOSER.clear();
+    closeInlineReply();
+    setTimeout(() => selectThread(STATE.activeThreadId), 600);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+async function toggleStatus(target) {
+  const next = STATE.activeThread.status === target ? 'open' : target;
+  const TOAST = { open: 'Reopened', archived: 'Archived', snoozed: 'Snoozed', trash: 'Moved to trash', spam: 'Marked as spam' };
+  try {
+    await patchThread(STATE.activeThreadId, { status: next });
+    showToast(TOAST[next] || 'Updated');
+    await refreshThreads();
+    selectThread(STATE.activeThreadId);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+async function markUnread() {
+  try {
+    await patchThread(STATE.activeThreadId, { unread: true });
+    showToast('Marked unread');
+    refreshThreads();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ── Property linking ──────────────────────────────────────────────
+let lpSearchTimer = null;
+function searchPropertiesDebounced(q) { clearTimeout(lpSearchTimer); lpSearchTimer = setTimeout(() => doLpSearch(q), 200); }
+async function doLpSearch(q) {
+  const sel = document.getElementById('lp-results');
+  try {
+    const rows = await searchProperties(q);
+    sel.innerHTML = rows.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(propertyLabel(p))}</option>`).join('');
+  } catch {}
+}
+function openLinkPropertyDialog() {
+  document.getElementById('modal-link-prop').classList.add('open');
+  document.getElementById('lp-unlink-btn').style.display = STATE.activeThread.property_id ? '' : 'none';
+  doLpSearch('');
+}
+function closeLinkPropertyDialog() { document.getElementById('modal-link-prop').classList.remove('open'); }
+async function confirmLinkProperty() {
+  const id = document.getElementById('lp-results').value;
+  if (!id) return showToast('Pick a property first', 'error');
+  try {
+    await patchThread(STATE.activeThreadId, { property_id: id });
+    showToast('Linked');
+    closeLinkPropertyDialog();
+    selectThread(STATE.activeThreadId);
+    refreshThreads();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+async function unlinkProperty() {
+  try {
+    await patchThread(STATE.activeThreadId, { property_id: null });
+    showToast('Unlinked');
+    closeLinkPropertyDialog();
+    selectThread(STATE.activeThreadId);
+    refreshThreads();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Save attachment ───────────────────────────────────────────────
+let saSearchTimer = null;
+function saSearchDebounced(q) { clearTimeout(saSearchTimer); saSearchTimer = setTimeout(() => doSaSearch(q), 200); }
+async function doSaSearch(q) {
+  const sel = document.getElementById('sa-results');
+  try {
+    const rows = await searchProperties(q);
+    sel.innerHTML = rows.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(propertyLabel(p))}</option>`).join('');
+  } catch {}
+}
+function openSaveAtt(attId, filename) {
+  document.getElementById('sa-att-id').value = attId;
+  document.getElementById('sa-filename').value = filename;
+  document.getElementById('modal-save-att').classList.add('open');
+  doSaSearch('');
+}
+function closeSaveAtt() { document.getElementById('modal-save-att').classList.remove('open'); }
+async function confirmSaveAtt() {
+  const attId = document.getElementById('sa-att-id').value;
+  const property_id = document.getElementById('sa-results').value;
+  const filename = document.getElementById('sa-filename').value.trim();
+  const folder = document.getElementById('sa-folder').value.trim() || 'Email attachments';
+  if (!property_id) return showToast('Pick a property', 'error');
+  if (!filename) return showToast('Filename required', 'error');
+  try {
+    await saveAttachmentToProperty(attId, { property_id, folder, filename });
+    showToast('Saved to property');
+    closeSaveAtt();
+    selectThread(STATE.activeThreadId);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ── Unread mention chips (Pulse entity-thread comments) ───────────
+let UNREAD_BY_THREAD = new Map();
+
+async function refreshUnreadCounts() {
+  try {
+    const rows = await apiFetch('/api/pulse/entity-threads/unread-counts?type=inbox_thread');
+    UNREAD_BY_THREAD = new Map(rows.map(row => [row.entity_id, row.unread_mention_count]));
+    paintUnreadChips();
+  } catch {}
+}
+
+function paintUnreadChips() {
+  document.querySelectorAll('.thread-card[data-thread-id]').forEach(card => {
+    const id = card.dataset.threadId;
+    const n = UNREAD_BY_THREAD.get(id);
+    let chip = card.querySelector('.unread-mention-chip');
+    if (n && n > 0) {
+      if (!chip) {
+        chip = document.createElement('span');
+        chip.className = 'unread-mention-chip attach-tag';
+        card.querySelector('.thread-meta-row')?.appendChild(chip);
+      }
+      chip.textContent = `💬${n}`;
+    } else if (chip) {
+      chip.remove();
+    }
+  });
+}
+
+// ── Compose ───────────────────────────────────────────────────────
+async function openCompose() {
+  document.getElementById('modal-compose').classList.add('open');
+  try {
+    const data = await listAliasRoutes();
+    STATE.composeAliases = (data.routed || []).map(r => ({
+      mailbox_id: r.mailbox_id,
+      alias_email: r.alias_email,
+      inbox: r.shared_inbox_name,
+      shared_inbox_id: r.shared_inbox_id
+    }));
+  } catch {
+    STATE.composeAliases = [];
+  }
+  const sel = document.getElementById('c-from');
+  if (!STATE.composeAliases.length) {
+    sel.innerHTML = '<option value="">— No aliases available —</option>';
+  } else {
+    sel.innerHTML = STATE.composeAliases
+      .map(a => `<option value="${escapeHtml(a.mailbox_id + '::' + a.alias_email)}">${escapeHtml(a.alias_email)} → ${escapeHtml(a.inbox)}</option>`)
+      .join('');
+  }
+  refreshComposeSignatureRow();
+  attachContactAutocomplete('c-to', 'c-to-suggest');
+  attachContactAutocomplete('c-cc', 'c-cc-suggest');
+  const composeSlot = document.getElementById('c-body-rich');
+  if (composeSlot && !COMPOSE_COMPOSER) {
+    COMPOSE_COMPOSER = createRichComposer(composeSlot, { placeholder: 'Write your message…' });
+  }
+}
+
+function createRichComposer(container, opts) {
+  opts = opts || {};
+  container.innerHTML = `
+    <div class="rt-composer">
+      <div class="rt-toolbar">
+        <button type="button" data-cmd="bold" title="Bold (⌘B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Italic (⌘I)"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Underline (⌘U)"><u>U</u></button>
+        <span class="rt-sep"></span>
+        <select data-cmd="fontSize" title="Font size">
+          <option value="2">Small</option>
+          <option value="3" selected>Normal</option>
+          <option value="5">Large</option>
+          <option value="6">Huge</option>
+        </select>
+        <input type="color" data-cmd="foreColor" value="#222222" title="Text color">
+        <span class="rt-sep"></span>
+        <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">•</button>
+        <button type="button" data-cmd="insertOrderedList" title="Numbered list">1.</button>
+        <span class="rt-sep"></span>
+        <button type="button" data-cmd="createLink" title="Insert link">🔗</button>
+        <label class="rt-att-btn" title="Attach files">📎
+          <input type="file" multiple style="display:none;">
+        </label>
+      </div>
+      <div class="rt-body" contenteditable="true" data-placeholder="${escapeHtml(opts.placeholder || 'Type a message…')}"></div>
+      <div class="rt-attachments"></div>
+    </div>
+  `;
+
+  const root      = container.querySelector('.rt-composer');
+  const toolbar   = container.querySelector('.rt-toolbar');
+  const body      = container.querySelector('.rt-body');
+  const attsEl    = container.querySelector('.rt-attachments');
+  const fileInput = container.querySelector('input[type="file"]');
+  const attachments = [];
+
+  toolbar.addEventListener('mousedown', (e) => {
+    const btn = e.target.closest('button[data-cmd]');
+    if (!btn) return;
+    e.preventDefault();
+    const cmd = btn.dataset.cmd;
+    let val = null;
+    if (cmd === 'createLink') {
+      val = prompt('Link URL:', 'https://');
+      if (!val) return;
+    }
+    document.execCommand(cmd, false, val);
+    body.focus();
+  });
+  toolbar.querySelector('[data-cmd="fontSize"]').addEventListener('change', (e) => {
+    if (e.target.value) document.execCommand('fontSize', false, e.target.value);
+    body.focus();
+  });
+  toolbar.querySelector('[data-cmd="foreColor"]').addEventListener('input', (e) => {
+    document.execCommand('foreColor', false, e.target.value);
+    body.focus();
+  });
+
+  fileInput.addEventListener('change', () => {
+    for (const f of fileInput.files) attachments.push(f);
+    fileInput.value = '';
+    renderAtts();
+  });
+
+  function formatBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  function renderAtts() {
+    attsEl.innerHTML = attachments.map((f, i) =>
+      `<span class="rt-att-chip">📎 ${escapeHtml(f.name)} <span class="text-muted">(${formatBytes(f.size)})</span><button type="button" data-i="${i}" title="Remove">×</button></span>`
+    ).join('');
+    attsEl.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        attachments.splice(parseInt(btn.dataset.i, 10), 1);
+        renderAtts();
+      });
+    });
   }
 
-  function relTime(iso) {
-    const d=new Date(iso), now=new Date(), diff=(now-d)/1000;
-    if (diff<86400) return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    if (diff<604800) return d.toLocaleDateString('en-US',{weekday:'short'});
-    return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  }
-  function stripHtml(h) { try{return new DOMParser().parseFromString(h,'text/html').body.textContent||'';}catch{return h;} }
-  function avatarColor(str) {
-    const C=['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
-    let h=0; for(let i=0;i<(str||'').length;i++) h=((h<<5)-h)+str.charCodeAt(i);
-    return C[Math.abs(h)%C.length];
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result;
+        const comma = r.indexOf(',');
+        resolve(comma >= 0 ? r.slice(comma + 1) : r);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
-  init();
+  return {
+    getHtml: () => body.innerHTML,
+    getText: () => body.innerText,
+    async getAttachments() {
+      return Promise.all(attachments.map(async f => ({
+        filename: f.name,
+        mimeType: f.type || 'application/octet-stream',
+        data: await fileToBase64(f)
+      })));
+    },
+    clear() { body.innerHTML = ''; attachments.length = 0; renderAtts(); },
+    focus() { body.focus(); }
+  };
+}
+
+// ── Contact autocomplete ──────────────────────────────────────────
+const _contactAttached = new Set();
+function attachContactAutocomplete(inputId, dropdownId) {
+  if (_contactAttached.has(inputId)) return;
+  _contactAttached.add(inputId);
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  if (!input || !dropdown) return;
+  let timer = null;
+  let cursor = 0;
+
+  function currentToken() {
+    const tokens = input.value.split(',');
+    return { tokens, current: tokens[tokens.length - 1].trimStart() };
+  }
+  function picked(c) {
+    const { tokens } = currentToken();
+    const display = c.name ? `${c.name} <${c.email}>` : c.email;
+    tokens[tokens.length - 1] = (tokens.length > 1 ? ' ' : '') + display;
+    input.value = tokens.join(',') + ', ';
+    closeDropdown();
+    input.focus();
+  }
+  function closeDropdown() {
+    dropdown.classList.remove('open');
+    dropdown.innerHTML = '';
+    cursor = 0;
+  }
+  function renderList(list) {
+    if (!list.length) { closeDropdown(); return; }
+    if (cursor >= list.length) cursor = list.length - 1;
+    dropdown.innerHTML = list.map((c, i) => `
+      <div class="contact-item ${i === cursor ? 'active' : ''}" data-i="${i}">
+        ${c.name ? `<span class="contact-item-name">${escapeHtml(c.name)}</span>` : ''}
+        <span class="contact-item-email">${escapeHtml(c.email)}</span>
+      </div>
+    `).join('');
+    dropdown.classList.add('open');
+    dropdown.querySelectorAll('.contact-item').forEach((el, i) => {
+      el.addEventListener('mousedown', (e) => { e.preventDefault(); picked(list[i]); });
+    });
+  }
+
+  let lastResults = [];
+  async function search() {
+    const { current } = currentToken();
+    if (current.length < 2) { closeDropdown(); return; }
+    try {
+      lastResults = await apiFetch('/api/contacts?q=' + encodeURIComponent(current));
+      renderList(lastResults);
+    } catch { closeDropdown(); }
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(search, 200);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (!dropdown.classList.contains('open') || !lastResults.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); cursor = (cursor + 1) % lastResults.length; renderList(lastResults); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cursor = (cursor - 1 + lastResults.length) % lastResults.length; renderList(lastResults); }
+    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); picked(lastResults[cursor]); }
+    else if (e.key === 'Escape') { closeDropdown(); }
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(closeDropdown, 150);
+  });
+}
+
+async function refreshComposeSignatureRow() {
+  const row = document.getElementById('compose-sig-row');
+  const previewCard = document.getElementById('compose-sig-preview-card');
+  const previewFrame = document.getElementById('compose-sig-preview');
+  const hide = () => {
+    row.style.display = 'none';
+    previewCard.style.display = 'none';
+    previewFrame.srcdoc = '';
+  };
+  const aliasId = document.getElementById('c-from')?.value;
+  const alias = STATE.composeAliases.find(a => `${a.mailbox_id}::${a.alias_email}` === aliasId);
+  const sharedInboxId = alias?.shared_inbox_id;
+  if (!sharedInboxId) return hide();
+
+  const all = STATE.sharedInboxes || (await listSharedInboxes());
+  STATE.sharedInboxes = all;
+  const inbox = all.find(s => s.id === sharedInboxId);
+  const sig = (inbox && inbox.signature_html && inbox.signature_html.trim()) ? inbox.signature_html : '';
+  if (!sig) return hide();
+
+  row.style.display = '';
+  previewFrame.srcdoc = sig;
+  updateComposeSigPreview();
+}
+
+function updateComposeSigPreview() {
+  const row = document.getElementById('compose-sig-row');
+  const cb = document.getElementById('compose-include-sig');
+  const previewCard = document.getElementById('compose-sig-preview-card');
+  const rowVisible = row && row.style.display !== 'none';
+  previewCard.style.display = (rowVisible && cb && cb.checked) ? '' : 'none';
+}
+
+let COMPOSE_COMPOSER = null;
+function closeCompose() {
+  document.getElementById('modal-compose').classList.remove('open');
+  if (COMPOSE_COMPOSER) COMPOSE_COMPOSER.clear();
+}
+async function submitCompose(e) {
+  e.preventDefault();
+  const fromVal = document.getElementById('c-from').value;
+  if (!fromVal) return showToast('Pick an alias to send from', 'error');
+  const [mailbox_id, from_alias] = fromVal.split('::');
+  const body_text = COMPOSE_COMPOSER ? COMPOSE_COMPOSER.getText() : '';
+  const body_html = COMPOSE_COMPOSER ? COMPOSE_COMPOSER.getHtml() : '';
+  if (!body_text.trim()) return showToast('Message is empty', 'error');
+  let attachments;
+  try { attachments = COMPOSE_COMPOSER ? await COMPOSE_COMPOSER.getAttachments() : []; }
+  catch { return showToast('Failed to read attachments', 'error'); }
+  const body = {
+    mailbox_id,
+    from_alias,
+    to: document.getElementById('c-to').value.trim(),
+    cc: document.getElementById('c-cc').value.trim() || undefined,
+    subject: document.getElementById('c-subject').value.trim(),
+    body_text,
+    body_html,
+    attachments,
+    include_signature: document.getElementById('compose-include-sig').checked
+  };
+  try {
+    const r = await composeMessage(body);
+    showToast('Email sent');
+    closeCompose();
+    await refreshThreads();
+    if (r.thread_id) selectThread(r.thread_id);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+init();
+
+// Lazy-load the Pulse widget (same-origin in OS — no cfg lookup needed).
+(function loadPulseWidget() {
+  const s = document.createElement('script');
+  s.src = '/widget.js';
+  s.async = true;
+  document.body.appendChild(s);
+})();
 </script>
 </body>
 </html>
