@@ -101,6 +101,12 @@
     if (typeof wireUnifiedNav === 'function') {
       wireUnifiedNav();
     }
+
+    // Re-apply scope to any quick-create [data-app] items now that they
+    // exist in the DOM (sidebar.js may have run before us).
+    if (typeof window.__applyScopeToLinks === 'function') {
+      window.__applyScopeToLinks();
+    }
   }
 
   // ── Quick-create menu ───────────────────────────────────────────

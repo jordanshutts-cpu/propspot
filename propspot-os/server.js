@@ -38,6 +38,9 @@ app.use('/api/holdings',          require('./routes/holdings'));
 app.use('/api/activity',          require('./routes/activity'));
 app.use('/api/os',                require('./routes/authz'));
 app.use('/api/underwriting',      require('./routes/underwriting'));
+app.use('/api/pinned',            require('./routes/pinned'));
+app.use('/api/recent',            require('./routes/recent'));
+app.use('/api/sidebar-counts',    require('./routes/sidebar-counts'));
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>

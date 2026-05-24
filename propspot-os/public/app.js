@@ -22,14 +22,12 @@ if (window.__newChromeEnabled()) {
   // Persist the flag so navigating within the workspace keeps it on.
   try { localStorage.setItem('propspot_newchrome', '1'); } catch (e) {}
   // Dynamically load the new chrome scripts.
-  const s1 = document.createElement('script');
-  s1.src = '/sidebar.js';
-  s1.async = false;
-  document.head.appendChild(s1);
-  const s2 = document.createElement('script');
-  s2.src = '/topbar.js';
-  s2.async = false;
-  document.head.appendChild(s2);
+  ['/sidebar.js', '/topbar.js', '/lifecycle-stepper.js'].forEach(src => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false;
+    document.head.appendChild(s);
+  });
 }
 
 // ── Auth Storage ────────────────────────────────────────────────────────
