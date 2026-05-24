@@ -508,6 +508,45 @@ html.theme-premium .os-newchrome-step-dot { border-color: #dde1e7; color: #adb5b
 html.theme-premium .badge { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em; }
 html.theme-premium .status-badge { font-weight: 600; font-size: 0.68rem; letter-spacing: 0.03em; }
 
+/* ── Inbox filter-row icons (Open / Archived / Assigned to me) ──
+   Each gets a purpose-specific masked SVG so the INBOX section
+   matches the SHARED INBOXES treatment below. */
+html.theme-premium .ib-filter-icon {
+  font-size: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  color: #9ca3af;
+  vertical-align: middle;
+}
+html.theme-premium .ib-filter-icon::before {
+  content: '';
+  display: block;
+  width: 14px; height: 14px;
+  background-color: currentColor;
+  -webkit-mask: var(--ib-filter-mask) center/contain no-repeat;
+          mask: var(--ib-filter-mask) center/contain no-repeat;
+}
+/* Inbox tray (Open) */
+html.theme-premium .ib-filter-icon[data-icon="open"] {
+  --ib-filter-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>");
+  color: var(--brand);
+}
+/* Archive box (Archived) */
+html.theme-premium .ib-filter-icon[data-icon="archived"] {
+  --ib-filter-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='20' height='5' x='2' y='3' rx='1'/><path d='M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8'/><path d='M10 12h4'/></svg>");
+  color: #94a3b8;
+}
+/* User (Assigned to me) */
+html.theme-premium .ib-filter-icon[data-icon="assigned"] {
+  --ib-filter-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>");
+  color: #8b5cf6;
+}
+/* Active row override → brand green */
+html.theme-premium .ib-nav-item.active .ib-filter-icon { color: var(--brand) !important; }
+
 /* ── Inbox shared-inbox icons ────────────────────────────────────
    The inbox icon column stores per-tenant emojis in the DB. Under
    premium we hide whatever's there and render a uniform inbox glyph
