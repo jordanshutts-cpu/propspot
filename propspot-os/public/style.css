@@ -13,49 +13,81 @@
    sidebar/topbar stay in place so the navigation never feels blank.
    A semi-transparent backdrop with the PropSpot logo gently pulses
    in the center. */
+/* Premium look: solid background that matches the page exactly (no
+   jarring overlay or blur), a generously-sized PropSpot logo with a
+   soft brand-green halo ring that gently pulses behind it, and a
+   subtle wordmark beneath. */
 html.page-loading main {
   opacity: 0 !important;
 }
 main {
   opacity: 1;
-  transition: opacity 0.14s ease-in;
+  transition: opacity 0.18s ease-in;
 }
 .os-page-loader {
   position: fixed; inset: 0;
-  background: rgba(244,245,247,0.92);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: #f4f5f7;        /* matches --bg exactly — no shade shift */
   z-index: 99999;
   display: flex; align-items: center; justify-content: center;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  /* Snap-out: zero-duration opacity, visibility delayed slightly past
-     the main fade-in so the logo stays visible until content is up. */
-  transition: opacity 0s 0.14s, visibility 0s 0.14s linear;
+  /* Snap-out: zero-duration opacity, visibility delayed past the main
+     fade-in so the logo stays visible until content is composited. */
+  transition: opacity 0s 0.18s, visibility 0s 0.18s linear;
 }
 html.page-loading .os-page-loader,
 .os-page-loader.show {
   opacity: 1;
   visibility: visible;
   pointer-events: all;
-  transition: opacity 0.08s ease-out;
+  transition: opacity 0.1s ease-out;
+}
+.os-page-loader-stack {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 20px; position: relative;
 }
 .os-page-loader-logo {
-  width: 64px; height: 64px;
+  width: 140px; height: 140px;
   background-image: url('/logo.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  animation: os-loader-breathe 1.4s ease-in-out infinite;
-  filter: drop-shadow(0 2px 8px rgba(97,183,70,0.25));
+  position: relative;
+  animation: os-loader-breathe 1.9s ease-in-out infinite;
+  filter: drop-shadow(0 6px 18px rgba(97,183,70,0.18));
+}
+/* Soft brand-green halo ring that pulses out from behind the logo. */
+.os-page-loader-logo::before {
+  content: '';
+  position: absolute;
+  inset: -30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(97,183,70,0.16) 0%, rgba(97,183,70,0) 65%);
+  animation: os-loader-halo 1.9s ease-in-out infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+.os-page-loader-wordmark {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  user-select: none;
 }
 @keyframes os-loader-breathe {
-  0%, 100% { transform: scale(1);    opacity: 0.85; }
-  50%      { transform: scale(1.08); opacity: 1; }
+  0%, 100% { transform: scale(1);    opacity: 0.94; }
+  50%      { transform: scale(1.04); opacity: 1; }
+}
+@keyframes os-loader-halo {
+  0%, 100% { transform: scale(0.85); opacity: 0.45; }
+  50%      { transform: scale(1.1);  opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .os-page-loader-logo { animation: none; opacity: 0.9; }
+  .os-page-loader-logo,
+  .os-page-loader-logo::before { animation: none; }
+  .os-page-loader-logo::before { opacity: 0.5; transform: scale(1); }
   main { transition: none; }
 }
 

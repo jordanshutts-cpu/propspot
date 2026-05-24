@@ -26,7 +26,11 @@
     const div = document.createElement('div');
     div.id = 'os-page-loader';
     div.className = 'os-page-loader';
-    div.innerHTML = '<div class="os-page-loader-logo" role="img" aria-label="Prop Spot"></div>';
+    div.innerHTML =
+      '<div class="os-page-loader-stack">' +
+        '<div class="os-page-loader-logo" role="img" aria-label="Prop Spot"></div>' +
+        '<div class="os-page-loader-wordmark">Prop Spot</div>' +
+      '</div>';
     (document.body || document.documentElement).appendChild(div);
   }
   function show() {
