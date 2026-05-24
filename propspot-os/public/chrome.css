@@ -839,13 +839,17 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
 }
 .os-newchrome-scope-chip-close:hover { background: #dbeafe; }
 
-/* ── Lifecycle stepper (property page) ────────────────────────── */
+/* ── Lifecycle stepper (property page) ──────────────────────────
+   Techy / premium treatment: gradient-filled dots, pulsing halo
+   around the current step, progress-filled connectors so the visual
+   immediately conveys 'you are X stages of 8 through the pipeline'. */
 .os-newchrome-stepper {
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 18px 20px;
+  border: 1px solid #e8eaed;
+  border-radius: 14px;
+  padding: 22px 24px 18px;
   margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 6px 16px -8px rgba(15,23,42,0.06);
 }
 .os-newchrome-stepper.dropped { background: #fef2f2; border-color: #fecaca; }
 .os-newchrome-stepper-dropped {
@@ -856,77 +860,128 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
 }
 .os-newchrome-stepper-steps {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 0;
   overflow-x: auto;
-  padding-bottom: 4px;
+  scrollbar-width: none;
+  padding: 4px 0 8px;
 }
+.os-newchrome-stepper-steps::-webkit-scrollbar { display: none; }
 .os-newchrome-step {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  min-width: 80px;
-  flex: 1;
+  gap: 9px;
+  min-width: 72px;
+  flex: 1 1 0;
+  position: relative;
 }
 .os-newchrome-step-dot {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11.5px;
+  font-weight: 700;
   background: #fff;
-  border: 2px solid #e5e7eb;
-  color: #9ca3af;
+  border: 1.5px solid #e2e8f0;
+  color: #94a3b8;
   flex-shrink: 0;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .os-newchrome-step-label {
   font-size: 11px;
-  color: #6b7280;
+  color: #94a3b8;
   text-align: center;
   line-height: 1.2;
   white-space: nowrap;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
+/* Past — completed gradient pill */
 .os-newchrome-step--past .os-newchrome-step-dot {
-  background: #16a34a;
-  border-color: #16a34a;
-  color: #fff;
-}
-.os-newchrome-step--past .os-newchrome-step-label { color: #15803d; }
-.os-newchrome-step--current .os-newchrome-step-dot {
-  background: var(--brand);
+  background: linear-gradient(135deg, #74c75d 0%, var(--brand) 100%);
   border-color: var(--brand);
   color: #fff;
-  box-shadow: 0 0 0 4px rgba(97,183,70,0.18);
+  box-shadow: 0 1px 3px rgba(97,183,70,0.25);
+}
+.os-newchrome-step--past .os-newchrome-step-label { color: var(--brand-dark); font-weight: 600; }
+/* Current — gradient pill + soft outer ring + pulsing halo */
+.os-newchrome-step--current .os-newchrome-step-dot {
+  background: linear-gradient(135deg, #74c75d 0%, var(--brand) 100%);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow:
+    0 0 0 4px rgba(97,183,70,0.18),
+    0 2px 8px rgba(97,183,70,0.30);
+  transform: scale(1.06);
+}
+.os-newchrome-step--current .os-newchrome-step-dot::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--brand);
+  opacity: 0.35;
+  animation: stepper-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes stepper-pulse {
+  0%   { transform: scale(1);    opacity: 0.35; }
+  100% { transform: scale(1.5);  opacity: 0; }
 }
 .os-newchrome-step--current .os-newchrome-step-label {
   color: var(--brand-dark);
-  font-weight: 600;
+  font-weight: 700;
 }
+/* Future — subtle inner depth */
+.os-newchrome-step--future .os-newchrome-step-dot {
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(15,23,42,0.02);
+}
+/* Connectors — flat gray default; past→anything = brand;
+   current→future = gradient fade so progress flows visually. */
 .os-newchrome-step-connector {
-  height: 2px;
+  height: 3px;
   flex: 1;
-  background: #e5e7eb;
+  background: #e2e8f0;
   min-width: 8px;
-  margin-top: -16px; /* sits behind the dots vertically */
+  margin-top: 17px;   /* center of 30px dot + 4px top padding - 2px (half line height) */
+  border-radius: 2px;
+  transition: background 0.3s ease;
 }
+.os-newchrome-step--past + .os-newchrome-step-connector {
+  background: var(--brand);
+}
+.os-newchrome-step--current + .os-newchrome-step-connector {
+  background: linear-gradient(90deg, var(--brand) 0%, #e2e8f0 100%);
+}
+
 .os-newchrome-stepper-next {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid #f3f4f6;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(97,183,70,0.06) 0%, rgba(97,183,70,0) 60%);
   font-size: 13px;
-  color: #374151;
+  color: #475569;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  line-height: 1.4;
 }
 .os-newchrome-stepper-next-label {
-  font-weight: 700;
-  color: #9ca3af;
-  font-size: 10px;
+  font-weight: 800;
+  color: var(--brand);
+  font-size: 9.5px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-right: 6px;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+  padding: 2px 7px;
+  background: rgba(97,183,70,0.14);
+  border-radius: 4px;
 }
 
 /* ── AI Assistant button + panel ─────────────────────────────── */
