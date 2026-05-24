@@ -357,25 +357,33 @@ async function wireUnifiedNav() {
     underwriting: cfg.underwritingUrl || ''
   };
 
-  // data-app="<slug>" — embed satellite app inside OS chrome via /app-frame.html
+  // Apps with OS-native pages — always route here, never to satellite URL.
+  const OS_NATIVE_PAGES = {
+    holdings:    '/holdings-desk.html',
+    maintenance: '/maintenance.html',
+    fieldcam:    '/fieldcam.html',
+    pulse:       '/pulse.html',
+    inbox:       '/inbox.html',
+  };
+
+  // data-app="<slug>" — route to OS-native page if one exists, otherwise app-frame
   document.querySelectorAll('[data-app]').forEach(a => {
     const slug = a.dataset.app;
-    const base = APP_URLS[slug];
-    if (!base) {
-      a.style.display = 'none';   // satellite URL not configured — keep hidden
+
+    // OS-native page takes priority — always stays within the OS
+    if (OS_NATIVE_PAGES[slug]) {
+      const oPath = a.dataset.appPath || '/';
+      const qs = oPath.includes('?') ? '?' + oPath.split('?').slice(1).join('?') : '';
+      a.href = OS_NATIVE_PAGES[slug] + qs;
+      a.style.display = '';
       return;
     }
+
+    const base = APP_URLS[slug];
+    if (!base) { a.style.display = 'none'; return; }
     const path = a.dataset.appPath || '/';
-    if (_isCurrentOrigin(base)) {
-      // Same-origin satellite — link directly to its path (no iframe needed)
-      a.href = path;
-    } else {
-      // Cross-origin satellite — open embedded inside OS chrome
-      const frameUrl = '/app-frame.html?app=' + encodeURIComponent(slug)
-        + (path !== '/' ? '&path=' + encodeURIComponent(path) : '');
-      a.href = frameUrl;
-    }
-    a.style.display = '';   // reveal once URL confirmed
+    a.href = _isCurrentOrigin(base) ? path : _appendToken(base.replace(/\/$/, '') + path);
+    a.style.display = '';
   });
 
   // data-osnav="<page>" — link to an OS page (dashboard/properties/contacts/team/apps)

@@ -101,8 +101,24 @@
       inbox:        cfg.inboxUrl        || '',
       underwriting: cfg.underwritingUrl || ''
     };
+    // Apps with OS-native pages — always route here, never to satellite URL.
+    const OS_NATIVE_PAGES = {
+      holdings:    '/holdings-desk.html',
+      maintenance: '/maintenance.html',
+      fieldcam:    '/fieldcam.html',
+      pulse:       '/pulse.html',
+      inbox:       '/inbox.html',
+    };
+
     document.querySelectorAll('[data-app]').forEach(a => {
       const slug = a.dataset.app;
+      if (OS_NATIVE_PAGES[slug]) {
+        const oPath = a.dataset.appPath || '/';
+        const qs = oPath.includes('?') ? '?' + oPath.split('?').slice(1).join('?') : '';
+        a.href = OS_NATIVE_PAGES[slug] + qs;
+        a.style.display = '';
+        return;
+      }
       const base = APP_URLS[slug];
       if (!base) { a.style.display = 'none'; return; }
       const path = a.dataset.appPath || '/';
