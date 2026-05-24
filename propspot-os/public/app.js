@@ -704,10 +704,83 @@ function renderUserMenu() {
     <button type="button" onclick="openEditProfile()">👤 Edit Profile</button>
     <button type="button" onclick="openChangePassword()">🔑 Change Password</button>
     <button type="button" onclick="window.location.href='/team.html'">👥 Team Members</button>
+    <button type="button" onclick="openSettings()">⚙️ Settings</button>
     <div class="menu-divider"></div>
     <button type="button" class="danger" onclick="signOut()">🚪 Sign Out</button>
   `;
 }
+
+// ── Settings modal (theme + future prefs) ─────────────────────────
+function openSettings() {
+  // Close the user menu dropdown first
+  document.getElementById('user-menu')?.classList.remove('open');
+  // Tear down any prior instance
+  document.getElementById('settings-modal')?.remove();
+
+  const isPremium = !!(window.__isPremiumTheme && window.__isPremiumTheme());
+  const wrap = document.createElement('div');
+  wrap.id = 'settings-modal';
+  wrap.className = 'settings-backdrop open';
+  wrap.innerHTML = `
+    <div class="settings-card" onclick="event.stopPropagation()">
+      <div class="settings-head">
+        <h2>Settings</h2>
+        <button class="settings-close" onclick="closeSettings()" title="Close">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <div class="settings-section-label">Appearance</div>
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Theme</div>
+              <div class="settings-row-sub">Switch between the classic look and the premium visual style.</div>
+            </div>
+            <div class="settings-segmented" role="group">
+              <button type="button" class="settings-seg-btn ${!isPremium ? 'active' : ''}" data-theme="classic" onclick="setTheme('classic')">Classic</button>
+              <button type="button" class="settings-seg-btn ${ isPremium ? 'active' : ''}" data-theme="premium" onclick="setTheme('premium')">Premium</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-label">Account</div>
+          <div class="settings-row settings-row-link" onclick="closeSettings(); openEditProfile();">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Edit profile</div>
+              <div class="settings-row-sub">Change your name, email, and avatar.</div>
+            </div>
+            <span class="settings-row-chev">›</span>
+          </div>
+          <div class="settings-row settings-row-link" onclick="closeSettings(); openChangePassword();">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Change password</div>
+              <div class="settings-row-sub">Update the password used to sign in.</div>
+            </div>
+            <span class="settings-row-chev">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) closeSettings(); });
+  document.body.appendChild(wrap);
+}
+function closeSettings() {
+  document.getElementById('settings-modal')?.remove();
+}
+function setTheme(which) {
+  const isPremium = !!(window.__isPremiumTheme && window.__isPremiumTheme());
+  const wantPremium = which === 'premium';
+  if (isPremium === wantPremium) return; // already matches
+  if (typeof window.toggleTheme === 'function') window.toggleTheme();
+  // Refresh the segmented control in the open modal
+  document.querySelectorAll('#settings-modal .settings-seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === which);
+  });
+}
+// Close on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('settings-modal')) closeSettings();
+});
 
 function toggleUserMenu(e) {
   if (e) e.stopPropagation();

@@ -34,10 +34,11 @@
             🔔
             <span class="os-newchrome-bell-badge" id="notif-badge">${PHASE1_NOTIF_COUNT}</span>
           </button>
-          <button type="button" class="os-newchrome-bell" id="theme-toggle-btn"
-                  title="Toggle premium theme" style="opacity:0.6;"
-                  onclick="window.toggleTheme && window.toggleTheme()">
+          <button type="button" class="os-newchrome-bell os-newchrome-ai-btn" id="ai-assistant-btn"
+                  title="Prop Spot AI · coming soon"
+                  onclick="toggleAIAssistant(event)">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            <span class="os-newchrome-ai-pulse" aria-hidden="true"></span>
           </button>
           <button type="button" class="os-newchrome-avatar" id="user-avatar" title="Account" onclick="toggleUserMenu(event)">
             ${avatarContent(user)}
@@ -94,6 +95,43 @@
           <div class="os-newchrome-notif-empty">Phase 4 will populate this feed with mentions, work-order updates, holdings due-soon alerts, and pipeline promotions.</div>
         </div>
       </div>
+
+      <!-- AI Assistant panel (placeholder) -->
+      <div class="os-newchrome-ai-panel" id="ai-panel">
+        <div class="os-newchrome-ai-hero">
+          <div class="os-newchrome-ai-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+          </div>
+          <div class="os-newchrome-ai-title">Prop Spot AI</div>
+          <div class="os-newchrome-ai-tag">Coming Soon</div>
+          <p class="os-newchrome-ai-blurb">
+            Your AI co-pilot will live here — ask about any property, pull together
+            the latest from your inbox &amp; messages, draft replies, flag at-risk
+            deals, and act across the whole workspace.
+          </p>
+          <div class="os-newchrome-ai-features">
+            <div class="os-newchrome-ai-feature">
+              <span class="os-newchrome-ai-feature-dot"></span>
+              <span>Natural-language queries across every tool</span>
+            </div>
+            <div class="os-newchrome-ai-feature">
+              <span class="os-newchrome-ai-feature-dot"></span>
+              <span>Auto-summarize inboxes &amp; Pulse threads</span>
+            </div>
+            <div class="os-newchrome-ai-feature">
+              <span class="os-newchrome-ai-feature-dot"></span>
+              <span>Underwriting assumptions sanity check</span>
+            </div>
+            <div class="os-newchrome-ai-feature">
+              <span class="os-newchrome-ai-feature-dot"></span>
+              <span>Proactive nudges &amp; daily briefings</span>
+            </div>
+          </div>
+          <div class="os-newchrome-ai-cta">
+            Currently in development — toggle the theme from your profile menu.
+          </div>
+        </div>
+      </div>
     `;
 
     // Pre-fill search from ?q=
@@ -112,11 +150,7 @@
       wireUnifiedNav();
     }
 
-    // Sync theme toggle button state after re-render.
-    if (typeof window.__isPremiumTheme === 'function') {
-      const toggleBtn = document.getElementById('theme-toggle-btn');
-      if (toggleBtn) toggleBtn.style.opacity = window.__isPremiumTheme() ? '1' : '0.6';
-    }
+    // (Theme toggle moved to user-menu Settings.)
 
     // Re-apply scope to any quick-create [data-app] items now that they
     // exist in the DOM (sidebar.js may have run before us).
@@ -154,7 +188,26 @@
     if (!panel) return;
     document.getElementById('qc-menu')?.classList.remove('open');
     document.getElementById('user-menu')?.classList.remove('open');
+    document.getElementById('ai-panel')?.classList.remove('open');
     panel.classList.toggle('open');
+  }
+
+  // ── AI Assistant panel (placeholder) ────────────────────────────
+  function toggleAIAssistant(e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById('ai-panel');
+    if (!panel) return;
+    document.getElementById('qc-menu')?.classList.remove('open');
+    document.getElementById('notif-panel')?.classList.remove('open');
+    document.getElementById('user-menu')?.classList.remove('open');
+    panel.classList.toggle('open');
+  }
+  function closeAIOnOutsideClick(e) {
+    const panel = document.getElementById('ai-panel');
+    const btn = document.getElementById('ai-assistant-btn');
+    if (!panel || !panel.classList.contains('open')) return;
+    if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+    panel.classList.remove('open');
   }
   function closeNotificationsOnOutsideClick(e) {
     const panel = document.getElementById('notif-panel');
@@ -172,12 +225,14 @@
   // Expose for inline onclick handlers
   window.toggleQuickCreate = toggleQuickCreate;
   window.toggleNotifications = toggleNotifications;
+  window.toggleAIAssistant = toggleAIAssistant;
   window.markAllNotificationsRead = markAllNotificationsRead;
   window.renderNewTopBar = renderNewTopBar;
 
   // Outside-click handlers
   document.addEventListener('click', closeQuickCreateOnOutsideClick);
   document.addEventListener('click', closeNotificationsOnOutsideClick);
+  document.addEventListener('click', closeAIOnOutsideClick);
 
   // Cmd+K / Ctrl+K to focus search
   document.addEventListener('keydown', (e) => {
