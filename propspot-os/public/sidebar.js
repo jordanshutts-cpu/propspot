@@ -436,6 +436,24 @@
     // Do NOT prevent default — navigation continues.
   }
 
+  // ── Sidebar HTML cache (sessionStorage) ────────────────────────
+  // Stores the last rendered sidebar HTML so it can be shown instantly
+  // on the next page load instead of waiting for async data fetches.
+  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache';
+
+  function saveSidebarCache(html) {
+    try { sessionStorage.setItem(SIDEBAR_CACHE_KEY, html); } catch (e) {}
+  }
+
+  function restoreSidebarCache(railEl) {
+    try {
+      const cached = sessionStorage.getItem(SIDEBAR_CACHE_KEY);
+      if (!cached) return false;
+      railEl.innerHTML = cached;
+      return true;
+    } catch (e) { return false; }
+  }
+
   // ── Render the sidebar ──────────────────────────────────────────
   async function renderNewSidebar() {
     // On satellites these set up the chrome the host page doesn't ship with.
@@ -447,6 +465,25 @@
 
     document.body.classList.add('os-newchrome');
 
+    // Show cached sidebar immediately so there's no blank flash between pages.
+    const hadCache = restoreSidebarCache(railEl);
+    if (hadCache) {
+      // Wire events and active state on the cached HTML right away.
+      railEl.removeEventListener('click', onPropertyRowClick);
+      railEl.addEventListener('click', onPropertyRowClick);
+      wireChromeNav();
+      if (window.NAV_CURRENT) {
+        railEl.querySelectorAll('.os-newchrome-row').forEach(a => {
+          const slug = a.dataset.app || a.dataset.osnav;
+          a.classList.toggle('active', slug === window.NAV_CURRENT);
+        });
+      }
+      applyScopeToLinks();
+      renderScopeChip();
+      refreshActiveProperty();
+      if (typeof window.__replaceEmojisIn === 'function') window.__replaceEmojisIn(railEl);
+    }
+
     const user = getCachedUser() || {};
 
     // Kick off all data fetches in parallel.
@@ -456,7 +493,7 @@
 
     const active = window.NAV_CURRENT;
 
-    railEl.innerHTML = `
+    const sidebarHTML = `
       <aside class="os-newchrome-sidebar">
 
         <div class="os-newchrome-workspace">
@@ -523,6 +560,9 @@
       </aside>
     `;
 
+    railEl.innerHTML = sidebarHTML;
+    saveSidebarCache(sidebarHTML);
+
     wireChromeNav();
 
     // Wire click handler for property rows (event delegation on the sidebar).
@@ -541,6 +581,9 @@
     applyScopeToLinks();
     renderScopeChip();
     refreshActiveProperty();
+
+    // Re-apply premium icons on fresh render
+    if (typeof window.__replaceEmojisIn === 'function') window.__replaceEmojisIn(railEl);
   }
 
   // Expose for inline onclick + topbar integration.
