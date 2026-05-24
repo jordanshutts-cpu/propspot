@@ -98,7 +98,12 @@
       if (input) input.value = q;
     }
 
-    if (typeof wireUnifiedNav === 'function') {
+    // Wire data-app + data-osnav links. Prefer the chrome-local helper
+    // (works cross-origin on satellites); fall back to app.js's
+    // wireUnifiedNav if present (OS-only legacy path).
+    if (typeof window.__wireChromeNav === 'function') {
+      window.__wireChromeNav();
+    } else if (typeof wireUnifiedNav === 'function') {
       wireUnifiedNav();
     }
 

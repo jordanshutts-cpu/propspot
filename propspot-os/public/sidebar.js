@@ -13,6 +13,116 @@
 (function () {
   if (!window.__newChromeEnabled || !window.__newChromeEnabled()) return;
 
+  // ── OS URL — used for cross-origin satellite loads (FieldCam etc.)
+  // On propspot-os itself, OS_URL is just location.origin (same-origin).
+  // On a satellite, OS_URL points at os.propspot.io so chrome-only
+  // endpoints (sidebar-counts, pinned, recent) hit OS directly.
+  // Override via window.__PROPSPOT_OS_URL for local dev.
+  const OS_URL = window.__PROPSPOT_OS_URL ||
+    (location.hostname.startsWith('os.') || location.hostname === 'localhost'
+      ? location.origin
+      : 'https://os.propspot.io');
+  const IS_SATELLITE = OS_URL !== location.origin;
+
+  // ── Cross-origin OS fetch — sends the local app's auth token
+  // as Bearer (every satellite stores the same OS JWT, just under a
+  // different localStorage key like fieldcam_token / inbox_token).
+  async function osFetch(path) {
+    const token = (typeof getToken === 'function') ? getToken() : null;
+    const headers = {};
+    if (token) headers.Authorization = 'Bearer ' + token;
+    const res = await fetch(OS_URL + path, { headers, credentials: 'omit' });
+    if (!res.ok) throw new Error('OS fetch ' + path + ' → ' + res.status);
+    return res.json();
+  }
+
+  // ── Inject chrome.css if missing (satellites won't have it loaded)
+  function ensureChromeStylesheet() {
+    if (document.querySelector('link[data-propspot-chrome]')) return;
+    const link = document.createElement('link');
+    link.rel  = 'stylesheet';
+    link.href = OS_URL + '/chrome.css';
+    link.dataset.propspotChrome = '1';
+    document.head.appendChild(link);
+  }
+
+  // ── Wire data-app + data-osnav links to real URLs ───────────────
+  // On OS this is wireUnifiedNav() from app.js. On satellites, app.js
+  // doesn't define that helper, so the chrome carries its own copy and
+  // fetches the URL map from OS via osFetch so navigation lines up
+  // regardless of which satellite the user is on.
+  let _navCfgCache = null;
+  async function _loadNavConfigChrome() {
+    if (_navCfgCache) return _navCfgCache;
+    try { _navCfgCache = await (IS_SATELLITE ? osFetch('/api/config') : apiFetch('/api/config')); }
+    catch (e) { _navCfgCache = {}; }
+    return _navCfgCache;
+  }
+  function _appendToken(url) {
+    const token = (typeof getToken === 'function') ? getToken() : null;
+    if (!token) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'token=' + encodeURIComponent(token);
+  }
+  function _isCurrentOrigin(url) {
+    try { return new URL(url).origin === location.origin; }
+    catch (e) { return false; }
+  }
+  async function wireChromeNav() {
+    const cfg = await _loadNavConfigChrome();
+    const APP_URLS = {
+      holdings:     cfg.holdingsUrl     || '',
+      maintenance:  cfg.maintenanceUrl  || '',
+      fieldcam:     cfg.fieldcamUrl     || '',
+      pulse:        cfg.pulseUrl        || '',
+      inbox:        cfg.inboxUrl        || '',
+      underwriting: cfg.underwritingUrl || ''
+    };
+    document.querySelectorAll('[data-app]').forEach(a => {
+      const slug = a.dataset.app;
+      const base = APP_URLS[slug];
+      if (!base) { a.style.display = 'none'; return; }
+      const path = a.dataset.appPath || '/';
+      a.href = _isCurrentOrigin(base) ? path : _appendToken(base.replace(/\/$/, '') + path);
+      a.style.display = '';
+    });
+    const osBase = cfg.osUrl || OS_URL;
+    document.querySelectorAll('[data-osnav]').forEach(a => {
+      const page = a.dataset.osnav;
+      const path = (page === 'dashboard' || page === '') ? '/dashboard.html' : '/' + page + '.html';
+      // Honor explicit href when set (some Pipeline items point to specific pages)
+      const explicit = a.getAttribute('href');
+      const target   = (explicit && explicit !== '#') ? explicit : path;
+      if (!osBase || _isCurrentOrigin(osBase)) {
+        a.href = target;
+      } else {
+        a.href = _appendToken(osBase.replace(/\/$/, '') + target);
+      }
+    });
+  }
+
+  // ── Inject required DOM placeholders if a host page doesn't have them
+  function ensurePlaceholders() {
+    if (!document.getElementById('apps-rail')) {
+      const aside = document.createElement('aside');
+      aside.className = 'apps-rail';
+      aside.id = 'apps-rail';
+      document.body.insertBefore(aside, document.body.firstChild);
+    }
+    if (!document.getElementById('top-header')) {
+      const header = document.createElement('header');
+      header.className = 'top-header';
+      header.id = 'top-header';
+      document.body.insertBefore(header, document.body.firstChild);
+    }
+    if (!document.getElementById('user-menu')) {
+      const div = document.createElement('div');
+      div.id = 'user-menu';
+      div.className = 'user-menu';
+      document.body.appendChild(div);
+    }
+  }
+
   // ── Status dot colors (mirrors PROPERTY_STATUSES in app.js) ──────
   const STATUS_DOT = {
     purchasing:           '#f59e0b',
@@ -178,21 +288,23 @@
   }
 
   // ── Data fetches (each is fault-tolerant) ───────────────────────
+  // On satellites these go cross-origin to OS via osFetch().
+  // On OS itself we use the local apiFetch — same result, no preflight.
   async function fetchCounts() {
-    try { return await apiFetch('/api/sidebar-counts'); }
+    try { return IS_SATELLITE ? await osFetch('/api/sidebar-counts') : await apiFetch('/api/sidebar-counts'); }
     catch (e) { return {}; }
   }
   async function fetchPinned() {
-    try { return await apiFetch('/api/pinned'); }
+    try { return IS_SATELLITE ? await osFetch('/api/pinned') : await apiFetch('/api/pinned'); }
     catch (e) { return []; }
   }
   async function fetchRecent() {
-    try { return await apiFetch('/api/recent'); }
+    try { return IS_SATELLITE ? await osFetch('/api/recent') : await apiFetch('/api/recent'); }
     catch (e) { return []; }
   }
   async function fetchTotal() {
     try {
-      const all = await apiFetch('/api/properties');
+      const all = IS_SATELLITE ? await osFetch('/api/properties') : await apiFetch('/api/properties');
       return Array.isArray(all) ? all.length : 0;
     } catch (e) { return 0; }
   }
@@ -303,6 +415,9 @@
 
   // ── Render the sidebar ──────────────────────────────────────────
   async function renderNewSidebar() {
+    // On satellites these set up the chrome the host page doesn't ship with.
+    ensureChromeStylesheet();
+    ensurePlaceholders();
     const railEl = document.getElementById('apps-rail');
     if (!railEl) return;
 
@@ -384,7 +499,7 @@
       </aside>
     `;
 
-    if (typeof wireUnifiedNav === 'function') wireUnifiedNav();
+    wireChromeNav();
 
     // Wire click handler for property rows (event delegation on the sidebar).
     railEl.removeEventListener('click', onPropertyRowClick);
@@ -412,6 +527,7 @@
   window.__clearScope     = clearScope;
   window.__getScopedPropertyId = getScopedPropertyId;
   window.__applyScopeToLinks  = applyScopeToLinks;
+  window.__wireChromeNav      = wireChromeNav;   // topbar.js uses this too
 
   // Run now if DOM is ready, else wait for it.
   if (document.readyState === 'loading') {
