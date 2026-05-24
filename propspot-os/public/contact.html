@@ -7,6 +7,7 @@
   <title>Prop Spot — Contact</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
     .prop-row { padding: 8px 0; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:8px; }
     .prop-row:last-child { border-bottom: none; }
@@ -18,12 +19,11 @@
     .modal-card { background:#fff; border-radius:14px; max-width:460px; width:100%; padding:20px; max-height:90vh; overflow:auto; }
   </style>
 </head>
-<body>
+<body class="os-newlayout">
 
-<header class="app-header">
-  <button class="back-btn" onclick="history.back()">‹</button>
-  <span class="header-title" id="hdr">Contact</span>
-</header>
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
 
 <main class="page" id="page">
   <p class="text-muted text-sm">Loading…</p>
@@ -53,6 +53,7 @@
   </div>
 </div>
 
+<script>window.NAV_CURRENT = 'contacts';</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>

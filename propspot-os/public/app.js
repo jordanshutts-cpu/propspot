@@ -21,6 +21,9 @@ window.__newChromeEnabled = function () {
 if (window.__newChromeEnabled()) {
   // Persist the flag so navigating within the workspace keeps it on.
   try { localStorage.setItem('propspot_newchrome', '1'); } catch (e) {}
+  // Apply os-newchrome to body immediately (synchronously, before sidebar.js
+  // finishes async data fetches) so there is no layout flash between page loads.
+  try { document.body.classList.add('os-newchrome'); } catch (e) {}
   // Dynamically load the new chrome scripts.
   ['/sidebar.js', '/topbar.js', '/lifecycle-stepper.js'].forEach(src => {
     const s = document.createElement('script');
@@ -30,13 +33,98 @@ if (window.__newChromeEnabled()) {
   });
 }
 
+// ── Apply theme class immediately to prevent FOUC ────────────────
+// Reads localStorage synchronously before any paint so premium.css
+// takes effect on the first frame instead of flashing in.
+(function () {
+  try {
+    if (localStorage.getItem('propspot_theme') === 'premium') {
+      document.documentElement.classList.add('theme-premium');
+      // Inject premium.css early so it's ready before theme.js loads
+      const link = document.createElement('link');
+      link.rel  = 'stylesheet';
+      link.id   = 'premium-css-link';
+      link.href = '/premium.css';
+      document.head.appendChild(link);
+    }
+  } catch (e) {}
+})();
+
 // ── Theme manager (premium / classic toggle) ─────────────────────
-// Always loaded — theme.js is non-destructive in classic mode.
 (function () {
   const s = document.createElement('script');
   s.src = '/theme.js';
   s.async = false;
   document.head.appendChild(s);
+})();
+
+// ── Page-load progress bar ───────────────────────────────────────
+// Shows a thin green bar at the top when navigating between pages.
+(function () {
+  const BAR_KEY = 'propspot_nav_loading';
+  const BRAND   = '#61B746';
+
+  function injectBar() {
+    if (document.getElementById('ps-nav-bar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'ps-nav-bar';
+    bar.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99999',
+      'height:2px', `background:${BRAND}`,
+      'transform:scaleX(0)', 'transform-origin:left center',
+      'transition:transform 0.25s ease', 'pointer-events:none',
+    ].join(';');
+    document.body.appendChild(bar);
+    return bar;
+  }
+
+  function completeBar() {
+    const bar = document.getElementById('ps-nav-bar');
+    if (!bar) return;
+    bar.style.transition = 'transform 0.2s ease, opacity 0.3s ease 0.15s';
+    bar.style.transform  = 'scaleX(1)';
+    bar.style.opacity    = '0';
+    setTimeout(() => { try { bar.remove(); } catch (e) {} }, 500);
+    try { sessionStorage.removeItem(BAR_KEY); } catch (e) {}
+  }
+
+  // On page load: if a navigation was in progress, complete the bar.
+  document.addEventListener('DOMContentLoaded', function () {
+    try {
+      if (sessionStorage.getItem(BAR_KEY)) {
+        const bar = injectBar();
+        if (bar) {
+          // Jump to 80% instantly, then complete
+          bar.style.transition = 'none';
+          bar.style.transform  = 'scaleX(0.8)';
+          requestAnimationFrame(() => { completeBar(); });
+        }
+      }
+    } catch (e) {}
+
+    // Wire navigation links to show the bar on click.
+    document.addEventListener('click', function (e) {
+      const anchor = e.target.closest('a[href]');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('javascript') ||
+          anchor.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      // Only trigger for same-origin or relative navigation
+      try {
+        const url = new URL(href, location.origin);
+        if (url.origin !== location.origin) return;
+      } catch (e) { return; }
+
+      try { sessionStorage.setItem(BAR_KEY, '1'); } catch (e) {}
+      const bar = injectBar();
+      if (bar) {
+        requestAnimationFrame(() => {
+          bar.style.transform = 'scaleX(0.65)';
+          bar.style.transition = 'transform 1.8s cubic-bezier(0.1, 0.05, 0, 1)';
+        });
+      }
+    });
+  });
 })();
 
 // ── Auth Storage ────────────────────────────────────────────────────────

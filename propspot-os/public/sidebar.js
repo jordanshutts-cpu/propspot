@@ -46,6 +46,29 @@
     document.head.appendChild(link);
   }
 
+  // ── Inject theme.js on satellite apps so premium theme works cross-origin
+  function ensureThemeScript() {
+    if (document.getElementById('propspot-theme-js')) return;
+    // Apply theme class immediately to prevent FOUC on satellites
+    try {
+      if (localStorage.getItem('propspot_theme') === 'premium') {
+        document.documentElement.classList.add('theme-premium');
+        if (!document.getElementById('premium-css-link')) {
+          const link = document.createElement('link');
+          link.id   = 'premium-css-link';
+          link.rel  = 'stylesheet';
+          link.href = OS_URL + '/premium.css';
+          document.head.appendChild(link);
+        }
+      }
+    } catch (e) {}
+    const s = document.createElement('script');
+    s.id  = 'propspot-theme-js';
+    s.src = OS_URL + '/theme.js';
+    s.async = false;
+    document.head.appendChild(s);
+  }
+
   // ── Wire data-app + data-osnav links to real URLs ───────────────
   // On OS this is wireUnifiedNav() from app.js. On satellites, app.js
   // doesn't define that helper, so the chrome carries its own copy and
@@ -417,6 +440,7 @@
   async function renderNewSidebar() {
     // On satellites these set up the chrome the host page doesn't ship with.
     ensureChromeStylesheet();
+    ensureThemeScript();
     ensurePlaceholders();
     const railEl = document.getElementById('apps-rail');
     if (!railEl) return;

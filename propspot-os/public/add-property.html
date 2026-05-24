@@ -7,13 +7,13 @@
   <title>Prop Spot — Add Property</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
 </head>
-<body>
+<body class="os-newlayout">
 
-<header class="app-header">
-  <button class="back-btn" onclick="history.back()">‹</button>
-  <span class="header-title">Add Property</span>
-</header>
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
 
 <main class="page">
   <div class="card">
@@ -66,6 +66,7 @@
   </div>
 </main>
 
+<script>window.NAV_CURRENT = 'properties';</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
