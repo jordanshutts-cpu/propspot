@@ -46,6 +46,7 @@
     'send':           S('<path d="M22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
     'file-text':      S('<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/>'),
     'list':           S('<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'),
+    'sprout':         S('<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>'),
     'mail':           S('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'),
     'target':         S('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'),
     'users':          S('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
@@ -162,6 +163,7 @@
     '📌': 'pin',            // round pushpin
     '👁️': 'eye',      // eye
     '📤': 'send',           // outbox tray
+    '🌱': 'sprout',         // 🌱 seedling
   };
 
   // ── State helpers ──────────────────────────────────────────
@@ -229,6 +231,61 @@
   // only fight the CSS and render mismatched icons (e.g. tenant emoji
   // 🔗 → 'link' SVG appearing on top of the masked inbox-tray icon).
   var SCAN_SKIP_CLASSES = ['ib-inbox-icon', 'ib-filter-icon', 'user-menu-icon', 'premium-icon-skip'];
+
+  // ── Emoji-prefix scanner ────────────────────────────────────────
+  // For elements whose text reads like "🔨 Projects" — too common to
+  // wrap each in a span on every page. Walk text nodes and split the
+  // leading emoji + whitespace into a sibling <span class="premium-emoji-prefix">
+  // that holds an inline Lucide SVG.
+  function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  var _emojiPrefixRegex = null;
+  function emojiPrefixRegex() {
+    if (_emojiPrefixRegex) return _emojiPrefixRegex;
+    // Longest first so multi-codepoint emojis (with VS16) win over shorter prefixes.
+    var keys = Object.keys(EMOJI_MAP).sort(function (a, b) { return b.length - a.length; });
+    _emojiPrefixRegex = new RegExp('^(' + keys.map(escapeRegExp).join('|') + ')(\\s+|$)');
+    return _emojiPrefixRegex;
+  }
+
+  function scanForEmojiPrefixes(root) {
+    if (!root || !root.querySelectorAll) return;
+    var SKIP_TAGS = { SCRIPT:1, STYLE:1, NOSCRIPT:1, IFRAME:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1 };
+    var regex = emojiPrefixRegex();
+    // Walk text nodes
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        var p = n.parentNode;
+        if (!p || SKIP_TAGS[p.tagName]) return NodeFilter.FILTER_REJECT;
+        if (p.dataset && p.dataset.premiumEmoji !== undefined) return NodeFilter.FILTER_REJECT;
+        // Skip if any skip-class is set on the parent
+        for (var c = 0; c < SCAN_SKIP_CLASSES.length; c++) {
+          if (p.classList && p.classList.contains(SCAN_SKIP_CLASSES[c])) return NodeFilter.FILTER_REJECT;
+        }
+        if (!n.nodeValue || n.nodeValue.length < 2) return NodeFilter.FILTER_SKIP;
+        if (!regex.test(n.nodeValue)) return NodeFilter.FILTER_SKIP;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(function (textNode) {
+      var m = regex.exec(textNode.nodeValue);
+      if (!m) return;
+      var emoji = m[1];
+      var iconName = EMOJI_MAP[emoji];
+      if (!iconName || !ICONS[iconName]) return;
+      // Trim the emoji + its trailing whitespace from the text
+      textNode.nodeValue = textNode.nodeValue.slice(m[0].length);
+      // Insert an SVG span before the (now-trimmed) text
+      var span = document.createElement('span');
+      span.className = 'premium-emoji-prefix';
+      span.dataset.premiumEmoji = emoji;
+      span.dataset.premiumPrefix = '1'; // flag so restoreEmojis knows to re-prepend
+      span.innerHTML = ICONS[iconName];
+      textNode.parentNode.insertBefore(span, textNode);
+    });
+  }
   function scanForEmojiLeaves(root) {
     if (!root || !root.querySelectorAll) return;
     var SKIP_TAGS = { SCRIPT:1, STYLE:1, NOSCRIPT:1, IFRAME:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1 };
@@ -273,6 +330,10 @@
     // underwriting buttons/badges/etc.).
     scanForEmojiLeaves(root === document ? document.body : root);
 
+    // 3b. Inline "emoji + space + text" prefixes (e.g. <h3>💼 Holdings</h3>).
+    // Splits the leading emoji off and inserts a sibling SVG span.
+    scanForEmojiPrefixes(root === document ? document.body : root);
+
     // 4. Bell button — has a text node + badge child; handle separately
     var bellBtn = root.querySelector ? root.querySelector('.os-newchrome-bell') : null;
     if (bellBtn) {
@@ -302,19 +363,32 @@
   // Simply re-renders sidebar + topbar (they rebuild HTML from scratch).
   // Static dashboard stage icons need manual restore via data-premium-emoji.
   function restoreEmojis() {
-    // Restore static stage/app icons
+    // 1. Prefix spans — re-prepend the emoji onto the following text node
+    //    and delete the span entirely (these were created from scratch
+    //    by scanForEmojiPrefixes, not in the original HTML).
+    document.querySelectorAll('.premium-emoji-prefix[data-premium-prefix="1"]').forEach(function (el) {
+      var emoji = el.dataset.premiumEmoji;
+      var sibling = el.nextSibling;
+      if (sibling && sibling.nodeType === Node.TEXT_NODE) {
+        sibling.nodeValue = emoji + ' ' + sibling.nodeValue;
+      } else {
+        // No text sibling — just put the emoji where the span was
+        el.parentNode.insertBefore(document.createTextNode(emoji + ' '), el);
+      }
+      el.remove();
+    });
+    // 2. Static leaf icons — restore inline emoji text
     document.querySelectorAll('[data-premium-emoji]').forEach(function (el) {
       el.textContent = el.dataset.premiumEmoji;
       delete el.dataset.premiumEmoji;
     });
-    // Restore bell
+    // 3. Bell — re-render topbar to get fresh HTML
     var bellBtn = document.querySelector('.os-newchrome-bell');
     if (bellBtn && bellBtn.dataset.premiumBell) {
       delete bellBtn.dataset.premiumBell;
-      // Re-render topbar to get fresh HTML
       if (typeof window.renderNewTopBar === 'function') window.renderNewTopBar();
     }
-    // Re-render sidebar (re-creates all nav rows with emoji text)
+    // 4. Sidebar — re-render to re-emit all nav rows with their emoji text
     if (typeof window.renderNewSidebar === 'function') window.renderNewSidebar();
   }
 

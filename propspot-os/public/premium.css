@@ -689,3 +689,43 @@ html.theme-premium .os-newchrome-pin-modal {
   border-radius: 12px;
   box-shadow: 0 8px 16px rgba(0,0,0,0.08), 0 24px 60px rgba(0,0,0,0.12);
 }
+
+/* ── Inline emoji prefix replacement ─────────────────────────────
+   theme.js's scanForEmojiPrefixes splits "🔨 Projects" into
+   <span class="premium-emoji-prefix"><svg/></span> Projects.
+   This styles that span so the SVG matches the surrounding text. */
+html.theme-premium .premium-emoji-prefix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  vertical-align: -3px;
+  color: var(--brand);
+  flex-shrink: 0;
+}
+html.theme-premium .premium-emoji-prefix svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+/* Inside H1/H2/H3, scale up to match the text and use a muted slate
+   instead of brand-green so it doesn't dominate the heading. */
+html.theme-premium h1 .premium-emoji-prefix,
+html.theme-premium h2 .premium-emoji-prefix,
+html.theme-premium h3 .premium-emoji-prefix {
+  width: 20px; height: 20px;
+  color: #64748b;
+  margin-right: 10px;
+  vertical-align: -4px;
+}
+html.theme-premium h1 .premium-emoji-prefix svg,
+html.theme-premium h2 .premium-emoji-prefix svg,
+html.theme-premium h3 .premium-emoji-prefix svg { width: 18px; height: 18px; }
+/* Inside buttons, slightly smaller. */
+html.theme-premium button .premium-emoji-prefix {
+  width: 16px; height: 16px;
+  margin-right: 6px;
+}
+html.theme-premium button .premium-emoji-prefix svg { width: 14px; height: 14px; }
