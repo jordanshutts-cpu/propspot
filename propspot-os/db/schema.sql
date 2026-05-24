@@ -1234,13 +1234,16 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'backfill_orphan_outbound_2026_05_23') THEN
+    -- Note: ar.mailbox_id = t.mailbox_id must live in WHERE, not in the
+    -- JOIN's ON clause — Postgres won't let an UPDATE's target alias (t)
+    -- be referenced from inside an additional-FROM join's ON predicate.
     UPDATE inbox_threads t
        SET shared_inbox_id = ar.shared_inbox_id
       FROM inbox_messages m
       JOIN inbox_alias_routes ar
         ON LOWER(m.from_email) = LOWER(ar.alias_email)
-       AND ar.mailbox_id = t.mailbox_id
      WHERE t.id = m.thread_id
+       AND ar.mailbox_id = t.mailbox_id
        AND t.shared_inbox_id IS NULL
        AND m.is_outbound = TRUE;
     INSERT INTO inbox_one_time_ops (op_id) VALUES ('backfill_orphan_outbound_2026_05_23');
