@@ -1017,15 +1017,41 @@
     saveTimer = setTimeout(doSave, 800);
   }
 
+  // Strip fields that exactly match DEFAULTS so the saved snapshot is a
+  // pure 'delta' from defaults. Without this, the very first save sends
+  // every default field as a 'change' (since the snapshot in DB is empty
+  // or sparse), and the backend's flatDiff logs all of them — making the
+  // audit log say the user touched everything when they only touched one.
+  function stripDefaults(data) {
+    const out = {};
+    for (const k of Object.keys(data || {})) {
+      const dv = DEFAULTS[k];
+      const av = data[k];
+      // Keep keys not in DEFAULTS (custom fields).
+      // Drop keys whose value JSON-equals the default value.
+      if (!(k in DEFAULTS) || JSON.stringify(av) !== JSON.stringify(dv)) {
+        out[k] = av;
+      }
+    }
+    return out;
+  }
+
   async function doSave() {
     if (saving) { scheduleSave(); return; }
     saving = true;
     try {
+      const payload = stripDefaults(A);
       await apiFetch(`/api/underwriting/${dealId}/snapshot/${currentTab}`, {
         method: 'PUT',
-        body: JSON.stringify({ data: A })
+        // Pass DEFAULTS too so the server can normalize the OLD snapshot
+        // before diffing. Without this, legacy full-snapshot rows would
+        // log every default-matching field as a 'value → null' change
+        // on the first save after this fix lands.
+        body: JSON.stringify({ data: payload, defaults: DEFAULTS })
       });
-      snapshots[currentTab] = Object.assign({}, A);
+      // Mirror what the server stored, not the in-memory A — keeps the
+      // local snapshot cache aligned so subsequent saves diff cleanly.
+      snapshots[currentTab] = Object.assign({}, payload);
       document.getElementById('save-status').textContent = 'Saved ✓';
       setTimeout(() => { document.getElementById('save-status').textContent = ''; }, 2000);
     } catch(e) {
@@ -1185,9 +1211,21 @@
     });
     renderAuditList();
   }
+  // Hide legacy spurious entries written before the strip-on-save fix:
+  // entries where old_value is null AND new_value matches the field's
+  // current DEFAULT (those were 'snapshot was empty → frontend sent full
+  // defaults' noise, not real edits). Keeps real null→value entries since
+  // we'd only filter when the new value matches the default exactly.
+  function isLegacyNoise(e) {
+    if (e.old_value !== null && e.old_value !== undefined) return false;
+    if (!(e.field in DEFAULTS)) return false;
+    return JSON.stringify(e.new_value) === JSON.stringify(DEFAULTS[e.field]);
+  }
   function renderAuditList() {
     const listEl = document.getElementById('audit-list');
-    const visible = auditEntries.filter(e => auditFilter === 'all' || e.kind === auditFilter);
+    const visible = auditEntries
+      .filter(e => !isLegacyNoise(e))
+      .filter(e => auditFilter === 'all' || e.kind === auditFilter);
     if (!visible.length) {
       listEl.innerHTML = `<div class="audit-empty">No changes yet — edits to assumptions will appear here.</div>`;
       return;

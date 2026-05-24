@@ -24,6 +24,22 @@ function flatDiff(oldObj, newObj) {
   return changes;
 }
 
+// Drop fields whose value JSON-equals the default value. Mirrors the
+// client's stripDefaults so we can normalize legacy full snapshots to
+// the same sparse-delta shape new saves produce — keeping the audit
+// log free of 'value → null' noise when a snapshot row pre-dates the
+// client's strip-on-save behavior.
+function stripDefaults(data, defaults) {
+  if (!data || !defaults) return data || {};
+  const out = {};
+  for (const k of Object.keys(data)) {
+    if (!(k in defaults) || JSON.stringify(data[k]) !== JSON.stringify(defaults[k])) {
+      out[k] = data[k];
+    }
+  }
+  return out;
+}
+
 // ── List deals ─────────────────────────────────────────────────────────────
 
 router.get('/', async (req, res) => {
@@ -189,6 +205,7 @@ router.put('/:id/snapshot/:kind', async (req, res) => {
   }
   try {
     const newData = req.body.data || req.body;
+    const clientDefaults = req.body.defaults || null;
 
     // Fetch the existing snapshot for diffing.
     const { rows: existing } = await query(
@@ -208,8 +225,13 @@ router.put('/:id/snapshot/:kind', async (req, res) => {
       RETURNING *
     `, [req.params.id, kind, JSON.stringify(newData), req.userId]);
 
-    // Write audit rows for changed fields.
-    const diffs = flatDiff(oldData, newData);
+    // Normalize BOTH sides against the client's DEFAULTS before diffing.
+    // This ensures legacy full snapshots (saved before strip-on-save shipped)
+    // don't generate spurious 'value → null' audit entries on the next save.
+    // When clientDefaults is absent (older client), fall back to raw diff.
+    const oldNorm = clientDefaults ? stripDefaults(oldData, clientDefaults) : oldData;
+    const newNorm = clientDefaults ? stripDefaults(newData, clientDefaults) : newData;
+    const diffs = flatDiff(oldNorm, newNorm);
     if (diffs.length) {
       // Batch insert using multiple parameter sets.
       const placeholders = diffs.map((_, idx) => {
