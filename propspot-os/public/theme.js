@@ -230,7 +230,7 @@
   // these via masked ::before pseudo-elements, so the scanner would
   // only fight the CSS and render mismatched icons (e.g. tenant emoji
   // 🔗 → 'link' SVG appearing on top of the masked inbox-tray icon).
-  var SCAN_SKIP_CLASSES = ['ib-inbox-icon', 'ib-filter-icon', 'user-menu-icon', 'os-newchrome-step-dot', 'premium-icon-skip'];
+  var SCAN_SKIP_CLASSES = ['ib-inbox-icon', 'ib-filter-icon', 'user-menu-icon', 'os-newchrome-step-dot', 'pipe-row-del', 'premium-icon-skip'];
 
   // ── Emoji-prefix scanner ────────────────────────────────────────
   // For elements whose text reads like "🔨 Projects" — too common to
