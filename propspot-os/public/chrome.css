@@ -1144,15 +1144,24 @@ html.sidebar-collapsed .os-newchrome-row-soon-pill,
 html.sidebar-collapsed .os-newchrome-section-label,
 html.sidebar-collapsed .os-newchrome-workspace-text,
 html.sidebar-collapsed .os-newchrome-workspace-chev,
-html.sidebar-collapsed .os-newchrome-property-row,
-html.sidebar-collapsed .os-newchrome-all-link,
 html.sidebar-collapsed .os-newchrome-brand-text,
-html.sidebar-collapsed .os-newchrome-pinned-add {
+html.sidebar-collapsed .os-newchrome-pinned-add,
+/* Hide the whole pinned/recent block — section headers, helper text,
+   property rows, "All properties" link. They have no useful icon-only
+   variant, and trying to render them in 64px just produces clipped
+   noise. */
+html.sidebar-collapsed .os-newchrome-properties {
   display: none !important;
 }
 html.sidebar-collapsed .os-newchrome-row {
   padding: 8px 0;
+  margin: 1px 6px;       /* keep tight inset so active pill stays centered */
   justify-content: center;
+}
+html.sidebar-collapsed .os-newchrome-row.active::before {
+  /* Active accent dot — re-center for the collapsed rail */
+  left: -6px;
+  height: 16px;
 }
 html.sidebar-collapsed .os-newchrome-row-icon {
   margin: 0 auto;
@@ -1161,20 +1170,15 @@ html.sidebar-collapsed .os-newchrome-row-icon {
 }
 html.sidebar-collapsed .os-newchrome-workspace {
   justify-content: center;
-  padding: 0 10px;
+  padding: 0;
 }
+/* Brand bar collapsed: hide the logo entirely (40px image won't fit
+   alongside a 30px button in 64px), center the collapse/expand
+   button on its own. */
 html.sidebar-collapsed .os-newchrome-brand-bar {
   justify-content: center;
-  padding: 10px 8px;
+  padding: 10px 0;
 }
 html.sidebar-collapsed .os-newchrome-brand-logo {
-  flex: 0;
-  padding: 2px;
-}
-/* Pinned / recent sections collapse to nothing — keep the section
-   header hidden via the rules above. */
-html.sidebar-collapsed .os-newchrome-pinned-section,
-html.sidebar-collapsed .os-newchrome-recent-section {
-  padding: 0 !important;
-  border: none !important;
+  display: none !important;
 }
