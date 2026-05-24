@@ -351,19 +351,35 @@ body.os-newchrome .page {
   align-items: center;
   gap: 10px;
   padding: 6px 12px;
-  margin: 0 6px;
-  border-radius: 6px;
+  margin: 1px 8px;
+  border-radius: 7px;
   text-decoration: none;
   color: #1f2937;
   font-size: 13px;
+  position: relative;
+  transition: background 0.12s ease, color 0.12s ease;
 }
-.os-newchrome-property-row:hover { background: var(--brand-light); }
+.os-newchrome-property-row:hover {
+  background: rgba(15, 23, 42, 0.04);
+  color: #111827;
+}
+/* Matches the sleek nav-row active style: flat brand-tinted pill +
+   3×18px brand-green accent dot just outside the left edge. */
 .os-newchrome-property-row.active {
-  background: #eff6ff;
-  border-left: 3px solid #2563eb;
-  padding-left: 9px;
-  color: #1e40af;
+  background: rgba(97,183,70,0.10);
+  color: var(--brand-dark);
   font-weight: 600;
+}
+.os-newchrome-property-row.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  background: var(--brand);
+  border-radius: 0 3px 3px 0;
 }
 .os-newchrome-status-dot {
   width: 8px;
