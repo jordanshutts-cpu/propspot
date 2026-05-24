@@ -551,6 +551,7 @@ function renderUserMenu() {
     </div>
     <button type="button" onclick="openEditProfile()">👤 Edit Profile</button>
     <button type="button" onclick="openChangePassword()">🔑 Change Password</button>
+    <button type="button" onclick="window.location.href='/team.html'">👥 Team Members</button>
     <div class="menu-divider"></div>
     <button type="button" class="danger" onclick="signOut()">🚪 Sign Out</button>
   `;
