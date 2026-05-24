@@ -522,9 +522,9 @@
       <aside class="os-newchrome-sidebar">
 
         <div class="os-newchrome-brand-bar">
-          <a class="os-newchrome-brand-logo" href="/dashboard.html" title="Prop Spot · Home">
-            <img src="/logo.png" alt="Prop Spot">
-            <span class="os-newchrome-brand-text">Prop Spot</span>
+          <a class="os-newchrome-brand-logo" href="/dashboard.html" title="PropSpot.OS · Home">
+            <img src="/logo.png" alt="PropSpot.OS">
+            <span class="os-newchrome-brand-text">PropSpot<span class="os-newchrome-brand-suffix">.OS</span></span>
           </a>
           <button type="button" class="os-newchrome-collapse-btn" id="os-newchrome-collapse-btn"
                   onclick="toggleSidebar()" title="Collapse sidebar" aria-label="Collapse sidebar">

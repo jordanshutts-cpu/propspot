@@ -1115,6 +1115,14 @@ body.os-newchrome .user-menu {
   text-overflow: ellipsis;
   min-width: 0;
 }
+/* .OS suffix — brand-green accent, slightly lighter weight so it
+   reads as a product modifier without competing with the wordmark. */
+.os-newchrome-brand-suffix {
+  color: var(--brand);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-left: 1px;
+}
 .os-newchrome-collapse-btn {
   background: none;
   border: none;
