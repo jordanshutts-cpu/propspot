@@ -7,6 +7,29 @@
 const TOKEN_KEY = 'ros_token';
 const USER_KEY  = 'ros_user';
 
+// ── New-chrome feature flag (Phase 1 of UI redesign) ────────────
+// Enabled by ?newchrome=1 in URL OR localStorage.propspot_newchrome === '1'.
+// When on, sidebar.js + topbar.js render a 260px sidebar + new top bar.
+// The old renderTopHeader/renderAppsRail/renderUnifiedNav skip themselves.
+window.__newChromeEnabled = function () {
+  try {
+    if (new URLSearchParams(location.search).get('newchrome') === '1') return true;
+    if (localStorage.getItem('propspot_newchrome') === '1') return true;
+  } catch (e) {}
+  return false;
+};
+if (window.__newChromeEnabled()) {
+  // Persist the flag so navigating within the workspace keeps it on.
+  try { localStorage.setItem('propspot_newchrome', '1'); } catch (e) {}
+  // Dynamically load the new chrome scripts.
+  ['/sidebar.js', '/topbar.js', '/lifecycle-stepper.js'].forEach(src => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false;
+    document.head.appendChild(s);
+  });
+}
+
 // ── Auth Storage ────────────────────────────────────────────────────────
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t)      { localStorage.setItem(TOKEN_KEY, t); }
@@ -275,12 +298,15 @@ function renderUnifiedNav() {
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      if (window.__newChromeEnabled && window.__newChromeEnabled()) return;
       renderUnifiedNav();
       wireUnifiedNav();   // also wire any pre-existing nav (back-compat)
     });
   } else {
-    renderUnifiedNav();
-    wireUnifiedNav();
+    if (!(window.__newChromeEnabled && window.__newChromeEnabled())) {
+      renderUnifiedNav();
+      wireUnifiedNav();
+    }
   }
 }
 
@@ -563,12 +589,133 @@ async function openEditProfile() {
           <input class="form-input" type="email" id="ep-email" value="${escHtml(u.email || '')}" disabled style="background:#f5f5f5;">
           <p class="text-xs text-muted" style="margin-top:4px;">Email changes aren't supported yet — contact an owner if needed.</p>
         </div>
+        <div class="form-group">
+          <label class="form-label">Sign-in methods</label>
+          <div id="ep-google-row" style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;">
+            ${renderGoogleLinkRow(u)}
+          </div>
+          <p id="ep-google-err" class="text-xs" style="color:var(--danger);display:none;margin-top:4px;"></p>
+        </div>
         <p id="ep-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
         <button class="btn btn-primary btn-full" type="submit" id="ep-btn">Save</button>
       </form>
     </div>`;
   document.body.appendChild(modal);
   document.getElementById('ep-form').addEventListener('submit', submitEditProfile);
+  initEditProfileGoogleLink();
+}
+
+// ── Google account linking (inside Edit Profile) ───────────────
+function renderGoogleLinkRow(u) {
+  if (u.google_email) {
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:.9rem;">🔗 Linked as <strong>${escHtml(u.google_email)}</strong></div>
+          <div class="text-xs text-muted">You can sign in with this Google account.</div>
+        </div>
+        <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:.8rem;" onclick="unlinkGoogle()">Unlink</button>
+      </div>`;
+  }
+  return `
+    <div>
+      <div style="font-size:.85rem;margin-bottom:8px;">Sign in with your Google Workspace account in addition to your password.</div>
+      <div id="ep-google-btn"></div>
+    </div>`;
+}
+
+function refreshGoogleLinkRow() {
+  const row = document.getElementById('ep-google-row');
+  if (!row) return;
+  row.innerHTML = renderGoogleLinkRow(getCachedUser() || {});
+  initEditProfileGoogleLink();
+}
+
+async function initEditProfileGoogleLink() {
+  const placeholder = document.getElementById('ep-google-btn');
+  if (!placeholder) return; // already linked → nothing to render
+  try {
+    const cfg = window.__epGoogleCfg || (window.__epGoogleCfg = await fetch('/api/config').then(r => r.json()));
+    if (!cfg.googleClientId) {
+      placeholder.innerHTML = '<p class="text-xs text-muted">Google sign-in isn\'t configured yet.</p>';
+      return;
+    }
+    await ensureGoogleIdentityLoaded();
+    google.accounts.id.initialize({
+      client_id: cfg.googleClientId,
+      callback: handleGoogleLinkCredential,
+      auto_select: false,
+      ux_mode: 'popup'
+    });
+    google.accounts.id.renderButton(placeholder, {
+      theme: 'outline', size: 'large', text: 'continue_with',
+      shape: 'rectangular', logo_alignment: 'left', width: 280
+    });
+  } catch (e) {
+    console.error('Google link init failed:', e);
+  }
+}
+
+function ensureGoogleIdentityLoaded() {
+  return new Promise((resolve, reject) => {
+    if (typeof google !== 'undefined' && google.accounts) return resolve();
+    let script = document.getElementById('gsi-script');
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'gsi-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true; script.defer = true;
+      document.head.appendChild(script);
+    }
+    let attempts = 0;
+    const handle = setInterval(() => {
+      if (typeof google !== 'undefined' && google.accounts) {
+        clearInterval(handle); resolve();
+      } else if (++attempts > 25) {
+        clearInterval(handle); reject(new Error('Failed to load Google Identity Services'));
+      }
+    }, 200);
+  });
+}
+
+async function handleGoogleLinkCredential(response) {
+  const err = document.getElementById('ep-google-err');
+  err.style.display = 'none';
+  try {
+    // Use raw fetch (not apiFetch) so a 401 from the verify step doesn't
+    // log the user out — they're already authenticated for the link call.
+    const res = await fetch('/api/auth/google/link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getToken()}`
+      },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    setCachedUser(data.user);
+    refreshGoogleLinkRow();
+    renderTopHeader(); renderUserMenu();
+    showToast('Google account linked');
+  } catch (e) {
+    err.textContent = e.message; err.style.display = 'block';
+  }
+}
+
+async function unlinkGoogle() {
+  if (!confirm('Unlink your Google account? You\'ll only be able to sign in with your password after this.')) return;
+  const err = document.getElementById('ep-google-err');
+  err.style.display = 'none';
+  try {
+    const { user } = await apiFetch('/api/auth/google/link', { method: 'DELETE' });
+    setCachedUser(user);
+    refreshGoogleLinkRow();
+    renderTopHeader(); renderUserMenu();
+    showToast('Google account unlinked');
+  } catch (e) {
+    err.textContent = e.message; err.style.display = 'block';
+  }
 }
 
 async function submitEditProfile(e) {
@@ -695,10 +842,19 @@ if (typeof window !== 'undefined') {
   document.addEventListener('click', closeSearchOnOutsideClick);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      if (window.__newChromeEnabled && window.__newChromeEnabled()) {
+        // New chrome handles user-menu rendering via topbar.js; only render the menu body here.
+        renderUserMenu();
+        return;
+      }
       renderTopHeader(); renderAppsRail(); renderUserMenu();
     });
   } else {
-    renderTopHeader(); renderAppsRail(); renderUserMenu();
+    if (window.__newChromeEnabled && window.__newChromeEnabled()) {
+      renderUserMenu();
+    } else {
+      renderTopHeader(); renderAppsRail(); renderUserMenu();
+    }
   }
 }
 

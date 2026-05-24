@@ -3,6 +3,7 @@ const { query } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { normalizeAddress } = require('../lib/address');
 const { logActivity } = require('../lib/activity');
+const { touchRecent } = require('./recent');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -114,6 +115,9 @@ router.get('/:id', async (req, res) => {
               WHERE i.property_id = $1
               ORDER BY i.next_due_date NULLS LAST, i.created_at DESC`, [req.params.id])
     ]);
+
+    // Fire-and-forget recent-properties tracking for the new-chrome sidebar.
+    touchRecent(req.userId, req.params.id);
 
     res.json({
       ...pRows[0],

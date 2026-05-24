@@ -64,6 +64,20 @@
       color: var(--text-muted); font-weight: 700;
     }
     .nav-section-head .nav-head-title { flex: 1; }
+    /* Front-style rollup counter to the right of a section heading. */
+    .nav-section-head .nav-head-total {
+      font-size: .7rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      padding: 1px 6px;
+      background: rgba(0,0,0,.04);
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+    .nav-section-head .nav-head-total:empty { display: none; }
     .nav-section-icon-btn {
       background: none; border: none; cursor: pointer;
       padding: 2px 5px; font-size: .85rem;
@@ -78,8 +92,25 @@
     }
     .nav-item:hover { background: var(--bg); }
     .nav-item.active { background: var(--brand-light); color: var(--brand-dark); font-weight: 600; }
-    .nav-item .count { margin-left: auto; font-size: .72rem; color: var(--text-muted); }
+    .nav-item .count {
+      margin-left: auto;
+      font-size: .72rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
     .nav-item.active .count { color: var(--brand-dark); }
+    /* Unread count gets a small attention-grabbing pill, similar to Front's bolded counts. */
+    .nav-item .count.count-unread {
+      color: var(--brand-dark);
+      background: var(--brand-light);
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+    .nav-item.active .count.count-unread {
+      background: var(--brand-dark);
+      color: #fff;
+    }
 
     .col-left .nav-scroll {
       flex: 1; overflow-y: auto;
@@ -362,6 +393,7 @@
       <div class="nav-section">
         <div class="nav-section-head">
           <span class="nav-head-title">Shared inboxes</span>
+          <span class="nav-head-total" id="shared-total" title="Total open across all shared inboxes"></span>
           <button class="nav-section-icon-btn" title="Create a new shared inbox" onclick="location.href='/admin-shared.html'">+</button>
           <button class="nav-section-icon-btn" title="Mailboxes &amp; aliases (admin)" onclick="location.href='/admin-mailboxes.html'">⚙️</button>
         </div>
@@ -647,17 +679,45 @@ async function loadInboxes() {
     STATE.inboxes = [];
   }
   const el = document.getElementById('shared-list');
+  const totalEl = document.getElementById('shared-total');
+  // Reset the total badge each render.
+  if (totalEl) totalEl.textContent = '';
+
   if (!STATE.inboxes.length) {
     el.innerHTML = `<p class="text-muted text-sm" style="padding:6px 10px;">None yet — click the <strong>+</strong> above to create one.</p>`;
     return;
   }
-  el.innerHTML = STATE.inboxes.map(i => `
-    <div class="nav-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" data-inbox-slug="${i.slug}">
-      <span>${i.icon || '📨'}</span>
-      <span>${escapeHtml(i.name)}</span>
-      ${i.unread_count > 0 ? `<span class="count">${i.unread_count}</span>` : ''}
-    </div>
-  `).join('');
+
+  // Sum total open across every inbox the caller can see, and show it
+  // in the section heading as a Front-style rollup (e.g. "1,329").
+  // Also populate the global "Open" nav item's count with the same total —
+  // it slightly under-counts (won't include assigned-to-me threads from
+  // inboxes the caller can't directly access) but is close enough.
+  const total = STATE.inboxes.reduce((acc, i) => acc + (i.open_count || 0), 0);
+  if (totalEl && total > 0) totalEl.textContent = total.toLocaleString();
+  const openCountEl = document.getElementById('count-open');
+  if (openCountEl) openCountEl.textContent = total > 0 ? total.toLocaleString() : '';
+
+  // Each row shows the inbox's open-thread count (Front-style). We render
+  // a subtle muted count for "just open" and a brighter accent when there
+  // are unread items — the same number, but the styling signals attention.
+  el.innerHTML = STATE.inboxes.map(i => {
+    const open = i.open_count || 0;
+    const unread = i.unread_count || 0;
+    let badge = '';
+    if (unread > 0) {
+      badge = `<span class="count count-unread" title="${unread} unread">${unread}</span>`;
+    } else if (open > 0) {
+      badge = `<span class="count" title="${open} open">${open}</span>`;
+    }
+    return `
+      <div class="nav-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" data-inbox-slug="${i.slug}">
+        <span>${i.icon || '📨'}</span>
+        <span>${escapeHtml(i.name)}</span>
+        ${badge}
+      </div>
+    `;
+  }).join('');
   el.querySelectorAll('.nav-item').forEach(el2 => {
     el2.addEventListener('click', () => {
       document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));

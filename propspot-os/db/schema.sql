@@ -21,6 +21,18 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url           TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_cloudinary_id TEXT;
 
+-- Google Workspace SSO linkage. google_sub is Google's stable user ID
+-- (the `sub` claim). google_email is captured at link time so users
+-- can see which Workspace account they linked. Partial unique indexes
+-- prevent two users from claiming the same Google account, while
+-- allowing many users with NULL (not yet linked).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub   TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_email TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_uniq
+  ON users (google_sub)   WHERE google_sub   IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_email_uniq
+  ON users (google_email) WHERE google_email IS NOT NULL;
+
 -- ── Apps Registry ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS apps (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -71,6 +83,14 @@ CREATE TABLE IF NOT EXISTS properties (
 
 CREATE INDEX IF NOT EXISTS properties_parcel_idx  ON properties(parcel_id);
 CREATE INDEX IF NOT EXISTS properties_created_idx ON properties(created_at DESC);
+
+-- CompanyCam project linkage: every property may carry the CC project ID
+-- it was migrated from, so we can later attach photos via the CC API.
+-- Partial unique index = many NULLs allowed, but no two rows share the
+-- same CC project.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS companycam_project_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS properties_companycam_project_uniq
+  ON properties (companycam_project_id) WHERE companycam_project_id IS NOT NULL;
 
 -- Operator-facing fields added later (idempotent ALTERs).
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS owner              TEXT;
@@ -469,6 +489,13 @@ CREATE TABLE IF NOT EXISTS photos (
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS folder_id  UUID REFERENCES folders(id) ON DELETE SET NULL;
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- CompanyCam migration linkage. Lets the photo importer resume safely
+-- if interrupted (and skip already-migrated photos on re-run).
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS companycam_photo_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS photos_companycam_uniq
+  ON photos (companycam_photo_id) WHERE companycam_photo_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS photos_property_id_idx ON photos(property_id);
 CREATE INDEX IF NOT EXISTS photos_taken_at_idx    ON photos(taken_at DESC);
 CREATE INDEX IF NOT EXISTS photos_uploader_idx    ON photos(uploaded_by);
@@ -1140,6 +1167,30 @@ BEGIN
     CHECK (status IN ('open','archived','snoozed','trash','spam'));
 END $$;
 
+-- ── New-chrome Phase 2: per-user sidebar state ─────────────────────────
+-- Pinned properties stay in the user's sidebar across sessions; recent
+-- properties auto-populate from /api/properties/:id GET hits so the
+-- "Recent" list always reflects what the user actually visited.
+
+CREATE TABLE IF NOT EXISTS pinned_properties (
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  pinned_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  position    INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, property_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pinned_user_position
+  ON pinned_properties (user_id, position, pinned_at);
+
+CREATE TABLE IF NOT EXISTS recent_properties (
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  visited_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, property_id)
+);
+CREATE INDEX IF NOT EXISTS idx_recent_user_time
+  ON recent_properties (user_id, visited_at DESC);
+
 -- ── 2026-05-23 one-time: archive every open thread with no activity in the
 -- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
 -- without years of backfilled history cluttering the lists. Owners can
@@ -1170,5 +1221,70 @@ BEGIN
      WHERE status = 'open'
        AND assigned_to_user_id IS NULL;
     INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_all_unassigned_2026_05_23');
+  END IF;
+END $$;
+
+-- ── 2026-05-23 one-time: archive every thread in the Acquisitions shared
+-- inbox (across all tabs — Unassigned, Assigned, Snoozed), except threads
+-- already archived. Jordan requested a clean reset for that inbox.
+-- New mail arriving AFTER this runs still lands in Acquisitions normally
+-- with status='open' — the marker only blocks THIS UPDATE from re-firing.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_all_acquisitions_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE shared_inbox_id = (SELECT id FROM inbox_shared WHERE slug = 'acquisitions')
+       AND status <> 'archived';
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_all_acquisitions_2026_05_23');
+  END IF;
+END $$;
+
+-- ── 2026-05-23 one-time: backfill shared_inbox_id on orphaned outbound
+-- threads. A bug in the compose path (see inbox/routes/messages.js) means
+-- some outbound emails get persisted with shared_inbox_id=NULL — they then
+-- appear in the global "Open" view but don't count toward any individual
+-- inbox's open_count, causing the sidebar-vs-list mismatch Jordan reported.
+--
+-- This UPDATE looks at every orphan thread, finds its outbound messages,
+-- looks up the alias_route matching that from_email + mailbox, and writes
+-- the resulting shared_inbox_id back onto the thread. The mailbox_id join
+-- prevents cross-mailbox bleed when the same alias address lives in
+-- multiple connected Google Workspace mailboxes.
+--
+-- After this UPDATE, the very next block below catches any orphan that
+-- just got routed to Acquisitions and archives it too (so Jordan's
+-- requested "Acquisitions empty" state is restored end-to-end).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'backfill_orphan_outbound_2026_05_23') THEN
+    -- Note: ar.mailbox_id = t.mailbox_id must live in WHERE, not in the
+    -- JOIN's ON clause — Postgres won't let an UPDATE's target alias (t)
+    -- be referenced from inside an additional-FROM join's ON predicate.
+    UPDATE inbox_threads t
+       SET shared_inbox_id = ar.shared_inbox_id
+      FROM inbox_messages m
+      JOIN inbox_alias_routes ar
+        ON LOWER(m.from_email) = LOWER(ar.alias_email)
+     WHERE t.id = m.thread_id
+       AND ar.mailbox_id = t.mailbox_id
+       AND t.shared_inbox_id IS NULL
+       AND m.is_outbound = TRUE;
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('backfill_orphan_outbound_2026_05_23');
+  END IF;
+END $$;
+
+-- ── 2026-05-23 one-time: re-run the Acquisitions archive after the
+-- orphan backfill above, so any thread that just got routed into
+-- Acquisitions also gets archived. Without this second pass, those
+-- newly-routed orphans would still show as 'open' in Acquisitions.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM inbox_one_time_ops WHERE op_id = 'archive_acquisitions_after_backfill_2026_05_23') THEN
+    UPDATE inbox_threads
+       SET status = 'archived'
+     WHERE shared_inbox_id = (SELECT id FROM inbox_shared WHERE slug = 'acquisitions')
+       AND status <> 'archived';
+    INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_acquisitions_after_backfill_2026_05_23');
   END IF;
 END $$;

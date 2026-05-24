@@ -1,0 +1,538 @@
+// ============================================================
+//  Prop Spot — New Chrome Sidebar (Phase 2)
+//  Gated by ?newchrome=1 URL param OR localStorage.propspot_newchrome.
+//  Renders the 260px hybrid sidebar into the existing #apps-rail
+//  placeholder. Phase 2 adds:
+//    • Live badge counts via /api/sidebar-counts
+//    • Persistent pinning via /api/pinned (+ pin-a-property dialog)
+//    • Real recent list via /api/recent
+//    • Scope mode — clicking a pinned/recent property filters
+//      Photos/Work Orders/Pulse/Inbox to that property
+// ============================================================
+
+(function () {
+  if (!window.__newChromeEnabled || !window.__newChromeEnabled()) return;
+
+  // ── OS URL — used for cross-origin satellite loads (FieldCam etc.)
+  // On propspot-os itself, OS_URL is just location.origin (same-origin).
+  // On a satellite, OS_URL points at os.propspot.io so chrome-only
+  // endpoints (sidebar-counts, pinned, recent) hit OS directly.
+  // Override via window.__PROPSPOT_OS_URL for local dev.
+  const OS_URL = window.__PROPSPOT_OS_URL ||
+    (location.hostname.startsWith('os.') || location.hostname === 'localhost'
+      ? location.origin
+      : 'https://os.propspot.io');
+  const IS_SATELLITE = OS_URL !== location.origin;
+
+  // ── Cross-origin OS fetch — sends the local app's auth token
+  // as Bearer (every satellite stores the same OS JWT, just under a
+  // different localStorage key like fieldcam_token / inbox_token).
+  async function osFetch(path) {
+    const token = (typeof getToken === 'function') ? getToken() : null;
+    const headers = {};
+    if (token) headers.Authorization = 'Bearer ' + token;
+    const res = await fetch(OS_URL + path, { headers, credentials: 'omit' });
+    if (!res.ok) throw new Error('OS fetch ' + path + ' → ' + res.status);
+    return res.json();
+  }
+
+  // ── Inject chrome.css if missing (satellites won't have it loaded)
+  function ensureChromeStylesheet() {
+    if (document.querySelector('link[data-propspot-chrome]')) return;
+    const link = document.createElement('link');
+    link.rel  = 'stylesheet';
+    link.href = OS_URL + '/chrome.css';
+    link.dataset.propspotChrome = '1';
+    document.head.appendChild(link);
+  }
+
+  // ── Wire data-app + data-osnav links to real URLs ───────────────
+  // On OS this is wireUnifiedNav() from app.js. On satellites, app.js
+  // doesn't define that helper, so the chrome carries its own copy and
+  // fetches the URL map from OS via osFetch so navigation lines up
+  // regardless of which satellite the user is on.
+  let _navCfgCache = null;
+  async function _loadNavConfigChrome() {
+    if (_navCfgCache) return _navCfgCache;
+    try { _navCfgCache = await (IS_SATELLITE ? osFetch('/api/config') : apiFetch('/api/config')); }
+    catch (e) { _navCfgCache = {}; }
+    return _navCfgCache;
+  }
+  function _appendToken(url) {
+    const token = (typeof getToken === 'function') ? getToken() : null;
+    if (!token) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return url + sep + 'token=' + encodeURIComponent(token);
+  }
+  function _isCurrentOrigin(url) {
+    try { return new URL(url).origin === location.origin; }
+    catch (e) { return false; }
+  }
+  async function wireChromeNav() {
+    const cfg = await _loadNavConfigChrome();
+    const APP_URLS = {
+      holdings:     cfg.holdingsUrl     || '',
+      maintenance:  cfg.maintenanceUrl  || '',
+      fieldcam:     cfg.fieldcamUrl     || '',
+      pulse:        cfg.pulseUrl        || '',
+      inbox:        cfg.inboxUrl        || '',
+      underwriting: cfg.underwritingUrl || ''
+    };
+    document.querySelectorAll('[data-app]').forEach(a => {
+      const slug = a.dataset.app;
+      const base = APP_URLS[slug];
+      if (!base) { a.style.display = 'none'; return; }
+      const path = a.dataset.appPath || '/';
+      a.href = _isCurrentOrigin(base) ? path : _appendToken(base.replace(/\/$/, '') + path);
+      a.style.display = '';
+    });
+    const osBase = cfg.osUrl || OS_URL;
+    document.querySelectorAll('[data-osnav]').forEach(a => {
+      const page = a.dataset.osnav;
+      const path = (page === 'dashboard' || page === '') ? '/dashboard.html' : '/' + page + '.html';
+      // Honor explicit href when set (some Pipeline items point to specific pages)
+      const explicit = a.getAttribute('href');
+      const target   = (explicit && explicit !== '#') ? explicit : path;
+      if (!osBase || _isCurrentOrigin(osBase)) {
+        a.href = target;
+      } else {
+        a.href = _appendToken(osBase.replace(/\/$/, '') + target);
+      }
+    });
+  }
+
+  // ── Inject required DOM placeholders if a host page doesn't have them
+  function ensurePlaceholders() {
+    if (!document.getElementById('apps-rail')) {
+      const aside = document.createElement('aside');
+      aside.className = 'apps-rail';
+      aside.id = 'apps-rail';
+      document.body.insertBefore(aside, document.body.firstChild);
+    }
+    if (!document.getElementById('top-header')) {
+      const header = document.createElement('header');
+      header.className = 'top-header';
+      header.id = 'top-header';
+      document.body.insertBefore(header, document.body.firstChild);
+    }
+    if (!document.getElementById('user-menu')) {
+      const div = document.createElement('div');
+      div.id = 'user-menu';
+      div.className = 'user-menu';
+      document.body.appendChild(div);
+    }
+  }
+
+  // ── Status dot colors (mirrors PROPERTY_STATUSES in app.js) ──────
+  const STATUS_DOT = {
+    purchasing:           '#f59e0b',
+    renovating:           '#2563eb',
+    renting:              '#0284c7',
+    rented:               '#16a34a',
+    listed_for_rent:      '#0284c7',
+    selling:              '#a855f7',
+    listed_for_sale:      '#9333ea',
+    under_contract_buyer: '#db2777',
+    sold:                 '#475569',
+    assigned:             '#334155',
+    dropped:              '#9ca3af'
+  };
+
+  // Apps that understand a ?property_id= filter — those get hrefs
+  // rewritten by setScope(). Pipeline pages stay unscoped.
+  const SCOPABLE_APPS = ['fieldcam', 'maintenance', 'pulse', 'inbox'];
+
+  // ── Section/row builders ────────────────────────────────────────
+  function sectionLabel(text) {
+    return `<div class="os-newchrome-section-label">${text}</div>`;
+  }
+
+  function row({ icon, label, href = '#', osnav, app, appPath, badge, badgeClass = '', soon = false }) {
+    const dataAttr = osnav ? `data-osnav="${osnav}"` :
+                     app   ? `data-app="${app}" data-app-path="${appPath || '/'}"` : '';
+    const badgeHtml = soon
+      ? `<span class="os-newchrome-row-soon-pill">soon</span>`
+      : (badge !== undefined && badge !== null && badge !== '' && badge > 0
+          ? `<span class="os-newchrome-badge ${badgeClass}">${badge}</span>`
+          : '');
+    const klass = `os-newchrome-row${soon ? ' soon' : ''}`;
+    return `
+      <a class="${klass}" href="${href}" ${dataAttr}>
+        <span class="os-newchrome-row-icon">${icon}</span>
+        <span class="os-newchrome-row-label">${label}</span>
+        ${badgeHtml}
+      </a>`;
+  }
+
+  function propertyRow(p, kind /* 'pinned' | 'recent' */) {
+    const dot = STATUS_DOT[p.status] || '#cbd5e1';
+    const sub = p.acquisition_status
+      ? acquisitionLabel(p.acquisition_status)
+      : (typeof propertyStatusLabel === 'function' ? propertyStatusLabel(p.status) : p.status);
+    const scoped = getScopedPropertyId();
+    const active = scoped === p.id;
+    return `
+      <a class="os-newchrome-property-row${active ? ' active' : ''}"
+         href="/property.html?id=${p.id}"
+         data-property-id="${p.id}"
+         data-property-name="${escHtml(p.display_name || p.address_line1)}"
+         data-property-sub="${escHtml(sub || '')}"
+         data-property-row="${kind}">
+        <span class="os-newchrome-status-dot" style="background:${dot}"></span>
+        <div class="os-newchrome-property-name">
+          <div class="os-newchrome-property-name-line">${escHtml(p.display_name || p.address_line1)}</div>
+          <div class="os-newchrome-property-sub">${escHtml(sub || '')}</div>
+        </div>
+      </a>`;
+  }
+
+  function acquisitionLabel(s) {
+    const map = {
+      under_contract: 'Under Contract',
+      due_diligence: 'Due Diligence',
+      assigning: 'Assigning',
+      approved_to_close: 'Approved to Close'
+    };
+    return map[s] || s;
+  }
+
+  // ── Scope mode (sessionStorage-backed) ──────────────────────────
+  function getScopedPropertyId() {
+    try { return sessionStorage.getItem('propspot_scoped_property') || null; }
+    catch (e) { return null; }
+  }
+  function getScopedPropertyMeta() {
+    try {
+      const raw = sessionStorage.getItem('propspot_scoped_property_meta');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function setScope(id, name, sub) {
+    try {
+      sessionStorage.setItem('propspot_scoped_property', id);
+      sessionStorage.setItem('propspot_scoped_property_meta',
+        JSON.stringify({ id, name, sub }));
+    } catch (e) {}
+    applyScopeToLinks();
+    renderScopeChip();
+    refreshActiveProperty();
+  }
+  function clearScope() {
+    try {
+      sessionStorage.removeItem('propspot_scoped_property');
+      sessionStorage.removeItem('propspot_scoped_property_meta');
+    } catch (e) {}
+    applyScopeToLinks();
+    renderScopeChip();
+    refreshActiveProperty();
+  }
+
+  // Rewrite hrefs on every scopable [data-app] link so cross-app navigation
+  // pre-filters to the scoped property. Pipeline links (data-osnav) stay
+  // untouched — Pipeline is intentionally global.
+  function applyScopeToLinks() {
+    const scoped = getScopedPropertyId();
+    document.querySelectorAll('[data-app]').forEach(a => {
+      const app = a.dataset.app;
+      if (!SCOPABLE_APPS.includes(app)) return;
+      const baseHref = a.dataset.scopeBase || a.getAttribute('href') || '';
+      // Save original href once so we can restore it if scope clears.
+      if (!a.dataset.scopeBase) a.dataset.scopeBase = baseHref;
+      if (!scoped) {
+        if (baseHref) a.href = baseHref;
+        return;
+      }
+      // Append/replace property_id query param.
+      try {
+        const u = new URL(baseHref, location.origin);
+        u.searchParams.set('property_id', scoped);
+        // Preserve the original token if present
+        const orig = new URL(a.dataset.scopeBase, location.origin);
+        const token = orig.searchParams.get('token');
+        if (token) u.searchParams.set('token', token);
+        a.href = u.toString();
+      } catch (e) { /* leave href alone */ }
+    });
+  }
+
+  function refreshActiveProperty() {
+    const scoped = getScopedPropertyId();
+    document.querySelectorAll('.os-newchrome-property-row').forEach(r => {
+      r.classList.toggle('active', r.dataset.propertyId === scoped);
+    });
+  }
+
+  // Sticky chip injected at the top of the main content area.
+  function renderScopeChip() {
+    let chipHost = document.getElementById('os-newchrome-scope-chip-host');
+    if (!chipHost) {
+      chipHost = document.createElement('div');
+      chipHost.id = 'os-newchrome-scope-chip-host';
+      // Insert at the very top of <main> if present, else <body>.
+      const main = document.querySelector('main, #page, .page') || document.body;
+      main.insertBefore(chipHost, main.firstChild);
+    }
+    const meta = getScopedPropertyMeta();
+    if (!meta) { chipHost.innerHTML = ''; return; }
+    chipHost.innerHTML = `
+      <div class="os-newchrome-scope-chip" role="status">
+        <span class="os-newchrome-scope-chip-dot"></span>
+        <span class="os-newchrome-scope-chip-label">
+          Now viewing: <strong>${escHtml(meta.name)}</strong>${meta.sub ? ' · ' + escHtml(meta.sub) : ''}
+        </span>
+        <a class="os-newchrome-scope-chip-link" href="/property.html?id=${meta.id}">Open property →</a>
+        <button type="button" class="os-newchrome-scope-chip-close" aria-label="Clear scope"
+                onclick="window.__clearScope && window.__clearScope()">×</button>
+      </div>
+    `;
+  }
+
+  // ── Data fetches (each is fault-tolerant) ───────────────────────
+  // On satellites these go cross-origin to OS via osFetch().
+  // On OS itself we use the local apiFetch — same result, no preflight.
+  async function fetchCounts() {
+    try { return IS_SATELLITE ? await osFetch('/api/sidebar-counts') : await apiFetch('/api/sidebar-counts'); }
+    catch (e) { return {}; }
+  }
+  async function fetchPinned() {
+    try { return IS_SATELLITE ? await osFetch('/api/pinned') : await apiFetch('/api/pinned'); }
+    catch (e) { return []; }
+  }
+  async function fetchRecent() {
+    try { return IS_SATELLITE ? await osFetch('/api/recent') : await apiFetch('/api/recent'); }
+    catch (e) { return []; }
+  }
+  async function fetchTotal() {
+    try {
+      const all = IS_SATELLITE ? await osFetch('/api/properties') : await apiFetch('/api/properties');
+      return Array.isArray(all) ? all.length : 0;
+    } catch (e) { return 0; }
+  }
+
+  // ── Pin-a-property dialog ───────────────────────────────────────
+  let _allPropertiesCache = null;
+  async function loadAllPropertiesOnce() {
+    if (_allPropertiesCache) return _allPropertiesCache;
+    try { _allPropertiesCache = await apiFetch('/api/properties'); }
+    catch (e) { _allPropertiesCache = []; }
+    return _allPropertiesCache;
+  }
+
+  function openPinPicker() {
+    let modal = document.getElementById('os-newchrome-pin-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'os-newchrome-pin-modal';
+    modal.className = 'os-newchrome-pin-modal-backdrop';
+    modal.innerHTML = `
+      <div class="os-newchrome-pin-modal">
+        <div class="os-newchrome-pin-modal-header">
+          <h3>Pin a property</h3>
+          <button type="button" class="os-newchrome-pin-modal-close"
+                  onclick="document.getElementById('os-newchrome-pin-modal').remove()">×</button>
+        </div>
+        <input id="os-newchrome-pin-search" type="search"
+               class="os-newchrome-pin-search" placeholder="Search by address, city, or name…"
+               autocomplete="off">
+        <div class="os-newchrome-pin-list" id="os-newchrome-pin-list">
+          <div class="os-newchrome-pin-loading">Loading…</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    Promise.all([loadAllPropertiesOnce(), fetchPinned()]).then(([all, pinned]) => {
+      const pinnedIds = new Set(pinned.map(p => p.id));
+      const listEl = document.getElementById('os-newchrome-pin-list');
+      const searchEl = document.getElementById('os-newchrome-pin-search');
+      const render = (q = '') => {
+        const filtered = (all || []).filter(p => {
+          if (!q) return true;
+          const haystack = `${p.display_name || ''} ${p.address_line1 || ''} ${p.city || ''} ${p.state || ''} ${p.zip || ''}`.toLowerCase();
+          return haystack.includes(q.toLowerCase());
+        }).slice(0, 100);
+        if (!filtered.length) {
+          listEl.innerHTML = `<div class="os-newchrome-pin-empty">No properties match "${escHtml(q)}".</div>`;
+          return;
+        }
+        listEl.innerHTML = filtered.map(p => {
+          const isPinned = pinnedIds.has(p.id);
+          const dot = STATUS_DOT[p.status] || '#cbd5e1';
+          return `
+            <div class="os-newchrome-pin-row" data-property-id="${p.id}">
+              <span class="os-newchrome-status-dot" style="background:${dot}"></span>
+              <div class="os-newchrome-pin-row-text">
+                <div class="os-newchrome-pin-row-title">${escHtml(p.display_name || p.address_line1)}</div>
+                <div class="os-newchrome-pin-row-sub">${escHtml([p.city, p.state, p.zip].filter(Boolean).join(', '))}</div>
+              </div>
+              <button type="button" class="os-newchrome-pin-toggle ${isPinned ? 'pinned' : ''}"
+                      onclick="window.__togglePin && window.__togglePin('${p.id}', this)">
+                ${isPinned ? '★ Unpin' : '☆ Pin'}
+              </button>
+            </div>
+          `;
+        }).join('');
+      };
+      render();
+      searchEl.addEventListener('input', (e) => render(e.target.value.trim()));
+      searchEl.focus();
+    });
+  }
+
+  async function togglePin(propertyId, buttonEl) {
+    const isPinned = buttonEl.classList.contains('pinned');
+    try {
+      if (isPinned) {
+        await apiFetch(`/api/pinned/${propertyId}`, { method: 'DELETE' });
+        buttonEl.classList.remove('pinned');
+        buttonEl.textContent = '☆ Pin';
+      } else {
+        await apiFetch('/api/pinned', { method: 'POST', body: JSON.stringify({ property_id: propertyId }) });
+        buttonEl.classList.add('pinned');
+        buttonEl.textContent = '★ Unpin';
+      }
+      // Re-render the sidebar so the bottom Pinned list updates.
+      renderNewSidebar();
+    } catch (e) {
+      if (typeof showToast === 'function') showToast(e.message || 'Pin failed', 'error');
+    }
+  }
+
+  // ── Click handler for property rows: activate scope ─────────────
+  function onPropertyRowClick(e) {
+    const row = e.target.closest('.os-newchrome-property-row');
+    if (!row) return;
+    // Cmd/Ctrl-click: open property page without scoping.
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+    // Plain click: scope the workspace; let the default navigation
+    // proceed too so the user lands on the property page.
+    setScope(row.dataset.propertyId, row.dataset.propertyName, row.dataset.propertySub);
+    // Do NOT prevent default — navigation continues.
+  }
+
+  // ── Render the sidebar ──────────────────────────────────────────
+  async function renderNewSidebar() {
+    // On satellites these set up the chrome the host page doesn't ship with.
+    ensureChromeStylesheet();
+    ensurePlaceholders();
+    const railEl = document.getElementById('apps-rail');
+    if (!railEl) return;
+
+    document.body.classList.add('os-newchrome');
+
+    const user = getCachedUser() || {};
+
+    // Kick off all data fetches in parallel.
+    const [counts, pinned, recent, total] = await Promise.all([
+      fetchCounts(), fetchPinned(), fetchRecent(), fetchTotal()
+    ]);
+
+    const active = window.NAV_CURRENT;
+
+    railEl.innerHTML = `
+      <aside class="os-newchrome-sidebar">
+
+        <div class="os-newchrome-workspace">
+          <div class="os-newchrome-workspace-logo">R</div>
+          <div class="os-newchrome-workspace-text">
+            <div class="os-newchrome-workspace-name">Restoration Homes</div>
+            <div class="os-newchrome-workspace-user">${escHtml(user.full_name || user.email || 'Signed in')}</div>
+          </div>
+          <span class="os-newchrome-workspace-chev">▾</span>
+        </div>
+
+        <div class="os-newchrome-sidebar-scroll">
+
+          ${sectionLabel('For you')}
+          ${row({ icon: '📧', label: 'Inbox',    app: 'inbox',    badge: counts.inbox })}
+          ${row({ icon: '@',  label: 'Mentions', osnav: 'mentions', href: '#', badge: counts.mentions, badgeClass: 'amber' })}
+          ${row({ icon: '✓',  label: 'My Tasks', osnav: 'tasks',  href: '#', badge: counts.myTasks, badgeClass: 'muted' })}
+
+          ${sectionLabel('Pipeline')}
+          ${row({ icon: '🎯', label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html',                    badge: counts.prospects,     badgeClass: 'muted' })}
+          ${row({ icon: '📞', label: 'Leads',         osnav: 'leads',         href: '/acquisitions.html',                    badge: counts.leads,         badgeClass: 'muted' })}
+          ${row({ icon: '🤝', label: 'Opportunities', osnav: 'opportunities', href: '/acquisitions.html',                    badge: counts.opportunities, badgeClass: 'muted' })}
+          ${row({ icon: '📋', label: 'Acquisitions',  osnav: 'acquisitions',  href: '/acquisitions.html',                    badge: counts.acquisitions,  badgeClass: 'muted' })}
+          ${row({ icon: '🔨', label: 'Projects',      osnav: 'projects',      href: '/properties.html?status=renovating',    badge: counts.projects,      badgeClass: 'muted' })}
+          ${row({ icon: '💼', label: 'Holdings',      osnav: 'holdings',      href: '/holdings.html',                        badge: counts.holdings,      badgeClass: 'muted' })}
+          ${row({ icon: '💰', label: 'Dispositions',  osnav: 'dispositions',  href: '/dispositions.html',                    badge: counts.dispositions,  badgeClass: 'muted' })}
+          ${row({ icon: '📦', label: 'Sold',          osnav: 'sold',          href: '/closed.html',                          badge: counts.sold,          badgeClass: 'muted' })}
+          ${row({ icon: '💀', label: 'Dead',          osnav: 'dead',          href: '/properties.html?status=dropped' })}
+
+          ${sectionLabel('Tools')}
+          ${row({ icon: '📸', label: 'Photos',       app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
+          ${row({ icon: '🛠️', label: 'Work Orders',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
+          ${row({ icon: '💬', label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
+          ${row({ icon: '📊', label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
+
+          ${sectionLabel('Soon')}
+          ${row({ icon: '🌐', label: 'Listings',         soon: true })}
+          ${row({ icon: '🏚️', label: 'Offmarket',        soon: true })}
+          ${row({ icon: '💵', label: 'Expenses',         soon: true })}
+          ${row({ icon: '🧾', label: 'QuickBooks sync',  soon: true })}
+          ${row({ icon: '🔄', label: 'Rentvine sync',    soon: true })}
+
+          <div class="os-newchrome-properties">
+            <div class="os-newchrome-pinned-header">
+              <span>Pinned</span>
+              <button class="os-newchrome-pinned-add" title="Pin a property" aria-label="Pin a property"
+                      onclick="window.__openPinPicker && window.__openPinPicker()">＋</button>
+            </div>
+            ${pinned.length
+              ? pinned.map(p => propertyRow(p, 'pinned')).join('')
+              : '<div class="os-newchrome-pinned-empty">Click ＋ to pin a property.</div>'}
+
+            ${recent.length ? `
+              <div class="os-newchrome-pinned-header" style="margin-top:6px;">
+                <span>Recent</span>
+              </div>
+              ${recent.map(p => propertyRow(p, 'recent')).join('')}
+            ` : ''}
+
+            <a class="os-newchrome-all-link" href="/properties.html">All properties${total ? ` (${total})` : ''} →</a>
+          </div>
+
+        </div>
+      </aside>
+    `;
+
+    wireChromeNav();
+
+    // Wire click handler for property rows (event delegation on the sidebar).
+    railEl.removeEventListener('click', onPropertyRowClick);
+    railEl.addEventListener('click', onPropertyRowClick);
+
+    // Highlight active row
+    if (active) {
+      document.querySelectorAll('.os-newchrome-row').forEach(a => {
+        const slug = a.dataset.app || a.dataset.osnav;
+        if (slug === active) a.classList.add('active');
+      });
+    }
+
+    // Apply scope state (chip + link rewriting + active-row highlight)
+    applyScopeToLinks();
+    renderScopeChip();
+    refreshActiveProperty();
+  }
+
+  // Expose for inline onclick + topbar integration.
+  window.renderNewSidebar = renderNewSidebar;
+  window.__openPinPicker  = openPinPicker;
+  window.__togglePin      = togglePin;
+  window.__setScope       = setScope;
+  window.__clearScope     = clearScope;
+  window.__getScopedPropertyId = getScopedPropertyId;
+  window.__applyScopeToLinks  = applyScopeToLinks;
+  window.__wireChromeNav      = wireChromeNav;   // topbar.js uses this too
+
+  // Run now if DOM is ready, else wait for it.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderNewSidebar);
+  } else {
+    renderNewSidebar();
+  }
+})();

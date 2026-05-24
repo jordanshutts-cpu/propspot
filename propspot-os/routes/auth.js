@@ -9,6 +9,7 @@ const { signToken, safeUser } = require('../lib/jwt');
 const { sendInviteEmail, sendPasswordResetEmail } = require('../lib/email');
 const { logActivity } = require('../lib/activity');
 const { recomputeScopeForUser } = require('../lib/scope');
+const { verifyGoogleIdToken } = require('../lib/google-auth');
 
 const router = express.Router();
 
@@ -133,6 +134,154 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ── POST /api/auth/google ───────────────────────────────────────
+// Sign in with a Google ID token from Google Identity Services.
+// Body: { credential: "<google-id-token>" }
+//
+// Match order:
+//   1. google_sub   (most stable — survives Workspace email changes)
+//   2. google_email (the linked Google address)
+//   3. primary email (token email happens to match a Prop Spot email)
+//
+// Unknown identities are rejected — the user must already exist in
+// `users` and either have google_sub linked, or have their Workspace
+// email match their primary Prop Spot email.
+router.post('/google', async (req, res) => {
+  const { credential } = req.body || {};
+  if (!credential) return res.status(400).json({ error: 'Missing credential' });
+
+  let claims;
+  try {
+    claims = await verifyGoogleIdToken(credential);
+  } catch (err) {
+    if (err.code === 'DOMAIN_NOT_ALLOWED') {
+      return res.status(403).json({
+        error: 'Your Google Workspace domain is not allowed to sign in to Prop Spot.'
+      });
+    }
+    console.error('Google token verify failed:', err.message);
+    return res.status(401).json({ error: 'Invalid Google sign-in' });
+  }
+
+  try {
+    const { rows } = await query(
+      `SELECT * FROM users
+        WHERE google_sub   = $1
+           OR google_email = $2
+           OR email        = $2
+        ORDER BY (google_sub = $1) DESC,
+                 (google_email = $2) DESC
+        LIMIT 1`,
+      [claims.sub, claims.email]
+    );
+    const user = rows[0];
+    if (!user) {
+      return res.status(403).json({
+        error: `No Prop Spot account for ${claims.email}. Ask an admin to add you, or sign in with your existing password and link Google from Edit Profile.`
+      });
+    }
+
+    // First successful Google sign-in for this user — backfill the
+    // stable sub so future sign-ins survive Workspace email changes.
+    if (!user.google_sub) {
+      await query(
+        'UPDATE users SET google_sub = $1, google_email = COALESCE(google_email, $2) WHERE id = $3',
+        [claims.sub, claims.email, user.id]
+      );
+    }
+
+    // Backfill full_name from Google if the row is missing one.
+    if (claims.name && (!user.full_name || user.full_name === user.email.split('@')[0])) {
+      await query('UPDATE users SET full_name = $1 WHERE id = $2', [claims.name, user.id]);
+      user.full_name = claims.name;
+    }
+
+    const token = signToken(user.id, user.email);
+    res.json({ token, user: safeUser(user) });
+  } catch (err) {
+    console.error('Google sign-in error:', err);
+    res.status(500).json({ error: 'Sign-in failed' });
+  }
+});
+
+// ── POST /api/auth/google/link ──────────────────────────────────
+// Attach a Google account to the currently-signed-in user. Used by
+// the "Link Google account" button in Edit Profile so a user with
+// e.g. jordan@sellrh.com as their Prop Spot email can sign in going
+// forward with their jordan.shutts@restorationhomes.com Workspace
+// account.
+router.post('/google/link', requireAuth, async (req, res) => {
+  const { credential } = req.body || {};
+  if (!credential) return res.status(400).json({ error: 'Missing credential' });
+
+  let claims;
+  try {
+    claims = await verifyGoogleIdToken(credential);
+  } catch (err) {
+    if (err.code === 'DOMAIN_NOT_ALLOWED') {
+      return res.status(403).json({ error: 'That Google Workspace domain is not allowed.' });
+    }
+    return res.status(401).json({ error: 'Invalid Google sign-in' });
+  }
+
+  try {
+    // Reject if another user already has this Google account linked.
+    const { rows: claimed } = await query(
+      `SELECT id, email FROM users
+        WHERE (google_sub = $1 OR google_email = $2)
+          AND id <> $3
+        LIMIT 1`,
+      [claims.sub, claims.email, req.userId]
+    );
+    if (claimed[0]) {
+      return res.status(409).json({
+        error: `That Google account is already linked to another Prop Spot user (${claimed[0].email}).`
+      });
+    }
+
+    const { rows } = await query(
+      `UPDATE users
+          SET google_sub = $1, google_email = $2
+        WHERE id = $3
+        RETURNING *`,
+      [claims.sub, claims.email, req.userId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ user: safeUser(rows[0]) });
+  } catch (err) {
+    console.error('Google link error:', err);
+    res.status(500).json({ error: 'Failed to link Google account' });
+  }
+});
+
+// ── DELETE /api/auth/google/link ────────────────────────────────
+// Remove the Google linkage from the current user. Refuses if the
+// user has no password — otherwise unlinking would lock them out.
+router.delete('/google/link', requireAuth, async (req, res) => {
+  try {
+    const { rows: meRows } = await query(
+      'SELECT password_hash FROM users WHERE id = $1', [req.userId]
+    );
+    if (!meRows[0]) return res.status(404).json({ error: 'User not found' });
+    if (!meRows[0].password_hash) {
+      return res.status(400).json({
+        error: 'Set a password first — otherwise unlinking Google would lock you out.'
+      });
+    }
+
+    const { rows } = await query(
+      `UPDATE users SET google_sub = NULL, google_email = NULL
+        WHERE id = $1 RETURNING *`,
+      [req.userId]
+    );
+    res.json({ user: safeUser(rows[0]) });
+  } catch (err) {
+    console.error('Google unlink error:', err);
+    res.status(500).json({ error: 'Failed to unlink Google account' });
   }
 });
 

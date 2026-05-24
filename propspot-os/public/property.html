@@ -103,6 +103,7 @@
       ['Seller',                    property.seller_name || '—'],
     ];
     let html = `
+      <div id="lifecycle-stepper"></div>
       <div class="card mb-16">
         <div class="card-body">
           <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
@@ -228,6 +229,8 @@
 
     document.getElementById('page').innerHTML = html;
     wireUnifiedNav();   // re-wire the freshly-rendered data-app links
+    // New-chrome lifecycle stepper (no-op when the new chrome flag is off).
+    if (window.LifecycleStepper) window.LifecycleStepper.mount('lifecycle-stepper', property);
     loadFiles();
     loadEmailThreads();
   }

@@ -454,109 +454,36 @@
   border: 1px solid #d1d5db;
   border-radius: 6px;
 }
+/* User-row layout (DM picker).
+ *
+ * Implementation: ACTUAL HTML <table> markup. The JS renders rows as
+ * <tr><td>...</td></tr>. Inline styles on each <td> set padding,
+ * vertical-align, and column widths. Inline styles have specificity
+ * 1000 — only !important external CSS can override them, and nothing
+ * else on the page does.
+ *
+ * Three previous attempts (CSS Grid, inline-block, CSS table-cell) all
+ * failed to produce a horizontal row in the user's browser, almost
+ * certainly because of a Chrome extension injecting CSS that interfered
+ * with display values on div-based layouts. Switching to real <tr><td>
+ * removes any ambiguity — these are dedicated HTML table elements.
+ *
+ * The CSS below only handles the .list container and hover state.
+ * Everything else is inline on the markup.
+ */
 .pulse-user-picker .list {
   max-height: 280px;
   overflow-y: auto;
-  display: block !important;
 }
 
-/* User-row layout (DM picker).
- *
- * Implementation: inline-block columns with explicit widths inside a
- * `white-space: nowrap` row. Predates flex and grid by a decade — works
- * even if a parent has misbehaving display/flex/grid rules. !important
- * is used to override any later cascaded layout rules in case something
- * else on the page tries to flex/grid the row.
- *
- * Row width budget (modal ~460px wide, padding ~32px each side):
- *   avatar (40)  +  gap (12)  +  body (calc(100% - 80))  +  gap (12)  +  check (24)  =  100%
- *                                                                                       (≈ 388px usable)
- */
-.pulse-user-row {
-  display: block !important;
-  position: relative;
-  width: 100%;
-  padding: 8px 10px !important;
-  margin: 0 0 4px 0 !important;
-  border-radius: 6px;
-  cursor: pointer;
-  white-space: nowrap;
-  font-size: 0;                  /* kill inter-block whitespace between inline-blocks */
-  min-height: 48px;
-  box-sizing: border-box;
+/* Hover highlight — we use !important because the row has an inline
+ * background style (transparent or selected color) that would otherwise
+ * win the cascade. */
+.pulse-user-row:hover > td {
+  background: #f3f4f6 !important;
 }
-.pulse-user-row:hover { background: #f3f4f6; }
-.pulse-user-row.selected { background: #ecfdf5; }
-
-.pulse-user-row > .ava,
-.pulse-user-row > .body,
-.pulse-user-row > .check {
-  display: inline-block !important;
-  vertical-align: middle;
-  font-size: .85rem;             /* restore font-size killed by parent */
-  box-sizing: border-box;
-}
-
-.pulse-user-row > .ava {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #e5e7eb;
-  color: #374151;
-  text-align: center;
-  line-height: 32px;
-  font-weight: 600;
-  font-size: .85rem;
-  overflow: hidden;
-}
-.pulse-user-row > .ava img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-  vertical-align: top;
-}
-
-.pulse-user-row > .body {
-  width: calc(100% - 80px);      /* total row width minus ava + check + gaps */
-  padding: 0 12px;
-  white-space: normal;
-  overflow: hidden;
-  text-align: left;
-}
-.pulse-user-row > .body > .name {
-  display: block;
-  font-weight: 500;
-  font-size: .92rem;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pulse-user-row > .body > .email {
-  display: block;
-  color: #6b7280;
-  font-size: .75rem;
-  line-height: 1.2;
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pulse-user-row > .check {
-  width: 20px;
-  height: 20px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  text-align: center;
-  line-height: 18px;
-  font-size: .8rem;
-  color: transparent;
-}
-.pulse-user-row.selected > .check {
-  background: #61B746;
-  border-color: #61B746;
-  color: #fff;
+.pulse-user-row.selected:hover > td {
+  background: #d1fae5 !important;
 }
 
 /* "+ New" button in sidebar headings */
