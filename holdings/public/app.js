@@ -4,6 +4,19 @@
 //  Auth check proxies to Prop Spot's /api/os/me through our /api/me.
 // ============================================================
 
+// ── Embedded mode: hide satellite chrome when running inside the OS iframe ──
+(function () {
+  if (window.self === window.top) return;   // not in an iframe — do nothing
+  document.documentElement.classList.add('embedded');
+  const s = document.createElement('style');
+  s.textContent = [
+    'html.embedded .app-header { display:none !important; }',
+    'html.embedded .bottom-nav { display:none !important; }',
+    'html.embedded body { padding-left:0 !important; padding-bottom:0 !important; padding-top:0 !important; }',
+  ].join('\n');
+  document.head.appendChild(s);
+})();
+
 // Shared SSO storage key — byte-identical to Prop Spot's so a token
 // minted in one app works in the other if both are open on the same
 // device. (Each domain still has its own localStorage in practice;

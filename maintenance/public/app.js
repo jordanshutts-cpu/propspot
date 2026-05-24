@@ -2,6 +2,19 @@
 //  Maintenance — Shared Frontend Utilities
 // ============================================================
 
+// ── Embedded mode: hide satellite chrome when running inside the OS iframe ──
+(function () {
+  if (window.self === window.top) return;
+  document.documentElement.classList.add('embedded');
+  const s = document.createElement('style');
+  s.textContent = [
+    'html.embedded .app-header { display:none !important; }',
+    'html.embedded .bottom-nav { display:none !important; }',
+    'html.embedded body { padding-left:0 !important; padding-bottom:0 !important; padding-top:0 !important; }',
+  ].join('\n');
+  document.head.appendChild(s);
+})();
+
 const TOKEN_KEY = 'maintenance_token';
 const USER_KEY  = 'maintenance_user';
 
