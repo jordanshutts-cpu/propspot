@@ -385,6 +385,8 @@ body.os-newchrome .page {
   grid-template-columns: 1fr auto;
   align-items: center;
   height: 100%;
+  width: 100%;          /* fill the flex top-header so actions reach the right edge */
+  min-width: 0;
   padding: 0 18px;
   gap: 14px;
 }
