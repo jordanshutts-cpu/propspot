@@ -680,20 +680,39 @@ html.theme-premium .ib-nav-section {
   padding-top: 18px;
 }
 html.theme-premium .ib-nav-item {
-  padding: 7px 10px;
-  border-radius: 6px;
+  margin: 1px 8px;
+  padding: 6px 10px;
+  border-radius: 7px;
   font-size: 13px;
   font-weight: 500;
   color: #374151;
   gap: 9px;
-  transition: background 0.1s, color 0.1s;
+  position: relative;
+  transition: background 0.12s ease, color 0.12s ease;
 }
-html.theme-premium .ib-nav-item:hover { background: #f4f4f5; color: #111827; }
+html.theme-premium .ib-nav-item:hover:not(.active) {
+  background: rgba(15, 23, 42, 0.04);
+  color: #111827;
+}
+/* Sleek active state — matches the OS sidebar exactly: flat brand-
+   tinted pill + 3×18px brand-green accent dot just outside the left
+   edge. No gradient, no inset bar. */
 html.theme-premium .ib-nav-item.active {
-  background: linear-gradient(90deg, rgba(97,183,70,0.14), rgba(97,183,70,0.05));
+  background: rgba(97,183,70,0.10);
   color: var(--brand-dark);
   font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--brand);
+  box-shadow: none;
+}
+html.theme-premium .ib-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  background: var(--brand);
+  border-radius: 0 3px 3px 0;
 }
 html.theme-premium .ib-nav-item .count {
   margin-left: auto;
