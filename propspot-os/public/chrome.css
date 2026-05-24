@@ -840,16 +840,17 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
 .os-newchrome-scope-chip-close:hover { background: #dbeafe; }
 
 /* ── Lifecycle stepper (property page) ──────────────────────────
-   Techy / premium treatment: gradient-filled dots, pulsing halo
-   around the current step, progress-filled connectors so the visual
-   immediately conveys 'you are X stages of 8 through the pipeline'. */
+   Clean, legible, premium. Solid filled dots with crisp tabular
+   numbers; subtle outer ring on current step (no pulse, no scale)
+   so the number stays the focal element. Card padding tightened so
+   the bar sits flush with the property data card below. */
 .os-newchrome-stepper {
   background: #fff;
   border: 1px solid #e8eaed;
-  border-radius: 14px;
-  padding: 22px 24px 18px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 6px 16px -8px rgba(15,23,42,0.06);
+  border-radius: 12px;
+  padding: 18px 20px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .os-newchrome-stepper.dropped { background: #fef2f2; border-color: #fecaca; }
 .os-newchrome-stepper-dropped {
@@ -864,15 +865,15 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   gap: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 4px 0 8px;
+  padding: 2px 0 6px;
 }
 .os-newchrome-stepper-steps::-webkit-scrollbar { display: none; }
 .os-newchrome-step {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
-  min-width: 72px;
+  gap: 8px;
+  min-width: 68px;
   flex: 1 1 0;
   position: relative;
 }
@@ -883,17 +884,19 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   background: #fff;
   border: 1.5px solid #e2e8f0;
   color: #94a3b8;
   flex-shrink: 0;
   position: relative;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease;
 }
 .os-newchrome-step-label {
-  font-size: 11px;
+  font-size: 11.5px;
   color: #94a3b8;
   text-align: center;
   line-height: 1.2;
@@ -901,56 +904,46 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   font-weight: 500;
   letter-spacing: 0.01em;
 }
-/* Past — completed gradient pill */
+/* Past — solid brand, white checkmark, no transform so the number
+   sits exactly where it does on every other dot. */
 .os-newchrome-step--past .os-newchrome-step-dot {
-  background: linear-gradient(135deg, #74c75d 0%, var(--brand) 100%);
+  background: var(--brand);
   border-color: var(--brand);
   color: #fff;
-  box-shadow: 0 1px 3px rgba(97,183,70,0.25);
+  font-size: 14px;        /* check glyph reads sharper at this size */
+  box-shadow: 0 1px 2px rgba(97,183,70,0.20);
 }
 .os-newchrome-step--past .os-newchrome-step-label { color: var(--brand-dark); font-weight: 600; }
-/* Current — gradient pill + soft outer ring + pulsing halo */
+/* Current — solid brand pill with a single soft outer ring. No
+   scale-up, no pulse — keeps the number perfectly legible. */
 .os-newchrome-step--current .os-newchrome-step-dot {
-  background: linear-gradient(135deg, #74c75d 0%, var(--brand) 100%);
+  background: var(--brand);
   border-color: var(--brand);
   color: #fff;
   box-shadow:
-    0 0 0 4px rgba(97,183,70,0.18),
-    0 2px 8px rgba(97,183,70,0.30);
-  transform: scale(1.06);
-}
-.os-newchrome-step--current .os-newchrome-step-dot::after {
-  content: '';
-  position: absolute;
-  inset: -7px;
-  border-radius: 50%;
-  border: 1.5px solid var(--brand);
-  opacity: 0.35;
-  animation: stepper-pulse 2s ease-out infinite;
-  pointer-events: none;
-}
-@keyframes stepper-pulse {
-  0%   { transform: scale(1);    opacity: 0.35; }
-  100% { transform: scale(1.5);  opacity: 0; }
+    0 0 0 3px #fff,                       /* white spacer between dot and ring */
+    0 0 0 5px rgba(97,183,70,0.30),       /* soft brand ring */
+    0 2px 4px rgba(97,183,70,0.20);
 }
 .os-newchrome-step--current .os-newchrome-step-label {
   color: var(--brand-dark);
   font-weight: 700;
 }
-/* Future — subtle inner depth */
+/* Future — clean light surface with crisp slate number */
 .os-newchrome-step--future .os-newchrome-step-dot {
-  background: #f8fafc;
-  box-shadow: inset 0 0 0 1px rgba(15,23,42,0.02);
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #64748b;
 }
-/* Connectors — flat gray default; past→anything = brand;
+/* Connectors — flat slate default; past→anything = brand;
    current→future = gradient fade so progress flows visually. */
 .os-newchrome-step-connector {
-  height: 3px;
+  height: 2px;
   flex: 1;
   background: #e2e8f0;
   min-width: 8px;
-  margin-top: 17px;   /* center of 30px dot + 4px top padding - 2px (half line height) */
-  border-radius: 2px;
+  margin-top: 16px;   /* center of 30px dot + 2px top padding − 1px (half line height) */
+  border-radius: 1px;
   transition: background 0.3s ease;
 }
 .os-newchrome-step--past + .os-newchrome-step-connector {
