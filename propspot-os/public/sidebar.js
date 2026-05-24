@@ -527,6 +527,8 @@
 
         <div class="os-newchrome-sidebar-scroll">
 
+          ${row({ icon: '🏠', label: 'Home', osnav: 'dashboard', href: '/dashboard.html' })}
+
           ${sectionLabel('For you')}
           ${row({ icon: '📧', label: 'Inbox',    app: 'inbox',    badge: counts.inbox })}
           ${row({ icon: '@',  label: 'Mentions', osnav: 'mentions', href: '#', badge: counts.mentions, badgeClass: 'amber' })}
