@@ -863,11 +863,13 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 2px 0 6px;
+  /* overflow:visible so the current step's halo (5px box-shadow ring)
+     doesn't get clipped by the container. The 8-step bar fits cleanly
+     above ~560px viewport; below that we let it wrap awkwardly rather
+     than clip the halo. */
+  overflow: visible;
+  padding: 10px 0 8px;
 }
-.os-newchrome-stepper-steps::-webkit-scrollbar { display: none; }
 .os-newchrome-step {
   display: flex;
   flex-direction: column;
@@ -904,22 +906,24 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   font-weight: 500;
   letter-spacing: 0.01em;
 }
-/* Past — solid brand, white checkmark, no transform so the number
-   sits exactly where it does on every other dot. */
+/* Past — solid brand, crisp white checkmark. font-size + font-weight
+   tuned so the ✓ glyph reads at the same visual weight as the digits
+   in the future dots. */
 .os-newchrome-step--past .os-newchrome-step-dot {
   background: var(--brand);
   border-color: var(--brand);
-  color: #fff;
-  font-size: 14px;        /* check glyph reads sharper at this size */
+  color: #ffffff !important;          /* override theme.js currentColor */
+  font-size: 15px;
+  font-weight: 900;
   box-shadow: 0 1px 2px rgba(97,183,70,0.20);
 }
 .os-newchrome-step--past .os-newchrome-step-label { color: var(--brand-dark); font-weight: 600; }
-/* Current — solid brand pill with a single soft outer ring. No
-   scale-up, no pulse — keeps the number perfectly legible. */
+/* Current — solid brand pill with a single soft outer ring. */
 .os-newchrome-step--current .os-newchrome-step-dot {
   background: var(--brand);
   border-color: var(--brand);
-  color: #fff;
+  color: #ffffff !important;
+  font-weight: 800;
   box-shadow:
     0 0 0 3px #fff,                       /* white spacer between dot and ring */
     0 0 0 5px rgba(97,183,70,0.30),       /* soft brand ring */
