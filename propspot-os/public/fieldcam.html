@@ -7,8 +7,24 @@
   <title>Prop Spot — FieldCam</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <script>document.documentElement.classList.add('page-loading');try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
+    /* ── Project map ── */
+    .fc-map-section { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px 16px; margin-bottom:18px; }
+    .fc-map-head    { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .fc-map-title   { font-weight:700; font-size:.95rem; color:var(--text); }
+    .fc-map-count   { font-size:.72rem; color:var(--text-muted); font-weight:600; }
+    #fc-project-map { width:100%; height:320px; border-radius:10px; background:var(--bg); }
+    /* Leaflet popup tuned for our brand */
+    .leaflet-popup-content-wrapper { border-radius:10px; box-shadow:0 6px 22px rgba(0,0,0,.18); }
+    .leaflet-popup-content         { margin:10px 12px; font-size:.82rem; line-height:1.4; min-width:180px; }
+    .fc-popup-thumb { width:100%; height:80px; object-fit:cover; border-radius:6px; margin-bottom:6px; background:var(--bg); display:block; }
+    .fc-popup-name  { font-weight:700; color:var(--text); margin-bottom:2px; }
+    .fc-popup-addr  { font-size:.72rem; color:var(--text-muted); }
+    .fc-popup-link  { display:inline-block; margin-top:6px; font-size:.72rem; font-weight:600; color:var(--brand); text-decoration:none; }
+    .fc-popup-link:hover { text-decoration:underline; }
+
     /* ── Tab bar ── */
     .tab-bar { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:20px; }
     .tab-btn { padding:10px 18px; font-size:.88rem; font-weight:600; cursor:pointer; color:var(--text-muted); border:none; background:none; border-bottom:2px solid transparent; transition:all .12s; }
@@ -43,6 +59,16 @@
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
+
+  <!-- Project map — pins every property with GPS + popups linking to the property detail -->
+  <div class="fc-map-section" id="fc-map-section" style="display:none;">
+    <div class="fc-map-head">
+      <div class="fc-map-title">📍 Project Map</div>
+      <div class="fc-map-count" id="fc-map-count"></div>
+    </div>
+    <div id="fc-project-map"></div>
+  </div>
+
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="props" onclick="switchTab('props')">🏘️ Properties</button>
     <button class="tab-btn" data-tab="recent" onclick="switchTab('recent')">🕐 Recent Photos</button>
@@ -64,8 +90,9 @@
 <script>window.NAV_CURRENT = 'fieldcam';</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
-  let allProps = [], recentLoaded = false;
+  let allProps = [], recentLoaded = false, projectMap = null;
 
   function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
@@ -79,9 +106,67 @@
     try {
       allProps = await satelliteApiFetch('fieldcam', '/api/properties');
       renderProps(allProps);
+      renderProjectMap(allProps);
     } catch(e) {
       document.getElementById('prop-grid').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
     }
+  }
+
+  // ── Project map ─────────────────────────────────────────────────
+  // Pins every property with GPS coordinates and links each popup to
+  // the property detail page. Uses Leaflet + OpenStreetMap tiles so
+  // no API key is needed.
+  function pickCoord(p, latKeys, lngKeys) {
+    for (const k of latKeys) if (p[k] != null && !isNaN(parseFloat(p[k]))) {
+      for (const k2 of lngKeys) if (p[k2] != null && !isNaN(parseFloat(p[k2]))) {
+        return [parseFloat(p[k]), parseFloat(p[k2])];
+      }
+    }
+    return null;
+  }
+  function renderProjectMap(props) {
+    if (typeof L === 'undefined') return;   // Leaflet failed to load
+    const withGps = [];
+    for (const p of props) {
+      const c = pickCoord(p, ['latitude','lat','gps_lat'], ['longitude','lng','lon','gps_lng']);
+      if (c) withGps.push({ prop: p, coord: c });
+    }
+    const section = document.getElementById('fc-map-section');
+    const count   = document.getElementById('fc-map-count');
+    if (!withGps.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    count.textContent = withGps.length + ' / ' + props.length + ' properties pinned';
+
+    // Init once
+    if (!projectMap) {
+      projectMap = L.map('fc-project-map', { zoomControl: true, scrollWheelZoom: true })
+        .setView([34.0, -81.0], 7); // sane SC default; we fit bounds below
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(projectMap);
+    } else {
+      projectMap.eachLayer(l => { if (l instanceof L.Marker) projectMap.removeLayer(l); });
+    }
+
+    const bounds = [];
+    for (const { prop, coord } of withGps) {
+      bounds.push(coord);
+      const name  = prop.display_name || prop.name || prop.address_line1 || 'Property';
+      const addr  = prop.address || [prop.address_line1, prop.city, prop.state].filter(Boolean).join(', ');
+      const thumb = prop.latest_photo_url
+        ? `<img class="fc-popup-thumb" src="${escHtml(prop.latest_photo_url)}" alt="">`
+        : '';
+      const html = `
+        ${thumb}
+        <div class="fc-popup-name">${escHtml(name)}</div>
+        <div class="fc-popup-addr">${escHtml(addr)}</div>
+        <a class="fc-popup-link" href="/fieldcam-property.html?id=${encodeURIComponent(prop.id)}">Open property →</a>`;
+      L.marker(coord).addTo(projectMap).bindPopup(html, { maxWidth: 240 });
+    }
+    if (bounds.length) projectMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+    // Leaflet needs a size refresh once the container is visible
+    setTimeout(() => projectMap.invalidateSize(), 100);
   }
 
   function renderProps(list) {

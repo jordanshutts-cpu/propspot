@@ -570,7 +570,7 @@
           ${row({ icon: '💀', label: 'Dead',          osnav: 'dead',          href: '/properties.html?status=dropped' })}
 
           ${sectionLabel('Tools')}
-          ${row({ icon: '📸', label: 'Photos',       app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
+          ${row({ icon: '📸', label: 'FieldCam',     app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
           ${row({ icon: '🛠️', label: 'Work Orders',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
           ${row({ icon: '💬', label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
           ${row({ icon: '📊', label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
