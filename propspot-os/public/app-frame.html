@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    /* Fill the remaining viewport after top-header + apps-rail */
+    .app-frame-wrap {
+      position: fixed;
+      top: 56px;       /* matches --top-header-height */
+      left: 64px;      /* matches apps-rail width */
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+    }
+    .app-frame-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      height: 40px;
+      min-height: 40px;
+      background: var(--surface, #f8f9fa);
+      border-bottom: 1px solid var(--border, #e5e7eb);
+      font-size: 13px;
+      color: var(--text-muted, #6b7280);
+    }
+    .app-frame-bar .app-frame-icon { font-size: 16px; }
+    .app-frame-bar .app-frame-name { font-weight: 600; color: var(--text, #111827); }
+    .app-frame-bar .app-frame-url  { font-size: 11px; opacity: .6; margin-left: auto; }
+    .app-frame-bar .app-frame-open {
+      margin-left: 8px;
+      font-size: 11px;
+      color: var(--brand, #61B746);
+      text-decoration: none;
+      opacity: .8;
+    }
+    .app-frame-bar .app-frame-open:hover { opacity: 1; text-decoration: underline; }
+    .app-frame-iframe {
+      flex: 1;
+      border: none;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .app-frame-error {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-muted, #6b7280);
+      font-size: 14px;
+      text-align: center;
+      padding: 40px;
+    }
+    .app-frame-error h3 { margin: 0; color: var(--text, #111827); font-size: 18px; }
+    .app-frame-error a {
+      margin-top: 8px;
+      display: inline-block;
+      padding: 8px 20px;
+      background: var(--brand, #61B746);
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .app-frame-loading {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted, #6b7280);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<!-- App frame: fills the space below the top-header and to the right of the rail -->
+<div class="app-frame-wrap" id="app-frame-wrap">
+  <div class="app-frame-loading" id="frame-loading">Loading…</div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+(async function () {
+  const params = new URLSearchParams(location.search);
+  const slug   = params.get('app') || '';
+  const appPath = params.get('path') || '/';
+
+  // App metadata for display
+  const APP_META = {
+    holdings:    { name: 'Holdings Desk',  icon: '💼' },
+    maintenance: { name: 'Maintenance',    icon: '🛠️' },
+    fieldcam:    { name: 'FieldCam',       icon: '📸' },
+    pulse:       { name: 'Pulse',          icon: '💬' },
+    inbox:       { name: 'Inbox',          icon: '📧' },
+  };
+
+  // Set active nav highlight
+  window.NAV_CURRENT = slug;
+
+  const me = await requireAuth();
+  if (!me) return;
+
+  const wrap = document.getElementById('app-frame-wrap');
+  const meta = APP_META[slug] || { name: slug, icon: '🧩' };
+
+  // Load config to get satellite URL
+  let satelliteUrl = '';
+  try {
+    const cfg = await apiFetch('/api/config');
+    const urlMap = {
+      holdings:    cfg.holdingsUrl,
+      maintenance: cfg.maintenanceUrl,
+      fieldcam:    cfg.fieldcamUrl,
+      pulse:       cfg.pulseUrl,
+      inbox:       cfg.inboxUrl,
+    };
+    satelliteUrl = urlMap[slug] || '';
+  } catch (e) {
+    console.error('Failed to load config', e);
+  }
+
+  if (!satelliteUrl) {
+    wrap.innerHTML = `
+      <div class="app-frame-error">
+        <div style="font-size:48px">${meta.icon}</div>
+        <h3>${meta.name}</h3>
+        <p>This app hasn't been configured yet.<br>Ask your workspace admin to add the URL.</p>
+      </div>`;
+    return;
+  }
+
+  // Build the full URL with SSO token
+  const token = getToken();
+  const fullPath = appPath.startsWith('/') ? appPath : '/' + appPath;
+  let iframeSrc = satelliteUrl.replace(/\/$/, '') + fullPath;
+  if (token) {
+    const sep = iframeSrc.includes('?') ? '&' : '?';
+    iframeSrc += sep + 'token=' + encodeURIComponent(token);
+  }
+
+  // Render top bar + iframe
+  wrap.innerHTML = `
+    <div class="app-frame-bar">
+      <span class="app-frame-icon">${meta.icon}</span>
+      <span class="app-frame-name">${meta.name}</span>
+      <span class="app-frame-url">${satelliteUrl.replace(/\/$/, '')}</span>
+      <a class="app-frame-open" href="${escHtml(iframeSrc)}" target="_blank" title="Open in new tab">↗ Open</a>
+    </div>
+    <iframe
+      class="app-frame-iframe"
+      id="app-iframe"
+      src="${escHtml(iframeSrc)}"
+      allow="camera; microphone; geolocation"
+      title="${meta.name}"
+    ></iframe>`;
+
+  // Update page title
+  document.title = `${meta.name} — Prop Spot`;
+})();
+</script>
+</body>
+</html>

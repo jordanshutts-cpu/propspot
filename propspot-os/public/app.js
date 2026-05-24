@@ -303,7 +303,7 @@ async function wireUnifiedNav() {
     underwriting: cfg.underwritingUrl || ''
   };
 
-  // data-app="<slug>" — link to a satellite app
+  // data-app="<slug>" — embed satellite app inside OS chrome via /app-frame.html
   document.querySelectorAll('[data-app]').forEach(a => {
     const slug = a.dataset.app;
     const base = APP_URLS[slug];
@@ -312,9 +312,15 @@ async function wireUnifiedNav() {
       return;
     }
     const path = a.dataset.appPath || '/';
-    a.href = _isCurrentOrigin(base)
-      ? path
-      : _appendToken(base.replace(/\/$/, '') + path);
+    if (_isCurrentOrigin(base)) {
+      // Same-origin satellite — link directly to its path (no iframe needed)
+      a.href = path;
+    } else {
+      // Cross-origin satellite — open embedded inside OS chrome
+      const frameUrl = '/app-frame.html?app=' + encodeURIComponent(slug)
+        + (path !== '/' ? '&path=' + encodeURIComponent(path) : '');
+      a.href = frameUrl;
+    }
     a.style.display = '';   // reveal once URL confirmed
   });
 
