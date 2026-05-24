@@ -10,37 +10,42 @@
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
     .chip-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
-    .chip { font-size:.78rem; padding:6px 10px; border-radius:100px; background:var(--surface); color:var(--text-muted); border:1px solid var(--border); cursor:pointer; user-select:none; }
+    .chip { font-size:.78rem; padding:5px 12px; border-radius:100px; background:var(--surface); color:var(--text-muted); border:1.5px solid var(--border); cursor:pointer; font-weight:500; transition:all .12s; }
+    .chip:hover { border-color:var(--brand); color:var(--brand); }
     .chip.active { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
-    .holding-card { display:flex; gap:12px; align-items:flex-start; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px; text-decoration:none; color:var(--text); cursor:pointer; }
-    .holding-card:hover { border-color:var(--brand); }
-    .hc-icon { font-size:1.5rem; flex-shrink:0; }
-    .hc-body { flex:1; min-width:0; }
-    .hc-name { font-weight:700; font-size:.95rem; margin-bottom:2px; }
-    .hc-prop { font-size:.78rem; color:var(--text-muted); margin-bottom:6px; }
-    .hc-meta { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
-    .hc-amount { font-weight:600; font-size:.9rem; }
-    .hc-freq   { font-size:.72rem; color:var(--text-muted); margin-left:3px; }
-    .badge-due  { font-size:.7rem; padding:2px 8px; border-radius:100px; font-weight:600; white-space:nowrap; }
-    .badge-overdue { background:#fee2e2; color:#b91c1c; }
-    .badge-soon7   { background:#fef3c7; color:#92400e; }
-    .badge-soon30  { background:#e0e7ff; color:#3730a3; }
-    .badge-ok      { background:var(--brand-light); color:var(--brand); }
-    .badge-none    { background:var(--border); color:var(--text-muted); }
-    /* Modal */
-    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:flex-end; justify-content:center; }
-    .modal-bg.open { display:flex; }
-    .modal { background:#fff; border-radius:12px 12px 0 0; padding:20px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; }
-    .modal h3 { margin:0 0 14px; font-size:1.05rem; font-weight:700; }
-    .form-group { margin-bottom:12px; }
-    .form-row2 { display:flex; gap:10px; }
-    .form-row2 .form-group { flex:1; }
-    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
-    @media(max-width:480px) { .form-row2 { flex-direction:column; } }
+    /* ── Holding list ── */
+    .hd-list { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .hd-row { display:flex; gap:14px; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .hd-row:last-child { border-bottom:none; }
+    .hd-row:hover { background:var(--brand-light); }
+    .hd-icon { font-size:1.6rem; flex-shrink:0; width:38px; text-align:center; }
+    .hd-body { flex:1; min-width:0; }
+    .hd-name { font-weight:700; font-size:.95rem; margin-bottom:2px; }
+    .hd-prop { font-size:.78rem; color:var(--text-muted); }
+    .hd-right { text-align:right; flex-shrink:0; }
+    .hd-amount { font-weight:700; font-size:.95rem; color:var(--text); }
+    .hd-freq { font-size:.72rem; color:var(--text-muted); }
+    .due-badge { display:inline-block; font-size:.68rem; padding:2px 8px; border-radius:100px; font-weight:600; margin-top:4px; }
+    .due-overdue { background:#fee2e2; color:#b91c1c; }
+    .due-soon7   { background:#fef3c7; color:#92400e; }
+    .due-soon30  { background:#ede9fe; color:#5b21b6; }
+    .due-ok      { background:var(--brand-light); color:var(--brand); }
+    .due-none    { background:var(--border); color:var(--text-muted); }
+    /* ── Modal ── */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:500; align-items:flex-end; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:var(--surface); border-radius:var(--radius) var(--radius) 0 0; box-shadow:0 -4px 40px rgba(0,0,0,.18); width:100%; max-width:540px; max-height:90vh; overflow-y:auto; padding:24px; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+    .modal-head h2 { font-size:1.1rem; font-weight:700; margin:0; }
+    .modal-close { background:var(--bg); border:none; border-radius:8px; width:32px; height:32px; cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center; color:var(--text-muted); }
+    .modal-close:hover { color:var(--text); background:var(--border); }
+    .form-row { display:flex; gap:12px; }
+    .form-row .form-group { flex:1; }
+    .modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+    @media(max-width:480px) { .form-row { flex-direction:column; } }
   </style>
 </head>
 <body class="os-newlayout">
-
 <aside class="apps-rail" id="apps-rail"></aside>
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
@@ -50,23 +55,26 @@
   <div class="chip-row" id="due-chips"></div>
 
   <div class="section-header">
-    <span class="section-title" id="count-label">Holdings</span>
-    <button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;" onclick="openAdd()">+ Add</button>
+    <span class="section-title" id="count-lbl">Holdings</span>
+    <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="openAdd()">+ Add</button>
   </div>
 
   <div id="list"><p class="text-muted text-sm">Loading…</p></div>
 </main>
 
-<!-- Add modal -->
-<div class="modal-bg" id="modal-add">
-  <div class="modal" onclick="event.stopPropagation()">
-    <h3>Add Holding</h3>
+<!-- Add holding modal -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h2>Add Holding</h2>
+      <button class="modal-close" onclick="closeAdd()">✕</button>
+    </div>
     <form id="add-form" onsubmit="submitAdd(event)">
       <div class="form-group">
         <label class="form-label">Property *</label>
         <select class="form-input" id="a-prop" required></select>
       </div>
-      <div class="form-row2">
+      <div class="form-row">
         <div class="form-group">
           <label class="form-label">Category *</label>
           <select class="form-input" id="a-cat" required></select>
@@ -91,9 +99,9 @@
         <label class="form-label">Vendor / Provider</label>
         <input class="form-input" id="a-vendor" placeholder="e.g. Duke Energy">
       </div>
-      <div class="form-row2">
+      <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Amount</label>
+          <label class="form-label">Amount ($)</label>
           <input class="form-input" id="a-amount" type="number" step="0.01" placeholder="0.00">
         </div>
         <div class="form-group">
@@ -102,9 +110,9 @@
         </div>
       </div>
       <p id="a-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeAdd()">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="a-save">Add</button>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" style="padding:10px 18px;font-size:.88rem;" onclick="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="padding:10px 18px;font-size:.88rem;" id="a-save">Add Holding</button>
       </div>
     </form>
   </div>
@@ -114,115 +122,98 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  let allItems = [], allProps = [], catFilter = 'all', dueFilter = 'all';
   const CATS = [
     ['mortgage','Mortgage','🏦'],['insurance','Insurance','🛡️'],['utility','Utilities','💡'],
     ['tax','Taxes','🏛️'],['hoa','HOA','🏘️'],['subscription','Subscription','📋'],
     ['loan','Loan','💰'],['license','License','📄'],['other','Other','📦'],
   ];
+  const FREQ_LBL = {monthly:'/ mo',quarterly:'/ qtr',semi_annual:'/ 6mo',annual:'/ yr',one_time:'one time',as_needed:'as needed'};
+  const CAT_MAP  = Object.fromEntries(CATS.map(([k,l,i]) => [k, {label:l, icon:i}]));
+  let allItems = [], allProps = [], catF = 'all', dueF = 'all';
 
-  function dueBadge(dueDate, reminderDays) {
-    if (!dueDate) return { cls:'badge-none', label:'No due date' };
-    const today = new Date(); today.setHours(0,0,0,0);
-    const due   = new Date(dueDate); due.setHours(0,0,0,0);
-    const diff  = Math.round((due - today) / 86400000);
-    if (diff < 0)  return { cls:'badge-overdue', label:`${Math.abs(diff)}d overdue` };
-    if (diff <= 7) return { cls:'badge-soon7',   label:`Due in ${diff}d` };
-    if (diff <= 30) return { cls:'badge-soon30',  label:`Due in ${diff}d` };
-    return { cls:'badge-ok', label:due.toLocaleDateString('en-US',{month:'short',day:'numeric'}) };
+  function dueBadge(d) {
+    if (!d) return {cls:'due-none', lbl:'No due date'};
+    const diff = Math.round((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+    if (diff < 0)   return {cls:'due-overdue', lbl:`${Math.abs(diff)}d overdue`};
+    if (diff <= 7)  return {cls:'due-soon7',   lbl:`Due in ${diff}d`};
+    if (diff <= 30) return {cls:'due-soon30',  lbl:`Due ${new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`};
+    return {cls:'due-ok', lbl: new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'})};
   }
-
-  function fmtFreq(f) { return { monthly:'/ mo', quarterly:'/ qtr', semi_annual:'/ 6mo', annual:'/ yr', one_time:'one time', as_needed:'as needed' }[f] || f; }
 
   async function init() {
     const me = await requireAuth(); if (!me) return;
-
-    // Populate category select
-    const catSel = document.getElementById('a-cat');
-    catSel.innerHTML = CATS.map(([k,l,i]) => `<option value="${k}">${i} ${l}</option>`).join('');
-
+    document.getElementById('a-cat').innerHTML = CATS.map(([k,l,i]) => `<option value="${k}">${i} ${l}</option>`).join('');
     try {
       [allItems, allProps] = await Promise.all([
         satelliteApiFetch('holdings', '/api/holdings/items'),
         getProperties(),
       ]);
-    } catch (e) {
-      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error loading data: ${escHtml(e.message)}</p>`;
-      return;
+    } catch(e) {
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`; return;
     }
-
-    // Populate property select
-    const propSel = document.getElementById('a-prop');
-    propSel.innerHTML = allProps.map(p => `<option value="${p.id}">${escHtml(p.display_name || p.address_line1)}, ${escHtml(p.city||'')}</option>`).join('');
-
+    document.getElementById('a-prop').innerHTML = allProps.map(p =>
+      `<option value="${p.id}">${escHtml(p.display_name||p.address_line1)}, ${escHtml(p.city||'')}</option>`).join('');
     renderChips(); render();
   }
 
   function renderChips() {
-    const catEl = document.getElementById('cat-chips');
-    catEl.innerHTML = [['all','All','📋'], ...CATS].map(([k,l,i]) =>
-      `<span class="chip ${catFilter===k?'active':''}" onclick="setCat('${k}')">${i} ${l}</span>`).join('');
-    const dueEl = document.getElementById('due-chips');
-    dueEl.innerHTML = [['all','All'],['overdue','⚠️ Overdue'],['due-7d','Due ≤ 7d'],['due-30d','Due ≤ 30d']].map(([k,l]) =>
-      `<span class="chip ${dueFilter===k?'active':''}" onclick="setDue('${k}')">${l}</span>`).join('');
+    document.getElementById('cat-chips').innerHTML =
+      [['all','All','📋'], ...CATS].map(([k,l,i]) =>
+        `<span class="chip ${catF===k?'active':''}" onclick="setCat('${k}')">${i} ${l}</span>`).join('');
+    document.getElementById('due-chips').innerHTML =
+      [['all','All'],['overdue','⚠️ Overdue'],['due-7d','Due ≤ 7d'],['due-30d','Due ≤ 30d']].map(([k,l]) =>
+        `<span class="chip ${dueF===k?'active':''}" onclick="setDue('${k}')">${l}</span>`).join('');
   }
 
-  function setCat(c) { catFilter = c; renderChips(); render(); }
-  function setDue(d) { dueFilter = d; renderChips(); render(); }
+  function setCat(c) { catF=c; renderChips(); render(); }
+  function setDue(d) { dueF=d; renderChips(); render(); }
 
   function passesDue(item) {
-    if (dueFilter === 'all') return true;
+    if (dueF==='all') return true;
     if (!item.next_due_date) return false;
-    const today = new Date(); today.setHours(0,0,0,0);
-    const due   = new Date(item.next_due_date); due.setHours(0,0,0,0);
-    const diff  = Math.round((due - today) / 86400000);
-    if (dueFilter === 'overdue') return diff < 0;
-    if (dueFilter === 'due-7d')  return diff >= 0 && diff <= 7;
-    if (dueFilter === 'due-30d') return diff >= 0 && diff <= 30;
-    return true;
+    const diff = Math.round((new Date(item.next_due_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+    return dueF==='overdue' ? diff<0 : dueF==='due-7d' ? diff>=0&&diff<=7 : diff>=0&&diff<=30;
   }
 
   function render() {
-    const filtered = allItems.filter(i => (catFilter==='all' || i.category===catFilter) && passesDue(i));
-    document.getElementById('count-label').textContent = `${filtered.length} Holding${filtered.length===1?'':'s'}`;
+    const filtered = allItems.filter(i => (catF==='all'||i.category===catF) && passesDue(i));
+    document.getElementById('count-lbl').textContent = `${filtered.length} Holding${filtered.length===1?'':'s'}`;
     const el = document.getElementById('list');
-    if (!filtered.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">💼</div><p>No holdings match.</p><button class="btn btn-primary" onclick="openAdd()">+ Add Holding</button></div>`; return; }
-    const catMap = Object.fromEntries(CATS.map(([k,l,i]) => [k, i]));
-    el.innerHTML = filtered.map(item => {
-      const badge = dueBadge(item.next_due_date, item.reminder_days_before);
-      const propLabel = item.property_display_name || item.property_address || '—';
-      return `<div class="holding-card" onclick="openDetail('${item.id}')">
-        <div class="hc-icon">${catMap[item.category] || '📦'}</div>
-        <div class="hc-body">
-          <div class="hc-name">${escHtml(item.name)}</div>
-          <div class="hc-prop">${escHtml(propLabel)}${item.property_city?' · '+escHtml(item.property_city):''}</div>
-          <div class="hc-meta">
-            <div>
-              ${item.amount != null ? `<span class="hc-amount">$${Number(item.amount).toLocaleString()}</span><span class="hc-freq">${fmtFreq(item.frequency)}</span>` : `<span class="hc-freq">${fmtFreq(item.frequency)}</span>`}
-              ${item.vendor ? `<div class="text-xs text-muted mt-2">${escHtml(item.vendor)}</div>` : ''}
-            </div>
-            <span class="badge-due ${badge.cls}">${badge.label}</span>
-          </div>
+    if (!filtered.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">💼</div><p>No holdings match.</p><button class="btn btn-primary" onclick="openAdd()">+ Add Holding</button></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="hd-list">${filtered.map(item => {
+      const badge = dueBadge(item.next_due_date);
+      const icon  = (CAT_MAP[item.category]||{icon:'📦'}).icon;
+      return `<div class="hd-row" onclick="openDetail('${item.id}')">
+        <div class="hd-icon">${icon}</div>
+        <div class="hd-body">
+          <div class="hd-name">${escHtml(item.name)}</div>
+          <div class="hd-prop">${escHtml(item.property_display_name||item.property_address||'—')}${item.property_city?' · '+escHtml(item.property_city):''}</div>
+          ${item.vendor?`<div class="hd-prop">${escHtml(item.vendor)}</div>`:''}
         </div>
+        <div class="hd-right">
+          ${item.amount!=null?`<div class="hd-amount">$${Number(item.amount).toLocaleString()}</div><div class="hd-freq">${FREQ_LBL[item.frequency]||item.frequency}</div>`:`<div class="hd-freq">${FREQ_LBL[item.frequency]||item.frequency||'—'}</div>`}
+          <span class="due-badge ${badge.cls}">${badge.lbl}</span>
+        </div>
+        <div style="color:var(--text-muted);flex-shrink:0;">›</div>
       </div>`;
-    }).join('');
+    }).join('')}</div>`;
   }
 
   async function openDetail(id) {
-    const url = await satellitePageUrl('holdings', '/item.html?id=' + id);
-    window.location.href = url;
+    window.location.href = await satellitePageUrl('holdings', '/item.html?id='+id);
   }
 
   function openAdd() {
-    document.getElementById('a-name').value = '';
-    document.getElementById('a-vendor').value = '';
-    document.getElementById('a-amount').value = '';
-    document.getElementById('a-due').value = '';
+    ['a-name','a-vendor','a-amount','a-due'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('a-freq').value = 'monthly';
     document.getElementById('a-err').style.display = 'none';
     document.getElementById('modal-add').classList.add('open');
   }
   function closeAdd() { document.getElementById('modal-add').classList.remove('open'); }
-  document.getElementById('modal-add').addEventListener('click', e => { if (e.target===e.currentTarget) closeAdd(); });
+  document.getElementById('modal-add').addEventListener('click', e => { if(e.target===e.currentTarget) closeAdd(); });
 
   async function submitAdd(e) {
     e.preventDefault();
@@ -230,22 +221,19 @@
       property_id:   document.getElementById('a-prop').value,
       category:      document.getElementById('a-cat').value,
       name:          document.getElementById('a-name').value.trim(),
-      vendor:        document.getElementById('a-vendor').value.trim() || null,
+      vendor:        document.getElementById('a-vendor').value.trim()||null,
       frequency:     document.getElementById('a-freq').value,
       amount:        document.getElementById('a-amount').value ? Number(document.getElementById('a-amount').value) : null,
-      next_due_date: document.getElementById('a-due').value || null,
+      next_due_date: document.getElementById('a-due').value||null,
     };
-    const errEl = document.getElementById('a-err'); errEl.style.display = 'none';
-    const btn = document.getElementById('a-save'); btn.disabled = true; btn.textContent = 'Saving…';
+    const errEl=document.getElementById('a-err'); errEl.style.display='none';
+    const btn=document.getElementById('a-save'); btn.disabled=true; btn.textContent='Saving…';
     try {
-      await satelliteApiFetch('holdings', '/api/holdings/items', { method:'POST', body: JSON.stringify(body) });
-      closeAdd();
-      allItems = await satelliteApiFetch('holdings', '/api/holdings/items');
-      render();
-      showToast('Holding added');
-    } catch(err) {
-      errEl.textContent = err.message; errEl.style.display = 'block';
-    } finally { btn.disabled = false; btn.textContent = 'Add'; }
+      await satelliteApiFetch('holdings', '/api/holdings/items', {method:'POST',body:JSON.stringify(body)});
+      closeAdd(); allItems = await satelliteApiFetch('holdings', '/api/holdings/items');
+      render(); showToast('Holding added');
+    } catch(err) { errEl.textContent=err.message; errEl.style.display='block'; }
+    finally { btn.disabled=false; btn.textContent='Add Holding'; }
   }
 
   init();

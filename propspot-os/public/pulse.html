@@ -9,86 +9,76 @@
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
-    /* Layout: fixed two-col inside page area */
-    body.os-newlayout main.page { padding:0; overflow:hidden; height:calc(100vh - 56px); display:flex; }
+    /* Full-height layout: override default page padding */
+    body.os-newlayout .page { padding:0 !important; max-width:none !important; height:calc(100vh - 56px); display:flex; overflow:hidden; }
+
     .pulse-wrap { display:flex; width:100%; height:100%; overflow:hidden; }
 
-    /* Left sidebar */
-    .pulse-sidebar { width:240px; flex:0 0 240px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); overflow:hidden; }
-    .pulse-sidebar-head { padding:14px 12px 10px; border-bottom:1px solid var(--border); font-weight:700; font-size:.95rem; }
-    .pulse-sidebar-body { flex:1; overflow-y:auto; padding:8px 0; }
-    .pulse-section-label { padding:10px 12px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; }
-    .pulse-channel-row { display:flex; align-items:center; gap:8px; padding:7px 12px; cursor:pointer; font-size:.88rem; border-radius:6px; margin:0 4px; color:var(--text-muted); }
-    .pulse-channel-row:hover  { background:var(--brand-light); color:var(--text); }
-    .pulse-channel-row.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
-    .pulse-channel-icon { font-size:.9rem; flex-shrink:0; }
-    .pulse-channel-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .pulse-unread-dot { background:var(--brand); color:#fff; border-radius:100px; font-size:.65rem; font-weight:700; padding:1px 5px; min-width:16px; text-align:center; }
+    /* Sidebar */
+    .ps-sidebar { width:230px; flex:0 0 230px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); overflow:hidden; }
+    .ps-sidebar-head { padding:14px 14px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+    .ps-sidebar-head .ps-app-name { font-weight:800; font-size:.95rem; color:var(--text); flex:1; }
+    .ps-sidebar-body { flex:1; overflow-y:auto; padding:6px 0; }
+    .ps-section { padding:12px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; }
+    .ps-row { display:flex; align-items:center; gap:8px; padding:7px 10px; margin:0 4px; border-radius:8px; cursor:pointer; font-size:.88rem; color:var(--text-muted); transition:background .1s,color .1s; }
+    .ps-row:hover { background:var(--brand-light); color:var(--text); }
+    .ps-row.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
+    .ps-row-icon { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
+    .ps-row-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ps-badge { background:var(--brand); color:#fff; border-radius:100px; font-size:.62rem; font-weight:700; padding:1px 6px; min-width:16px; text-align:center; }
 
     /* Main area */
-    .pulse-main { flex:1; min-width:0; display:flex; flex-direction:column; }
-    .pulse-main-head { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; background:var(--surface); flex-shrink:0; }
-    .pulse-main-head .ch-name { font-weight:700; font-size:1rem; }
-    .pulse-conn-dot { width:8px; height:8px; border-radius:50%; background:#9ca3af; flex-shrink:0; }
-    .pulse-conn-dot.connected { background:#22c55e; }
-    .pulse-messages { flex:1; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:4px; }
-    .pulse-msg { display:flex; gap:10px; align-items:flex-start; }
-    .pulse-msg-avatar { width:32px; height:32px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0; margin-top:2px; }
-    .pulse-msg-body { flex:1; min-width:0; }
-    .pulse-msg-meta { display:flex; gap:6px; align-items:baseline; margin-bottom:2px; }
-    .pulse-msg-sender { font-weight:700; font-size:.88rem; }
-    .pulse-msg-time   { font-size:.7rem; color:var(--text-muted); }
-    .pulse-msg-text   { font-size:.9rem; line-height:1.5; word-break:break-word; }
-    .pulse-msg-text p { margin:0; }
-    .pulse-msg-text img { max-width:360px; border-radius:6px; margin-top:4px; }
-    .pulse-date-div { text-align:center; font-size:.72rem; color:var(--text-muted); margin:8px 0; position:relative; }
-    .pulse-date-div::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:var(--border); }
-    .pulse-date-div span { background:var(--bg); position:relative; padding:0 10px; }
-    /* Compact consecutive msgs from same sender */
-    .pulse-msg.compact .pulse-msg-avatar { opacity:0; }
-    .pulse-msg.compact .pulse-msg-meta { display:none; }
+    .ps-main { flex:1; min-width:0; display:flex; flex-direction:column; }
+    .ps-main-head { height:52px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; padding:0 16px; background:var(--surface); flex-shrink:0; }
+    .ps-main-head .ps-ch-name { font-weight:700; font-size:.95rem; }
+    .ps-conn { width:8px; height:8px; border-radius:50%; background:#d1d5db; flex-shrink:0; transition:background .3s; }
+    .ps-conn.on { background:#22c55e; }
+    .ps-messages { flex:1; overflow-y:auto; padding:16px 16px 8px; display:flex; flex-direction:column; gap:2px; }
+    /* Message */
+    .ps-msg { display:flex; gap:10px; align-items:flex-start; padding:2px 0; }
+    .ps-msg-avatar { width:34px; height:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0; margin-top:1px; }
+    .ps-msg-body { flex:1; min-width:0; }
+    .ps-msg-meta { display:flex; align-items:baseline; gap:6px; margin-bottom:2px; }
+    .ps-msg-name { font-weight:700; font-size:.88rem; }
+    .ps-msg-time { font-size:.7rem; color:var(--text-muted); }
+    .ps-msg-text { font-size:.9rem; line-height:1.55; word-break:break-word; }
+    .ps-msg.compact .ps-msg-avatar { visibility:hidden; }
+    .ps-msg.compact .ps-msg-meta { display:none; }
+    /* Date divider */
+    .ps-divider { text-align:center; font-size:.72rem; color:var(--text-muted); margin:10px 0; position:relative; }
+    .ps-divider::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:var(--border); }
+    .ps-divider span { background:var(--bg); position:relative; padding:0 12px; }
+    /* Empty main */
+    .ps-empty { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--text-muted); }
     /* Composer */
-    .pulse-composer { padding:10px 14px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:flex-end; background:var(--surface); flex-shrink:0; }
-    .pulse-composer textarea { flex:1; resize:none; border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:.9rem; font-family:inherit; line-height:1.4; max-height:120px; overflow-y:auto; background:var(--bg); }
-    .pulse-composer textarea:focus { outline:none; border-color:var(--brand); }
-    .pulse-send { padding:10px 16px; font-size:.88rem; border-radius:8px; align-self:flex-end; }
-    .pulse-empty-state { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-muted); flex-direction:column; gap:10px; font-size:.95rem; }
-    @media(max-width:640px){
-      .pulse-sidebar { width:200px; flex:0 0 200px; }
-    }
+    .ps-composer { border-top:1px solid var(--border); padding:10px 12px; display:flex; gap:8px; align-items:flex-end; background:var(--surface); flex-shrink:0; }
+    .ps-composer textarea { flex:1; resize:none; border:1.5px solid var(--border); border-radius:10px; padding:9px 12px; font-size:.9rem; font-family:inherit; line-height:1.4; max-height:120px; overflow-y:auto; background:var(--bg); color:var(--text); }
+    .ps-composer textarea:focus { outline:none; border-color:var(--brand); }
+    .ps-send { padding:9px 16px; font-size:.88rem; border-radius:10px; align-self:flex-end; white-space:nowrap; }
+    @media(max-width:640px) { .ps-sidebar { width:180px; flex:0 0 180px; } }
   </style>
 </head>
 <body class="os-newlayout">
-
 <aside class="apps-rail" id="apps-rail"></aside>
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
   <div class="pulse-wrap">
-    <!-- Sidebar: channels + DMs -->
-    <div class="pulse-sidebar">
-      <div class="pulse-sidebar-head">💬 Pulse</div>
-      <div class="pulse-sidebar-body" id="sidebar-body">
-        <p class="text-muted text-sm" style="padding:12px;">Loading…</p>
+    <div class="ps-sidebar">
+      <div class="ps-sidebar-head">
+        <span style="font-size:1.2rem;">💬</span>
+        <span class="ps-app-name">Pulse</span>
+      </div>
+      <div class="ps-sidebar-body" id="ps-sidebar-body">
+        <p class="text-muted text-sm" style="padding:14px 14px;">Loading…</p>
       </div>
     </div>
 
-    <!-- Main: messages -->
-    <div class="pulse-main">
-      <div class="pulse-main-head" id="main-head">
-        <div class="pulse-empty-state" style="padding:0;flex-direction:row;">
-          <span>Select a channel or DM</span>
-        </div>
-      </div>
-      <div id="main-body" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-direction:column;gap:8px;">
-        <div style="font-size:2rem;">💬</div>
-        <p>Select a channel to start messaging</p>
-      </div>
-      <div class="pulse-composer" id="composer" style="display:none;">
-        <textarea id="compose-text" placeholder="Message…" rows="1"
-          onkeydown="handleComposeSend(event)" oninput="autoResizeTextarea(this)"></textarea>
-        <button class="btn btn-primary pulse-send" onclick="sendMessage()">Send</button>
+    <div class="ps-main" id="ps-main">
+      <div class="ps-empty" style="height:100%;">
+        <div style="font-size:2.5rem;">💬</div>
+        <p>Select a channel to start</p>
       </div>
     </div>
   </div>
@@ -98,222 +88,159 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  let myUserId = null, pulseBaseUrl = '';
-  let activeScope = null; // { type:'channel'|'dm', id, name }
-  let messages = [], sseSource = null;
-  let lastSenderId = null, lastDateLabel = null;
+  let myId = null, pulseBase = '';
+  let activeScope = null; // {type,id,name}
+  let messages = [], sseSource = null, lastSender = null, lastDate = null;
 
   async function init() {
     const me = await requireAuth(); if (!me) return;
-    myUserId = me.id;
-
+    myId = me.id;
     const cfg = await apiFetch('/api/config');
-    pulseBaseUrl = (cfg.pulseUrl || '').replace(/\/$/, '');
-    if (!pulseBaseUrl) {
-      document.getElementById('sidebar-body').innerHTML = `<p class="text-muted text-sm" style="padding:12px;">Pulse not configured.</p>`;
+    pulseBase = (cfg.pulseUrl||'').replace(/\/$/,'');
+    if (!pulseBase) {
+      document.getElementById('ps-sidebar-body').innerHTML = `<p class="text-muted text-sm" style="padding:14px;">Pulse not configured.</p>`;
       return;
     }
-
-    await renderSidebar();
+    loadSidebar();
   }
 
-  async function renderSidebar() {
+  async function loadSidebar() {
     const [channels, dms] = await Promise.all([
-      satelliteApiFetch('pulse', '/api/pulse/channels').catch(() => []),
-      satelliteApiFetch('pulse', '/api/pulse/dms').catch(() => []),
+      satelliteApiFetch('pulse','/api/pulse/channels').catch(()=>[]),
+      satelliteApiFetch('pulse','/api/pulse/dms').catch(()=>[]),
     ]);
-
     let html = '';
-
     if (channels.length) {
-      html += `<div class="pulse-section-label">Channels</div>`;
+      html += `<div class="ps-section">Channels</div>`;
       html += channels.map(ch => {
-        const unread = ch.unread > 0 ? `<span class="pulse-unread-dot">${ch.unread}</span>` : '';
-        const active = activeScope?.id === ch.id ? ' active' : '';
-        return `<div class="pulse-channel-row${active}" onclick="openChannel(${JSON.stringify(ch.id)}, ${JSON.stringify('#'+ch.slug)})">
-          <span class="pulse-channel-icon">#</span>
-          <span class="pulse-channel-name">${escHtml(ch.name || ch.slug)}</span>
-          ${unread}
+        const active = activeScope?.id===ch.id ? ' active' : '';
+        const unread = ch.unread>0 ? `<span class="ps-badge">${ch.unread}</span>` : '';
+        return `<div class="ps-row${active}" onclick="openCh(${JSON.stringify(ch.id)},${JSON.stringify(ch.name||ch.slug)})">
+          <span class="ps-row-icon">#</span>
+          <span class="ps-row-name">${escHtml(ch.name||ch.slug)}</span>${unread}
         </div>`;
       }).join('');
     }
-
     if (dms.length) {
-      html += `<div class="pulse-section-label">Direct Messages</div>`;
+      html += `<div class="ps-section">Direct Messages</div>`;
       html += dms.map(dm => {
-        const names = (dm.members||[]).filter(m => m.user_id !== myUserId).map(m => m.full_name || m.email || '?').join(', ') || 'Group DM';
-        const initial = names[0]?.toUpperCase() || '?';
-        const unread = dm.unread > 0 ? `<span class="pulse-unread-dot">${dm.unread}</span>` : '';
-        const active = activeScope?.id === dm.id ? ' active' : '';
-        return `<div class="pulse-channel-row${active}" onclick="openDm(${JSON.stringify(dm.id)}, ${JSON.stringify(names)})">
-          <div style="width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;">${escHtml(initial)}</div>
-          <span class="pulse-channel-name">${escHtml(names)}</span>
-          ${unread}
+        const others = (dm.members||[]).filter(m=>m.user_id!==myId);
+        const name = others.map(m=>m.full_name||m.email||'?').join(', ') || 'Group';
+        const active = activeScope?.id===dm.id ? ' active' : '';
+        const unread = dm.unread>0 ? `<span class="ps-badge">${dm.unread}</span>` : '';
+        const init1 = (others[0]?.full_name||others[0]?.email||'?')[0]?.toUpperCase();
+        return `<div class="ps-row${active}" onclick="openDm(${JSON.stringify(dm.id)},${JSON.stringify(name)})">
+          <div style="width:20px;height:20px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;flex-shrink:0;">${escHtml(init1||'?')}</div>
+          <span class="ps-row-name">${escHtml(name)}</span>${unread}
         </div>`;
       }).join('');
     }
-
-    if (!html) html = `<p class="text-muted text-sm" style="padding:12px;">No channels yet.</p>`;
-    document.getElementById('sidebar-body').innerHTML = html;
+    if (!html) html = `<p class="text-muted text-sm" style="padding:14px;">No channels yet.</p>`;
+    document.getElementById('ps-sidebar-body').innerHTML = html;
   }
 
-  async function openChannel(id, name) {
-    activeScope = { type:'channel', id, name };
-    await loadMessages({ channel_id: id }, name);
-    renderSidebar();
-  }
+  async function openCh(id, name) { activeScope={type:'channel',id,name:'#'+name}; await loadMessages({channel_id:id}); loadSidebar(); }
+  async function openDm(id, name) { activeScope={type:'dm',id,name};               await loadMessages({dm_id:id}); loadSidebar(); }
 
-  async function openDm(id, name) {
-    activeScope = { type:'dm', id, name };
-    await loadMessages({ dm_id: id }, name);
-    renderSidebar();
-  }
-
-  async function loadMessages(scope, name) {
-    // Update header
-    const connDot = `<span class="pulse-conn-dot" id="conn-dot"></span>`;
-    document.getElementById('main-head').innerHTML = `
-      <div class="ch-name">${escHtml(name)}</div>
-      ${connDot}`;
-
-    const bodyEl = document.getElementById('main-body');
-    bodyEl.innerHTML = `<div class="pulse-messages" id="messages"><p class="text-muted text-sm">Loading…</p></div>`;
-    bodyEl.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden;';
-
-    document.getElementById('composer').style.display = '';
-
-    // Fetch messages
+  async function loadMessages(scope) {
+    const main = document.getElementById('ps-main');
+    main.innerHTML = `
+      <div class="ps-main-head">
+        <span class="ps-ch-name">${escHtml(activeScope.name)}</span>
+        <span class="ps-conn" id="ps-conn"></span>
+      </div>
+      <div class="ps-messages" id="ps-messages"><p class="text-muted text-sm">Loading…</p></div>
+      <div class="ps-composer">
+        <textarea id="ps-textarea" placeholder="Message ${escHtml(activeScope.name)}…" rows="1"
+          onkeydown="handleKey(event)" oninput="autoH(this)"></textarea>
+        <button class="btn btn-primary ps-send" onclick="sendMsg()">Send</button>
+      </div>`;
     try {
       const qp = scope.channel_id ? `?channel_id=${scope.channel_id}` : `?dm_id=${scope.dm_id}`;
-      messages = await satelliteApiFetch('pulse', '/api/pulse/messages' + qp + '&limit=80');
-      renderMessages();
+      messages = await satelliteApiFetch('pulse', '/api/pulse/messages'+qp+'&limit=80');
+      renderMsgs();
     } catch(e) {
-      document.getElementById('messages').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+      document.getElementById('ps-messages').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
     }
-
-    // SSE
     connectSSE(scope);
   }
 
-  function renderMessages() {
-    const el = document.getElementById('messages');
-    if (!el) return;
-    lastSenderId = null; lastDateLabel = null;
-    if (!messages.length) { el.innerHTML = `<div class="pulse-empty-state"><div style="font-size:2rem">💬</div><p>No messages yet. Say hello!</p></div>`; return; }
-
-    let html = '';
-    for (const msg of messages) {
-      const dateLabel = new Date(msg.created_at).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-      if (dateLabel !== lastDateLabel) {
-        html += `<div class="pulse-date-div"><span>${escHtml(dateLabel)}</span></div>`;
-        lastDateLabel = dateLabel;
-        lastSenderId = null;
-      }
-      const compact = msg.sender_id === lastSenderId;
-      const time = new Date(msg.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-      const initial = (msg.sender_name || msg.sender_email || '?')[0].toUpperCase();
-      const textHtml = msg.content_html || escHtml(msg.content || '').replace(/\n/g,'<br>');
-      html += `<div class="pulse-msg${compact?' compact':''}">
-        <div class="pulse-msg-avatar" style="background:${strColor(msg.sender_id)}">${escHtml(initial)}</div>
-        <div class="pulse-msg-body">
-          <div class="pulse-msg-meta">
-            <span class="pulse-msg-sender">${escHtml(msg.sender_name || msg.sender_email || 'Unknown')}</span>
-            <span class="pulse-msg-time">${time}</span>
-          </div>
-          <div class="pulse-msg-text">${textHtml}</div>
-        </div>
-      </div>`;
-      lastSenderId = msg.sender_id;
-    }
-    el.innerHTML = html;
+  function renderMsgs() {
+    const el = document.getElementById('ps-messages'); if (!el) return;
+    lastSender=null; lastDate=null;
+    if (!messages.length) { el.innerHTML=`<div class="ps-empty"><div style="font-size:2rem">💬</div><p>No messages yet — say hello!</p></div>`; return; }
+    el.innerHTML = messages.map(m => msgHtml(m)).join('');
     el.scrollTop = el.scrollHeight;
   }
 
-  function appendMessage(msg) {
-    const el = document.getElementById('messages');
-    if (!el) return;
-    // Remove empty state if present
-    const emptyState = el.querySelector('.pulse-empty-state');
-    if (emptyState) emptyState.remove();
-
-    const dateLabel = new Date(msg.created_at).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-    let html = '';
-    if (dateLabel !== lastDateLabel) {
-      html += `<div class="pulse-date-div"><span>${escHtml(dateLabel)}</span></div>`;
-      lastDateLabel = dateLabel;
-      lastSenderId = null;
+  function msgHtml(m) {
+    const dateStr = new Date(m.created_at).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    let out = '';
+    if (dateStr !== lastDate) {
+      out += `<div class="ps-divider"><span>${escHtml(dateStr)}</span></div>`;
+      lastDate = dateStr; lastSender = null;
     }
-    const compact = msg.sender_id === lastSenderId;
-    const time = new Date(msg.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    const initial = (msg.sender_name || msg.sender_email || '?')[0].toUpperCase();
-    const textHtml = msg.content_html || escHtml(msg.content || '').replace(/\n/g,'<br>');
-    html += `<div class="pulse-msg${compact?' compact':''}">
-      <div class="pulse-msg-avatar" style="background:${strColor(msg.sender_id)}">${escHtml(initial)}</div>
-      <div class="pulse-msg-body">
-        <div class="pulse-msg-meta">
-          <span class="pulse-msg-sender">${escHtml(msg.sender_name || msg.sender_email || 'Unknown')}</span>
-          <span class="pulse-msg-time">${time}</span>
-        </div>
-        <div class="pulse-msg-text">${textHtml}</div>
+    const compact = m.sender_id === lastSender;
+    const time = new Date(m.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    const senderName = m.sender_name || m.sender_email || 'Unknown';
+    const initial = senderName[0]?.toUpperCase() || '?';
+    const textOut = m.content_html || (escHtml(m.content||'')).replace(/\n/g,'<br>');
+    out += `<div class="ps-msg${compact?' compact':''}">
+      <div class="ps-msg-avatar" style="background:${avatarColor(m.sender_id)}">${escHtml(initial)}</div>
+      <div class="ps-msg-body">
+        <div class="ps-msg-meta"><span class="ps-msg-name">${escHtml(senderName)}</span><span class="ps-msg-time">${time}</span></div>
+        <div class="ps-msg-text">${textOut}</div>
       </div>
     </div>`;
-    lastSenderId = msg.sender_id;
-    el.insertAdjacentHTML('beforeend', html);
-    el.scrollTop = el.scrollHeight;
+    lastSender = m.sender_id;
+    return out;
+  }
+
+  function appendMsg(m) {
+    const el = document.getElementById('ps-messages'); if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    el.insertAdjacentHTML('beforeend', msgHtml(m));
+    lastSender = m.sender_id;
+    if (atBottom) el.scrollTop = el.scrollHeight;
   }
 
   function connectSSE(scope) {
-    if (sseSource) { try { sseSource.close(); } catch(e) {} sseSource = null; }
-    const token = getToken();
-    if (!token || !pulseBaseUrl) return;
+    if (sseSource) { try{sseSource.close();}catch(e){} sseSource=null; }
+    const token = getToken(); if (!token||!pulseBase) return;
     const qp = scope.channel_id ? `channel_id=${scope.channel_id}` : `dm_id=${scope.dm_id}`;
-    const url = `${pulseBaseUrl}/api/pulse/stream?token=${encodeURIComponent(token)}&${qp}`;
-    sseSource = new EventSource(url);
-    const dot = document.getElementById('conn-dot');
-    sseSource.onopen = () => { if (dot) dot.classList.add('connected'); };
-    sseSource.onerror = () => { if (dot) dot.classList.remove('connected'); };
+    sseSource = new EventSource(`${pulseBase}/api/pulse/stream?token=${encodeURIComponent(token)}&${qp}`);
+    const dot = () => document.getElementById('ps-conn');
+    sseSource.onopen = () => { const d=dot(); if(d) d.classList.add('on'); };
+    sseSource.onerror = () => { const d=dot(); if(d) d.classList.remove('on'); };
     sseSource.onmessage = e => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type === 'message' || data.type === 'new_message') {
-          messages.push(data.message || data);
-          appendMessage(data.message || data);
+        if (data.type==='message'||data.type==='new_message') {
+          const msg = data.message||data;
+          messages.push(msg); appendMsg(msg);
         }
       } catch(_) {}
     };
   }
 
-  async function sendMessage() {
+  async function sendMsg() {
     if (!activeScope) return;
-    const textarea = document.getElementById('compose-text');
-    const text = textarea.value.trim();
-    if (!text) return;
-    textarea.value = '';
-    textarea.style.height = '';
-    const body = { content: text };
-    if (activeScope.type === 'channel') body.channel_id = activeScope.id;
-    else body.dm_id = activeScope.id;
+    const ta = document.getElementById('ps-textarea'); if (!ta) return;
+    const text = ta.value.trim(); if (!text) return;
+    ta.value = ''; ta.style.height = '';
+    const body = activeScope.type==='channel' ? {channel_id:activeScope.id,content:text} : {dm_id:activeScope.id,content:text};
     try {
-      await satelliteApiFetch('pulse', '/api/pulse/messages', { method:'POST', body: JSON.stringify(body) });
-    } catch(e) {
-      showToast(e.message, 'error');
-      textarea.value = text;
-    }
+      await satelliteApiFetch('pulse','/api/pulse/messages',{method:'POST',body:JSON.stringify(body)});
+    } catch(e) { showToast(e.message,'error'); ta.value=text; }
   }
 
-  function handleComposeSend(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  }
-  function autoResizeTextarea(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }
+  function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+  function autoH(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
 
-  // Deterministic color from user ID string
-  function strColor(str) {
-    const COLORS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
-    let h = 0; for (let i = 0; i < (str||'').length; i++) h = ((h<<5)-h) + str.charCodeAt(i);
-    return COLORS[Math.abs(h) % COLORS.length];
+  function avatarColor(str) {
+    const COLS=['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
+    let h=0; for(let i=0;i<(str||'').length;i++) h=((h<<5)-h)+str.charCodeAt(i);
+    return COLS[Math.abs(h)%COLS.length];
   }
 
   init();

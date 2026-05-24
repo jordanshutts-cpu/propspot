@@ -9,90 +9,96 @@
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
-    body.os-newlayout main.page { padding:0; overflow:hidden; height:calc(100vh - 56px); display:flex; }
-    .inbox-wrap { display:flex; width:100%; height:100%; overflow:hidden; }
+    body.os-newlayout .page { padding:0 !important; max-width:none !important; height:calc(100vh - 56px); display:flex; overflow:hidden; }
+
+    .ib-wrap { display:flex; width:100%; height:100%; overflow:hidden; }
 
     /* Left nav */
-    .inbox-nav { width:200px; flex:0 0 200px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); }
-    .inbox-nav-head { padding:14px 12px 10px; border-bottom:1px solid var(--border); font-weight:700; font-size:.95rem; }
-    .inbox-nav-body { flex:1; overflow-y:auto; padding:8px 0; }
-    .inbox-nav-row { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:.88rem; border-radius:6px; margin:0 4px; color:var(--text-muted); }
-    .inbox-nav-row:hover  { background:var(--brand-light); color:var(--text); }
-    .inbox-nav-row.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
-    .inbox-nav-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .inbox-unread { background:var(--brand); color:#fff; border-radius:100px; font-size:.65rem; font-weight:700; padding:1px 5px; }
-    .inbox-section-label { padding:10px 12px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; }
+    .ib-nav { width:210px; flex:0 0 210px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); }
+    .ib-nav-head { padding:14px 14px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+    .ib-nav-head .ib-app-name { font-weight:800; font-size:.95rem; }
+    .ib-nav-body { flex:1; overflow-y:auto; padding:6px 0; }
+    .ib-nav-section { padding:12px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; }
+    .ib-nav-row { display:flex; align-items:center; gap:8px; padding:8px 10px; margin:0 4px; border-radius:8px; cursor:pointer; font-size:.88rem; color:var(--text-muted); transition:background .1s,color .1s; }
+    .ib-nav-row:hover { background:var(--brand-light); color:var(--text); }
+    .ib-nav-row.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
+    .ib-nav-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ib-unread { background:var(--brand); color:#fff; border-radius:100px; font-size:.62rem; font-weight:700; padding:1px 6px; }
 
     /* Thread list */
-    .inbox-threads { width:320px; flex:0 0 320px; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
-    .inbox-threads-head { padding:10px 12px; border-bottom:1px solid var(--border); display:flex; gap:8px; align-items:center; background:var(--surface); flex-shrink:0; }
-    .inbox-threads-head .inbox-title { font-weight:700; font-size:.95rem; flex:1; }
-    .inbox-threads-body { flex:1; overflow-y:auto; }
-    .thread-row { padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; }
+    .ib-threads { width:310px; flex:0 0 310px; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+    .ib-threads-head { height:52px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 14px; gap:8px; background:var(--surface); flex-shrink:0; }
+    .ib-threads-head .ib-box-name { font-weight:700; font-size:.95rem; flex:1; }
+    .ib-threads-body { flex:1; overflow-y:auto; }
+    .thread-row { padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
     .thread-row:hover { background:var(--brand-light); }
-    .thread-row.active { background:#f0fdf4; border-left:3px solid var(--brand); }
-    .thread-row.unread .thread-subject { font-weight:700; }
-    .thread-from { font-size:.78rem; color:var(--text-muted); margin-bottom:2px; display:flex; justify-content:space-between; }
-    .thread-subject { font-size:.9rem; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .thread-preview { font-size:.78rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .thread-time { font-size:.72rem; color:var(--text-muted); }
+    .thread-row.active { background:#edf7e9; border-left:3px solid var(--brand); padding-left:11px; }
+    .thread-row.unread .thr-subject { font-weight:700; }
+    .thr-from { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px; }
+    .thr-from-name { font-size:.82rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px; }
+    .thr-time { font-size:.68rem; color:var(--text-muted); flex-shrink:0; }
+    .thr-subject { font-size:.88rem; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .thr-preview { font-size:.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
     /* Thread detail */
-    .inbox-detail { flex:1; min-width:0; display:flex; flex-direction:column; }
-    .inbox-detail-head { padding:14px 16px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
-    .inbox-detail-subject { font-weight:700; font-size:1.05rem; margin-bottom:6px; }
-    .inbox-detail-meta { font-size:.8rem; color:var(--text-muted); display:flex; gap:12px; flex-wrap:wrap; }
-    .inbox-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
-    .email-msg { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface); }
-    .email-msg-head { padding:12px 14px; border-bottom:1px solid var(--border); display:flex; gap:12px; align-items:flex-start; }
-    .email-avatar { width:34px; height:34px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; }
-    .email-sender-info { flex:1; min-width:0; }
+    .ib-detail { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--bg); }
+    .ib-detail-head { padding:14px 18px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+    .ib-detail-subject { font-weight:700; font-size:1.05rem; margin-bottom:4px; }
+    .ib-detail-meta { font-size:.78rem; color:var(--text-muted); display:flex; gap:16px; flex-wrap:wrap; }
+    .ib-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+    /* Email message card */
+    .email-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .email-card-head { display:flex; gap:12px; align-items:flex-start; padding:12px 16px; border-bottom:1px solid var(--border); }
+    .email-avatar { width:36px; height:36px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; flex-shrink:0; }
+    .email-sender { flex:1; min-width:0; }
     .email-sender-name { font-weight:700; font-size:.88rem; }
-    .email-sender-addr { font-size:.75rem; color:var(--text-muted); }
-    .email-date { font-size:.75rem; color:var(--text-muted); flex-shrink:0; }
-    .email-msg-body { padding:14px; font-size:.9rem; line-height:1.6; max-height:400px; overflow-y:auto; white-space:pre-wrap; word-break:break-word; }
-    .email-msg-body iframe { width:100%; border:none; }
+    .email-sender-addr { font-size:.72rem; color:var(--text-muted); }
+    .email-date { font-size:.72rem; color:var(--text-muted); flex-shrink:0; }
+    .email-card-body { padding:14px 16px; font-size:.9rem; line-height:1.7; white-space:pre-wrap; word-break:break-word; max-height:400px; overflow-y:auto; color:var(--text); }
     /* Reply composer */
-    .reply-composer { border-top:1px solid var(--border); padding:12px 16px; background:var(--surface); flex-shrink:0; }
-    .reply-composer textarea { width:100%; resize:none; border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:.9rem; font-family:inherit; line-height:1.4; background:var(--bg); }
-    .reply-composer textarea:focus { outline:none; border-color:var(--brand); }
-    .reply-composer-actions { display:flex; justify-content:flex-end; margin-top:8px; gap:8px; }
-    .inbox-empty { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--text-muted); }
-    @media(max-width:900px) { .inbox-nav { display:none; } .inbox-threads { width:260px; flex:0 0 260px; } }
-    @media(max-width:640px) { .inbox-threads { width:100%; flex:1; } .inbox-detail { display:none; } .inbox-detail.show { display:flex; flex:1; } .inbox-threads.hide { display:none; } }
+    .ib-composer { border-top:1px solid var(--border); padding:12px 16px; background:var(--surface); flex-shrink:0; }
+    .ib-composer textarea { width:100%; resize:none; border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; font-size:.9rem; font-family:inherit; line-height:1.5; background:var(--bg); color:var(--text); }
+    .ib-composer textarea:focus { outline:none; border-color:var(--brand); }
+    .ib-composer-actions { display:flex; justify-content:flex-end; margin-top:8px; gap:8px; }
+    /* Empty state */
+    .ib-empty { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--text-muted); }
+
+    @media(max-width:900px) { .ib-nav { display:none; } .ib-threads { width:260px; flex:0 0 260px; } }
   </style>
 </head>
 <body class="os-newlayout">
-
 <aside class="apps-rail" id="apps-rail"></aside>
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
-  <div class="inbox-wrap">
-    <!-- Left nav: shared inboxes -->
-    <div class="inbox-nav">
-      <div class="inbox-nav-head">📧 Inbox</div>
-      <div class="inbox-nav-body" id="inbox-nav-body">
-        <p class="text-muted text-sm" style="padding:12px;">Loading…</p>
+  <div class="ib-wrap">
+    <!-- Left nav -->
+    <div class="ib-nav">
+      <div class="ib-nav-head">
+        <span style="font-size:1.2rem;">📧</span>
+        <span class="ib-app-name">Inbox</span>
+      </div>
+      <div class="ib-nav-body" id="ib-nav-body">
+        <p class="text-muted text-sm" style="padding:14px;">Loading…</p>
       </div>
     </div>
 
     <!-- Thread list -->
-    <div class="inbox-threads">
-      <div class="inbox-threads-head">
-        <span class="inbox-title" id="inbox-title">Inbox</span>
-        <button class="btn btn-secondary btn-sm" onclick="loadThreads(activeInbox)">↺</button>
+    <div class="ib-threads">
+      <div class="ib-threads-head">
+        <span class="ib-box-name" id="ib-box-name">Inbox</span>
+        <button style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;" onclick="loadThreads()" title="Refresh">↺</button>
       </div>
-      <div class="inbox-threads-body" id="threads-body">
-        <div class="inbox-empty"><div style="font-size:2rem">📬</div><p>Select an inbox</p></div>
+      <div class="ib-threads-body" id="ib-threads-body">
+        <div class="ib-empty" style="padding:48px 0;"><div style="font-size:2rem;">📬</div><p>Select an inbox</p></div>
       </div>
     </div>
 
-    <!-- Thread detail -->
-    <div class="inbox-detail" id="inbox-detail">
-      <div class="inbox-empty">
-        <div style="font-size:2.5rem">📧</div>
+    <!-- Detail -->
+    <div class="ib-detail" id="ib-detail">
+      <div class="ib-empty">
+        <div style="font-size:2.5rem;">📧</div>
         <p>Select a thread to read</p>
       </div>
     </div>
@@ -103,158 +109,140 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  let sharedInboxes = [], threads = [], activeInbox = null, activeThread = null;
+  let inboxes=[], threads=[], activeInbox=null, activeThreadId=null;
 
   async function init() {
     const me = await requireAuth(); if (!me) return;
     try {
-      sharedInboxes = await satelliteApiFetch('inbox', '/api/shared-inboxes');
+      inboxes = await satelliteApiFetch('inbox', '/api/shared-inboxes');
       renderNav();
-      if (sharedInboxes.length) openInbox(sharedInboxes[0]);
+      if (inboxes.length) openInbox(inboxes[0]);
     } catch(e) {
-      document.getElementById('inbox-nav-body').innerHTML = `<p class="text-muted text-sm" style="padding:12px;">Error: ${escHtml(e.message)}</p>`;
+      document.getElementById('ib-nav-body').innerHTML = `<p class="text-muted text-sm" style="padding:14px;">Error: ${escHtml(e.message)}</p>`;
     }
   }
 
   function renderNav() {
-    const el = document.getElementById('inbox-nav-body');
-    if (!sharedInboxes.length) { el.innerHTML = `<p class="text-muted text-sm" style="padding:12px;">No inboxes configured.</p>`; return; }
-    el.innerHTML = `
-      <div class="inbox-section-label">Shared Inboxes</div>
-      ${sharedInboxes.map(inbox => `
-        <div class="inbox-nav-row ${activeInbox?.id===inbox.id?'active':''}" onclick="openInbox(${JSON.stringify(inbox)})">
+    const el = document.getElementById('ib-nav-body');
+    if (!inboxes.length) { el.innerHTML=`<p class="text-muted text-sm" style="padding:14px;">No inboxes configured.</p>`; return; }
+    el.innerHTML = `<div class="ib-nav-section">Shared Inboxes</div>`+
+      inboxes.map(b => `
+        <div class="ib-nav-row ${activeInbox?.id===b.id?'active':''}" onclick='openInbox(${JSON.stringify(b)})'>
           <span>📬</span>
-          <span class="inbox-nav-label">${escHtml(inbox.name || inbox.email_address)}</span>
-          ${inbox.unread_count > 0 ? `<span class="inbox-unread">${inbox.unread_count}</span>` : ''}
-        </div>`).join('')}`;
+          <span class="ib-nav-name">${escHtml(b.name||b.email_address||'Inbox')}</span>
+          ${b.unread_count>0?`<span class="ib-unread">${b.unread_count}</span>`:''}
+        </div>`).join('');
   }
 
   async function openInbox(inbox) {
-    activeInbox = inbox;
-    activeThread = null;
-    document.getElementById('inbox-title').textContent = inbox.name || inbox.email_address || 'Inbox';
+    activeInbox = inbox; activeThreadId = null;
+    document.getElementById('ib-box-name').textContent = inbox.name || inbox.email_address || 'Inbox';
+    document.getElementById('ib-detail').innerHTML = `<div class="ib-empty"><div style="font-size:2.5rem;">📧</div><p>Select a thread to read</p></div>`;
     renderNav();
-    await loadThreads(inbox);
-    // Reset detail pane
-    document.getElementById('inbox-detail').innerHTML = `<div class="inbox-empty"><div style="font-size:2.5rem">📧</div><p>Select a thread to read</p></div>`;
+    await loadThreads();
   }
 
-  async function loadThreads(inbox) {
-    if (!inbox) return;
-    const el = document.getElementById('threads-body');
-    el.innerHTML = `<p class="text-muted text-sm" style="padding:12px;">Loading…</p>`;
+  async function loadThreads() {
+    if (!activeInbox) return;
+    const el = document.getElementById('ib-threads-body');
+    el.innerHTML = `<p class="text-muted text-sm" style="padding:14px;">Loading…</p>`;
     try {
-      const qs = inbox.id ? `?shared_inbox_id=${inbox.id}` : '';
-      threads = await satelliteApiFetch('inbox', '/api/threads' + qs);
-      renderThreadList();
-    } catch(e) {
-      el.innerHTML = `<p class="text-muted text-sm" style="padding:12px;">Error: ${escHtml(e.message)}</p>`;
-    }
+      const qs = activeInbox.id ? `?shared_inbox_id=${activeInbox.id}` : '';
+      threads = await satelliteApiFetch('inbox', '/api/threads'+qs);
+      renderThreads();
+    } catch(e) { el.innerHTML=`<p class="text-muted text-sm" style="padding:14px;">Error: ${escHtml(e.message)}</p>`; }
   }
 
-  function renderThreadList() {
-    const el = document.getElementById('threads-body');
-    if (!threads.length) { el.innerHTML = `<div class="inbox-empty" style="padding:32px 0;"><div style="font-size:2rem">🎉</div><p>All caught up!</p></div>`; return; }
+  function renderThreads() {
+    const el = document.getElementById('ib-threads-body');
+    if (!threads.length) { el.innerHTML=`<div class="ib-empty" style="padding:40px 0;"><div style="font-size:2rem;">🎉</div><p>All caught up!</p></div>`; return; }
     el.innerHTML = threads.map(t => {
       const from = t.from_name || t.from_address || '(unknown)';
-      const time = t.last_message_at ? formatRelTime(t.last_message_at) : '';
-      const isUnread = t.unread_count > 0;
-      const isActive = activeThread?.id === t.id;
-      return `<div class="thread-row ${isUnread?'unread':''} ${isActive?'active':''}" onclick="openThread('${t.id}')">
-        <div class="thread-from"><span>${escHtml(from)}</span><span class="thread-time">${time}</span></div>
-        <div class="thread-subject">${escHtml(t.subject || '(no subject)')}</div>
-        <div class="thread-preview">${escHtml(t.snippet || '')}</div>
+      const time = t.last_message_at ? relTime(t.last_message_at) : '';
+      const isActive = t.id === activeThreadId;
+      return `<div class="thread-row ${t.unread_count>0?'unread':''} ${isActive?'active':''}" onclick="openThread('${t.id}')">
+        <div class="thr-from"><span class="thr-from-name">${escHtml(from)}</span><span class="thr-time">${time}</span></div>
+        <div class="thr-subject">${escHtml(t.subject||'(no subject)')}</div>
+        <div class="thr-preview">${escHtml(t.snippet||'')}</div>
       </div>`;
     }).join('');
   }
 
   async function openThread(id) {
-    activeThread = threads.find(t => t.id === id) || { id };
-    renderThreadList();
-    const detailEl = document.getElementById('inbox-detail');
-    detailEl.innerHTML = `<div class="inbox-empty"><div style="font-size:1.5rem">⏳</div><p>Loading…</p></div>`;
+    activeThreadId = id;
+    renderThreads();
+    const det = document.getElementById('ib-detail');
+    det.innerHTML = `<div class="ib-empty"><div style="font-size:1.5rem;">⏳</div><p>Loading…</p></div>`;
     try {
       const [thread, msgs] = await Promise.all([
-        satelliteApiFetch('inbox', '/api/threads/' + id),
-        satelliteApiFetch('inbox', '/api/threads/' + id + '/messages').catch(() => []),
+        satelliteApiFetch('inbox', '/api/threads/'+id),
+        satelliteApiFetch('inbox', '/api/threads/'+id+'/messages').catch(()=>[]),
       ]);
-      activeThread = thread;
-      renderThreadDetail(thread, msgs);
-    } catch(e) {
-      detailEl.innerHTML = `<p class="text-muted text-sm" style="padding:16px;">Error: ${escHtml(e.message)}</p>`;
-    }
+      renderDetail(thread, msgs);
+    } catch(e) { det.innerHTML=`<p class="text-muted text-sm" style="padding:16px;">Error: ${escHtml(e.message)}</p>`; }
   }
 
-  function renderThreadDetail(thread, msgs) {
-    const subject = thread.subject || '(no subject)';
-    const from = thread.from_name ? `${thread.from_name} <${thread.from_address}>` : thread.from_address || '';
-    const to   = (thread.to_addresses || []).join(', ');
-
-    const msgHtml = msgs.map(m => {
+  function renderDetail(thread, msgs) {
+    const from = thread.from_name ? `${thread.from_name} <${thread.from_address}>` : thread.from_address||'';
+    const to   = (thread.to_addresses||[]).join(', ');
+    const msgCards = msgs.map(m => {
       const senderName = m.from_name || m.from_address || 'Unknown';
       const initial = senderName[0]?.toUpperCase() || '?';
       const date = m.date ? new Date(m.date).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-      const bodyText = m.body_text || m.body_html
-        ? (m.body_text || stripHtml(m.body_html || ''))
-        : '(no content)';
-      return `<div class="email-msg">
-        <div class="email-msg-head">
-          <div class="email-avatar">${escHtml(initial)}</div>
-          <div class="email-sender-info">
+      const body = (m.body_text || (m.body_html ? stripHtml(m.body_html) : '')) || '(no content)';
+      return `<div class="email-card">
+        <div class="email-card-head">
+          <div class="email-avatar" style="background:${avatarColor(m.from_address||senderName)}">${escHtml(initial)}</div>
+          <div class="email-sender">
             <div class="email-sender-name">${escHtml(senderName)}</div>
-            <div class="email-sender-addr">${escHtml(m.from_address || '')}</div>
+            <div class="email-sender-addr">${escHtml(m.from_address||'')}</div>
           </div>
           <div class="email-date">${date}</div>
         </div>
-        <div class="email-msg-body">${escHtml(bodyText).replace(/\n/g,'<br>')}</div>
+        <div class="email-card-body">${escHtml(body)}</div>
       </div>`;
     }).join('');
 
-    document.getElementById('inbox-detail').innerHTML = `
-      <div class="inbox-detail-head">
-        <div class="inbox-detail-subject">${escHtml(subject)}</div>
-        <div class="inbox-detail-meta">
-          ${from ? `<span>From: ${escHtml(from)}</span>` : ''}
-          ${to   ? `<span>To: ${escHtml(to)}</span>`     : ''}
+    document.getElementById('ib-detail').innerHTML = `
+      <div class="ib-detail-head">
+        <div class="ib-detail-subject">${escHtml(thread.subject||'(no subject)')}</div>
+        <div class="ib-detail-meta">
+          ${from?`<span>From: ${escHtml(from)}</span>`:''}
+          ${to?`<span>To: ${escHtml(to)}</span>`:''}
         </div>
       </div>
-      <div class="inbox-messages" id="detail-messages">${msgHtml || '<p class="text-muted text-sm">No messages.</p>'}</div>
-      <div class="reply-composer">
-        <textarea id="reply-text" rows="3" placeholder="Reply…"></textarea>
-        <div class="reply-composer-actions">
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('reply-text').value=''">Clear</button>
-          <button class="btn btn-primary btn-sm" onclick="sendReply('${thread.id}')">Send Reply</button>
+      <div class="ib-messages" id="ib-msgs">${msgCards||'<p class="text-muted text-sm">No messages.</p>'}</div>
+      <div class="ib-composer">
+        <textarea id="reply-ta" rows="3" placeholder="Reply…"></textarea>
+        <div class="ib-composer-actions">
+          <button class="btn btn-secondary" style="padding:8px 16px;font-size:.85rem;" onclick="document.getElementById('reply-ta').value=''">Clear</button>
+          <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="sendReply('${thread.id}')">↩ Send Reply</button>
         </div>
       </div>`;
-    // Scroll messages to bottom
-    const msgEl = document.getElementById('detail-messages');
+    const msgEl = document.getElementById('ib-msgs');
     if (msgEl) msgEl.scrollTop = msgEl.scrollHeight;
   }
 
   async function sendReply(threadId) {
-    const text = document.getElementById('reply-text').value.trim();
-    if (!text) return;
+    const ta = document.getElementById('reply-ta'); if (!ta) return;
+    const text = ta.value.trim(); if (!text) return;
     try {
-      await satelliteApiFetch('inbox', '/api/messages/threads/' + threadId + '/reply', {
-        method: 'POST', body: JSON.stringify({ body_text: text })
-      });
-      document.getElementById('reply-text').value = '';
-      showToast('Reply sent');
-      await openThread(threadId);
-    } catch(e) { showToast(e.message, 'error'); }
+      await satelliteApiFetch('inbox', '/api/messages/threads/'+threadId+'/reply', {method:'POST',body:JSON.stringify({body_text:text})});
+      ta.value = ''; showToast('Reply sent'); await openThread(threadId);
+    } catch(e) { showToast(e.message,'error'); }
   }
 
-  function formatRelTime(iso) {
-    const d = new Date(iso), now = new Date();
-    const diff = (now - d) / 1000;
-    if (diff < 86400) return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-    if (diff < 604800) return d.toLocaleDateString('en-US',{weekday:'short'});
+  function relTime(iso) {
+    const d=new Date(iso), now=new Date(), diff=(now-d)/1000;
+    if (diff<86400) return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    if (diff<604800) return d.toLocaleDateString('en-US',{weekday:'short'});
     return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   }
-
-  function stripHtml(html) {
-    try { return new DOMParser().parseFromString(html,'text/html').body.textContent || ''; }
-    catch { return html; }
+  function stripHtml(h) { try{return new DOMParser().parseFromString(h,'text/html').body.textContent||'';}catch{return h;} }
+  function avatarColor(str) {
+    const C=['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
+    let h=0; for(let i=0;i<(str||'').length;i++) h=((h<<5)-h)+str.charCodeAt(i);
+    return C[Math.abs(h)%C.length];
   }
 
   init();
