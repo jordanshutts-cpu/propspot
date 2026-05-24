@@ -25,6 +25,78 @@
     .photo-lightbox img { max-width:100%; max-height:90vh; border-radius: 8px; }
     .photo-lightbox .close-x { position:absolute; top:16px; right:20px; color:#fff; font-size:2rem; cursor:pointer; background:none; border:none; }
     .photo-lightbox .lb-notes { position:absolute; bottom:20px; left:20px; right:20px; color:#fff; font-size:.85rem; text-align:center; }
+
+    /* ── Pipeline row action buttons ── */
+    .pipe-row-actions { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+    .pipe-row-del {
+      background: none; border: 1px solid transparent; padding: 4px 7px; border-radius: 6px;
+      cursor: pointer; color: var(--text-muted); font-size: 0.9rem; line-height: 1;
+      transition: all 0.12s;
+    }
+    .pipe-row-del:hover { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+
+    /* ── Add-record modal ── */
+    .pp-modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,0.45); z-index: 1100;
+      align-items: center; justify-content: center; padding: 20px;
+      animation: pp-fade-in 0.16s ease-out;
+    }
+    .pp-modal-backdrop.open { display: flex; }
+    @keyframes pp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .pp-modal {
+      background: #fff; width: min(440px, 100%); border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+      animation: pp-card-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+      overflow: hidden;
+    }
+    @keyframes pp-card-in {
+      from { transform: translateY(8px) scale(0.985); opacity: 0; }
+      to   { transform: translateY(0)   scale(1);     opacity: 1; }
+    }
+    .pp-modal-head {
+      padding: 18px 22px; border-bottom: 1px solid #e8eaed;
+      display: flex; align-items: center;
+    }
+    .pp-modal-head h3 { margin: 0; flex: 1; font-size: 1.02rem; font-weight: 700; color: #111827; }
+    .pp-modal-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.1rem; color: #6b7280; padding: 4px 10px; border-radius: 6px;
+    }
+    .pp-modal-close:hover { background: #f1f5f9; color: #111827; }
+    .pp-modal-body { padding: 16px 22px 4px; }
+    .pp-modal-row { margin-bottom: 14px; }
+    .pp-modal-row label {
+      display: block; font-size: 0.78rem; font-weight: 600; color: #374151;
+      margin-bottom: 4px; letter-spacing: 0.01em;
+    }
+    .pp-modal-row .req { color: #ef4444; }
+    .pp-modal-row input,
+    .pp-modal-row select,
+    .pp-modal-row textarea {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 10px; font-size: 0.88rem; line-height: 1.4;
+      border: 1.5px solid #e2e8f0; border-radius: 8px;
+      background: #fff; color: #111827;
+    }
+    .pp-modal-row input:focus,
+    .pp-modal-row select:focus,
+    .pp-modal-row textarea:focus {
+      outline: none; border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(97,183,70,0.10);
+    }
+    .pp-modal-actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+      padding: 14px 22px 18px;
+      border-top: 1px solid #f1f5f9;
+      background: #fafbfc;
+    }
+    .pp-modal-actions .btn { padding: 8px 16px; font-size: 0.85rem; }
+
+    /* ── Confirm modal (for delete) ── */
+    .pp-confirm-body { padding: 22px 22px 4px; }
+    .pp-confirm-body p { font-size: 0.92rem; color: #374151; margin: 0 0 6px; line-height: 1.5; }
+    .pp-confirm-body .pp-confirm-sub { font-size: 0.8rem; color: #6b7280; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -74,7 +146,11 @@
         <div>${desc || ''}</div>
         <div class="meta">${formatDate(r.created_at)} · <span class="status-pill">${escHtml(r.status)}</span></div>
       </div>
-      ${canPromote ? `<button class="btn btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="promote('${stage}','${r.id}')">Promote ›</button>` : ''}
+      <div class="pipe-row-actions">
+        ${canPromote ? `<button class="btn btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="promote('${stage}','${r.id}')">Promote ›</button>` : ''}
+        <button class="pipe-row-del" title="Delete" aria-label="Delete"
+                onclick="confirmDeleteRecord('${stage}','${r.id}', this)">✕</button>
+      </div>
     </div>`;
   }
 
@@ -230,6 +306,10 @@
 
     document.getElementById('page').innerHTML = html;
     wireUnifiedNav();   // re-wire the freshly-rendered data-app links
+    // Premium theme rescan — replaces inline emoji prefixes ('💼 Holdings'
+    // etc.) with masked SVGs. No-op when premium is off or theme.js
+    // isn't loaded.
+    if (typeof window.__replaceEmojisIn === 'function') window.__replaceEmojisIn(document);
     // New-chrome lifecycle stepper (no-op when the new chrome flag is off).
     if (window.LifecycleStepper) window.LifecycleStepper.mount('lifecycle-stepper', property);
     loadFiles();
@@ -531,56 +611,181 @@
     document.body.appendChild(box);
   }
 
-  async function addRecord(stage){
-    if (stage === 'prospects'){
-      const source = prompt('Prospect source (foreclosure_list, bankruptcy_list, probate_list, divorce_list, scraped, purchased_data):', 'foreclosure_list');
-      if (!source) return;
-      const raw_name  = prompt('Name (optional):') || '';
-      const raw_phone = prompt('Phone (optional):') || '';
-      try {
-        await createPipelineRecord('prospects', { property_id: id, source, raw_name, raw_phone });
-        showToast('Prospect added'); await load();
-      } catch (e) { showToast(e.message, 'error'); }
-    } else if (stage === 'leads'){
-      const source = prompt('Lead source (ppl, ppc, organic_web, inbound_call, referral, prospect_response):', 'inbound_call');
-      if (!source) return;
-      try {
-        await createPipelineRecord('leads', { property_id: id, source });
-        showToast('Lead added'); await load();
-      } catch (e) { showToast(e.message, 'error'); }
-    } else if (stage === 'opportunities'){
-      const our_offer = prompt('Our offer ($):');
-      try {
-        await createPipelineRecord('opportunities', { property_id: id, our_offer: our_offer ? Number(our_offer) : null });
-        showToast('Opportunity added'); await load();
-      } catch (e) { showToast(e.message, 'error'); }
-    } else if (stage === 'purchases'){
-      const purchase_price = prompt('Purchase price ($):');
-      try {
-        await createPipelineRecord('purchases', { property_id: id, purchase_price: purchase_price ? Number(purchase_price) : null });
-        showToast('Purchase added'); await load();
-      } catch (e) { showToast(e.message, 'error'); }
-    } else if (stage === 'projects'){
-      const kind = prompt("Kind ('flip' or 'rental'):", 'flip');
-      if (!['flip','rental'].includes(kind)) return showToast('Invalid kind', 'error');
-      try {
-        await createPipelineRecord('projects', { property_id: id, kind });
-        showToast('Project added'); await load();
-      } catch (e) { showToast(e.message, 'error'); }
+  // ── In-app modal-based pipeline add (replaces browser prompt) ─────
+  const STAGE_FORMS = {
+    prospects: {
+      title: 'Add Prospect',
+      fields: [
+        { name:'source', label:'Source', type:'select', required:true,
+          options:[
+            ['foreclosure_list','Foreclosure list'],
+            ['bankruptcy_list','Bankruptcy list'],
+            ['probate_list','Probate list'],
+            ['divorce_list','Divorce list'],
+            ['scraped','Scraped'],
+            ['purchased_data','Purchased data']
+          ] },
+        { name:'raw_name',  label:'Name (optional)',  type:'text', placeholder:'Owner / contact name' },
+        { name:'raw_phone', label:'Phone (optional)', type:'tel',  placeholder:'(555) 123-4567' },
+        { name:'raw_email', label:'Email (optional)', type:'email', placeholder:'name@example.com' }
+      ]
+    },
+    leads: {
+      title: 'Add Lead',
+      fields: [
+        { name:'source', label:'Source', type:'select', required:true,
+          options:[
+            ['inbound_call','Inbound call'],
+            ['ppl','PPL (pay per lead)'],
+            ['ppc','PPC (pay per click)'],
+            ['organic_web','Organic web'],
+            ['referral','Referral'],
+            ['prospect_response','Prospect response']
+          ] }
+      ]
+    },
+    opportunities: {
+      title: 'Add Opportunity',
+      fields: [
+        { name:'our_offer', label:'Our offer ($)', type:'number', step:'1000', placeholder:'120000' }
+      ]
+    },
+    purchases: {
+      title: 'Add Purchase',
+      fields: [
+        { name:'purchase_price', label:'Purchase price ($)', type:'number', step:'1000', placeholder:'150000', required:true }
+      ]
+    },
+    projects: {
+      title: 'Add Project',
+      fields: [
+        { name:'kind', label:'Project type', type:'select', required:true,
+          options:[['flip','Flip'], ['rental','Rental']] }
+      ]
+    }
+  };
+
+  let _addStage = null;
+  function addRecord(stage) {
+    const spec = STAGE_FORMS[stage];
+    if (!spec) return;
+    _addStage = stage;
+    document.getElementById('pp-add-title').textContent = spec.title;
+    const body = document.getElementById('pp-add-body');
+    body.innerHTML = spec.fields.map(f => {
+      const req = f.required ? '<span class="req">*</span>' : '';
+      if (f.type === 'select') {
+        return `<div class="pp-modal-row">
+          <label for="pp-f-${f.name}">${escHtml(f.label)} ${req}</label>
+          <select id="pp-f-${f.name}" name="${f.name}" ${f.required?'required':''}>
+            ${f.options.map(([v,l]) => `<option value="${escHtml(v)}">${escHtml(l)}</option>`).join('')}
+          </select>
+        </div>`;
+      }
+      return `<div class="pp-modal-row">
+        <label for="pp-f-${f.name}">${escHtml(f.label)} ${req}</label>
+        <input id="pp-f-${f.name}" name="${f.name}"
+               type="${f.type||'text'}"
+               ${f.step?`step="${f.step}"`:''}
+               ${f.placeholder?`placeholder="${escHtml(f.placeholder)}"`:''}
+               ${f.required?'required':''}>
+      </div>`;
+    }).join('');
+    document.getElementById('pp-add-modal').classList.add('open');
+    // Focus the first field
+    setTimeout(() => body.querySelector('input,select,textarea')?.focus(), 60);
+  }
+  function closeAddRecord() {
+    document.getElementById('pp-add-modal').classList.remove('open');
+    _addStage = null;
+  }
+  async function submitAddRecord(e) {
+    e.preventDefault();
+    if (!_addStage) return;
+    const spec = STAGE_FORMS[_addStage];
+    const data = { property_id: id };
+    for (const f of spec.fields) {
+      const el = document.getElementById('pp-f-' + f.name);
+      let v = el?.value?.trim();
+      if (v === '' || v == null) v = null;
+      if (f.type === 'number' && v != null) v = Number(v);
+      if (v != null) data[f.name] = v;
+    }
+    try {
+      await createPipelineRecord(_addStage, data);
+      showToast(spec.title.replace('Add ','') + ' added');
+      closeAddRecord();
+      await load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  // ── Delete with confirm modal ────────────────────────────────────
+  let _pendingDelete = null;
+  function confirmDeleteRecord(stage, recordId, btn) {
+    _pendingDelete = { stage, id: recordId };
+    const labels = { prospects:'prospect', leads:'lead', opportunities:'opportunity', purchases:'purchase', projects:'project' };
+    document.getElementById('pp-del-text').textContent =
+      `Delete this ${labels[stage] || 'item'}? This can't be undone.`;
+    document.getElementById('pp-del-modal').classList.add('open');
+  }
+  function closeDeleteRecord() {
+    _pendingDelete = null;
+    document.getElementById('pp-del-modal').classList.remove('open');
+  }
+  async function doDeleteRecord() {
+    if (!_pendingDelete) return;
+    const { stage, id: rid } = _pendingDelete;
+    try {
+      await apiFetch(`/api/${stage}/${rid}`, { method: 'DELETE' });
+      showToast('Deleted');
+      closeDeleteRecord();
+      await load();
+    } catch (err) {
+      showToast(err.message, 'error');
+      closeDeleteRecord();
     }
   }
 
   async function promote(stage, recordId){
     let body = {};
-    if (stage === 'purchases'){
-      const kind = prompt("Promote to project — kind ('flip' or 'rental'):", 'flip');
-      if (!['flip','rental'].includes(kind)) return showToast('Invalid kind', 'error');
+    if (stage === 'purchases') {
+      // Show project-kind picker in the same modal style (lightweight reuse).
+      const kind = await pickProjectKind();
+      if (!kind) return;
       body = { kind };
     }
     try {
       await promotePipelineRecord(stage, recordId, body);
       showToast('Promoted'); await load();
     } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // Promote-to-project kind picker — reuses the add modal shell.
+  let _pickResolver = null;
+  function pickProjectKind() {
+    return new Promise(resolve => {
+      _pickResolver = resolve;
+      document.getElementById('pp-add-title').textContent = 'Promote to Project';
+      document.getElementById('pp-add-body').innerHTML = `
+        <div class="pp-modal-row">
+          <label for="pp-f-kind">Project type <span class="req">*</span></label>
+          <select id="pp-f-kind" required>
+            <option value="flip">Flip</option>
+            <option value="rental">Rental</option>
+          </select>
+        </div>`;
+      // Swap submit handler temporarily
+      const form = document.getElementById('pp-add-form');
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const v = document.getElementById('pp-f-kind').value;
+        document.getElementById('pp-add-modal').classList.remove('open');
+        form.onsubmit = submitAddRecord;        // restore default
+        const r = _pickResolver; _pickResolver = null;
+        r && r(v);
+      };
+      document.getElementById('pp-add-modal').classList.add('open');
+    });
   }
 
 async function addContactLink(){
@@ -610,6 +815,49 @@ async function addContactLink(){
   }
 
   init();
+
+  // ── Esc closes modals ────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('pp-add-modal')?.classList.contains('open')) closeAddRecord();
+    if (document.getElementById('pp-del-modal')?.classList.contains('open')) closeDeleteRecord();
+  });
 </script>
+
+<!-- ── Add-record modal ─────────────────────────────────────────── -->
+<div class="pp-modal-backdrop" id="pp-add-modal" onclick="if(event.target===this)closeAddRecord()">
+  <div class="pp-modal">
+    <div class="pp-modal-head">
+      <h3 id="pp-add-title">Add</h3>
+      <button type="button" class="pp-modal-close" onclick="closeAddRecord()" aria-label="Close">✕</button>
+    </div>
+    <form id="pp-add-form" onsubmit="submitAddRecord(event)">
+      <div class="pp-modal-body" id="pp-add-body"></div>
+      <div class="pp-modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeAddRecord()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Delete-confirm modal ─────────────────────────────────────── -->
+<div class="pp-modal-backdrop" id="pp-del-modal" onclick="if(event.target===this)closeDeleteRecord()">
+  <div class="pp-modal" style="max-width:380px;">
+    <div class="pp-modal-head">
+      <h3>Confirm delete</h3>
+      <button type="button" class="pp-modal-close" onclick="closeDeleteRecord()" aria-label="Close">✕</button>
+    </div>
+    <div class="pp-confirm-body">
+      <p id="pp-del-text">Delete this item?</p>
+      <p class="pp-confirm-sub">Related promotions and history will not be removed.</p>
+    </div>
+    <div class="pp-modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeDeleteRecord()">Cancel</button>
+      <button type="button" class="btn btn-danger" onclick="doDeleteRecord()">Delete</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
