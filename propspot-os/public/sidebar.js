@@ -337,13 +337,15 @@
           ${row({ icon: '✓',  label: 'My Tasks', osnav: 'tasks',  href: '#', badge: counts.myTasks, badgeClass: 'muted' })}
 
           ${sectionLabel('Pipeline')}
-          ${row({ icon: '🎯', label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html', badge: counts.prospects,     badgeClass: 'muted' })}
-          ${row({ icon: '📞', label: 'Leads',         osnav: 'leads',         href: '/acquisitions.html', badge: counts.leads,         badgeClass: 'muted' })}
-          ${row({ icon: '🤝', label: 'Opportunities', osnav: 'opportunities', href: '/acquisitions.html', badge: counts.opportunities, badgeClass: 'muted' })}
-          ${row({ icon: '📋', label: 'Acquisitions',  osnav: 'acquisitions',  href: '/acquisitions.html', badge: counts.acquisitions,  badgeClass: 'muted' })}
-          ${row({ icon: '💼', label: 'Holdings',      osnav: 'holdings',      href: '/holdings.html',     badge: counts.holdings,      badgeClass: 'muted' })}
-          ${row({ icon: '💰', label: 'Dispositions',  osnav: 'dispositions',  href: '/dispositions.html', badge: counts.dispositions,  badgeClass: 'muted' })}
-          ${row({ icon: '📦', label: 'Closed',        osnav: 'closed',        href: '/closed.html' })}
+          ${row({ icon: '🎯', label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html',                    badge: counts.prospects,     badgeClass: 'muted' })}
+          ${row({ icon: '📞', label: 'Leads',         osnav: 'leads',         href: '/acquisitions.html',                    badge: counts.leads,         badgeClass: 'muted' })}
+          ${row({ icon: '🤝', label: 'Opportunities', osnav: 'opportunities', href: '/acquisitions.html',                    badge: counts.opportunities, badgeClass: 'muted' })}
+          ${row({ icon: '📋', label: 'Acquisitions',  osnav: 'acquisitions',  href: '/acquisitions.html',                    badge: counts.acquisitions,  badgeClass: 'muted' })}
+          ${row({ icon: '🔨', label: 'Projects',      osnav: 'projects',      href: '/properties.html?status=renovating',    badge: counts.projects,      badgeClass: 'muted' })}
+          ${row({ icon: '💼', label: 'Holdings',      osnav: 'holdings',      href: '/holdings.html',                        badge: counts.holdings,      badgeClass: 'muted' })}
+          ${row({ icon: '💰', label: 'Dispositions',  osnav: 'dispositions',  href: '/dispositions.html',                    badge: counts.dispositions,  badgeClass: 'muted' })}
+          ${row({ icon: '📦', label: 'Sold',          osnav: 'sold',          href: '/closed.html',                          badge: counts.sold,          badgeClass: 'muted' })}
+          ${row({ icon: '💀', label: 'Dead',          osnav: 'dead',          href: '/properties.html?status=dropped' })}
 
           ${sectionLabel('Tools')}
           ${row({ icon: '📸', label: 'Photos',       app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}

@@ -17,57 +17,69 @@
   if (!window.__newChromeEnabled || !window.__newChromeEnabled()) return;
 
   const STAGES = [
-    { key: 'lead',       label: 'Lead' },
-    { key: 'uc',         label: 'Under Contract' },
-    { key: 'dd',         label: 'Due Diligence' },
-    { key: 'atc',        label: 'Approved to Close' },
-    { key: 'renovating', label: 'Renovating' },
-    { key: 'stabilized', label: 'Stabilized' },
-    { key: 'selling',    label: 'Selling' },
-    { key: 'sold',       label: 'Closed' }
+    { key: 'prospect',    label: 'Prospect' },
+    { key: 'lead',        label: 'Lead' },
+    { key: 'opportunity', label: 'Opportunity' },
+    { key: 'acquisition', label: 'Acquisition' },
+    { key: 'project',     label: 'Project' },
+    { key: 'holdings',    label: 'Holdings' },
+    { key: 'disposition', label: 'Disposition' },
+    { key: 'sold',        label: 'Sold' }
   ];
 
   // Map property state → current stage key.
+  // Prospect/Lead/Opportunity are derived from the presence of sub-rows
+  // (property.prospects, .leads, .opportunities) when the property itself
+  // hasn't been promoted into a status='purchasing' or later state yet.
   function stageFor(property) {
     if (!property) return null;
     const s = property.status, a = property.acquisition_status;
-    if (s === 'sold' || s === 'assigned')                         return 'sold';
-    if (s === 'selling' || s === 'listed_for_sale' || s === 'under_contract_buyer') return 'selling';
-    if (s === 'renting' || s === 'rented' || s === 'listed_for_rent')               return 'stabilized';
-    if (s === 'renovating')                                       return 'renovating';
-    if (s === 'purchasing' && a === 'approved_to_close')          return 'atc';
-    if (s === 'purchasing' && a === 'due_diligence')              return 'dd';
-    if (s === 'purchasing' && a === 'under_contract')             return 'uc';
-    if (s === 'dropped')                                          return null; // shown as side-track
-    return 'lead';
+    if (s === 'dropped')                                                          return 'dead'; // off-track
+    if (s === 'sold' || s === 'assigned')                                         return 'sold';
+    if (s === 'selling' || s === 'listed_for_sale' || s === 'under_contract_buyer') return 'disposition';
+    if (s === 'renting' || s === 'rented' || s === 'listed_for_rent')               return 'holdings';
+    if (s === 'renovating')                                                       return 'project';
+    if (s === 'purchasing')                                                       return 'acquisition';
+    // No property status yet → infer from sub-records.
+    if ((property.opportunities || []).some(r => r.status !== 'dead' && r.status !== 'promoted')) return 'opportunity';
+    if ((property.leads        || []).some(r => r.status !== 'dead' && r.status !== 'promoted')) return 'lead';
+    if ((property.prospects    || []).some(r => r.status !== 'dead' && r.status !== 'promoted')) return 'prospect';
+    return 'prospect';
   }
 
-  // Pull a context-aware "next action" line from sub-stage fields on purchases.
+  // Pull a context-aware "next action" line.
+  // For Acquisition, drill into purchases.* sub-stage fields so the
+  // "Next:" line reflects where in UC → DD → ATC the deal actually sits.
   function nextLine(property) {
     const stage = stageFor(property);
-    const p = (property?.purchases || [])[0]; // most recent purchase
-    if (stage === 'uc') {
+    const a     = property?.acquisition_status;
+    const p     = (property?.purchases || [])[0]; // most recent purchase
+
+    if (stage === 'prospect')    return 'Reach out — phone / SMS / mail';
+    if (stage === 'lead')        return 'Qualify the lead — set an appointment';
+    if (stage === 'opportunity') return 'Present the offer — get a signed contract';
+
+    if (stage === 'acquisition') {
+      // Show where in UC → DD → ATC we are, plus title / inspection sub-status.
       const parts = [];
-      if (p) {
-        if (p.title_status === 'pending')     parts.push('Open title work');
-        if (p.inspection_status === 'pending') parts.push('Schedule inspection');
-      }
-      if (!parts.length) parts.push('Start due diligence');
-      return parts.join(' · ');
+      if (a === 'under_contract')    parts.push('Under Contract');
+      if (a === 'due_diligence')     parts.push('Due Diligence');
+      if (a === 'approved_to_close') parts.push('Approved to Close');
+      if (p?.title_status)            parts.push('Title: ' + p.title_status);
+      if (p?.inspection_status)       parts.push('Inspection: ' + p.inspection_status);
+      if (p?.expected_close_date)     parts.push('Close ' + formatShort(p.expected_close_date));
+      return parts.length ? parts.join(' · ') : 'Open title work, schedule inspection';
     }
-    if (stage === 'dd') {
-      const parts = [];
-      if (p?.title_status)       parts.push('Title: ' + p.title_status);
-      if (p?.inspection_status)  parts.push('Inspection: ' + p.inspection_status);
-      if (p?.due_diligence_status) parts.push('DD: ' + p.due_diligence_status);
-      if (p?.expected_close_date) parts.push('Close ' + formatShort(p.expected_close_date));
-      return parts.length ? parts.join(' · ') : 'Complete due diligence';
-    }
-    if (stage === 'atc')        return 'Wire scheduled — review closing docs';
-    if (stage === 'renovating') return 'Work orders in progress — track via Maintenance';
-    if (stage === 'stabilized') return property.status === 'rented' ? 'Property rented — Rentvine syncs rent roll' : 'Listed for rent — awaiting tenant';
-    if (stage === 'selling')    return property.status === 'under_contract_buyer' ? 'Buyer under contract — clear contingencies' : 'Listed on MLS — awaiting offers';
-    if (stage === 'sold')       return 'Closed — stop holding costs, archive records';
+
+    if (stage === 'project')     return 'Renovating — dispatch subs, upload photos, request draws';
+    if (stage === 'holdings')    return property.status === 'rented'
+      ? 'Rented — Rentvine syncs rent roll, holdings track ongoing costs'
+      : 'Listed for rent — awaiting tenant';
+    if (stage === 'disposition') return property.status === 'under_contract_buyer'
+      ? 'Buyer under contract — clear contingencies through closing'
+      : 'Listed on MLS — awaiting offers';
+    if (stage === 'sold')        return 'Sold — stop holding costs, archive records';
+    if (stage === 'dead')        return 'Dropped — no further action';
     return 'Move this property into the pipeline';
   }
 
@@ -83,13 +95,13 @@
       : elementOrId;
     if (!el) return;
 
-    const current = stageFor(property);
-    const dropped = property?.status === 'dropped';
+    const current    = stageFor(property);
+    const isDead     = current === 'dead';
     const currentIdx = STAGES.findIndex(s => s.key === current);
 
     const stepsHtml = STAGES.map((s, i) => {
       const status =
-        dropped ? 'future' :
+        isDead ? 'future' :
         i  <  currentIdx ? 'past'   :
         i === currentIdx ? 'current':
         'future';
@@ -100,15 +112,15 @@
         </div>`;
     }).join(`<div class="os-newchrome-step-connector"></div>`);
 
-    const droppedBanner = dropped
-      ? `<div class="os-newchrome-stepper-dropped">This property is marked Dropped — lifecycle does not apply.</div>`
+    const deadBanner = isDead
+      ? `<div class="os-newchrome-stepper-dropped">💀 This property is marked Dead — won't be acquired.</div>`
       : '';
 
-    const next = dropped ? '' : nextLine(property);
+    const next = nextLine(property);
 
     el.innerHTML = `
-      <div class="os-newchrome-stepper${dropped ? ' dropped' : ''}">
-        ${droppedBanner}
+      <div class="os-newchrome-stepper${isDead ? ' dropped' : ''}">
+        ${deadBanner}
         <div class="os-newchrome-stepper-steps">${stepsHtml}</div>
         ${next ? `<div class="os-newchrome-stepper-next"><span class="os-newchrome-stepper-next-label">Next:</span> ${next}</div>` : ''}
       </div>
