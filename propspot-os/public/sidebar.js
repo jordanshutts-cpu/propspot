@@ -498,6 +498,10 @@
       renderScopeChip();
       refreshActiveProperty();
       if (typeof window.__replaceEmojisIn === 'function') window.__replaceEmojisIn(railEl);
+      // Cached chrome is on screen — let the page-loader drop NOW. Fresh
+      // data refresh below just updates badge counts and pinned/recent
+      // lists, which is a near-invisible diff against the cached HTML.
+      if (window.__markChromeReady) window.__markChromeReady('sidebar');
     }
 
     const user = getCachedUser() || {};
@@ -600,6 +604,11 @@
 
     // Re-apply premium icons on fresh render
     if (typeof window.__replaceEmojisIn === 'function') window.__replaceEmojisIn(railEl);
+
+    // First-load (no cache): fresh chrome is now on screen. Tell the
+    // page-loader it can drop. Cached path already called this above —
+    // markChromeReady is idempotent.
+    if (window.__markChromeReady) window.__markChromeReady('sidebar');
   }
 
   // Expose for inline onclick + topbar integration.

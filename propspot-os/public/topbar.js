@@ -123,6 +123,10 @@
     if (typeof window.__applyScopeToLinks === 'function') {
       window.__applyScopeToLinks();
     }
+
+    // Topbar is painted — let the page-loader drop. Pairs with sidebar.js's
+    // matching call; loader only fades once BOTH parts have signaled ready.
+    if (window.__markChromeReady) window.__markChromeReady('topbar');
   }
 
   // ── Quick-create menu ───────────────────────────────────────────

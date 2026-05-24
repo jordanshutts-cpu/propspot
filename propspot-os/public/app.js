@@ -6,11 +6,18 @@
 
 // ── Page transition loader ──────────────────────────────────────
 // Each page's <head> sets html.page-loading inline so CSS covers the
-// page from first paint. This block (a) creates the overlay element
-// once the body exists, (b) drops the curtain on DOMContentLoaded
-// (plus a tiny grace period so chrome JS can paint), (c) re-raises
-// it on internal link clicks so the OUTGOING transition is masked.
+// page from first paint. We keep the curtain up until the JS-rendered
+// chrome (sidebar + topbar in newchrome, or renderTopHeader+rail in
+// legacy) signals that it has painted — that way the user never sees
+// the chrome "pop in" after the overlay fades. A hard fallback hides
+// the loader after 1.2s no matter what, so a broken chrome script
+// can't strand the page behind a permanent spinner.
 (function setupPageLoader() {
+  const useNewChrome = !!(window.__newChromeEnabled && window.__newChromeEnabled());
+  const requiredParts = useNewChrome ? ['sidebar', 'topbar'] : ['legacy'];
+  const ready = new Set();
+  let hidden = false;
+
   function ensureOverlay() {
     if (document.getElementById('os-page-loader')) return;
     const div = document.createElement('div');
@@ -20,25 +27,52 @@
     (document.body || document.documentElement).appendChild(div);
   }
   function show() {
+    hidden = false;
     ensureOverlay();
     document.documentElement.classList.add('page-loading');
     const el = document.getElementById('os-page-loader');
     if (el) el.classList.add('show');
   }
   function hide() {
+    if (hidden) return;
+    hidden = true;
     document.documentElement.classList.remove('page-loading');
     const el = document.getElementById('os-page-loader');
     if (el) el.classList.remove('show');
   }
-  function hideSoon() { setTimeout(hide, 80); }
+  function maybeHide() {
+    if (requiredParts.every(p => ready.has(p))) {
+      // Tiny tick so the just-painted chrome is composited before we fade.
+      requestAnimationFrame(() => requestAnimationFrame(hide));
+    }
+  }
+
+  // Public ready signal — sidebar.js / topbar.js call this after their
+  // initial paint. Safe to call multiple times.
+  window.__markChromeReady = function (part) {
+    ready.add(part);
+    maybeHide();
+  };
 
   if (document.body) ensureOverlay();
   else document.addEventListener('DOMContentLoaded', ensureOverlay, { once: true });
 
-  if (document.readyState === 'interactive' || document.readyState === 'complete') hideSoon();
-  else document.addEventListener('DOMContentLoaded', hideSoon, { once: true });
+  // Legacy chrome renders synchronously inside app.js's DOMContentLoaded
+  // handler, so we can mark 'legacy' ready right after that fires.
+  if (!useNewChrome) {
+    if (document.readyState !== 'loading') {
+      setTimeout(() => window.__markChromeReady('legacy'), 0);
+    } else {
+      document.addEventListener('DOMContentLoaded',
+        () => setTimeout(() => window.__markChromeReady('legacy'), 0),
+        { once: true });
+    }
+  }
 
-  // Same-origin link clicks → mask the navigation
+  // Hard fallback: never strand the page behind the loader.
+  setTimeout(hide, 1200);
+
+  // Same-origin link clicks → mask the OUTGOING navigation
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[href]');
     if (!a) return;
@@ -54,6 +88,14 @@
     if (url.pathname === location.pathname && url.search === location.search) return;
     show();
   });
+
+  // Programmatic navigation (location.href = …, history.pushState, etc.)
+  const origAssign = location.assign.bind(location);
+  const origReplace = location.replace.bind(location);
+  try {
+    location.assign  = function (url) { show(); return origAssign(url); };
+    location.replace = function (url) { show(); return origReplace(url); };
+  } catch { /* Safari may freeze location — ignore */ }
 
   // bfcache restore → page is already painted, drop the curtain immediately
   window.addEventListener('pageshow', (e) => { if (e.persisted) hide(); });
