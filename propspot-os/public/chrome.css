@@ -16,7 +16,91 @@
   --brand:        #61B746;
   --brand-dark:   #52a03a;
   --brand-light:  #edf7e9;
+  --surface:      #ffffff;
+  --border:       #e5e7eb;
+  --text:         #1f2937;
+  --text-muted:   #6b7280;
+  --danger:       #b91c1c;
 }
+
+/* ── User dropdown menu (avatar click target). Copied from style.css so
+   satellites without OS's full stylesheet still get the right look. */
+body.os-newchrome .user-menu {
+  position: fixed;
+  top: 52px;
+  right: 14px;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  z-index: 200;
+  display: none;
+}
+body.os-newchrome .user-menu.open { display: block; }
+body.os-newchrome .user-menu .user-info {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+body.os-newchrome .user-menu .user-name  { font-weight: 700; font-size: .88rem; }
+body.os-newchrome .user-menu .user-email { font-size: .72rem; color: var(--text-muted); margin-top: 2px; word-break: break-all; }
+body.os-newchrome .user-menu a,
+body.os-newchrome .user-menu button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 9px 12px; border-radius: 6px;
+  font-size: .88rem; text-align: left;
+  background: none; border: none; cursor: pointer;
+  text-decoration: none; color: var(--text);
+}
+body.os-newchrome .user-menu a:hover,
+body.os-newchrome .user-menu button:hover { background: var(--brand-light); color: var(--brand-dark); }
+body.os-newchrome .user-menu .menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+body.os-newchrome .user-menu button.danger:hover { background: #fee2e2; color: var(--danger); }
+
+/* ── Universal-search results dropdown. Anchored to the search-wrap
+   inside the topbar (which sets position: relative). */
+body.os-newchrome .search-results {
+  position: absolute;
+  top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.14);
+  max-height: 460px; overflow-y: auto;
+  z-index: 250;
+  display: none;
+  padding: 4px 0;
+}
+body.os-newchrome .search-results.open { display: block; }
+body.os-newchrome .search-section { padding: 4px 0; }
+body.os-newchrome .search-section + .search-section { border-top: 1px solid var(--border); }
+body.os-newchrome .search-section-header {
+  font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted);
+  padding: 8px 14px 4px;
+}
+body.os-newchrome .search-result {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer; text-decoration: none; color: var(--text);
+  font-size: .88rem;
+}
+body.os-newchrome .search-result:hover { background: var(--brand-light); }
+body.os-newchrome .search-result-icon { font-size: 1.1rem; flex-shrink: 0; width: 22px; text-align: center; }
+body.os-newchrome .search-result-body { flex: 1; min-width: 0; }
+body.os-newchrome .search-result-title {
+  font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body.os-newchrome .search-result-subtitle {
+  font-size: .72rem; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body.os-newchrome .search-empty,
+body.os-newchrome .search-loading { padding: 14px; font-size: .82rem; color: var(--text-muted); text-align: center; }
 
 /* ── Hide each satellite's existing chrome when the new chrome is on.
    Each satellite renders its own top header / bottom nav with different
@@ -60,8 +144,15 @@ body.os-newchrome #apps-rail {
   display: block;
 }
 body.os-newchrome #top-header {
+  /* Positioning kept here so satellites that don't load OS's style.css
+     (FieldCam, Holdings, etc.) still get a fixed top bar. On OS itself
+     these duplicate the legacy .top-header rules harmlessly. */
+  position: fixed;
+  top: 0;
+  right: 0;
   left: 260px;
   height: 56px;
+  z-index: 80;
   background: #fff;
   border-bottom: 1px solid #e5e7eb;
   padding: 0;
