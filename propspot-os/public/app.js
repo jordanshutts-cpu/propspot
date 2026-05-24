@@ -254,37 +254,27 @@ async function deletePropertyFile(fileId) {
 async function getHoldingsSummary()      { return apiFetch('/api/holdings/summary'); }
 
 // ── Satellite API helper ────────────────────────────────────────────
-// Call any satellite API from an OS page. Looks up the satellite's base
-// URL from /api/config, then fetches with the current Bearer token.
-// Usage: await satelliteApiFetch('maintenance', '/api/work-orders')
-//        await satelliteApiFetch('holdings', '/api/holdings/items', { method:'POST', body: JSON.stringify(data) })
+// All satellite APIs now live in this same OS server — routes are mounted
+// under /api/<slug>/... so we translate paths and call apiFetch directly.
+//
+// Slug → route prefix mapping:
+//   fieldcam    /api/properties      → /api/fieldcam/properties
+//   maintenance /api/work-orders     → /api/maintenance/work-orders
+//   pulse       /api/pulse/*         → /api/pulse/*  (already namespaced)
+//   inbox       /api/shared-inboxes  → /api/inbox/shared-inboxes
+//   holdings    /api/holdings/*      → /api/holdings/*  (already at OS)
 async function satelliteApiFetch(slug, path, opts = {}) {
-  const cfg = await _loadNavConfig();
-  const urlMap = {
-    holdings:    cfg.holdingsUrl,
-    maintenance: cfg.maintenanceUrl,
-    fieldcam:    cfg.fieldcamUrl,
-    pulse:       cfg.pulseUrl,
-    inbox:       cfg.inboxUrl,
-  };
-  const base = urlMap[slug];
-  if (!base) throw new Error(`${slug} satellite URL not configured`);
-  const token = getToken();
-  const url = base.replace(/\/$/, '') + path;
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(opts.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(text || `HTTP ${res.status}`);
+  // Slugs that need a namespace prefix injected
+  const PREFIXED = { fieldcam: 'fieldcam', maintenance: 'maintenance', inbox: 'inbox' };
+  let localPath = path;
+  if (PREFIXED[slug]) {
+    // /api/foo/bar → /api/<slug>/foo/bar
+    localPath = path.replace(/^\/api\//, `/api/${PREFIXED[slug]}/`);
+    // Handle paths that don't start with /api/ (shouldn't happen, but guard)
+    if (!localPath.startsWith('/api/')) localPath = `/api/${PREFIXED[slug]}${path}`;
   }
-  if (res.status === 204) return null;
-  return res.json();
+  // pulse and holdings paths are already correct (/api/pulse/*, /api/holdings/*)
+  return apiFetch(localPath, opts);
 }
 
 // Get the full URL for a satellite page (with SSO token).

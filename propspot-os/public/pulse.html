@@ -95,12 +95,8 @@
   async function init() {
     const me = await requireAuth(); if (!me) return;
     myId = me.id;
-    const cfg = await apiFetch('/api/config');
-    pulseBase = (cfg.pulseUrl||'').replace(/\/$/,'');
-    if (!pulseBase) {
-      document.getElementById('ps-sidebar-body').innerHTML = `<p class="text-muted text-sm" style="padding:14px;">Pulse not configured.</p>`;
-      return;
-    }
+    // Pulse is now served by the OS — pulseBase is always same-origin ('')
+    pulseBase = '';
     loadSidebar();
   }
 
@@ -206,7 +202,7 @@
 
   function connectSSE(scope) {
     if (sseSource) { try{sseSource.close();}catch(e){} sseSource=null; }
-    const token = getToken(); if (!token||!pulseBase) return;
+    const token = getToken(); if (!token) return;
     const qp = scope.channel_id ? `channel_id=${scope.channel_id}` : `dm_id=${scope.dm_id}`;
     sseSource = new EventSource(`${pulseBase}/api/pulse/stream?token=${encodeURIComponent(token)}&${qp}`);
     const dot = () => document.getElementById('ps-conn');
