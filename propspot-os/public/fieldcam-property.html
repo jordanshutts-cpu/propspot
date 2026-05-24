@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Photos</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    /* ── Sub-header / back bar ── */
+    .fc-subheader { display:flex; align-items:center; gap:10px; padding:14px 20px 0; }
+    .fc-back { background:none; border:none; font-size:1.1rem; cursor:pointer; color:var(--text-muted); padding:4px 6px; border-radius:8px; }
+    .fc-back:hover { background:var(--bg); color:var(--text); }
+    .fc-prop-name { font-weight:700; font-size:1rem; }
+    .fc-prop-addr { font-size:.8rem; color:var(--text-muted); }
+    .fc-badge { margin-left:auto; background:var(--brand-light); color:var(--brand); border-radius:100px; font-size:.72rem; font-weight:700; padding:3px 10px; }
+
+    /* ── Folder tab bar ── */
+    .fc-tabs-wrap { overflow-x:auto; scrollbar-width:none; padding:14px 20px 0; }
+    .fc-tabs-wrap::-webkit-scrollbar { display:none; }
+    .fc-tabs { display:flex; gap:6px; flex-wrap:nowrap; width:max-content; }
+    .fc-tab { flex-shrink:0; padding:6px 14px; border-radius:100px; border:1.5px solid var(--border); background:var(--surface); color:var(--text-muted); font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .12s; }
+    .fc-tab:hover { border-color:var(--brand); color:var(--brand); }
+    .fc-tab.active { background:var(--brand); border-color:var(--brand); color:#fff; }
+
+    /* ── Photo grid ── */
+    .fc-grid-wrap { padding:14px 20px; }
+    .fc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
+    .fc-thumb { position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; cursor:pointer; background:var(--bg); }
+    .fc-thumb img, .fc-thumb video { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s; }
+    .fc-thumb:hover img, .fc-thumb:hover video { transform:scale(1.05); }
+    .fc-thumb-overlay { position:absolute; bottom:0; left:0; right:0; padding:5px 8px; background:linear-gradient(transparent,rgba(0,0,0,.65)); color:#fff; font-size:.68rem; line-height:1.3; }
+    .fc-video-badge { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.55); color:#fff; border-radius:6px; font-size:.65rem; padding:2px 6px; font-weight:600; }
+
+    /* ── Lightbox ── */
+    .fc-lb { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.92); flex-direction:column; align-items:center; justify-content:center; }
+    .fc-lb.open { display:flex; }
+    .fc-lb-close { position:absolute; top:16px; right:16px; background:rgba(255,255,255,.15); border:none; color:#fff; font-size:1.3rem; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .fc-lb-close:hover { background:rgba(255,255,255,.25); }
+    .fc-lb-img { max-width:calc(100vw - 80px); max-height:calc(100vh - 160px); border-radius:8px; object-fit:contain; }
+    .fc-lb-video { max-width:calc(100vw - 80px); max-height:calc(100vh - 160px); border-radius:8px; }
+    .fc-lb-meta { color:rgba(255,255,255,.65); font-size:.8rem; margin-top:12px; text-align:center; }
+    .fc-lb-nav { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.15); border:none; color:#fff; font-size:1.8rem; width:44px; height:60px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .fc-lb-nav:hover { background:rgba(255,255,255,.25); }
+    .fc-lb-prev { left:12px; }
+    .fc-lb-next { right:12px; }
+    .fc-lb-nav.hidden { display:none; }
+  </style>
+</head>
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page" style="flex-direction:column;overflow-y:auto;">
+  <!-- Sub-header -->
+  <div class="fc-subheader">
+    <button class="fc-back" onclick="history.back()">‹ Back</button>
+    <div>
+      <div class="fc-prop-name" id="fc-prop-name">Loading…</div>
+      <div class="fc-prop-addr" id="fc-prop-addr"></div>
+    </div>
+    <span class="fc-badge" id="fc-badge"></span>
+  </div>
+
+  <!-- Folder tabs -->
+  <div class="fc-tabs-wrap">
+    <div class="fc-tabs" id="fc-tabs"></div>
+  </div>
+
+  <!-- Photo grid -->
+  <div class="fc-grid-wrap">
+    <div class="fc-grid" id="fc-grid"><p class="text-muted text-sm">Loading…</p></div>
+  </div>
+</main>
+
+<!-- Lightbox -->
+<div class="fc-lb" id="fc-lb">
+  <button class="fc-lb-close" onclick="closeLb()">✕</button>
+  <button class="fc-lb-nav fc-lb-prev hidden" id="fc-lb-prev" onclick="navLb(-1)">‹</button>
+  <button class="fc-lb-nav fc-lb-next hidden" id="fc-lb-next" onclick="navLb(1)">›</button>
+  <img class="fc-lb-img" id="fc-lb-img" src="" alt="" style="display:none;">
+  <video class="fc-lb-video" id="fc-lb-video" controls playsinline style="display:none;"></video>
+  <div class="fc-lb-meta" id="fc-lb-meta"></div>
+</div>
+
+<script>window.NAV_CURRENT = 'fieldcam';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const params  = new URLSearchParams(location.search);
+  const PROP_ID = params.get('id');
+  let allPhotos = [], folders = [], currentFolder = null, lbIdx = -1, lbPhotos = [];
+
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+    if (!PROP_ID) { location.href = '/fieldcam.html'; return; }
+    document.title = 'Prop Spot — Photos';
+    await Promise.all([loadProp(), loadFolders()]);
+    await loadPhotos();
+  }
+
+  async function loadProp() {
+    try {
+      const p = await satelliteApiFetch('fieldcam', '/api/properties/' + PROP_ID);
+      const name = p.display_name || p.name || p.address_line1 || 'Property';
+      const addr = p.address || [p.address_line1, p.city, p.state].filter(Boolean).join(', ');
+      document.getElementById('fc-prop-name').textContent = name;
+      document.getElementById('fc-prop-addr').textContent = addr;
+      document.title = 'Prop Spot — ' + name;
+    } catch(e) {
+      document.getElementById('fc-prop-name').textContent = 'Property';
+    }
+  }
+
+  async function loadFolders() {
+    try {
+      folders = await satelliteApiFetch('fieldcam', '/api/folders/' + PROP_ID);
+    } catch { folders = []; }
+  }
+
+  async function loadPhotos() {
+    try {
+      const qs = currentFolder ? '?folder_id=' + currentFolder : '';
+      allPhotos = await satelliteApiFetch('fieldcam', '/api/photos/' + PROP_ID + qs);
+    } catch(e) {
+      document.getElementById('fc-grid').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+      return;
+    }
+    renderTabs();
+    renderGrid();
+  }
+
+  function renderTabs() {
+    const allCount = allPhotos.length;
+    let html = `<button class="fc-tab ${currentFolder===null?'active':''}" onclick="selectFolder(null)">All (${allCount})</button>`;
+    folders.forEach(f => {
+      html += `<button class="fc-tab ${currentFolder===f.id?'active':''}" onclick="selectFolder('${f.id}')">${escHtml(f.name)}</button>`;
+    });
+    document.getElementById('fc-tabs').innerHTML = html;
+  }
+
+  async function selectFolder(id) {
+    currentFolder = id;
+    await loadPhotos();
+  }
+
+  function renderGrid() {
+    const el = document.getElementById('fc-grid');
+    const badge = document.getElementById('fc-badge');
+    badge.textContent = allPhotos.length + ' photo' + (allPhotos.length !== 1 ? 's' : '');
+    lbPhotos = [...allPhotos];
+
+    if (!allPhotos.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📷</div><p>No photos yet${currentFolder ? ' in this folder' : ''}.</p></div>`;
+      return;
+    }
+
+    el.innerHTML = allPhotos.map((p, i) => {
+      const time = p.taken_at ? new Date(p.taken_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+      const uploader = p.uploader_name || '';
+      const isVideo = p.media_type === 'video';
+      const media = isVideo
+        ? `<video src="${escHtml(p.url)}" muted playsinline></video><span class="fc-video-badge">▶ Video</span>`
+        : `<img src="${escHtml(p.url)}" alt="" loading="lazy">`;
+      return `<div class="fc-thumb" onclick="openLb(${i})">
+        ${media}
+        <div class="fc-thumb-overlay">${escHtml(time)}${uploader?' · '+escHtml(uploader):''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Lightbox ────────────────────────────────────────────────────
+  function openLb(idx) {
+    lbIdx = idx;
+    showLbPhoto(idx);
+    document.getElementById('fc-lb').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function showLbPhoto(idx) {
+    const p = lbPhotos[idx];
+    const isVideo = p?.media_type === 'video';
+    const img = document.getElementById('fc-lb-img');
+    const vid = document.getElementById('fc-lb-video');
+    if (isVideo) {
+      img.style.display = 'none';
+      vid.style.display = '';
+      vid.src = p.url;
+    } else {
+      vid.pause?.(); vid.style.display = 'none'; vid.src = '';
+      img.style.display = '';
+      img.src = p?.url || '';
+    }
+    const time = p?.taken_at ? new Date(p.taken_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+    document.getElementById('fc-lb-meta').textContent = [p?.uploader_name, time, p?.folder_name ? '📁 '+p.folder_name : ''].filter(Boolean).join(' · ');
+    document.getElementById('fc-lb-prev').classList.toggle('hidden', idx <= 0);
+    document.getElementById('fc-lb-next').classList.toggle('hidden', idx >= lbPhotos.length - 1);
+  }
+
+  function closeLb() {
+    const vid = document.getElementById('fc-lb-video');
+    vid.pause?.(); vid.src = '';
+    document.getElementById('fc-lb').classList.remove('open');
+    document.body.style.overflow = '';
+    lbIdx = -1;
+  }
+
+  function navLb(dir) {
+    const next = lbIdx + dir;
+    if (next >= 0 && next < lbPhotos.length) { lbIdx = next; showLbPhoto(lbIdx); }
+  }
+
+  // Keyboard nav
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('fc-lb').classList.contains('open')) return;
+    if (e.key === 'Escape')     closeLb();
+    if (e.key === 'ArrowLeft')  navLb(-1);
+    if (e.key === 'ArrowRight') navLb(1);
+  });
+
+  // Touch swipe on lightbox
+  let _sx = null;
+  document.getElementById('fc-lb').addEventListener('touchstart', e => { _sx = e.touches[0].clientX; }, { passive: true });
+  document.getElementById('fc-lb').addEventListener('touchend', e => {
+    if (_sx === null) return;
+    const dx = e.changedTouches[0].clientX - _sx; _sx = null;
+    if (Math.abs(dx) > 40) navLb(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  init();
+</script>
+</body>
+</html>

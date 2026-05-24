@@ -35,7 +35,10 @@ router.get('/', async (req, res) => {
     const baseSelect = `
       SELECT ${SELECT_FIELDS},
              (SELECT COUNT(*) FROM photos
-                WHERE property_id = p.id AND deleted_at IS NULL)::int AS photo_count
+                WHERE property_id = p.id AND deleted_at IS NULL)::int AS photo_count,
+             (SELECT url FROM photos
+                WHERE property_id = p.id AND deleted_at IS NULL AND media_type = 'image'
+                ORDER BY COALESCE(taken_at, created_at) DESC LIMIT 1) AS latest_photo_url
         FROM properties p
         LEFT JOIN users u ON u.id = p.created_by
     `;

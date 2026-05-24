@@ -135,8 +135,8 @@
     } catch(e) { el.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`; }
   }
 
-  async function openProp(id) {
-    window.location.href = await satellitePageUrl('fieldcam', '/property.html?id='+id);
+  function openProp(id) {
+    window.location.href = '/fieldcam-property.html?id=' + encodeURIComponent(id);
   }
 
   init();
