@@ -196,8 +196,10 @@
           ? `<span class="os-newchrome-badge ${badgeClass}">${badge}</span>`
           : '');
     const klass = `os-newchrome-row${soon ? ' soon' : ''}`;
+    // title attr surfaces the label as a tooltip — useful when the sidebar
+    // is collapsed and only the icon is visible.
     return `
-      <a class="${klass}" href="${href}" ${dataAttr}>
+      <a class="${klass}" href="${href}" ${dataAttr} title="${escHtml(label)}">
         <span class="os-newchrome-row-icon">${icon}</span>
         <span class="os-newchrome-row-label">${label}</span>
         ${badgeHtml}
@@ -456,7 +458,9 @@
   // ── Sidebar HTML cache (sessionStorage) ────────────────────────
   // Stores the last rendered sidebar HTML so it can be shown instantly
   // on the next page load instead of waiting for async data fetches.
-  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache';
+  // Bumped to v2 so the brand-bar + collapse-button shipping in this
+  // release doesn't get masked by stale v1 cache from old sessions.
+  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v2';
 
   function saveSidebarCache(html) {
     try { sessionStorage.setItem(SIDEBAR_CACHE_KEY, html); } catch (e) {}
@@ -516,6 +520,17 @@
 
     const sidebarHTML = `
       <aside class="os-newchrome-sidebar">
+
+        <div class="os-newchrome-brand-bar">
+          <a class="os-newchrome-brand-logo" href="/dashboard.html" title="Prop Spot · Home">
+            <img src="/logo.png" alt="Prop Spot">
+            <span class="os-newchrome-brand-text">Prop Spot</span>
+          </a>
+          <button type="button" class="os-newchrome-collapse-btn" id="os-newchrome-collapse-btn"
+                  onclick="toggleSidebar()" title="Collapse sidebar" aria-label="Collapse sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        </div>
 
         <div class="os-newchrome-workspace">
           <div class="os-newchrome-workspace-logo">R</div>

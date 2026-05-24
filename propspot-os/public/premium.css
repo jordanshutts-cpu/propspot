@@ -81,10 +81,27 @@ html.theme-premium .os-newchrome-row:hover {
   color: #111827;
 }
 html.theme-premium .os-newchrome-row.active {
-  background: linear-gradient(90deg, rgba(97,183,70,0.14), rgba(97,183,70,0.05));
+  background:
+    linear-gradient(90deg, rgba(97,183,70,0.16) 0%, rgba(97,183,70,0.04) 60%, rgba(97,183,70,0) 100%);
   color: var(--brand-dark);
-  font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--brand);
+  font-weight: 700;
+  position: relative;
+  box-shadow:
+    inset 3px 0 0 var(--brand),
+    0 1px 0 rgba(97,183,70,0.08),
+    0 4px 12px -6px rgba(97,183,70,0.25);
+  border-radius: 8px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+html.theme-premium .os-newchrome-row.active .os-newchrome-row-icon {
+  color: var(--brand) !important;
+  transform: scale(1.06);
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Slight hover lift on non-active rows */
+html.theme-premium .os-newchrome-row:not(.active):hover {
+  transform: translateX(1px);
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
 /* ── Nav icons — hide emoji, show SVG ───────────────────────── */

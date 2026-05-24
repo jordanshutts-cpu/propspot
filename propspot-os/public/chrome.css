@@ -121,9 +121,21 @@ body.os-newchrome .ros-mobile-header /* legacy variant */
    Gated by body.os-newchrome — turned on by ?newchrome=1
    ============================================================ */
 
+:root {
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 64px;
+}
+/* Collapsed state — drives sidebar width AND every dependent layout
+   value (header offset, body padding) via the same variable, so toggling
+   the class slides everything in lockstep. */
+html.sidebar-collapsed {
+  --sidebar-width: var(--sidebar-collapsed-width);
+}
+
 body.os-newchrome {
   padding-top: 56px;
-  padding-left: 260px;
+  padding-left: var(--sidebar-width);
+  transition: padding-left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 body.os-newchrome #apps-rail.apps-rail,
 body.os-newchrome .apps-rail-link,
@@ -133,7 +145,7 @@ body.os-newchrome .apps-rail-spacer { /* Hide legacy rail children */
      positioning override below restyles the container itself. */
 }
 body.os-newchrome #apps-rail {
-  width: 260px;
+  width: var(--sidebar-width);
   position: fixed;
   top: 0;
   left: 0;
@@ -144,6 +156,7 @@ body.os-newchrome #apps-rail {
   overflow: hidden;
   padding: 0;
   display: block;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 body.os-newchrome #top-header {
   /* Positioning kept here so satellites that don't load OS's style.css
@@ -152,13 +165,14 @@ body.os-newchrome #top-header {
   position: fixed;
   top: 0;
   right: 0;
-  left: 260px;
+  left: var(--sidebar-width);
   height: 56px;
   z-index: 80;
   background: #fff;
   border-bottom: 1px solid #e5e7eb;
   padding: 0;
   display: block;
+  transition: left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 body.os-newchrome .top-header { padding: 0; }
 body.os-newchrome .page {
@@ -1040,4 +1054,107 @@ body.os-newchrome .user-menu {
   background: #fff;
   color: var(--brand-dark);
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+/* ── Sidebar brand bar (logo + collapse toggle) ──────────────────
+   Sits at the very top of the sidebar above the workspace row.
+   Subtle brand-tinted gradient sets a premium tone. */
+.os-newchrome-brand-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  height: 48px;
+  border-bottom: 1px solid #e8eaed;
+  background: linear-gradient(180deg, rgba(97,183,70,0.06) 0%, transparent 100%);
+  flex-shrink: 0;
+}
+.os-newchrome-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+.os-newchrome-brand-logo:hover { background: rgba(97,183,70,0.06); }
+.os-newchrome-brand-logo img {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.os-newchrome-brand-text {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.os-newchrome-collapse-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s, transform 0.18s ease;
+}
+.os-newchrome-collapse-btn:hover {
+  background: #f1f5f9;
+  color: #4b5563;
+}
+.os-newchrome-collapse-btn svg { width: 14px; height: 14px; }
+/* Flip chevron when collapsed (points right to expand). */
+html.sidebar-collapsed .os-newchrome-collapse-btn svg { transform: rotate(180deg); }
+
+/* ── Collapsed sidebar state ───────────────────────────────────── */
+/* Hide every label / badge / text element; show only icons centered. */
+html.sidebar-collapsed .os-newchrome-row-label,
+html.sidebar-collapsed .os-newchrome-badge,
+html.sidebar-collapsed .os-newchrome-row-soon-pill,
+html.sidebar-collapsed .os-newchrome-section-label,
+html.sidebar-collapsed .os-newchrome-workspace-text,
+html.sidebar-collapsed .os-newchrome-workspace-chev,
+html.sidebar-collapsed .os-newchrome-property-row,
+html.sidebar-collapsed .os-newchrome-all-link,
+html.sidebar-collapsed .os-newchrome-brand-text,
+html.sidebar-collapsed .os-newchrome-pinned-add {
+  display: none !important;
+}
+html.sidebar-collapsed .os-newchrome-row {
+  padding: 8px 0;
+  justify-content: center;
+}
+html.sidebar-collapsed .os-newchrome-row-icon {
+  margin: 0 auto;
+  width: 18px; height: 18px;
+  font-size: 18px;
+}
+html.sidebar-collapsed .os-newchrome-workspace {
+  justify-content: center;
+  padding: 0 10px;
+}
+html.sidebar-collapsed .os-newchrome-brand-bar {
+  justify-content: center;
+  padding: 10px 8px;
+}
+html.sidebar-collapsed .os-newchrome-brand-logo {
+  flex: 0;
+  padding: 2px;
+}
+/* Pinned / recent sections collapse to nothing — keep the section
+   header hidden via the rules above. */
+html.sidebar-collapsed .os-newchrome-pinned-section,
+html.sidebar-collapsed .os-newchrome-recent-section {
+  padding: 0 !important;
+  border: none !important;
 }

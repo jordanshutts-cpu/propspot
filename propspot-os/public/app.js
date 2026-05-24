@@ -324,10 +324,17 @@ async function signOut() {
 function toggleSidebar() {
   const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
   try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
-  const btn = document.getElementById('nav-collapse-btn');
-  if (btn) {
-    btn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
-    btn.textContent = collapsed ? '›' : '‹';
+  // Legacy chrome button (chevron via textContent)
+  const legacyBtn = document.getElementById('nav-collapse-btn');
+  if (legacyBtn) {
+    legacyBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    legacyBtn.textContent = collapsed ? '›' : '‹';
+  }
+  // New chrome button — SVG flips via CSS rotate, just update the tooltip.
+  const newBtn = document.getElementById('os-newchrome-collapse-btn');
+  if (newBtn) {
+    newBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+    newBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
   }
 }
 
