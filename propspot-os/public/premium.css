@@ -508,6 +508,88 @@ html.theme-premium .os-newchrome-step-dot { border-color: #dde1e7; color: #adb5b
 html.theme-premium .badge { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em; }
 html.theme-premium .status-badge { font-weight: 600; font-size: 0.68rem; letter-spacing: 0.03em; }
 
+/* ── Inbox shared-inbox icons ────────────────────────────────────
+   The inbox icon column stores per-tenant emojis in the DB. Under
+   premium we hide whatever's there and render a uniform inbox glyph
+   (masked SVG so it inherits currentColor). The currentColor is
+   cycled across a small palette per row so the list still feels
+   varied — like Linear / Front sidebar treatments. */
+html.theme-premium .ib-inbox-icon {
+  font-size: 0;                      /* hides the original emoji */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  vertical-align: middle;
+  color: #9ca3af;                    /* default; overridden per-row below */
+  flex-shrink: 0;
+}
+html.theme-premium .ib-inbox-icon::before {
+  content: '';
+  display: block;
+  width: 14px; height: 14px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>") center/contain no-repeat;
+          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>") center/contain no-repeat;
+}
+/* Cycle through brand-friendly accent colors by attribute hash so each
+   inbox is visually distinct without needing per-inbox CSS overrides. */
+html.theme-premium .ib-inbox-icon { color: #61B746; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="account"]   { color: #f59e0b; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="acqui"]     { color: #3b82f6; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="construct"] { color: #ef4444; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="hoa"]       { color: #06b6d4; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="insur"]     { color: #a855f7; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="licens"]    { color: #14b8a6; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="mls"]       { color: #ec4899; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="offer"]     { color: #ec4899; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="mortgage"]  { color: #8b5cf6; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="operat"]    { color: #61B746; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="payoff"]    { color: #6366f1; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="rent"]      { color: #f97316; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="tax"]       { color: #16a34a; }
+html.theme-premium .ib-inbox-icon[data-inbox-slug*="util"]      { color: #0ea5e9; }
+/* Active row gets the brand color regardless of slug. */
+html.theme-premium .ib-nav-item.active .ib-inbox-icon { color: var(--brand) !important; }
+
+/* Tidy up the inbox sidebar overall under premium */
+html.theme-premium .ib-nav { background: #fff; border-right: 1px solid #e8eaed; }
+html.theme-premium .ib-nav-section {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #b0b7c3;
+  letter-spacing: 0.1em;
+  padding-top: 18px;
+}
+html.theme-premium .ib-nav-item {
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  gap: 9px;
+  transition: background 0.1s, color 0.1s;
+}
+html.theme-premium .ib-nav-item:hover { background: #f4f4f5; color: #111827; }
+html.theme-premium .ib-nav-item.active {
+  background: linear-gradient(90deg, rgba(97,183,70,0.14), rgba(97,183,70,0.05));
+  color: var(--brand-dark);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+html.theme-premium .ib-nav-item .count {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: #adb5bd;
+}
+html.theme-premium .ib-nav-item .count.count-unread {
+  background: rgba(97,183,70,0.14);
+  color: var(--brand-dark);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
 /* ── Notifications panel ─────────────────────────────────────── */
 html.theme-premium .os-newchrome-notif-panel {
   border-radius: 10px;

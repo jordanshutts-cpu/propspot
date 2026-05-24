@@ -685,18 +685,19 @@ function updateInboxTabsVisibility() {
   }
 }
 function updateActiveInboxTitle() {
-  let title;
+  const el = document.getElementById('active-inbox-title');
   if (STATE.activeInboxSlug) {
     const inb = STATE.inboxes.find(i => i.slug === STATE.activeInboxSlug);
-    title = (inb?.icon || '📨') + ' ' + (inb?.name || STATE.activeInboxSlug);
-  } else if (STATE.filter === 'assigned') {
-    title = 'Assigned to me';
-  } else if (STATE.filter === 'archived') {
-    title = 'Archived threads';
+    // Wrap the icon in a class the premium theme can swap for an SVG.
+    el.innerHTML =
+      `<span class="ib-inbox-icon" data-inbox-slug="${escapeHtml(STATE.activeInboxSlug)}">${escapeHtml(inb?.icon || '📨')}</span> ` +
+      escapeHtml(inb?.name || STATE.activeInboxSlug);
   } else {
-    title = 'All open threads';
+    let title = 'All open threads';
+    if (STATE.filter === 'assigned') title = 'Assigned to me';
+    else if (STATE.filter === 'archived') title = 'Archived threads';
+    el.textContent = title;
   }
-  document.getElementById('active-inbox-title').textContent = title;
 }
 
 async function loadInboxes() {
@@ -728,7 +729,7 @@ async function loadInboxes() {
     else if (open > 0)   badge = `<span class="count" title="${open} open">${open}</span>`;
     return `
       <div class="ib-nav-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" data-inbox-slug="${escapeHtml(i.slug)}">
-        <span>${escapeHtml(i.icon || '📨')}</span>
+        <span class="ib-inbox-icon" data-inbox-slug="${escapeHtml(i.slug)}">${escapeHtml(i.icon || '📨')}</span>
         <span>${escapeHtml(i.name)}</span>
         ${badge}
       </div>
@@ -849,7 +850,7 @@ function renderThreadDetail() {
   const t = STATE.activeThread;
   if (!t) return;
   const headParts = [];
-  if (t.inbox_name) headParts.push(`<span>${escapeHtml(t.inbox_icon || '📨')} ${escapeHtml(t.inbox_name)}</span>`);
+  if (t.inbox_name) headParts.push(`<span><span class="ib-inbox-icon" data-inbox-slug="${escapeHtml(t.inbox_slug || '')}">${escapeHtml(t.inbox_icon || '📨')}</span> ${escapeHtml(t.inbox_name)}</span>`);
   headParts.push(`<span>${t.message_count} message${t.message_count === 1 ? '' : 's'}</span>`);
   if (t.assigned_name) headParts.push(`<span>👤 ${escapeHtml(t.assigned_name)}</span>`);
   if (t.address_line1) headParts.push(`<span class="property-tag">🏠 ${escapeHtml(t.address_line1)}, ${escapeHtml(t.city || '')}</span>`);
