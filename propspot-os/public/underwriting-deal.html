@@ -9,80 +9,97 @@
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
-    /* ── Sticky result header ── */
+    /* ── Sticky result header — two-row layout ── */
     .uw-sticky-header {
       position: sticky; top: 0; z-index: 200;
       background: #fff; border-bottom: 1px solid var(--border,#e5e7eb);
-      padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     }
-    .uw-sticky-header .deal-address { font-weight: 700; font-size: 1rem; flex: 0 0 auto; }
+    .uw-header-row1 {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 20px 6px; border-bottom: 1px solid var(--border,#e5e7eb);
+    }
+    .uw-back {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: .8rem; color: var(--text-muted,#6b7280); text-decoration: none;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .uw-back:hover { color: var(--primary,#61B746); }
+    .deal-address { font-weight: 700; font-size: .95rem; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .uw-save-status { font-size: .72rem; color: var(--text-muted,#6b7280); white-space: nowrap; flex-shrink: 0; }
+    .uw-tab-bar { display: flex; gap: 4px; flex-shrink: 0; }
+    .uw-tab {
+      padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border,#e5e7eb);
+      background: #fff; cursor: pointer; font-size: .78rem; font-weight: 500; white-space: nowrap;
+    }
+    .uw-tab.active { background: var(--primary,#61B746); color: #fff; border-color: var(--primary,#61B746); }
+    .uw-revert-btn { font-size: .72rem; }
+
+    .uw-header-row2 {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 20px;
+    }
     .uw-result-card {
       display: flex; flex-direction: column; align-items: center;
       background: var(--surface-2,#f9fafb); border: 1px solid var(--border,#e5e7eb);
-      border-radius: 8px; padding: 6px 14px; min-width: 130px;
+      border-radius: 8px; padding: 5px 16px; min-width: 140px;
     }
-    .uw-result-card .card-label { font-size: .7rem; color: var(--text-muted,#6b7280); text-transform: uppercase; letter-spacing: .05em; }
-    .uw-result-card .card-primary { font-size: 1.15rem; font-weight: 700; }
-    .uw-result-card .card-secondary { font-size: .8rem; color: var(--text-muted,#6b7280); }
+    .uw-result-card .card-label { font-size: .68rem; color: var(--text-muted,#6b7280); text-transform: uppercase; letter-spacing: .05em; }
+    .uw-result-card .card-primary { font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
+    .uw-result-card .card-secondary { font-size: .78rem; color: var(--text-muted,#6b7280); white-space: nowrap; }
     .uw-result-card.flip-card { border-color: #fbbf24; background: #fffbeb; }
     .uw-result-card.dscr-card { border-color: #4ade80; background: #f0fdf4; }
-    .badge-rec { padding: 4px 12px; border-radius: 9999px; font-size: .8rem; font-weight: 700; }
+    .badge-rec { padding: 4px 14px; border-radius: 9999px; font-size: .82rem; font-weight: 700; }
     .badge-rec.rec-dscr { background: #dcfce7; color: #15803d; }
     .badge-rec.rec-flip { background: #fef3c7; color: #92400e; }
     .badge-rec.rec-none { background: #fee2e2; color: #b91c1c; }
     .val-pos { color: #16a34a; }
     .val-neg { color: #dc2626; }
-    /* ── Tab bar ── */
-    .uw-tab-bar { display: flex; gap: 4px; margin-left: auto; }
-    .uw-tab { padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border,#e5e7eb);
-               background: #fff; cursor: pointer; font-size: .82rem; font-weight: 500; }
-    .uw-tab.active { background: var(--primary,#61B746); color: #fff; border-color: var(--primary,#61B746); }
+
     /* ── Three-column layout ── */
-    .uw-body { display: grid; grid-template-columns: 320px 1fr 1fr; gap: 16px; padding: 16px 20px; }
+    .uw-body { display: grid; grid-template-columns: 280px 1fr 1fr; gap: 16px; padding: 16px 20px; }
     @media (max-width: 1100px) { .uw-body { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 700px)  { .uw-body { grid-template-columns: 1fr; } }
+
     /* ── Assumption panels ── */
-    .uw-panel { border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
-    .uw-panel h3 { margin: 0 0 10px; font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
-    .uw-field-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .uw-field-row label { flex: 1 1 auto; font-size: .78rem; color: var(--text,#111); }
+    .uw-panel { border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+    .uw-panel h3 { margin: 0 0 8px; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .uw-field-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .uw-field-row label {
+      flex: 1 1 auto; font-size: .76rem; color: var(--text,#111);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .uw-field-row input[type=number], .uw-field-row input[type=text] {
-      width: 110px; flex: 0 0 110px; font-size: .82rem; padding: 4px 6px;
+      width: 90px; flex: 0 0 90px; font-size: .8rem; padding: 3px 5px;
       border: 1px solid var(--border,#e5e7eb); border-radius: 5px; text-align: right;
     }
-    .uw-field-row input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 16px; }
+    .uw-field-row input[type=checkbox] { width: 15px; height: 15px; flex: 0 0 15px; }
     .uw-field-row input:disabled { background: var(--surface-2,#f9fafb); color: var(--text-muted,#6b7280); }
-    .uw-field-row select { font-size: .78rem; padding: 3px 4px; border: 1px solid var(--border,#e5e7eb); border-radius: 5px; }
+    .uw-field-row select { font-size: .76rem; padding: 2px 4px; border: 1px solid var(--border,#e5e7eb); border-radius: 5px; }
     .val-panel { background: #fef3c7; }
     .pml-panel { background: #fee2e2; }
     .dscr-panel { background: #fee2e2; }
     .flip-panel { background: #dbeafe; }
     .rental-panel { background: #dbeafe; }
     .opex-panel { background: #dcfce7; }
-    /* Valuation two-column sub-grid */
-    .val-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+
     /* Op-ex table */
-    .opex-tbl { width: 100%; border-collapse: collapse; font-size: .76rem; }
-    .opex-tbl th { text-align: left; color: var(--text-muted,#6b7280); font-size: .7rem; padding: 2px 4px; }
-    .opex-tbl td { padding: 3px 4px; }
-    .opex-tbl td input[type=number] { width: 80px; font-size: .76rem; padding: 3px 5px; border: 1px solid var(--border,#e5e7eb); border-radius: 4px; text-align: right; }
-    .opex-tbl td select { font-size: .72rem; padding: 2px 3px; border: 1px solid var(--border,#e5e7eb); border-radius: 4px; }
+    .opex-tbl { width: 100%; border-collapse: collapse; font-size: .74rem; }
+    .opex-tbl th { text-align: left; color: var(--text-muted,#6b7280); font-size: .68rem; padding: 2px 3px; }
+    .opex-tbl td { padding: 2px 3px; }
+    .opex-tbl td input[type=number] { width: 72px; font-size: .74rem; padding: 2px 4px; border: 1px solid var(--border,#e5e7eb); border-radius: 4px; text-align: right; }
+    .opex-tbl td select { font-size: .7rem; padding: 1px 2px; border: 1px solid var(--border,#e5e7eb); border-radius: 4px; }
+
     /* ── Output tables ── */
-    .uw-out-section { margin-bottom: 14px; }
-    .uw-out-section h4 { margin: 0 0 6px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted,#6b7280); }
-    .uw-out-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .uw-out-section { margin-bottom: 16px; }
+    .uw-out-section h4 { margin: 0 0 6px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted,#6b7280); border-bottom: 1px solid var(--border,#e5e7eb); padding-bottom: 4px; }
+    .uw-out-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
     .uw-out-table td { padding: 4px 6px; }
     .uw-out-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-    .uw-out-table tr:last-child td { border-top: 1px solid var(--border,#e5e7eb); font-weight: 700; }
+    .uw-out-table tr.total-row td { border-top: 2px solid var(--border,#e5e7eb); font-weight: 700; }
     .uw-out-table .sub { color: var(--text-muted,#6b7280); font-size: .78rem; padding-left: 14px; }
     .out-bold { font-weight: 700; }
     .out-pos { color: #16a34a; font-weight: 700; }
     .out-neg { color: #dc2626; font-weight: 700; }
-    /* Back link */
-    .uw-back { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--text-muted,#6b7280); text-decoration: none; margin: 12px 20px 0; }
-    .uw-back:hover { color: var(--primary,#61B746); }
-    .uw-revert-btn { font-size: .75rem; padding: 4px 10px; }
-    .uw-save-status { font-size: .73rem; color: var(--text-muted,#6b7280); margin-left: 8px; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -93,32 +110,34 @@
 
 <main class="page" style="padding:0;">
 
-  <a class="uw-back" href="/underwriting.html">← Underwriting</a>
-
-  <!-- Sticky result header -->
+  <!-- Sticky result header — row 1: nav + address + tabs, row 2: result cards -->
   <div class="uw-sticky-header" id="uw-sticky-header">
-    <div class="deal-address" id="deal-address-label">Loading…</div>
 
-    <div class="uw-result-card flip-card">
-      <div class="card-label">Flip</div>
-      <div class="card-primary" id="card-flip-profit">—</div>
-      <div class="card-secondary" id="card-flip-irr">—</div>
+    <div class="uw-header-row1">
+      <a class="uw-back" href="/underwriting.html">← Underwriting</a>
+      <div class="deal-address" id="deal-address-label">Loading…</div>
+      <span class="uw-save-status" id="save-status"></span>
+      <div class="uw-tab-bar">
+        <button class="uw-tab" id="tab-pro-forma" onclick="switchTab('initial_pro_forma')">Initial Pro Forma</button>
+        <button class="uw-tab" id="tab-actual" onclick="switchTab('actual_results')">Actual Results</button>
+        <button class="uw-tab uw-revert-btn" id="revert-btn" onclick="revertToProForma()" style="display:none;">↩ Revert</button>
+      </div>
     </div>
 
-    <div class="uw-result-card dscr-card">
-      <div class="card-label">DSCR</div>
-      <div class="card-primary" id="card-dscr-profit">—</div>
-      <div class="card-secondary" id="card-dscr-irr">—</div>
+    <div class="uw-header-row2">
+      <div class="uw-result-card flip-card">
+        <div class="card-label">Flip</div>
+        <div class="card-primary" id="card-flip-profit">—</div>
+        <div class="card-secondary" id="card-flip-irr">—</div>
+      </div>
+      <div class="uw-result-card dscr-card">
+        <div class="card-label">DSCR</div>
+        <div class="card-primary" id="card-dscr-profit">—</div>
+        <div class="card-secondary" id="card-dscr-irr">—</div>
+      </div>
+      <div id="rec-badge" class="badge-rec rec-none">—</div>
     </div>
 
-    <div id="rec-badge" class="badge-rec rec-none">—</div>
-    <span class="uw-save-status" id="save-status"></span>
-
-    <div class="uw-tab-bar">
-      <button class="uw-tab" id="tab-pro-forma" onclick="switchTab('initial_pro_forma')">Initial Pro Forma</button>
-      <button class="uw-tab" id="tab-actual" onclick="switchTab('actual_results')">Actual Results</button>
-      <button class="uw-tab uw-revert-btn" id="revert-btn" onclick="revertToProForma()" style="display:none;">↩ Revert to Pro Forma</button>
-    </div>
   </div>
 
   <!-- Three-column body -->
@@ -130,20 +149,14 @@
       <!-- Valuation -->
       <div class="uw-panel val-panel">
         <h3>Valuation</h3>
-        <div class="val-cols">
-          <div>
-            <div class="uw-field-row"><label>Bridge ARV</label><input type="number" id="f-bridgeARV" step="1000" oninput="onFieldChange('bridgeARV',this.value)"></div>
-            <div class="uw-field-row"><label>DSCR ARV</label><input type="number" id="f-dscrARV" step="1000" oninput="onFieldChange('dscrARV',this.value)"></div>
-            <div class="uw-field-row"><label>Purchase Price</label><input type="number" id="f-purchasePrice" step="1000" oninput="onFieldChange('purchasePrice',this.value)"></div>
-            <div class="uw-field-row"><label>Reno Budget</label><input type="number" id="f-renoBudget" step="500" oninput="onFieldChange('renoBudget',this.value)"></div>
-          </div>
-          <div>
-            <div class="uw-field-row"><label>Rent/month</label><input type="number" id="f-rentOverride" step="50" oninput="onFieldChange('rentOverride',this.value)"></div>
-            <div class="uw-field-row"><label>Annual Rent Inc %</label><input type="number" id="f-rentEscalation" step="0.1" oninput="onFieldChange('rentEscalation',pct(this.value))"></div>
-            <div class="uw-field-row"><label>Annual Prop Tax</label><input type="number" id="f-annualPropertyTax" step="100" oninput="onFieldChange('annualPropertyTax',this.value);syncAutoOpex()"></div>
-            <div class="uw-field-row"><label>Insurance/year</label><input type="number" id="f-insuranceAnnual" step="100" oninput="onFieldChange('insuranceAnnual',this.value);syncAutoOpex()"></div>
-          </div>
-        </div>
+        <div class="uw-field-row"><label>Bridge ARV</label><input type="number" id="f-bridgeARV" step="1000" oninput="onFieldChange('bridgeARV',this.value)"></div>
+        <div class="uw-field-row"><label>DSCR ARV</label><input type="number" id="f-dscrARV" step="1000" oninput="onFieldChange('dscrARV',this.value)"></div>
+        <div class="uw-field-row"><label>Purchase Price</label><input type="number" id="f-purchasePrice" step="1000" oninput="onFieldChange('purchasePrice',this.value)"></div>
+        <div class="uw-field-row"><label>Reno Budget</label><input type="number" id="f-renoBudget" step="500" oninput="onFieldChange('renoBudget',this.value)"></div>
+        <div class="uw-field-row"><label>Rent / month</label><input type="number" id="f-rentOverride" step="50" oninput="onFieldChange('rentOverride',this.value)"></div>
+        <div class="uw-field-row"><label>Rent Escalation %</label><input type="number" id="f-rentEscalation" step="0.1" oninput="onFieldChange('rentEscalation',pct(this.value))"></div>
+        <div class="uw-field-row"><label>Property Tax / yr</label><input type="number" id="f-annualPropertyTax" step="100" oninput="onFieldChange('annualPropertyTax',this.value);syncAutoOpex()"></div>
+        <div class="uw-field-row"><label>Insurance / yr</label><input type="number" id="f-insuranceAnnual" step="100" oninput="onFieldChange('insuranceAnnual',this.value);syncAutoOpex()"></div>
       </div>
 
       <!-- PML -->
@@ -226,7 +239,7 @@
           <tr><td>Total Cost Basis</td><td id="o-G30">—</td></tr>
           <tr><td>Bridge Loan</td><td id="o-V9">—</td></tr>
           <tr><td>PML</td><td id="o-V10">—</td></tr>
-          <tr><td class="out-bold">Unfunded Equity</td><td id="o-V11" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Unfunded Equity</td><td id="o-V11" class="out-bold">—</td></tr>
         </table>
       </div>
 
@@ -238,7 +251,7 @@
           <tr><td>Origination</td><td id="o-V15">—</td></tr>
           <tr><td>UW Fee</td><td id="o-V16">—</td></tr>
           <tr><td>Prepaid Interest</td><td id="o-V17">—</td></tr>
-          <tr><td class="out-bold">Total Cash to Close</td><td id="o-V19" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Total Cash to Close</td><td id="o-V19" class="out-bold">—</td></tr>
         </table>
       </div>
 
@@ -249,7 +262,7 @@
           <tr><td>Bridge Interest</td><td id="o-V21">—</td></tr>
           <tr><td>PML Fees</td><td id="o-V22">—</td></tr>
           <tr><td>PML Interest</td><td id="o-V23">—</td></tr>
-          <tr><td class="out-bold">Total Holding</td><td id="o-V24" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Total Holding</td><td id="o-V24" class="out-bold">—</td></tr>
         </table>
       </div>
 
@@ -261,7 +274,7 @@
           <tr><td>UW Fee</td><td id="o-Z16">—</td></tr>
           <tr><td>Prepaids</td><td id="o-Z17">—</td></tr>
           <tr><td>Gross Refi Proceeds</td><td id="o-Z9">—</td></tr>
-          <tr><td class="out-bold">Net Cost</td><td id="o-Z22" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Net Cost</td><td id="o-Z22" class="out-bold">—</td></tr>
         </table>
       </div>
     </div><!-- /mid-col -->
@@ -276,10 +289,10 @@
           <tr><td>Riverstone</td><td id="o-V40">—</td></tr>
           <tr><td>Commission</td><td id="o-V41">—</td></tr>
           <tr><td>Transfer/Close</td><td id="o-V42">—</td></tr>
-          <tr><td class="out-bold">Net Proceeds</td><td id="o-V46" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Net Proceeds</td><td id="o-V46" class="out-bold">—</td></tr>
           <tr><td>Total Cash Needed</td><td id="o-V26">—</td></tr>
-          <tr><td class="out-bold">Flip Profit</td><td id="o-flipProfit" class="out-bold">—</td></tr>
-          <tr><td class="out-bold">Flip IRR</td><td id="o-flipIRR" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Flip Profit</td><td id="o-flipProfit" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Flip IRR</td><td id="o-flipIRR" class="out-bold">—</td></tr>
         </table>
       </div>
 
@@ -291,7 +304,7 @@
           <tr><td>P+I</td><td id="o-Z57">—</td></tr>
           <tr><td>Op-Ex</td><td id="o-opexMo">—</td></tr>
           <tr><td>Riverstone</td><td id="o-Z63">—</td></tr>
-          <tr><td class="out-bold">Monthly CF</td><td id="o-Z64" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Monthly CF</td><td id="o-Z64" class="out-bold">—</td></tr>
         </table>
       </div>
 
@@ -304,11 +317,11 @@
           <tr><td>Transfer/Close</td><td id="o-Z42">—</td></tr>
           <tr><td>Prepaids Recovery</td><td id="o-Z43">—</td></tr>
           <tr><td>Principal Paydown</td><td id="o-Z44">—</td></tr>
-          <tr><td class="out-bold">Net Sale Proceeds</td><td id="o-Z46" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">Net Sale Proceeds</td><td id="o-Z46" class="out-bold">—</td></tr>
           <tr><td>Hold Cashflow</td><td id="o-Z48">—</td></tr>
           <tr><td>Total Cash Needed</td><td id="o-Z26-dscr">—</td></tr>
-          <tr><td class="out-bold">DSCR Profit</td><td id="o-dscrProfit" class="out-bold">—</td></tr>
-          <tr><td class="out-bold">DSCR IRR</td><td id="o-dscrIRR" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">DSCR Profit</td><td id="o-dscrProfit" class="out-bold">—</td></tr>
+          <tr class="total-row"><td class="out-bold">DSCR IRR</td><td id="o-dscrIRR" class="out-bold">—</td></tr>
         </table>
       </div>
     </div><!-- /right-col -->
