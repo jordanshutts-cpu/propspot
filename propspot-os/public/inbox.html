@@ -531,33 +531,6 @@
   window.PULSE_AUTH = { token: getToken() };
 </script>
 <script>
-// ── API path rewriter ─────────────────────────────────────────────
-// All inbox routes in the OS are mounted under /api/inbox/. The satellite
-// code below uses bare /api/shared-inboxes, /api/threads, etc. — wrap
-// apiFetch so those bare paths automatically route to /api/inbox/...
-(function () {
-  const INBOX_PREFIXES = [
-    '/api/shared-inboxes',
-    '/api/threads',
-    '/api/messages',
-    '/api/mailboxes',
-    '/api/alias-routes',
-    '/api/attachments',
-    '/api/contacts',
-    '/api/properties'
-  ];
-  const _orig = window.apiFetch;
-  window.apiFetch = function (path, opts) {
-    for (const pre of INBOX_PREFIXES) {
-      if (path === pre || path.startsWith(pre + '/') || path.startsWith(pre + '?')) {
-        path = '/api/inbox' + path;
-        break;
-      }
-    }
-    return _orig(path, opts);
-  };
-})();
-
 // ── HTML escape (escapes single quotes too) ───────────────────────
 function escapeHtml(s) {
   return (s == null ? '' : String(s)).replace(/[<>&"']/g, ch => ({
@@ -566,21 +539,25 @@ function escapeHtml(s) {
 }
 
 // ── Inbox API wrappers ────────────────────────────────────────────
-async function listSharedInboxes()        { return apiFetch('/api/shared-inboxes'); }
-async function listAliasRoutes()          { return apiFetch('/api/alias-routes'); }
+// All inbox routes are mounted under /api/inbox/ in the OS monolith.
+// Hardcode the prefix here so we don't depend on apiFetch monkey-patching
+// (which is unreliable because top-level function declarations create
+// script-scope bindings that survive window-property reassignment).
+async function listSharedInboxes()        { return apiFetch('/api/inbox/shared-inboxes'); }
+async function listAliasRoutes()          { return apiFetch('/api/inbox/alias-routes'); }
 async function listThreads(params = {})   {
   const qs = new URLSearchParams(params).toString();
-  return apiFetch('/api/threads' + (qs ? '?' + qs : ''));
+  return apiFetch('/api/inbox/threads' + (qs ? '?' + qs : ''));
 }
-async function getThread(id)              { return apiFetch('/api/threads/' + id); }
-async function patchThread(id, body)      { return apiFetch('/api/threads/' + id, { method:'PATCH', body: JSON.stringify(body) }); }
-async function sendReply(threadId, body)  { return apiFetch('/api/messages/threads/' + threadId + '/reply', { method:'POST', body: JSON.stringify(body) }); }
-async function composeMessage(body)       { return apiFetch('/api/messages/compose', { method:'POST', body: JSON.stringify(body) }); }
+async function getThread(id)              { return apiFetch('/api/inbox/threads/' + id); }
+async function patchThread(id, body)      { return apiFetch('/api/inbox/threads/' + id, { method:'PATCH', body: JSON.stringify(body) }); }
+async function sendReply(threadId, body)  { return apiFetch('/api/inbox/messages/threads/' + threadId + '/reply', { method:'POST', body: JSON.stringify(body) }); }
+async function composeMessage(body)       { return apiFetch('/api/inbox/messages/compose', { method:'POST', body: JSON.stringify(body) }); }
 async function saveAttachmentToProperty(attId, body) {
-  return apiFetch('/api/attachments/' + attId + '/save-to-property', { method:'POST', body: JSON.stringify(body) });
+  return apiFetch('/api/inbox/attachments/' + attId + '/save-to-property', { method:'POST', body: JSON.stringify(body) });
 }
 function attachmentUrl(attId)             { return '/api/inbox/attachments/' + attId; }
-async function searchProperties(q)        { return apiFetch('/api/properties?q=' + encodeURIComponent(q || '')); }
+async function searchProperties(q)        { return apiFetch('/api/inbox/properties?q=' + encodeURIComponent(q || '')); }
 
 // ── Utility helpers ───────────────────────────────────────────────
 function relativeTime(iso) {
@@ -807,7 +784,8 @@ async function refreshThreads() {
     params.status = 'open';
   }
   try {
-    STATE.threads = await listThreads(params);
+    const result = await listThreads(params);
+    STATE.threads = Array.isArray(result) ? result : [];
   } catch (err) {
     showToast(err.message, 'error');
     STATE.threads = [];
@@ -1350,7 +1328,7 @@ function attachContactAutocomplete(inputId, dropdownId) {
     const { current } = currentToken();
     if (current.length < 2) { closeDropdown(); return; }
     try {
-      lastResults = await apiFetch('/api/contacts?q=' + encodeURIComponent(current));
+      lastResults = await apiFetch('/api/inbox/contacts?q=' + encodeURIComponent(current));
       renderList(lastResults);
     } catch { closeDropdown(); }
   }
