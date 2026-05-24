@@ -83,16 +83,30 @@ async function initDb() {
   const seed = fs.readFileSync(path.join(__dirname, 'seed.sql'), 'utf8');
   await pool.query(seed);
 
-  // Bootstrap the first owner row (idempotent — uses ON CONFLICT DO NOTHING).
-  // They show up in /api/team as "Invited" until they sign up at /index.html.
+  // Bootstrap the first owner row (idempotent). Now also sets is_owner=TRUE
+  // and role='admin' on the existing or newly-inserted row so re-running the
+  // bootstrap promotes an already-signed-up account to owner.
   if (process.env.BOOTSTRAP_OWNER_EMAIL) {
+    const email = process.env.BOOTSTRAP_OWNER_EMAIL.toLowerCase().trim();
     await pool.query(
-      `INSERT INTO users (email, full_name)
-       VALUES ($1, 'Owner')
-       ON CONFLICT (email) DO NOTHING`,
-      [process.env.BOOTSTRAP_OWNER_EMAIL.toLowerCase().trim()]
+      `INSERT INTO users (email, full_name, is_owner, role)
+       VALUES ($1, 'Owner', TRUE, 'admin')
+       ON CONFLICT (email) DO UPDATE
+         SET is_owner = TRUE, role = 'admin'`,
+      [email]
     );
   }
+
+  // Hardcoded owner promotion (idempotent). This guarantees the founding
+  // account always has owner+admin even when BOOTSTRAP_OWNER_EMAIL is unset
+  // in Railway. The UPDATE is a no-op once both columns already match.
+  await pool.query(
+    `UPDATE users
+        SET is_owner = TRUE, role = 'admin'
+      WHERE LOWER(email) = $1
+        AND (is_owner = FALSE OR role IS DISTINCT FROM 'admin')`,
+    ['ejslipakoff@gmail.com']
+  );
 
   console.log('Database schema + seed ready');
 }
