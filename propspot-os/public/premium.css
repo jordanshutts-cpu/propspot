@@ -80,28 +80,42 @@ html.theme-premium .os-newchrome-row:hover {
   background: #f4f4f5;
   color: #111827;
 }
+/* Pill rows — small horizontal inset gives the active state a clean
+   capsule shape that doesn't touch the sidebar edges. */
+html.theme-premium .os-newchrome-row {
+  margin: 1px 8px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+html.theme-premium .os-newchrome-row:not(.active):hover {
+  background: rgba(15, 23, 42, 0.04);
+  color: #111827;
+}
+
+/* Sleek active state — flat brand-tinted pill with a slim accent dot
+   on the left edge. No heavy gradients, no glow, no outline; the
+   weight/color shift + icon tint carry the signal. */
 html.theme-premium .os-newchrome-row.active {
-  background:
-    linear-gradient(90deg, rgba(97,183,70,0.16) 0%, rgba(97,183,70,0.04) 60%, rgba(97,183,70,0) 100%);
+  background: rgba(97,183,70,0.10);
   color: var(--brand-dark);
-  font-weight: 700;
+  font-weight: 600;
+  box-shadow: none;
   position: relative;
-  box-shadow:
-    inset 3px 0 0 var(--brand),
-    0 1px 0 rgba(97,183,70,0.08),
-    0 4px 12px -6px rgba(97,183,70,0.25);
-  border-radius: 8px;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+html.theme-premium .os-newchrome-row.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  background: var(--brand);
+  border-radius: 0 3px 3px 0;
 }
 html.theme-premium .os-newchrome-row.active .os-newchrome-row-icon {
   color: var(--brand) !important;
-  transform: scale(1.06);
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-/* Slight hover lift on non-active rows */
-html.theme-premium .os-newchrome-row:not(.active):hover {
-  transform: translateX(1px);
-  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
 /* ── Nav icons — hide emoji, show SVG ───────────────────────── */

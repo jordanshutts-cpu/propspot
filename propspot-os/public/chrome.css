@@ -1058,13 +1058,15 @@ body.os-newchrome .user-menu {
 
 /* ── Sidebar brand bar (logo + collapse toggle) ──────────────────
    Sits at the very top of the sidebar above the workspace row.
-   Subtle brand-tinted gradient sets a premium tone. */
+   Logo gets generous real estate (44px), with the collapse button
+   pushed firmly to the right via flex-shrink:0 + margin-left:auto so
+   the two never overlap even at narrow widths. */
 .os-newchrome-brand-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  height: 48px;
+  gap: 12px;
+  padding: 10px 12px 10px 14px;
+  height: 64px;
   border-bottom: 1px solid #e8eaed;
   background: linear-gradient(180deg, rgba(97,183,70,0.06) 0%, transparent 100%);
   flex-shrink: 0;
@@ -1072,40 +1074,42 @@ body.os-newchrome .user-menu {
 .os-newchrome-brand-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  gap: 10px;
+  min-width: 0;          /* allows the wordmark to ellipsize before pushing the button */
+  flex: 1 1 auto;
   text-decoration: none;
   color: inherit;
-  border-radius: 6px;
-  padding: 2px 4px;
+  border-radius: 8px;
+  padding: 3px 6px;
 }
 .os-newchrome-brand-logo:hover { background: rgba(97,183,70,0.06); }
 .os-newchrome-brand-logo img {
-  width: 28px; height: 28px;
+  width: 40px; height: 40px;
   object-fit: contain;
   flex-shrink: 0;
 }
 .os-newchrome-brand-text {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: #111827;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 .os-newchrome-collapse-btn {
   background: none;
   border: none;
   cursor: pointer;
-  width: 26px; height: 26px;
+  width: 28px; height: 28px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #9ca3af;
   flex-shrink: 0;
+  margin-left: auto;     /* belt-and-suspenders: always at the right edge */
   transition: background 0.12s, color 0.12s, transform 0.18s ease;
 }
 .os-newchrome-collapse-btn:hover {
