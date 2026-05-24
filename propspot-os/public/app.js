@@ -4,6 +4,61 @@
 //  read OS tokens directly (we use a shared key).
 // ============================================================
 
+// ── Page transition loader ──────────────────────────────────────
+// Each page's <head> sets html.page-loading inline so CSS covers the
+// page from first paint. This block (a) creates the overlay element
+// once the body exists, (b) drops the curtain on DOMContentLoaded
+// (plus a tiny grace period so chrome JS can paint), (c) re-raises
+// it on internal link clicks so the OUTGOING transition is masked.
+(function setupPageLoader() {
+  function ensureOverlay() {
+    if (document.getElementById('os-page-loader')) return;
+    const div = document.createElement('div');
+    div.id = 'os-page-loader';
+    div.className = 'os-page-loader';
+    div.innerHTML = '<div class="os-page-loader-spinner"></div>';
+    (document.body || document.documentElement).appendChild(div);
+  }
+  function show() {
+    ensureOverlay();
+    document.documentElement.classList.add('page-loading');
+    const el = document.getElementById('os-page-loader');
+    if (el) el.classList.add('show');
+  }
+  function hide() {
+    document.documentElement.classList.remove('page-loading');
+    const el = document.getElementById('os-page-loader');
+    if (el) el.classList.remove('show');
+  }
+  function hideSoon() { setTimeout(hide, 80); }
+
+  if (document.body) ensureOverlay();
+  else document.addEventListener('DOMContentLoaded', ensureOverlay, { once: true });
+
+  if (document.readyState === 'interactive' || document.readyState === 'complete') hideSoon();
+  else document.addEventListener('DOMContentLoaded', hideSoon, { once: true });
+
+  // Same-origin link clicks → mask the navigation
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+    if (a.target && a.target !== '_self') return;
+    if (a.hasAttribute('download')) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (e.defaultPrevented) return;
+    let url;
+    try { url = new URL(a.href, location.origin); } catch { return; }
+    if (url.origin !== location.origin) return;
+    if (url.pathname === location.pathname && url.search === location.search) return;
+    show();
+  });
+
+  // bfcache restore → page is already painted, drop the curtain immediately
+  window.addEventListener('pageshow', (e) => { if (e.persisted) hide(); });
+})();
+
 const TOKEN_KEY = 'ros_token';
 const USER_KEY  = 'ros_user';
 

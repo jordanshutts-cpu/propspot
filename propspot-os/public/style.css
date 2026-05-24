@@ -2,6 +2,41 @@
    FieldCam — Shared Styles  (mobile-first)
    ============================================================ */
 
+/* ── Page transition loader ────────────────────────────────────
+   Covers the page until JS-rendered chrome (sidebar/topbar) is in
+   place, smoothing the flash-of-unstyled-content when navigating
+   between OS pages. Activated by html.page-loading (set inline in
+   each page's <head>) and removed by app.js on DOMContentLoaded.
+   Re-shown on internal link clicks for outgoing transitions. */
+.os-page-loader {
+  position: fixed; inset: 0;
+  background: #f4f5f7;
+  z-index: 99999;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0s 0.18s linear;
+  pointer-events: none;
+}
+html.page-loading .os-page-loader,
+.os-page-loader.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+  transition: opacity 0.12s ease;
+}
+.os-page-loader-spinner {
+  width: 30px; height: 30px;
+  border: 2.5px solid rgba(0,0,0,0.07);
+  border-top-color: #61B746;
+  border-radius: 50%;
+  animation: os-page-loader-spin 0.7s linear infinite;
+}
+@keyframes os-page-loader-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .os-page-loader-spinner { animation: none; border-top-color: rgba(0,0,0,0.2); }
+}
+
 :root {
   --brand:        #61B746;   /* company green */
   --brand-dark:   #52a03a;
