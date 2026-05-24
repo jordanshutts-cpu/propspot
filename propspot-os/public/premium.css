@@ -779,3 +779,16 @@ html.theme-premium button .premium-emoji-prefix {
   margin-right: 6px;
 }
 html.theme-premium button .premium-emoji-prefix svg { width: 14px; height: 14px; }
+/* On primary (brand-filled) buttons the icon was rendering brand-green on
+   brand-green — invisible. Force white so it reads against the bg, and
+   bump size slightly so the icon visually anchors the label rather than
+   making "Compose" look off-center. */
+html.theme-premium .btn-primary .premium-emoji-prefix {
+  color: #fff;
+  width: 18px; height: 18px;
+  margin-right: 8px;
+  vertical-align: -3px;
+}
+html.theme-premium .btn-primary .premium-emoji-prefix svg {
+  width: 16px; height: 16px;
+}
