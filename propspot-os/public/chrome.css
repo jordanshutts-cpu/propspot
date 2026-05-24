@@ -768,8 +768,8 @@ body.os-newchrome .user-menu {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: linear-gradient(180deg, rgba(97,183,70,0.08) 0%, rgba(97,183,70,0.04) 100%);
-  border-bottom: 1px solid rgba(97,183,70,0.20);
+  background: #f0f7ec;            /* solid brand-tinted; no see-through */
+  border-bottom: 1px solid rgba(97,183,70,0.28);
   padding: 8px 22px;
   font-size: 12.5px;
   color: #1f2937;
@@ -937,13 +937,25 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   width: 360px;
   max-height: calc(100vh - 80px);
   overflow-y: auto;
-  background: linear-gradient(180deg, rgba(97,183,70,0.06) 0%, #fff 36%);
+  background: #fff;               /* fully opaque — no see-through */
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
   z-index: 200;
   display: none;
 }
+/* Soft brand wash at the top of the panel — applied as a pseudo so
+   the panel background stays solid white underneath. */
+.os-newchrome-ai-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 140px;
+  background: linear-gradient(180deg, rgba(97,183,70,0.10) 0%, transparent 100%);
+  border-radius: 12px 12px 0 0;
+  pointer-events: none;
+}
+.os-newchrome-ai-hero { position: relative; }   /* sit above the wash */
 .os-newchrome-ai-panel.open { display: block; }
 .os-newchrome-ai-hero { padding: 22px 22px 18px; text-align: center; }
 .os-newchrome-ai-icon {
