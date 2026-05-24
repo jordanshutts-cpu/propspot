@@ -224,6 +224,11 @@
   // entire text content is a single recognized emoji. This is how we
   // catch the dozens of emojis sprinkled through the satellite tools
   // (inbox, pulse, underwriting) without needing to touch each HTML.
+  // Classes the scanner must NOT touch — premium.css already themes
+  // these via masked ::before pseudo-elements, so the scanner would
+  // only fight the CSS and render mismatched icons (e.g. tenant emoji
+  // 🔗 → 'link' SVG appearing on top of the masked inbox-tray icon).
+  var SCAN_SKIP_CLASSES = ['ib-inbox-icon', 'premium-icon-skip'];
   function scanForEmojiLeaves(root) {
     if (!root || !root.querySelectorAll) return;
     var SKIP_TAGS = { SCRIPT:1, STYLE:1, NOSCRIPT:1, IFRAME:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1 };
@@ -233,6 +238,11 @@
       if (el.children.length > 0) continue;             // not a leaf
       if (SKIP_TAGS[el.tagName]) continue;
       if (el.dataset && el.dataset.premiumEmoji !== undefined) continue;
+      var skipByClass = false;
+      for (var c = 0; c < SCAN_SKIP_CLASSES.length; c++) {
+        if (el.classList && el.classList.contains(SCAN_SKIP_CLASSES[c])) { skipByClass = true; break; }
+      }
+      if (skipByClass) continue;
       var t = (el.textContent || '').trim();
       if (!t || t.length > 4) continue;
       if (iconForEmoji(t)) replaceIconEl(el);
