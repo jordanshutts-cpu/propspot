@@ -495,6 +495,54 @@ html.theme-premium .user-menu .user-name { font-weight: 700; }
 html.theme-premium .user-menu a:hover,
 html.theme-premium .user-menu button:hover { background: #f4f4f5; color: #111827; }
 
+/* Replace the leading emoji glyph in each user-menu button with a
+   masked Lucide SVG, tinted per row. */
+html.theme-premium .user-menu-icon {
+  font-size: 0;                /* hides the original emoji */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  margin-right: 8px;
+  vertical-align: -3px;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+html.theme-premium .user-menu-icon::before {
+  content: '';
+  display: block;
+  width: 15px; height: 15px;
+  background-color: currentColor;
+  -webkit-mask: var(--um-mask) center/contain no-repeat;
+          mask: var(--um-mask) center/contain no-repeat;
+}
+/* Edit Profile → user */
+html.theme-premium .user-menu-icon[data-icon="user"] {
+  color: #8b5cf6;
+  --um-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>");
+}
+/* Change Password → key */
+html.theme-premium .user-menu-icon[data-icon="key"] {
+  color: #f59e0b;
+  --um-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4'/><path d='m21 2-9.6 9.6'/><circle cx='7.5' cy='15.5' r='5.5'/></svg>");
+}
+/* Team Members → users */
+html.theme-premium .user-menu-icon[data-icon="users"] {
+  color: #3b82f6;
+  --um-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M22 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>");
+}
+/* Settings → gear */
+html.theme-premium .user-menu-icon[data-icon="settings"] {
+  color: #64748b;
+  --um-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/><circle cx='12' cy='12' r='3'/></svg>");
+}
+/* Sign Out → log-out arrow */
+html.theme-premium .user-menu-icon[data-icon="logout"] {
+  color: #ef4444;
+  --um-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/><polyline points='16 17 21 12 16 7'/><line x1='21' x2='9' y1='12' y2='12'/></svg>");
+}
+/* Don't let the scanner touch these — premium.css already paints them */
+
 /* ── Lifecycle stepper ───────────────────────────────────────── */
 html.theme-premium .os-newchrome-stepper {
   border-color: #e8eaed;

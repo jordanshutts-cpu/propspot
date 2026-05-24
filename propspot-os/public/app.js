@@ -701,12 +701,12 @@ function renderUserMenu() {
         <div class="user-email">${escHtml(u.email || '')}</div>
       </div>
     </div>
-    <button type="button" onclick="openEditProfile()">👤 Edit Profile</button>
-    <button type="button" onclick="openChangePassword()">🔑 Change Password</button>
-    <button type="button" onclick="window.location.href='/team.html'">👥 Team Members</button>
-    <button type="button" onclick="openSettings()">⚙️ Settings</button>
+    <button type="button" onclick="openEditProfile()"><span class="user-menu-icon" data-icon="user">👤</span> Edit Profile</button>
+    <button type="button" onclick="openChangePassword()"><span class="user-menu-icon" data-icon="key">🔑</span> Change Password</button>
+    <button type="button" onclick="window.location.href='/team.html'"><span class="user-menu-icon" data-icon="users">👥</span> Team Members</button>
+    <button type="button" onclick="openSettings()"><span class="user-menu-icon" data-icon="settings">⚙️</span> Settings</button>
     <div class="menu-divider"></div>
-    <button type="button" class="danger" onclick="signOut()">🚪 Sign Out</button>
+    <button type="button" class="danger" onclick="signOut()"><span class="user-menu-icon" data-icon="logout">🚪</span> Sign Out</button>
   `;
 }
 

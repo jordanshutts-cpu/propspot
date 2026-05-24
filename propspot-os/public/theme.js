@@ -228,7 +228,7 @@
   // these via masked ::before pseudo-elements, so the scanner would
   // only fight the CSS and render mismatched icons (e.g. tenant emoji
   // 🔗 → 'link' SVG appearing on top of the masked inbox-tray icon).
-  var SCAN_SKIP_CLASSES = ['ib-inbox-icon', 'ib-filter-icon', 'premium-icon-skip'];
+  var SCAN_SKIP_CLASSES = ['ib-inbox-icon', 'ib-filter-icon', 'user-menu-icon', 'premium-icon-skip'];
   function scanForEmojiLeaves(root) {
     if (!root || !root.querySelectorAll) return;
     var SKIP_TAGS = { SCRIPT:1, STYLE:1, NOSCRIPT:1, IFRAME:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1 };
