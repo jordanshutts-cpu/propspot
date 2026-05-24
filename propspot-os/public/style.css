@@ -26,7 +26,7 @@ main {
 }
 .os-page-loader {
   position: fixed; inset: 0;
-  background: #f4f5f7;        /* matches --bg exactly — no shade shift */
+  background: #fafbfc;        /* one clean off-white that blends with logo PNG */
   z-index: 99999;
   display: flex; align-items: center; justify-content: center;
   opacity: 0;
@@ -98,16 +98,16 @@ html.page-loading .os-page-loader,
   background-position: center;
   position: relative;
   animation: os-loader-breathe 1.9s ease-in-out infinite;
-  filter: drop-shadow(0 6px 18px rgba(97,183,70,0.18));
+  /* multiply blends the white PNG plate into the page background so
+     only the dark glyph remains — looks painted on the same surface. */
+  mix-blend-mode: multiply;
 }
-/* Soft brand-green halo ring that pulses out from behind the logo. */
+/* Hide the legacy halo/wordmark/progress-bar elements — the new
+   minimalist treatment is just logo + dots on one clean color. */
+.os-page-loader-bar,
+.os-page-loader-wordmark { display: none !important; }
 .os-page-loader-logo::before {
-  content: '';
-  position: absolute;
-  inset: -30px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(97,183,70,0.16) 0%, rgba(97,183,70,0) 65%);
-  animation: os-loader-halo 1.9s ease-in-out infinite;
+  content: none;
   z-index: -1;
   pointer-events: none;
 }
