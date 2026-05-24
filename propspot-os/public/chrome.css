@@ -106,10 +106,12 @@ body.os-newchrome .search-loading { padding: 14px; font-size: .82rem; color: var
    Each satellite renders its own top header / bottom nav with different
    class names — list every one here so they all collapse cleanly when
    body.os-newchrome is set. Add new selectors as more satellites adopt. */
-body.os-newchrome .app-header,       /* FieldCam, Maintenance, Pulse */
-body.os-newchrome .bottom-nav,       /* FieldCam, Maintenance */
+body.os-newchrome .app-header,       /* FieldCam, Holdings, Maintenance, Inbox */
+body.os-newchrome .bottom-nav,       /* FieldCam, Holdings, Maintenance, Inbox */
 body.os-newchrome .nav-collapse-btn, /* FieldCam */
 body.os-newchrome #nav.bottom-nav,
+body.os-newchrome .pulse-sidebar,    /* Pulse */
+body.os-newchrome .pulse-topbar,     /* Pulse */
 body.os-newchrome .ros-mobile-header /* legacy variant */
 { display: none !important; }
 
