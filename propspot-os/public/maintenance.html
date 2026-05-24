@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Maintenance</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 12px; text-align:center; }
+    .stat-num  { font-size:1.8rem; font-weight:800; color:var(--brand); line-height:1; margin-bottom:4px; }
+    .stat-num.is-bad  { color:#dc2626; }
+    .stat-num.is-warn { color:#d97706; }
+    .stat-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:600; }
+    .pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+    .pill { padding:6px 12px; border-radius:100px; border:1px solid var(--border); background:var(--surface); font-size:.82rem; cursor:pointer; color:var(--text-muted); }
+    .pill.active { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
+    .wo-card { display:flex; gap:12px; align-items:flex-start; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px; text-decoration:none; color:var(--text); cursor:pointer; }
+    .wo-card:hover { border-color:var(--brand); }
+    .wo-icon { font-size:1.4rem; flex-shrink:0; margin-top:2px; }
+    .wo-body { flex:1; min-width:0; }
+    .wo-title { font-weight:700; font-size:.95rem; margin-bottom:3px; }
+    .wo-sub { font-size:.78rem; color:var(--text-muted); margin-bottom:6px; }
+    .wo-meta { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .priority-urgent .wo-title { color:#dc2626; }
+    .badge-priority-urgent { background:#fee2e2; color:#b91c1c; }
+    .badge-priority-high   { background:#fef3c7; color:#92400e; }
+    .badge-priority-normal { background:#f0fdf4; color:#15803d; }
+    .badge-priority-low    { background:var(--border); color:var(--text-muted); }
+    .badge-status-open         { background:#dbeafe; color:#1e40af; }
+    .badge-status-scheduled    { background:#e0e7ff; color:#3730a3; }
+    .badge-status-in_progress  { background:#fef3c7; color:#92400e; }
+    .badge-status-completed    { background:#dcfce7; color:#15803d; }
+    .badge-status-cancelled    { background:var(--border); color:var(--text-muted); }
+    /* Modal */
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center; }
+    .modal-backdrop.open { display:flex; }
+    .modal { background:#fff; border-radius:12px; padding:22px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,.18); }
+    .modal-title { font-weight:700; font-size:1.1rem; margin-bottom:16px; }
+    .form-row { display:flex; gap:10px; }
+    .form-row .form-group { flex:1; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+    @media(max-width:640px) { .stat-grid { grid-template-columns:repeat(2,1fr); } .form-row { flex-direction:column; } }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num is-bad" id="stat-urgent">–</div><div class="stat-label">Urgent</div></div>
+    <div class="stat-card"><div class="stat-num is-warn" id="stat-open">–</div><div class="stat-label">Open</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-sched">–</div><div class="stat-label">Scheduled</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-prog">–</div><div class="stat-label">In Progress</div></div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">Work Orders</span>
+    <button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;" onclick="openCreate()">+ New</button>
+  </div>
+
+  <div class="pills" id="filter-pills">
+    <button class="pill active" data-f="active">Active</button>
+    <button class="pill" data-f="open">Open</button>
+    <button class="pill" data-f="scheduled">Scheduled</button>
+    <button class="pill" data-f="in_progress">In Progress</button>
+    <button class="pill" data-f="completed">Completed</button>
+    <button class="pill" data-f="urgent">🚨 Urgent</button>
+  </div>
+
+  <div id="list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<!-- Create modal -->
+<div class="modal-backdrop" id="modal-create">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">New Work Order</div>
+    <form id="create-form" onsubmit="submitCreate(event)">
+      <div class="form-group">
+        <label class="form-label">Property *</label>
+        <input class="form-input mb-8" type="search" id="c-search" placeholder="Search address, city…" oninput="filterProps(this.value)">
+        <select class="form-input" id="c-property_id" size="5" required style="height:auto;"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="c-title" placeholder="e.g. Kitchen sink leaking" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="c-desc" rows="2" style="resize:vertical;"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-input" id="c-cat">
+            <option value="">— select —</option>
+            <option value="plumbing">🚿 Plumbing</option>
+            <option value="electrical">💡 Electrical</option>
+            <option value="hvac">❄️ HVAC</option>
+            <option value="roofing">🏠 Roofing</option>
+            <option value="landscaping">🌳 Landscaping</option>
+            <option value="cleaning">🧹 Cleaning</option>
+            <option value="appliance">🔌 Appliance</option>
+            <option value="pest">🐜 Pest Control</option>
+            <option value="general">🛠️ General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-input" id="c-priority">
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Scheduled For</label>
+        <input class="form-input" id="c-sched" type="date">
+      </div>
+      <p id="c-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeCreate()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="c-save">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>window.NAV_CURRENT = 'maintenance';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let allOrders = [], propsCache = [], currentFilter = 'active';
+  const CAT_ICONS = { plumbing:'🚿', electrical:'💡', hvac:'❄️', roofing:'🏠', landscaping:'🌳',
+    cleaning:'🧹', appliance:'🔌', pest:'🐜', general:'🛠️', other:'📋' };
+
+  function catIcon(c) { return CAT_ICONS[c] || '🛠️'; }
+  function statusLabel(s) { return { open:'Open', scheduled:'Scheduled', in_progress:'In Progress', completed:'Completed', cancelled:'Cancelled' }[s] || s; }
+  function priorityLabel(p) { return { low:'Low', normal:'Normal', high:'High', urgent:'Urgent' }[p] || p; }
+
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+    await Promise.all([loadOrders(), loadProps()]);
+    document.querySelectorAll('.pill').forEach(p => p.addEventListener('click', () => {
+      document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      currentFilter = p.dataset.f;
+      render();
+    }));
+  }
+
+  async function loadOrders() {
+    try {
+      allOrders = await satelliteApiFetch('maintenance', '/api/work-orders');
+      computeStats(); render();
+    } catch (e) {
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  async function loadProps() {
+    try {
+      propsCache = await getProperties();
+      renderPropOptions(propsCache);
+    } catch(e) { console.error(e); }
+  }
+
+  function renderPropOptions(list) {
+    const sel = document.getElementById('c-property_id');
+    sel.innerHTML = list.length
+      ? list.map(p => `<option value="${p.id}">${escHtml(p.display_name || p.address_line1)}${p.unit ? ' #'+escHtml(p.unit) : ''}, ${escHtml(p.city||'')}</option>`).join('')
+      : '<option disabled>No properties found</option>';
+  }
+
+  function filterProps(q) {
+    q = (q||'').toLowerCase();
+    const filtered = q ? propsCache.filter(p => [p.address_line1,p.unit,p.city,p.state,p.display_name].filter(Boolean).join(' ').toLowerCase().includes(q)) : propsCache;
+    renderPropOptions(filtered);
+  }
+
+  function computeStats() {
+    document.getElementById('stat-urgent').textContent = allOrders.filter(o => o.priority==='urgent' && ['open','scheduled','in_progress'].includes(o.status)).length;
+    document.getElementById('stat-open').textContent   = allOrders.filter(o => o.status==='open').length;
+    document.getElementById('stat-sched').textContent  = allOrders.filter(o => o.status==='scheduled').length;
+    document.getElementById('stat-prog').textContent   = allOrders.filter(o => o.status==='in_progress').length;
+  }
+
+  function render() {
+    let rows = allOrders;
+    if (currentFilter === 'active')  rows = rows.filter(o => ['open','scheduled','in_progress'].includes(o.status));
+    else if (currentFilter === 'urgent') rows = rows.filter(o => o.priority==='urgent' && o.status !== 'completed' && o.status !== 'cancelled');
+    else rows = rows.filter(o => o.status === currentFilter);
+
+    const el = document.getElementById('list');
+    if (!rows.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎉</div><p>Nothing here.</p></div>`; return; }
+    el.innerHTML = rows.map(o => `
+      <div class="wo-card priority-${o.priority}" onclick="openDetail('${o.id}')">
+        <div class="wo-icon">${catIcon(o.category)}</div>
+        <div class="wo-body">
+          <div class="wo-title">${escHtml(o.title)}</div>
+          <div class="wo-sub">${escHtml(o.display_name || o.address_line1 || '')}${o.city ? ' · '+escHtml(o.city)+', '+escHtml(o.state||'') : ''}</div>
+          <div class="wo-meta">
+            <span class="badge badge-status-${o.status}">${statusLabel(o.status)}</span>
+            <span class="badge badge-priority-${o.priority}">${priorityLabel(o.priority)}</span>
+            ${o.assigned_name ? `<span class="text-xs text-muted">👤 ${escHtml(o.assigned_name)}</span>` : ''}
+            ${o.scheduled_for ? `<span class="text-xs text-muted">📅 ${new Date(o.scheduled_for).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>` : ''}
+            ${o.update_count > 0 ? `<span class="text-xs text-muted">💬 ${o.update_count}</span>` : ''}
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  async function openDetail(id) {
+    const url = await satellitePageUrl('maintenance', '/work-order.html?id=' + id);
+    window.location.href = url;
+  }
+
+  function openCreate() {
+    document.getElementById('c-search').value = '';
+    document.getElementById('c-title').value = '';
+    document.getElementById('c-desc').value = '';
+    document.getElementById('c-cat').value = '';
+    document.getElementById('c-priority').value = 'normal';
+    document.getElementById('c-sched').value = '';
+    document.getElementById('c-err').style.display = 'none';
+    renderPropOptions(propsCache);
+    document.getElementById('modal-create').classList.add('open');
+  }
+
+  function closeCreate() { document.getElementById('modal-create').classList.remove('open'); }
+  document.getElementById('modal-create').addEventListener('click', e => { if (e.target === e.currentTarget) closeCreate(); });
+
+  async function submitCreate(e) {
+    e.preventDefault();
+    const body = {
+      property_id:   document.getElementById('c-property_id').value,
+      title:         document.getElementById('c-title').value.trim(),
+      description:   document.getElementById('c-desc').value.trim(),
+      category:      document.getElementById('c-cat').value,
+      priority:      document.getElementById('c-priority').value,
+      scheduled_for: document.getElementById('c-sched').value || null,
+    };
+    const errEl = document.getElementById('c-err'); errEl.style.display = 'none';
+    const btn = document.getElementById('c-save'); btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const wo = await satelliteApiFetch('maintenance', '/api/work-orders', { method:'POST', body: JSON.stringify(body) });
+      closeCreate();
+      await loadOrders();
+      showToast('Work order created');
+    } catch(err) {
+      errEl.textContent = err.message; errEl.style.display = 'block';
+    } finally { btn.disabled = false; btn.textContent = 'Create'; }
+  }
+
+  init();
+</script>
+</body>
+</html>

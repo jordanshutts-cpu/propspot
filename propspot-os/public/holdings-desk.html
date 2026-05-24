@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Holdings Desk</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .chip-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+    .chip { font-size:.78rem; padding:6px 10px; border-radius:100px; background:var(--surface); color:var(--text-muted); border:1px solid var(--border); cursor:pointer; user-select:none; }
+    .chip.active { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
+    .holding-card { display:flex; gap:12px; align-items:flex-start; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px; text-decoration:none; color:var(--text); cursor:pointer; }
+    .holding-card:hover { border-color:var(--brand); }
+    .hc-icon { font-size:1.5rem; flex-shrink:0; }
+    .hc-body { flex:1; min-width:0; }
+    .hc-name { font-weight:700; font-size:.95rem; margin-bottom:2px; }
+    .hc-prop { font-size:.78rem; color:var(--text-muted); margin-bottom:6px; }
+    .hc-meta { display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .hc-amount { font-weight:600; font-size:.9rem; }
+    .hc-freq   { font-size:.72rem; color:var(--text-muted); margin-left:3px; }
+    .badge-due  { font-size:.7rem; padding:2px 8px; border-radius:100px; font-weight:600; white-space:nowrap; }
+    .badge-overdue { background:#fee2e2; color:#b91c1c; }
+    .badge-soon7   { background:#fef3c7; color:#92400e; }
+    .badge-soon30  { background:#e0e7ff; color:#3730a3; }
+    .badge-ok      { background:var(--brand-light); color:var(--brand); }
+    .badge-none    { background:var(--border); color:var(--text-muted); }
+    /* Modal */
+    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:flex-end; justify-content:center; }
+    .modal-bg.open { display:flex; }
+    .modal { background:#fff; border-radius:12px 12px 0 0; padding:20px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; }
+    .modal h3 { margin:0 0 14px; font-size:1.05rem; font-weight:700; }
+    .form-group { margin-bottom:12px; }
+    .form-row2 { display:flex; gap:10px; }
+    .form-row2 .form-group { flex:1; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+    @media(max-width:480px) { .form-row2 { flex-direction:column; } }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="chip-row" id="cat-chips"></div>
+  <div class="chip-row" id="due-chips"></div>
+
+  <div class="section-header">
+    <span class="section-title" id="count-label">Holdings</span>
+    <button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;" onclick="openAdd()">+ Add</button>
+  </div>
+
+  <div id="list"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<!-- Add modal -->
+<div class="modal-bg" id="modal-add">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>Add Holding</h3>
+    <form id="add-form" onsubmit="submitAdd(event)">
+      <div class="form-group">
+        <label class="form-label">Property *</label>
+        <select class="form-input" id="a-prop" required></select>
+      </div>
+      <div class="form-row2">
+        <div class="form-group">
+          <label class="form-label">Category *</label>
+          <select class="form-input" id="a-cat" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frequency</label>
+          <select class="form-input" id="a-freq">
+            <option value="monthly" selected>Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="semi_annual">Semi-Annual</option>
+            <option value="annual">Annual</option>
+            <option value="one_time">One Time</option>
+            <option value="as_needed">As Needed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name / Label *</label>
+        <input class="form-input" id="a-name" placeholder="e.g. City Power & Water" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vendor / Provider</label>
+        <input class="form-input" id="a-vendor" placeholder="e.g. Duke Energy">
+      </div>
+      <div class="form-row2">
+        <div class="form-group">
+          <label class="form-label">Amount</label>
+          <input class="form-input" id="a-amount" type="number" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Next Due Date</label>
+          <input class="form-input" id="a-due" type="date">
+        </div>
+      </div>
+      <p id="a-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeAdd()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="a-save">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>window.NAV_CURRENT = 'holdings-desk';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let allItems = [], allProps = [], catFilter = 'all', dueFilter = 'all';
+  const CATS = [
+    ['mortgage','Mortgage','🏦'],['insurance','Insurance','🛡️'],['utility','Utilities','💡'],
+    ['tax','Taxes','🏛️'],['hoa','HOA','🏘️'],['subscription','Subscription','📋'],
+    ['loan','Loan','💰'],['license','License','📄'],['other','Other','📦'],
+  ];
+
+  function dueBadge(dueDate, reminderDays) {
+    if (!dueDate) return { cls:'badge-none', label:'No due date' };
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due   = new Date(dueDate); due.setHours(0,0,0,0);
+    const diff  = Math.round((due - today) / 86400000);
+    if (diff < 0)  return { cls:'badge-overdue', label:`${Math.abs(diff)}d overdue` };
+    if (diff <= 7) return { cls:'badge-soon7',   label:`Due in ${diff}d` };
+    if (diff <= 30) return { cls:'badge-soon30',  label:`Due in ${diff}d` };
+    return { cls:'badge-ok', label:due.toLocaleDateString('en-US',{month:'short',day:'numeric'}) };
+  }
+
+  function fmtFreq(f) { return { monthly:'/ mo', quarterly:'/ qtr', semi_annual:'/ 6mo', annual:'/ yr', one_time:'one time', as_needed:'as needed' }[f] || f; }
+
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+
+    // Populate category select
+    const catSel = document.getElementById('a-cat');
+    catSel.innerHTML = CATS.map(([k,l,i]) => `<option value="${k}">${i} ${l}</option>`).join('');
+
+    try {
+      [allItems, allProps] = await Promise.all([
+        satelliteApiFetch('holdings', '/api/holdings/items'),
+        getProperties(),
+      ]);
+    } catch (e) {
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error loading data: ${escHtml(e.message)}</p>`;
+      return;
+    }
+
+    // Populate property select
+    const propSel = document.getElementById('a-prop');
+    propSel.innerHTML = allProps.map(p => `<option value="${p.id}">${escHtml(p.display_name || p.address_line1)}, ${escHtml(p.city||'')}</option>`).join('');
+
+    renderChips(); render();
+  }
+
+  function renderChips() {
+    const catEl = document.getElementById('cat-chips');
+    catEl.innerHTML = [['all','All','📋'], ...CATS].map(([k,l,i]) =>
+      `<span class="chip ${catFilter===k?'active':''}" onclick="setCat('${k}')">${i} ${l}</span>`).join('');
+    const dueEl = document.getElementById('due-chips');
+    dueEl.innerHTML = [['all','All'],['overdue','⚠️ Overdue'],['due-7d','Due ≤ 7d'],['due-30d','Due ≤ 30d']].map(([k,l]) =>
+      `<span class="chip ${dueFilter===k?'active':''}" onclick="setDue('${k}')">${l}</span>`).join('');
+  }
+
+  function setCat(c) { catFilter = c; renderChips(); render(); }
+  function setDue(d) { dueFilter = d; renderChips(); render(); }
+
+  function passesDue(item) {
+    if (dueFilter === 'all') return true;
+    if (!item.next_due_date) return false;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due   = new Date(item.next_due_date); due.setHours(0,0,0,0);
+    const diff  = Math.round((due - today) / 86400000);
+    if (dueFilter === 'overdue') return diff < 0;
+    if (dueFilter === 'due-7d')  return diff >= 0 && diff <= 7;
+    if (dueFilter === 'due-30d') return diff >= 0 && diff <= 30;
+    return true;
+  }
+
+  function render() {
+    const filtered = allItems.filter(i => (catFilter==='all' || i.category===catFilter) && passesDue(i));
+    document.getElementById('count-label').textContent = `${filtered.length} Holding${filtered.length===1?'':'s'}`;
+    const el = document.getElementById('list');
+    if (!filtered.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">💼</div><p>No holdings match.</p><button class="btn btn-primary" onclick="openAdd()">+ Add Holding</button></div>`; return; }
+    const catMap = Object.fromEntries(CATS.map(([k,l,i]) => [k, i]));
+    el.innerHTML = filtered.map(item => {
+      const badge = dueBadge(item.next_due_date, item.reminder_days_before);
+      const propLabel = item.property_display_name || item.property_address || '—';
+      return `<div class="holding-card" onclick="openDetail('${item.id}')">
+        <div class="hc-icon">${catMap[item.category] || '📦'}</div>
+        <div class="hc-body">
+          <div class="hc-name">${escHtml(item.name)}</div>
+          <div class="hc-prop">${escHtml(propLabel)}${item.property_city?' · '+escHtml(item.property_city):''}</div>
+          <div class="hc-meta">
+            <div>
+              ${item.amount != null ? `<span class="hc-amount">$${Number(item.amount).toLocaleString()}</span><span class="hc-freq">${fmtFreq(item.frequency)}</span>` : `<span class="hc-freq">${fmtFreq(item.frequency)}</span>`}
+              ${item.vendor ? `<div class="text-xs text-muted mt-2">${escHtml(item.vendor)}</div>` : ''}
+            </div>
+            <span class="badge-due ${badge.cls}">${badge.label}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function openDetail(id) {
+    const url = await satellitePageUrl('holdings', '/item.html?id=' + id);
+    window.location.href = url;
+  }
+
+  function openAdd() {
+    document.getElementById('a-name').value = '';
+    document.getElementById('a-vendor').value = '';
+    document.getElementById('a-amount').value = '';
+    document.getElementById('a-due').value = '';
+    document.getElementById('a-err').style.display = 'none';
+    document.getElementById('modal-add').classList.add('open');
+  }
+  function closeAdd() { document.getElementById('modal-add').classList.remove('open'); }
+  document.getElementById('modal-add').addEventListener('click', e => { if (e.target===e.currentTarget) closeAdd(); });
+
+  async function submitAdd(e) {
+    e.preventDefault();
+    const body = {
+      property_id:   document.getElementById('a-prop').value,
+      category:      document.getElementById('a-cat').value,
+      name:          document.getElementById('a-name').value.trim(),
+      vendor:        document.getElementById('a-vendor').value.trim() || null,
+      frequency:     document.getElementById('a-freq').value,
+      amount:        document.getElementById('a-amount').value ? Number(document.getElementById('a-amount').value) : null,
+      next_due_date: document.getElementById('a-due').value || null,
+    };
+    const errEl = document.getElementById('a-err'); errEl.style.display = 'none';
+    const btn = document.getElementById('a-save'); btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await satelliteApiFetch('holdings', '/api/holdings/items', { method:'POST', body: JSON.stringify(body) });
+      closeAdd();
+      allItems = await satelliteApiFetch('holdings', '/api/holdings/items');
+      render();
+      showToast('Holding added');
+    } catch(err) {
+      errEl.textContent = err.message; errEl.style.display = 'block';
+    } finally { btn.disabled = false; btn.textContent = 'Add'; }
+  }
+
+  init();
+</script>
+</body>
+</html>

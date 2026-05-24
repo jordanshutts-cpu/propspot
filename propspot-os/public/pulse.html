@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Pulse</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    /* Layout: fixed two-col inside page area */
+    body.os-newlayout main.page { padding:0; overflow:hidden; height:calc(100vh - 56px); display:flex; }
+    .pulse-wrap { display:flex; width:100%; height:100%; overflow:hidden; }
+
+    /* Left sidebar */
+    .pulse-sidebar { width:240px; flex:0 0 240px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); overflow:hidden; }
+    .pulse-sidebar-head { padding:14px 12px 10px; border-bottom:1px solid var(--border); font-weight:700; font-size:.95rem; }
+    .pulse-sidebar-body { flex:1; overflow-y:auto; padding:8px 0; }
+    .pulse-section-label { padding:10px 12px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; }
+    .pulse-channel-row { display:flex; align-items:center; gap:8px; padding:7px 12px; cursor:pointer; font-size:.88rem; border-radius:6px; margin:0 4px; color:var(--text-muted); }
+    .pulse-channel-row:hover  { background:var(--brand-light); color:var(--text); }
+    .pulse-channel-row.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
+    .pulse-channel-icon { font-size:.9rem; flex-shrink:0; }
+    .pulse-channel-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pulse-unread-dot { background:var(--brand); color:#fff; border-radius:100px; font-size:.65rem; font-weight:700; padding:1px 5px; min-width:16px; text-align:center; }
+
+    /* Main area */
+    .pulse-main { flex:1; min-width:0; display:flex; flex-direction:column; }
+    .pulse-main-head { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; background:var(--surface); flex-shrink:0; }
+    .pulse-main-head .ch-name { font-weight:700; font-size:1rem; }
+    .pulse-conn-dot { width:8px; height:8px; border-radius:50%; background:#9ca3af; flex-shrink:0; }
+    .pulse-conn-dot.connected { background:#22c55e; }
+    .pulse-messages { flex:1; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:4px; }
+    .pulse-msg { display:flex; gap:10px; align-items:flex-start; }
+    .pulse-msg-avatar { width:32px; height:32px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0; margin-top:2px; }
+    .pulse-msg-body { flex:1; min-width:0; }
+    .pulse-msg-meta { display:flex; gap:6px; align-items:baseline; margin-bottom:2px; }
+    .pulse-msg-sender { font-weight:700; font-size:.88rem; }
+    .pulse-msg-time   { font-size:.7rem; color:var(--text-muted); }
+    .pulse-msg-text   { font-size:.9rem; line-height:1.5; word-break:break-word; }
+    .pulse-msg-text p { margin:0; }
+    .pulse-msg-text img { max-width:360px; border-radius:6px; margin-top:4px; }
+    .pulse-date-div { text-align:center; font-size:.72rem; color:var(--text-muted); margin:8px 0; position:relative; }
+    .pulse-date-div::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:var(--border); }
+    .pulse-date-div span { background:var(--bg); position:relative; padding:0 10px; }
+    /* Compact consecutive msgs from same sender */
+    .pulse-msg.compact .pulse-msg-avatar { opacity:0; }
+    .pulse-msg.compact .pulse-msg-meta { display:none; }
+    /* Composer */
+    .pulse-composer { padding:10px 14px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:flex-end; background:var(--surface); flex-shrink:0; }
+    .pulse-composer textarea { flex:1; resize:none; border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:.9rem; font-family:inherit; line-height:1.4; max-height:120px; overflow-y:auto; background:var(--bg); }
+    .pulse-composer textarea:focus { outline:none; border-color:var(--brand); }
+    .pulse-send { padding:10px 16px; font-size:.88rem; border-radius:8px; align-self:flex-end; }
+    .pulse-empty-state { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-muted); flex-direction:column; gap:10px; font-size:.95rem; }
+    @media(max-width:640px){
+      .pulse-sidebar { width:200px; flex:0 0 200px; }
+    }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="pulse-wrap">
+    <!-- Sidebar: channels + DMs -->
+    <div class="pulse-sidebar">
+      <div class="pulse-sidebar-head">💬 Pulse</div>
+      <div class="pulse-sidebar-body" id="sidebar-body">
+        <p class="text-muted text-sm" style="padding:12px;">Loading…</p>
+      </div>
+    </div>
+
+    <!-- Main: messages -->
+    <div class="pulse-main">
+      <div class="pulse-main-head" id="main-head">
+        <div class="pulse-empty-state" style="padding:0;flex-direction:row;">
+          <span>Select a channel or DM</span>
+        </div>
+      </div>
+      <div id="main-body" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex-direction:column;gap:8px;">
+        <div style="font-size:2rem;">💬</div>
+        <p>Select a channel to start messaging</p>
+      </div>
+      <div class="pulse-composer" id="composer" style="display:none;">
+        <textarea id="compose-text" placeholder="Message…" rows="1"
+          onkeydown="handleComposeSend(event)" oninput="autoResizeTextarea(this)"></textarea>
+        <button class="btn btn-primary pulse-send" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>window.NAV_CURRENT = 'pulse';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let myUserId = null, pulseBaseUrl = '';
+  let activeScope = null; // { type:'channel'|'dm', id, name }
+  let messages = [], sseSource = null;
+  let lastSenderId = null, lastDateLabel = null;
+
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+    myUserId = me.id;
+
+    const cfg = await apiFetch('/api/config');
+    pulseBaseUrl = (cfg.pulseUrl || '').replace(/\/$/, '');
+    if (!pulseBaseUrl) {
+      document.getElementById('sidebar-body').innerHTML = `<p class="text-muted text-sm" style="padding:12px;">Pulse not configured.</p>`;
+      return;
+    }
+
+    await renderSidebar();
+  }
+
+  async function renderSidebar() {
+    const [channels, dms] = await Promise.all([
+      satelliteApiFetch('pulse', '/api/pulse/channels').catch(() => []),
+      satelliteApiFetch('pulse', '/api/pulse/dms').catch(() => []),
+    ]);
+
+    let html = '';
+
+    if (channels.length) {
+      html += `<div class="pulse-section-label">Channels</div>`;
+      html += channels.map(ch => {
+        const unread = ch.unread > 0 ? `<span class="pulse-unread-dot">${ch.unread}</span>` : '';
+        const active = activeScope?.id === ch.id ? ' active' : '';
+        return `<div class="pulse-channel-row${active}" onclick="openChannel(${JSON.stringify(ch.id)}, ${JSON.stringify('#'+ch.slug)})">
+          <span class="pulse-channel-icon">#</span>
+          <span class="pulse-channel-name">${escHtml(ch.name || ch.slug)}</span>
+          ${unread}
+        </div>`;
+      }).join('');
+    }
+
+    if (dms.length) {
+      html += `<div class="pulse-section-label">Direct Messages</div>`;
+      html += dms.map(dm => {
+        const names = (dm.members||[]).filter(m => m.user_id !== myUserId).map(m => m.full_name || m.email || '?').join(', ') || 'Group DM';
+        const initial = names[0]?.toUpperCase() || '?';
+        const unread = dm.unread > 0 ? `<span class="pulse-unread-dot">${dm.unread}</span>` : '';
+        const active = activeScope?.id === dm.id ? ' active' : '';
+        return `<div class="pulse-channel-row${active}" onclick="openDm(${JSON.stringify(dm.id)}, ${JSON.stringify(names)})">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;">${escHtml(initial)}</div>
+          <span class="pulse-channel-name">${escHtml(names)}</span>
+          ${unread}
+        </div>`;
+      }).join('');
+    }
+
+    if (!html) html = `<p class="text-muted text-sm" style="padding:12px;">No channels yet.</p>`;
+    document.getElementById('sidebar-body').innerHTML = html;
+  }
+
+  async function openChannel(id, name) {
+    activeScope = { type:'channel', id, name };
+    await loadMessages({ channel_id: id }, name);
+    renderSidebar();
+  }
+
+  async function openDm(id, name) {
+    activeScope = { type:'dm', id, name };
+    await loadMessages({ dm_id: id }, name);
+    renderSidebar();
+  }
+
+  async function loadMessages(scope, name) {
+    // Update header
+    const connDot = `<span class="pulse-conn-dot" id="conn-dot"></span>`;
+    document.getElementById('main-head').innerHTML = `
+      <div class="ch-name">${escHtml(name)}</div>
+      ${connDot}`;
+
+    const bodyEl = document.getElementById('main-body');
+    bodyEl.innerHTML = `<div class="pulse-messages" id="messages"><p class="text-muted text-sm">Loading…</p></div>`;
+    bodyEl.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden;';
+
+    document.getElementById('composer').style.display = '';
+
+    // Fetch messages
+    try {
+      const qp = scope.channel_id ? `?channel_id=${scope.channel_id}` : `?dm_id=${scope.dm_id}`;
+      messages = await satelliteApiFetch('pulse', '/api/pulse/messages' + qp + '&limit=80');
+      renderMessages();
+    } catch(e) {
+      document.getElementById('messages').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+    }
+
+    // SSE
+    connectSSE(scope);
+  }
+
+  function renderMessages() {
+    const el = document.getElementById('messages');
+    if (!el) return;
+    lastSenderId = null; lastDateLabel = null;
+    if (!messages.length) { el.innerHTML = `<div class="pulse-empty-state"><div style="font-size:2rem">💬</div><p>No messages yet. Say hello!</p></div>`; return; }
+
+    let html = '';
+    for (const msg of messages) {
+      const dateLabel = new Date(msg.created_at).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+      if (dateLabel !== lastDateLabel) {
+        html += `<div class="pulse-date-div"><span>${escHtml(dateLabel)}</span></div>`;
+        lastDateLabel = dateLabel;
+        lastSenderId = null;
+      }
+      const compact = msg.sender_id === lastSenderId;
+      const time = new Date(msg.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      const initial = (msg.sender_name || msg.sender_email || '?')[0].toUpperCase();
+      const textHtml = msg.content_html || escHtml(msg.content || '').replace(/\n/g,'<br>');
+      html += `<div class="pulse-msg${compact?' compact':''}">
+        <div class="pulse-msg-avatar" style="background:${strColor(msg.sender_id)}">${escHtml(initial)}</div>
+        <div class="pulse-msg-body">
+          <div class="pulse-msg-meta">
+            <span class="pulse-msg-sender">${escHtml(msg.sender_name || msg.sender_email || 'Unknown')}</span>
+            <span class="pulse-msg-time">${time}</span>
+          </div>
+          <div class="pulse-msg-text">${textHtml}</div>
+        </div>
+      </div>`;
+      lastSenderId = msg.sender_id;
+    }
+    el.innerHTML = html;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function appendMessage(msg) {
+    const el = document.getElementById('messages');
+    if (!el) return;
+    // Remove empty state if present
+    const emptyState = el.querySelector('.pulse-empty-state');
+    if (emptyState) emptyState.remove();
+
+    const dateLabel = new Date(msg.created_at).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    let html = '';
+    if (dateLabel !== lastDateLabel) {
+      html += `<div class="pulse-date-div"><span>${escHtml(dateLabel)}</span></div>`;
+      lastDateLabel = dateLabel;
+      lastSenderId = null;
+    }
+    const compact = msg.sender_id === lastSenderId;
+    const time = new Date(msg.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    const initial = (msg.sender_name || msg.sender_email || '?')[0].toUpperCase();
+    const textHtml = msg.content_html || escHtml(msg.content || '').replace(/\n/g,'<br>');
+    html += `<div class="pulse-msg${compact?' compact':''}">
+      <div class="pulse-msg-avatar" style="background:${strColor(msg.sender_id)}">${escHtml(initial)}</div>
+      <div class="pulse-msg-body">
+        <div class="pulse-msg-meta">
+          <span class="pulse-msg-sender">${escHtml(msg.sender_name || msg.sender_email || 'Unknown')}</span>
+          <span class="pulse-msg-time">${time}</span>
+        </div>
+        <div class="pulse-msg-text">${textHtml}</div>
+      </div>
+    </div>`;
+    lastSenderId = msg.sender_id;
+    el.insertAdjacentHTML('beforeend', html);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function connectSSE(scope) {
+    if (sseSource) { try { sseSource.close(); } catch(e) {} sseSource = null; }
+    const token = getToken();
+    if (!token || !pulseBaseUrl) return;
+    const qp = scope.channel_id ? `channel_id=${scope.channel_id}` : `dm_id=${scope.dm_id}`;
+    const url = `${pulseBaseUrl}/api/pulse/stream?token=${encodeURIComponent(token)}&${qp}`;
+    sseSource = new EventSource(url);
+    const dot = document.getElementById('conn-dot');
+    sseSource.onopen = () => { if (dot) dot.classList.add('connected'); };
+    sseSource.onerror = () => { if (dot) dot.classList.remove('connected'); };
+    sseSource.onmessage = e => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'message' || data.type === 'new_message') {
+          messages.push(data.message || data);
+          appendMessage(data.message || data);
+        }
+      } catch(_) {}
+    };
+  }
+
+  async function sendMessage() {
+    if (!activeScope) return;
+    const textarea = document.getElementById('compose-text');
+    const text = textarea.value.trim();
+    if (!text) return;
+    textarea.value = '';
+    textarea.style.height = '';
+    const body = { content: text };
+    if (activeScope.type === 'channel') body.channel_id = activeScope.id;
+    else body.dm_id = activeScope.id;
+    try {
+      await satelliteApiFetch('pulse', '/api/pulse/messages', { method:'POST', body: JSON.stringify(body) });
+    } catch(e) {
+      showToast(e.message, 'error');
+      textarea.value = text;
+    }
+  }
+
+  function handleComposeSend(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+  function autoResizeTextarea(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  // Deterministic color from user ID string
+  function strColor(str) {
+    const COLORS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
+    let h = 0; for (let i = 0; i < (str||'').length; i++) h = ((h<<5)-h) + str.charCodeAt(i);
+    return COLORS[Math.abs(h) % COLORS.length];
+  }
+
+  init();
+</script>
+</body>
+</html>

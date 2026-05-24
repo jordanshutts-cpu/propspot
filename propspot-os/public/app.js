@@ -253,6 +253,60 @@ async function deletePropertyFile(fileId) {
 // directly from the property's GET /:id response (holdings_items field).
 async function getHoldingsSummary()      { return apiFetch('/api/holdings/summary'); }
 
+// ── Satellite API helper ────────────────────────────────────────────
+// Call any satellite API from an OS page. Looks up the satellite's base
+// URL from /api/config, then fetches with the current Bearer token.
+// Usage: await satelliteApiFetch('maintenance', '/api/work-orders')
+//        await satelliteApiFetch('holdings', '/api/holdings/items', { method:'POST', body: JSON.stringify(data) })
+async function satelliteApiFetch(slug, path, opts = {}) {
+  const cfg = await _loadNavConfig();
+  const urlMap = {
+    holdings:    cfg.holdingsUrl,
+    maintenance: cfg.maintenanceUrl,
+    fieldcam:    cfg.fieldcamUrl,
+    pulse:       cfg.pulseUrl,
+    inbox:       cfg.inboxUrl,
+  };
+  const base = urlMap[slug];
+  if (!base) throw new Error(`${slug} satellite URL not configured`);
+  const token = getToken();
+  const url = base.replace(/\/$/, '') + path;
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// Get the full URL for a satellite page (with SSO token).
+// Use for links that open a satellite detail page that doesn't yet have an OS equivalent.
+async function satellitePageUrl(slug, path = '/') {
+  const cfg = await _loadNavConfig();
+  const urlMap = {
+    holdings:    cfg.holdingsUrl,
+    maintenance: cfg.maintenanceUrl,
+    fieldcam:    cfg.fieldcamUrl,
+    pulse:       cfg.pulseUrl,
+    inbox:       cfg.inboxUrl,
+  };
+  const base = urlMap[slug];
+  if (!base) return '#';
+  const token = getToken();
+  const url = base.replace(/\/$/, '') + path;
+  if (!token) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return url + sep + 'token=' + encodeURIComponent(token);
+}
+
 // ── Unified satellite + OS nav wiring ──────────────────────────────
 // Each anchor with data-app="holdings|maintenance|fieldcam" gets wired
 // to that satellite's URL with the current SSO token appended. Each
@@ -458,19 +512,19 @@ function renderAppsRail() {
   const el = document.getElementById('apps-rail');
   if (!el) return;
   el.innerHTML = `
-    <a class="apps-rail-brand" href="/dashboard.html" data-osnav="dashboard" title="Prop Spot home">
+    <a class="apps-rail-brand" href="/dashboard.html" title="Prop Spot home">
       <img src="/logo.png" alt="Prop Spot">
     </a>
-    <a class="apps-rail-link" data-osnav="dashboard"  data-label="Home"         href="#">🏠</a>
-    <a class="apps-rail-link" data-app="holdings"     data-label="Holdings"     style="display:none;" href="#">💼</a>
-    <a class="apps-rail-link" data-app="maintenance"  data-label="Maintenance"  style="display:none;" href="#">🛠️</a>
-    <a class="apps-rail-link" data-app="fieldcam"     data-label="FieldCam"     style="display:none;" href="#">📸</a>
-    <a class="apps-rail-link" data-app="pulse"        data-label="Pulse"        style="display:none;" href="#">💬</a>
-    <a class="apps-rail-link" data-app="inbox"        data-label="Inbox"        style="display:none;" href="#">📧</a>
-    <a class="apps-rail-link apps-rail-link--active-check" data-osnav="underwriting" data-label="Underwriting" href="/underwriting.html">📊</a>
+    <a class="apps-rail-link" data-osnav="dashboard"     data-label="Home"         href="/dashboard.html">🏠</a>
+    <a class="apps-rail-link" data-osnav="holdings-desk" data-label="Holdings Desk" href="/holdings-desk.html">💼</a>
+    <a class="apps-rail-link" data-osnav="maintenance"   data-label="Maintenance"  href="/maintenance.html">🛠️</a>
+    <a class="apps-rail-link" data-osnav="fieldcam"      data-label="FieldCam"     href="/fieldcam.html">📸</a>
+    <a class="apps-rail-link" data-osnav="pulse"         data-label="Pulse"        href="/pulse.html">💬</a>
+    <a class="apps-rail-link" data-osnav="inbox"         data-label="Inbox"        href="/inbox.html">📧</a>
+    <a class="apps-rail-link" data-osnav="underwriting"  data-label="Underwriting" href="/underwriting.html">📊</a>
     <div class="apps-rail-spacer"></div>
   `;
-  // Wire data-app and data-osnav links via existing helper (fetches /api/config).
+  // Wire data-osnav links (sets active highlight).
   wireUnifiedNav();
 }
 

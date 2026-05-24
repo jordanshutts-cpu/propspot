@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — FieldCam</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
+  <style>
+    .fc-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:16px; }
+    .fc-tab  { padding:10px 16px; font-size:.88rem; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; font-weight:500; }
+    .fc-tab.active { color:var(--brand); border-bottom-color:var(--brand); font-weight:700; }
+    /* Property grid */
+    .prop-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+    .prop-tile { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer; text-decoration:none; color:var(--text); transition:box-shadow .12s; }
+    .prop-tile:hover { box-shadow:0 4px 16px rgba(0,0,0,.12); border-color:var(--brand); }
+    .prop-thumb { width:100%; height:130px; object-fit:cover; background:var(--border); display:block; }
+    .prop-thumb-placeholder { width:100%; height:130px; background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:2.5rem; color:var(--text-muted); }
+    .prop-info { padding:10px 12px; }
+    .prop-name { font-weight:700; font-size:.9rem; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .prop-addr { font-size:.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .prop-count { font-size:.72rem; color:var(--brand); font-weight:600; margin-top:4px; }
+    /* Recent photos grid */
+    .photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+    .photo-tile { position:relative; border-radius:8px; overflow:hidden; cursor:pointer; aspect-ratio:4/3; background:var(--border); }
+    .photo-tile img,.photo-tile video { width:100%; height:100%; object-fit:cover; display:block; }
+    .photo-caption { position:absolute; bottom:0; left:0; right:0; padding:6px 8px; background:linear-gradient(transparent,rgba(0,0,0,.65)); color:#fff; font-size:.72rem; line-height:1.3; }
+    /* Search */
+    .fc-search { margin-bottom:14px; }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="fc-tabs">
+    <span class="fc-tab active" data-tab="properties" onclick="switchTab('properties')">🏘️ Properties</span>
+    <span class="fc-tab" data-tab="recent" onclick="switchTab('recent')">🕐 Recent Photos</span>
+  </div>
+
+  <!-- Properties tab -->
+  <div id="tab-properties">
+    <div class="fc-search">
+      <input class="form-input" type="search" placeholder="Search properties…" oninput="filterProps(this.value)" id="prop-search">
+    </div>
+    <div class="prop-grid" id="prop-grid"><p class="text-muted text-sm">Loading…</p></div>
+  </div>
+
+  <!-- Recent photos tab -->
+  <div id="tab-recent" style="display:none;">
+    <div class="photo-grid" id="photo-grid"><p class="text-muted text-sm">Loading…</p></div>
+  </div>
+</main>
+
+<script>window.NAV_CURRENT = 'fieldcam';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  let allProps = [], recentPhotos = [], recentLoaded = false;
+
+  function switchTab(tab) {
+    document.querySelectorAll('.fc-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('tab-properties').style.display = tab === 'properties' ? '' : 'none';
+    document.getElementById('tab-recent').style.display     = tab === 'recent' ? '' : 'none';
+    if (tab === 'recent' && !recentLoaded) loadRecent();
+  }
+
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+    try {
+      allProps = await satelliteApiFetch('fieldcam', '/api/properties');
+      renderProps(allProps);
+    } catch (e) {
+      document.getElementById('prop-grid').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  function renderProps(list) {
+    const el = document.getElementById('prop-grid');
+    if (!list.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">🏘️</div><p>No properties yet.</p></div>`; return; }
+    el.innerHTML = list.map(p => {
+      const name = p.display_name || p.address_line1 || p.name || 'Property';
+      const addr = p.address || [p.address_line1, p.city, p.state].filter(Boolean).join(', ');
+      const thumb = p.latest_photo_url
+        ? `<img class="prop-thumb" src="${escHtml(p.latest_photo_url)}" alt="" loading="lazy">`
+        : `<div class="prop-thumb-placeholder">📷</div>`;
+      return `<div class="prop-tile" onclick="openProp('${p.id}')">
+        ${thumb}
+        <div class="prop-info">
+          <div class="prop-name" title="${escHtml(name)}">${escHtml(name)}</div>
+          <div class="prop-addr">${escHtml(addr)}</div>
+          ${p.photo_count != null ? `<div class="prop-count">📷 ${p.photo_count} photo${p.photo_count!==1?'s':''}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filterProps(q) {
+    q = (q||'').toLowerCase();
+    const filtered = q ? allProps.filter(p =>
+      [p.display_name,p.name,p.address_line1,p.address,p.city,p.state]
+        .filter(Boolean).join(' ').toLowerCase().includes(q)
+    ) : allProps;
+    renderProps(filtered);
+  }
+
+  async function loadRecent() {
+    recentLoaded = true;
+    const el = document.getElementById('photo-grid');
+    try {
+      recentPhotos = await satelliteApiFetch('fieldcam', '/api/photos/recent?limit=40');
+      if (!recentPhotos.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">📷</div><p>No photos yet.</p></div>`; return; }
+      el.innerHTML = recentPhotos.map(ph => {
+        const propLabel = ph.display_name || ph.address_line1 || '';
+        const isVideo = ph.media_type === 'video';
+        const media = isVideo
+          ? `<video src="${escHtml(ph.url)}" muted playsinline></video>`
+          : `<img src="${escHtml(ph.url)}" alt="" loading="lazy">`;
+        const taken = ph.taken_at ? new Date(ph.taken_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        return `<div class="photo-tile" onclick="openProp('${ph.property_id}')">
+          ${media}
+          <div class="photo-caption">${escHtml(propLabel)}${taken?' · '+taken:''}</div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      el.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  async function openProp(id) {
+    const url = await satellitePageUrl('fieldcam', '/property.html?id=' + id);
+    window.location.href = url;
+  }
+
+  init();
+</script>
+</body>
+</html>
