@@ -9,44 +9,138 @@
   <link rel="stylesheet" href="style.css">
   <script>document.documentElement.classList.add('page-loading');try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
-    /* ── Sub-header / back bar ── */
-    .fc-subheader { display:flex; align-items:center; gap:10px; padding:14px 20px 0; }
-    .fc-back { background:none; border:none; font-size:1.1rem; cursor:pointer; color:var(--text-muted); padding:4px 6px; border-radius:8px; }
-    .fc-back:hover { background:var(--bg); color:var(--text); }
-    .fc-prop-name { font-weight:700; font-size:1rem; }
-    .fc-prop-addr { font-size:.8rem; color:var(--text-muted); }
-    .fc-badge { margin-left:auto; background:var(--brand-light); color:var(--brand); border-radius:100px; font-size:.72rem; font-weight:700; padding:3px 10px; }
+    /* ── Hero card ─────────────────────────────────────────────── */
+    .fc-hero {
+      position: relative;
+      background: var(--surface);
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+      margin: 14px 20px 18px;
+      overflow: hidden;
+    }
+    .fc-hero-cover {
+      width: 100%; height: 160px;
+      background: linear-gradient(135deg, rgba(97,183,70,0.12) 0%, rgba(59,130,246,0.08) 100%);
+      background-size: cover; background-position: center;
+      position: relative;
+    }
+    .fc-hero-cover::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 100%);
+    }
+    .fc-hero-cover.has-photo { filter: saturate(0.92); }
+    .fc-hero-body { padding: 14px 22px 20px; position: relative; }
+    .fc-hero-back {
+      position: absolute; top: -132px; left: 14px; z-index: 2;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(4px);
+      border: 1px solid rgba(0,0,0,0.05);
+      padding: 6px 12px; border-radius: 8px;
+      font-size: .82rem; font-weight: 600; color: var(--text);
+      cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.08);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .fc-hero-back:hover { background: #fff; transform: translateY(-1px); transition: all .12s; }
+    .fc-hero-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); margin: 0 0 4px; }
+    .fc-hero-addr  { font-size: .9rem; color: var(--text-muted); margin-bottom: 16px; }
+    .fc-hero-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--bg);
+      border-radius: 10px;
+      margin-bottom: 4px;
+    }
+    .fc-stat { text-align: center; }
+    .fc-stat-num   { font-size: 1.25rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; line-height: 1.1; }
+    .fc-stat-label { font-size: .68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+    .fc-hero-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .fc-hero-actions .btn { padding: 7px 14px; font-size: .82rem; font-weight: 600; }
 
-    /* ── Folder tab bar ── */
-    .fc-tabs-wrap { overflow-x:auto; scrollbar-width:none; padding:14px 20px 0; }
-    .fc-tabs-wrap::-webkit-scrollbar { display:none; }
-    .fc-tabs { display:flex; gap:6px; flex-wrap:nowrap; width:max-content; }
-    .fc-tab { flex-shrink:0; padding:6px 14px; border-radius:100px; border:1.5px solid var(--border); background:var(--surface); color:var(--text-muted); font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .12s; }
-    .fc-tab:hover { border-color:var(--brand); color:var(--brand); }
-    .fc-tab.active { background:var(--brand); border-color:var(--brand); color:#fff; }
+    /* ── Folder tabs ───────────────────────────────────────────── */
+    .fc-tabs-wrap { overflow-x: auto; scrollbar-width: none; padding: 0 20px 12px; }
+    .fc-tabs-wrap::-webkit-scrollbar { display: none; }
+    .fc-tabs { display: flex; gap: 6px; flex-wrap: nowrap; width: max-content; }
+    .fc-tab {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 100px;
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text-muted); font-size: .8rem; font-weight: 600;
+      cursor: pointer; white-space: nowrap; transition: all .12s;
+    }
+    .fc-tab:hover { border-color: var(--brand); color: var(--brand); }
+    .fc-tab.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .fc-tab .fc-tab-count {
+      display: inline-block; margin-left: 4px;
+      font-size: .68rem; opacity: .75;
+    }
 
-    /* ── Photo grid ── */
-    .fc-grid-wrap { padding:14px 20px; }
-    .fc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
-    .fc-thumb { position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; cursor:pointer; background:var(--bg); }
-    .fc-thumb img, .fc-thumb video { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s; }
-    .fc-thumb:hover img, .fc-thumb:hover video { transform:scale(1.05); }
-    .fc-thumb-overlay { position:absolute; bottom:0; left:0; right:0; padding:5px 8px; background:linear-gradient(transparent,rgba(0,0,0,.65)); color:#fff; font-size:.68rem; line-height:1.3; }
-    .fc-video-badge { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.55); color:#fff; border-radius:6px; font-size:.65rem; padding:2px 6px; font-weight:600; }
+    /* ── Date sections ─────────────────────────────────────────── */
+    .fc-content { padding: 0 20px 24px; }
+    .fc-date-section { margin-bottom: 22px; }
+    .fc-date-head {
+      display: flex; align-items: baseline; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .fc-date-label {
+      font-size: .72rem; font-weight: 800; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+    .fc-date-count { font-size: .72rem; color: var(--text-muted); font-weight: 500; }
 
-    /* ── Lightbox ── */
-    .fc-lb { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.92); flex-direction:column; align-items:center; justify-content:center; }
-    .fc-lb.open { display:flex; }
-    .fc-lb-close { position:absolute; top:16px; right:16px; background:rgba(255,255,255,.15); border:none; color:#fff; font-size:1.3rem; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-    .fc-lb-close:hover { background:rgba(255,255,255,.25); }
-    .fc-lb-img { max-width:calc(100vw - 80px); max-height:calc(100vh - 160px); border-radius:8px; object-fit:contain; }
-    .fc-lb-video { max-width:calc(100vw - 80px); max-height:calc(100vh - 160px); border-radius:8px; }
-    .fc-lb-meta { color:rgba(255,255,255,.65); font-size:.8rem; margin-top:12px; text-align:center; }
-    .fc-lb-nav { position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,.15); border:none; color:#fff; font-size:1.8rem; width:44px; height:60px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-    .fc-lb-nav:hover { background:rgba(255,255,255,.25); }
-    .fc-lb-prev { left:12px; }
-    .fc-lb-next { right:12px; }
-    .fc-lb-nav.hidden { display:none; }
+    /* ── Photo grid ────────────────────────────────────────────── */
+    .fc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .fc-thumb {
+      position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden;
+      cursor: pointer; background: var(--bg);
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .fc-thumb:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0,0,0,.12);
+    }
+    .fc-thumb img, .fc-thumb video {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform .25s;
+    }
+    .fc-thumb:hover img, .fc-thumb:hover video { transform: scale(1.04); }
+    .fc-thumb-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 8px 10px;
+      background: linear-gradient(transparent, rgba(0,0,0,.78));
+      color: #fff; font-size: .7rem; line-height: 1.3;
+      opacity: 0; transition: opacity .15s;
+    }
+    .fc-thumb:hover .fc-thumb-overlay { opacity: 1; }
+    .fc-thumb-uploader { font-weight: 600; margin-top: 1px; opacity: .85; }
+    .fc-video-badge {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,.55); color: #fff;
+      border-radius: 6px; font-size: .65rem; padding: 2px 7px; font-weight: 600;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ── Lightbox ──────────────────────────────────────────────── */
+    .fc-lb { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.94); flex-direction: column; align-items: center; justify-content: center; }
+    .fc-lb.open { display: flex; }
+    .fc-lb-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.12); border: none; color: #fff; font-size: 1.3rem; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+    .fc-lb-close:hover { background: rgba(255,255,255,.22); }
+    .fc-lb-img   { max-width: calc(100vw - 80px); max-height: calc(100vh - 160px); border-radius: 10px; object-fit: contain; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+    .fc-lb-video { max-width: calc(100vw - 80px); max-height: calc(100vh - 160px); border-radius: 10px; }
+    .fc-lb-meta { color: rgba(255,255,255,.7); font-size: .82rem; margin-top: 14px; text-align: center; }
+    .fc-lb-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.12); border: none; color: #fff; font-size: 1.8rem; width: 44px; height: 60px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+    .fc-lb-nav:hover { background: rgba(255,255,255,.22); }
+    .fc-lb-prev { left: 12px; }
+    .fc-lb-next { right: 12px; }
+    .fc-lb-nav.hidden { display: none; }
+
+    .fc-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .fc-empty-icon { font-size: 3rem; opacity: .35; margin-bottom: 10px; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -55,24 +149,34 @@
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page" style="flex-direction:column;overflow-y:auto;">
-  <!-- Sub-header -->
-  <div class="fc-subheader">
-    <button class="fc-back" onclick="history.back()">‹ Back</button>
-    <div>
-      <div class="fc-prop-name" id="fc-prop-name">Loading…</div>
-      <div class="fc-prop-addr" id="fc-prop-addr"></div>
+
+  <!-- Hero -->
+  <section class="fc-hero">
+    <div class="fc-hero-cover" id="fc-hero-cover"></div>
+    <div class="fc-hero-body">
+      <button class="fc-hero-back" onclick="goBack()">← Back</button>
+      <h1 class="fc-hero-title" id="fc-prop-name">Loading…</h1>
+      <div class="fc-hero-addr" id="fc-prop-addr"></div>
+      <div class="fc-hero-stats" id="fc-stats">
+        <div class="fc-stat"><div class="fc-stat-num" id="stat-photos">—</div><div class="fc-stat-label">Photos</div></div>
+        <div class="fc-stat"><div class="fc-stat-num" id="stat-videos">—</div><div class="fc-stat-label">Videos</div></div>
+        <div class="fc-stat"><div class="fc-stat-num" id="stat-uploaders">—</div><div class="fc-stat-label">Contributors</div></div>
+        <div class="fc-stat"><div class="fc-stat-num" id="stat-last">—</div><div class="fc-stat-label">Last upload</div></div>
+      </div>
+      <div class="fc-hero-actions">
+        <a class="btn btn-secondary" id="fc-link-property" href="#" style="display:none;">View property page →</a>
+      </div>
     </div>
-    <span class="fc-badge" id="fc-badge"></span>
-  </div>
+  </section>
 
   <!-- Folder tabs -->
   <div class="fc-tabs-wrap">
     <div class="fc-tabs" id="fc-tabs"></div>
   </div>
 
-  <!-- Photo grid -->
-  <div class="fc-grid-wrap">
-    <div class="fc-grid" id="fc-grid"><p class="text-muted text-sm">Loading…</p></div>
+  <!-- Photo grid (grouped by date) -->
+  <div class="fc-content" id="fc-content">
+    <p class="text-muted text-sm" style="padding:14px 0;">Loading…</p>
   </div>
 </main>
 
@@ -94,10 +198,15 @@
   const PROP_ID = params.get('id');
   let allPhotos = [], folders = [], currentFolder = null, lbIdx = -1, lbPhotos = [];
 
+  function goBack() {
+    // Prefer the FieldCam map page if it's the referrer; else use history.
+    if (document.referrer && document.referrer.includes('/fieldcam.html')) history.back();
+    else location.href = '/fieldcam.html';
+  }
+
   async function init() {
     const me = await requireAuth(); if (!me) return;
     if (!PROP_ID) { location.href = '/fieldcam.html'; return; }
-    document.title = 'Prop Spot — Photos';
     await Promise.all([loadProp(), loadFolders()]);
     await loadPhotos();
   }
@@ -110,15 +219,23 @@
       document.getElementById('fc-prop-name').textContent = name;
       document.getElementById('fc-prop-addr').textContent = addr;
       document.title = 'Prop Spot — ' + name;
+      if (p.latest_photo_url) {
+        const cover = document.getElementById('fc-hero-cover');
+        cover.style.backgroundImage = `url('${p.latest_photo_url.replace(/'/g, '%27')}')`;
+        cover.classList.add('has-photo');
+      }
+      // Link to the full property page (in the OS, not FieldCam)
+      const link = document.getElementById('fc-link-property');
+      link.href = '/property.html?id=' + encodeURIComponent(PROP_ID);
+      link.style.display = '';
     } catch(e) {
       document.getElementById('fc-prop-name').textContent = 'Property';
     }
   }
 
   async function loadFolders() {
-    try {
-      folders = await satelliteApiFetch('fieldcam', '/api/folders/' + PROP_ID);
-    } catch { folders = []; }
+    try { folders = await satelliteApiFetch('fieldcam', '/api/folders/' + PROP_ID); }
+    catch { folders = []; }
   }
 
   async function loadPhotos() {
@@ -126,18 +243,37 @@
       const qs = currentFolder ? '?folder_id=' + currentFolder : '';
       allPhotos = await satelliteApiFetch('fieldcam', '/api/photos/' + PROP_ID + qs);
     } catch(e) {
-      document.getElementById('fc-grid').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+      document.getElementById('fc-content').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
       return;
     }
+    renderStats();
     renderTabs();
-    renderGrid();
+    renderGroupedGrid();
+  }
+
+  function renderStats() {
+    const photos = allPhotos.filter(p => p.media_type !== 'video');
+    const videos = allPhotos.filter(p => p.media_type === 'video');
+    const uploaders = new Set(allPhotos.map(p => p.uploader_name).filter(Boolean));
+    document.getElementById('stat-photos').textContent    = photos.length;
+    document.getElementById('stat-videos').textContent    = videos.length;
+    document.getElementById('stat-uploaders').textContent = uploaders.size;
+    // Last upload
+    const dates = allPhotos.map(p => p.taken_at).filter(Boolean).map(d => new Date(d).getTime());
+    if (dates.length) {
+      const max = new Date(Math.max(...dates));
+      document.getElementById('stat-last').textContent = max.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    } else {
+      document.getElementById('stat-last').textContent = '—';
+    }
   }
 
   function renderTabs() {
     const allCount = allPhotos.length;
-    let html = `<button class="fc-tab ${currentFolder===null?'active':''}" onclick="selectFolder(null)">All (${allCount})</button>`;
+    let html = `<button class="fc-tab ${currentFolder===null?'active':''}" onclick="selectFolder(null)">All<span class="fc-tab-count">${allCount}</span></button>`;
     folders.forEach(f => {
-      html += `<button class="fc-tab ${currentFolder===f.id?'active':''}" onclick="selectFolder('${f.id}')">${escHtml(f.name)}</button>`;
+      const c = f.photo_count != null ? `<span class="fc-tab-count">${f.photo_count}</span>` : '';
+      html += `<button class="fc-tab ${currentFolder===f.id?'active':''}" onclick="selectFolder('${f.id}')">${escHtml(f.name)}${c}</button>`;
     });
     document.getElementById('fc-tabs').innerHTML = html;
   }
@@ -147,29 +283,74 @@
     await loadPhotos();
   }
 
-  function renderGrid() {
-    const el = document.getElementById('fc-grid');
-    const badge = document.getElementById('fc-badge');
-    badge.textContent = allPhotos.length + ' photo' + (allPhotos.length !== 1 ? 's' : '');
+  function dayLabel(iso) {
+    if (!iso) return 'No date';
+    const d = new Date(iso);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate()-1);
+    const target = new Date(d); target.setHours(0,0,0,0);
+    if (target.getTime() === today.getTime())     return 'Today';
+    if (target.getTime() === yesterday.getTime()) return 'Yesterday';
+    const diffDays = (today - target) / (86400 * 1000);
+    if (diffDays < 7)  return d.toLocaleDateString('en-US', { weekday: 'long' });
+    if (diffDays < 365) return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+  function dayKey(iso) {
+    if (!iso) return 'none';
+    const d = new Date(iso);
+    return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  }
+
+  function renderGroupedGrid() {
+    const el = document.getElementById('fc-content');
     lbPhotos = [...allPhotos];
 
     if (!allPhotos.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📷</div><p>No photos yet${currentFolder ? ' in this folder' : ''}.</p></div>`;
+      el.innerHTML = `<div class="fc-empty"><div class="fc-empty-icon">📷</div><p>No photos yet${currentFolder ? ' in this folder' : ''}.</p></div>`;
       return;
     }
 
-    el.innerHTML = allPhotos.map((p, i) => {
-      const time = p.taken_at ? new Date(p.taken_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-      const uploader = p.uploader_name || '';
-      const isVideo = p.media_type === 'video';
-      const media = isVideo
-        ? `<video src="${escHtml(p.url)}" muted playsinline></video><span class="fc-video-badge">▶ Video</span>`
-        : `<img src="${escHtml(p.url)}" alt="" loading="lazy">`;
-      return `<div class="fc-thumb" onclick="openLb(${i})">
-        ${media}
-        <div class="fc-thumb-overlay">${escHtml(time)}${uploader?' · '+escHtml(uploader):''}</div>
-      </div>`;
-    }).join('');
+    // Group by day (sorted: most recent first). Preserves per-day ordering
+    // from the server (typically newest first within each day).
+    const groups = new Map();
+    allPhotos.forEach((p, i) => {
+      const k = dayKey(p.taken_at);
+      if (!groups.has(k)) groups.set(k, { label: dayLabel(p.taken_at), iso: p.taken_at, items: [] });
+      groups.get(k).items.push({ p, i });
+    });
+    // Sort groups by date desc (newest first; 'No date' goes last)
+    const sortedGroups = [...groups.values()].sort((a, b) => {
+      if (!a.iso) return 1;
+      if (!b.iso) return -1;
+      return new Date(b.iso) - new Date(a.iso);
+    });
+
+    el.innerHTML = sortedGroups.map(g => `
+      <div class="fc-date-section">
+        <div class="fc-date-head">
+          <span class="fc-date-label">${escHtml(g.label)}</span>
+          <span class="fc-date-count">${g.items.length} ${g.items.length === 1 ? 'item' : 'items'}</span>
+        </div>
+        <div class="fc-grid">${g.items.map(({ p, i }) => thumbHtml(p, i)).join('')}</div>
+      </div>
+    `).join('');
+  }
+
+  function thumbHtml(p, i) {
+    const time     = p.taken_at ? new Date(p.taken_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+    const uploader = p.uploader_name || '';
+    const isVideo  = p.media_type === 'video';
+    const media    = isVideo
+      ? `<video src="${escHtml(p.url)}" muted playsinline></video><span class="fc-video-badge">▶ Video</span>`
+      : `<img src="${escHtml(p.url)}" alt="" loading="lazy">`;
+    return `<div class="fc-thumb" onclick="openLb(${i})">
+      ${media}
+      <div class="fc-thumb-overlay">
+        ${time ? escHtml(time) : ''}
+        ${uploader ? `<div class="fc-thumb-uploader">${escHtml(uploader)}</div>` : ''}
+      </div>
+    </div>`;
   }
 
   // ── Lightbox ────────────────────────────────────────────────────
