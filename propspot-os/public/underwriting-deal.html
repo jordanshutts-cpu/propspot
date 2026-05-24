@@ -157,6 +157,82 @@
       border: 1px solid var(--border,#e5e7eb); border-radius: 4px; text-align: right;
     }
     .opex-tbl td select { font-size: .68rem; padding: 1px 2px; border: 1px solid var(--border,#e5e7eb); border-radius: 4px; }
+
+    /* ── Audit log button + modal ───────────────────────────────────────── */
+    .uw-audit-btn { background: #f1f5f9; color: var(--text,#111); border-color: #cbd5e1; }
+    .uw-audit-btn:hover { background: #e2e8f0; }
+
+    .audit-modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(15,23,42,0.5); z-index: 1000;
+      align-items: stretch; justify-content: flex-end;
+    }
+    .audit-modal-backdrop.open { display: flex; }
+    .audit-modal {
+      background: #fff; width: min(520px, 96vw); height: 100vh;
+      display: flex; flex-direction: column;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.18);
+      animation: audit-slide-in 0.18s ease-out;
+    }
+    @keyframes audit-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .audit-head {
+      padding: 16px 20px; border-bottom: 1px solid var(--border,#e5e7eb);
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .audit-head h2 { margin: 0; font-size: 1rem; font-weight: 700; flex: 1; }
+    .audit-head .audit-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.2rem; color: var(--text-muted,#6b7280); padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .audit-head .audit-close:hover { background: #f1f5f9; color: var(--text,#111); }
+    .audit-filters {
+      display: flex; gap: 6px; padding: 10px 20px;
+      border-bottom: 1px solid var(--border,#e5e7eb); background: #f9fafb;
+      flex-shrink: 0;
+    }
+    .audit-filter {
+      padding: 4px 10px; font-size: .76rem; font-weight: 500;
+      background: #fff; border: 1px solid var(--border,#e5e7eb);
+      border-radius: 6px; cursor: pointer; color: var(--text-muted,#6b7280);
+    }
+    .audit-filter.active {
+      background: var(--brand,#61B746); color: #fff; border-color: var(--brand,#61B746);
+    }
+    .audit-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .audit-empty { padding: 40px 20px; text-align: center; color: var(--text-muted,#6b7280); font-size: .85rem; }
+    .audit-entry {
+      padding: 12px 20px; border-bottom: 1px solid #f1f5f9;
+      font-size: .82rem;
+    }
+    .audit-entry:hover { background: #fafbfc; }
+    .audit-entry-meta {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+      font-size: .72rem; color: var(--text-muted,#6b7280);
+    }
+    .audit-entry-who { font-weight: 600; color: var(--text,#111); }
+    .audit-entry-kind {
+      padding: 1px 6px; border-radius: 4px; font-size: .65rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .03em;
+    }
+    .audit-entry-kind.pro-forma { background: #dbeafe; color: #1e40af; }
+    .audit-entry-kind.actual    { background: #dcfce7; color: #166534; }
+    .audit-entry-field { font-weight: 600; color: var(--text,#111); margin-bottom: 2px; }
+    .audit-entry-change { display: flex; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+    .audit-entry-old, .audit-entry-new {
+      padding: 1px 6px; border-radius: 4px; font-size: .78rem;
+      max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .audit-entry-old { background: #fee2e2; color: #991b1b; text-decoration: line-through; text-decoration-thickness: 1px; }
+    .audit-entry-new { background: #dcfce7; color: #166534; }
+    .audit-arrow { color: var(--text-muted,#9ca3af); font-size: .75rem; }
+    .audit-entry-day-divider {
+      padding: 14px 20px 6px; font-size: .68rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text-muted,#6b7280); background: #fff;
+      position: sticky; top: 0; z-index: 1;
+      border-bottom: 1px solid var(--border,#e5e7eb);
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -178,6 +254,7 @@
         <button class="uw-tab" id="tab-pro-forma" onclick="switchTab('initial_pro_forma')">Initial Pro Forma</button>
         <button class="uw-tab" id="tab-actual"    onclick="switchTab('actual_results')">Actual Results</button>
         <button class="uw-tab uw-revert-btn" id="revert-btn" onclick="revertToProForma()" style="display:none;">↩ Revert</button>
+        <button class="uw-tab uw-audit-btn" id="audit-btn" onclick="openAuditLog()" title="See every change made to this deal">📋 Audit Log</button>
       </div>
     </div>
 
@@ -404,6 +481,24 @@
   </details>
 
 </main>
+
+<!-- ── Audit Log Modal ───────────────────────────────────────── -->
+<div class="audit-modal-backdrop" id="audit-modal" onclick="if(event.target===this)closeAuditLog()">
+  <div class="audit-modal">
+    <div class="audit-head">
+      <h2>📋 Change History</h2>
+      <button class="audit-close" onclick="closeAuditLog()" title="Close">✕</button>
+    </div>
+    <div class="audit-filters">
+      <button class="audit-filter active" data-filter="all" onclick="filterAudit('all')">All Changes</button>
+      <button class="audit-filter" data-filter="initial_pro_forma" onclick="filterAudit('initial_pro_forma')">Pro Forma</button>
+      <button class="audit-filter" data-filter="actual_results" onclick="filterAudit('actual_results')">Actual Results</button>
+    </div>
+    <div class="audit-list" id="audit-list">
+      <div class="audit-empty">Loading…</div>
+    </div>
+  </div>
+</div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
@@ -1001,6 +1096,142 @@
       document.getElementById('deal-address-label').textContent = 'Error loading deal: ' + e.message;
     }
   }
+
+  // ============================================================
+  // Audit Log
+  // ============================================================
+  // Human-readable labels for the snapshot field keys. Anything not
+  // in this map falls back to a Title-Cased version of the key.
+  const FIELD_LABELS = {
+    bridgeARV: 'Bridge ARV', dscrARV: 'DSCR ARV',
+    purchasePrice: 'Purchase Price', renoBudget: 'Reno Budget',
+    rentOverride: 'Monthly Rent', uwRent: 'UW Rent',
+    annualPropertyTax: 'Property Tax (yr)', insuranceAnnual: 'Insurance (yr)',
+    usePML: 'Use PML', pmlAmount: 'PML Amount', pmlRate: 'PML Rate', pmlFees: 'PML Fees',
+    appreciationRate: 'Appreciation Rate', includeAppreciation: 'Include Appreciation',
+    sellAfterYears: 'Sell After (yrs)', vacancyRate: 'Vacancy Rate',
+    rentEscalation: 'Rent Escalation', monthlyRepairs: 'Monthly Repairs',
+    prepaidInterestDays: 'Prepaid Interest (days)', hoaMonths: 'HOA (mo)',
+    insuranceMonths: 'Insurance (mo)', propTaxMonths: 'Prop Tax (mo)',
+    useDwellaPM: 'Use Dwella PM', borrowMaxDSCR: 'Borrow Max DSCR',
+    riverstoneRate: 'Riverstone Rate', applyEscalations: 'Apply Escalations',
+    bridgeRate: 'Bridge Rate', maxLTV: 'Max LTV', maxLTC: 'Max LTC',
+    bridgeOrigPct: 'Bridge Orig %', bridgeOrigMin: 'Bridge Orig Min',
+    bridgeUWFee: 'Bridge UW Fee', bridgeClosingCosts: 'Bridge Closing Costs',
+    bridgePreClosingExpenses: 'Bridge Pre-Closing', bridgePostClosingExpenses: 'Bridge Post-Closing',
+    vacateDays: 'Vacate Days', listingRefiDays: 'Listing/Refi Days', closingDays: 'Closing Days',
+    utilityCostsMonthly: 'Utilities (mo)', bridgeInsuranceOverride: 'Bridge Insurance Override',
+    dispoCommissionPct: 'Dispo Commission %', dispoTransferTaxPct: 'Dispo Transfer Tax %',
+    dispoClosingCosts: 'Dispo Closing Costs',
+    dscrRate: 'DSCR Rate', dscrMaxLTV: 'DSCR Max LTV', dscrOriginationPct: 'DSCR Orig %',
+    dscrOrigMin: 'DSCR Orig Min', dscrUWFee: 'DSCR UW Fee', dscrClosingCosts: 'DSCR Closing Costs',
+    amortYears: 'Amort (yrs)', rentalOpEx: 'Rental Op-Ex'
+  };
+  function fieldLabel(key) {
+    if (FIELD_LABELS[key]) return FIELD_LABELS[key];
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()).trim();
+  }
+  function formatAuditValue(v) {
+    if (v === null || v === undefined || v === '') return '∅';
+    if (typeof v === 'boolean') return v ? 'on' : 'off';
+    if (typeof v === 'number') {
+      // Heuristic: small fractional values are rates → percent; everything else with commas
+      if (v > 0 && v < 1) return (v * 100).toFixed(2).replace(/\.?0+$/, '') + '%';
+      return v.toLocaleString('en-US');
+    }
+    if (typeof v === 'object') return JSON.stringify(v).slice(0, 60);
+    return String(v);
+  }
+  function auditTimeAgo(iso) {
+    const t = new Date(iso).getTime();
+    const diff = (Date.now() - t) / 1000;
+    if (diff < 60)       return 'just now';
+    if (diff < 3600)     return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400)    return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 86400*7)  return Math.floor(diff / 86400) + 'd ago';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  function auditDayLabel(iso) {
+    const d = new Date(iso);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    const target = new Date(d); target.setHours(0,0,0,0);
+    if (target.getTime() === today.getTime())     return 'Today';
+    if (target.getTime() === yesterday.getTime()) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: target.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+  }
+
+  let auditEntries = [];
+  let auditFilter = 'all';
+
+  async function openAuditLog() {
+    document.getElementById('audit-modal').classList.add('open');
+    const listEl = document.getElementById('audit-list');
+    listEl.innerHTML = '<div class="audit-empty">Loading…</div>';
+    try {
+      auditEntries = await apiFetch(`/api/underwriting/${dealId}/audit`);
+      renderAuditList();
+    } catch (err) {
+      listEl.innerHTML = `<div class="audit-empty">Failed to load: ${escHtml(err.message)}</div>`;
+    }
+  }
+  function closeAuditLog() {
+    document.getElementById('audit-modal').classList.remove('open');
+  }
+  function filterAudit(kind) {
+    auditFilter = kind;
+    document.querySelectorAll('.audit-filter').forEach(b => {
+      b.classList.toggle('active', b.dataset.filter === kind);
+    });
+    renderAuditList();
+  }
+  function renderAuditList() {
+    const listEl = document.getElementById('audit-list');
+    const visible = auditEntries.filter(e => auditFilter === 'all' || e.kind === auditFilter);
+    if (!visible.length) {
+      listEl.innerHTML = `<div class="audit-empty">No changes yet — edits to assumptions will appear here.</div>`;
+      return;
+    }
+    // Group by day and render
+    let html = '';
+    let lastDay = null;
+    for (const e of visible) {
+      const dayLabel = auditDayLabel(e.changed_at);
+      if (dayLabel !== lastDay) {
+        html += `<div class="audit-entry-day-divider">${escHtml(dayLabel)}</div>`;
+        lastDay = dayLabel;
+      }
+      const who = e.changed_by_name || 'Unknown';
+      const kindClass = e.kind === 'initial_pro_forma' ? 'pro-forma' : 'actual';
+      const kindLabel = e.kind === 'initial_pro_forma' ? 'Pro Forma' : 'Actual';
+      const oldVal = formatAuditValue(e.old_value);
+      const newVal = formatAuditValue(e.new_value);
+      html += `
+        <div class="audit-entry">
+          <div class="audit-entry-meta">
+            <span class="audit-entry-who">${escHtml(who)}</span>
+            <span>•</span>
+            <span class="audit-entry-kind ${kindClass}">${kindLabel}</span>
+            <span>•</span>
+            <span>${escHtml(auditTimeAgo(e.changed_at))}</span>
+          </div>
+          <div class="audit-entry-field">${escHtml(fieldLabel(e.field))}</div>
+          <div class="audit-entry-change">
+            <span class="audit-entry-old" title="${escHtml(JSON.stringify(e.old_value))}">${escHtml(oldVal)}</span>
+            <span class="audit-arrow">→</span>
+            <span class="audit-entry-new" title="${escHtml(JSON.stringify(e.new_value))}">${escHtml(newVal)}</span>
+          </div>
+        </div>
+      `;
+    }
+    listEl.innerHTML = html;
+  }
+  // Esc closes the panel
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('audit-modal').classList.contains('open')) {
+      closeAuditLog();
+    }
+  });
 
   init();
 </script>
