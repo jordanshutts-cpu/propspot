@@ -30,6 +30,15 @@ if (window.__newChromeEnabled()) {
   });
 }
 
+// ── Theme manager (premium / classic toggle) ─────────────────────
+// Always loaded — theme.js is non-destructive in classic mode.
+(function () {
+  const s = document.createElement('script');
+  s.src = '/theme.js';
+  s.async = false;
+  document.head.appendChild(s);
+})();
+
 // ── Auth Storage ────────────────────────────────────────────────────────
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t)      { localStorage.setItem(TOKEN_KEY, t); }

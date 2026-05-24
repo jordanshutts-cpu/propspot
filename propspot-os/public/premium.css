@@ -1,0 +1,464 @@
+/* ============================================================
+   Prop Spot — Premium Theme
+   Applied when html.theme-premium is set.
+   Never modifies layout — purely visual upgrades layered on top
+   of the existing os-newchrome chrome.
+   ============================================================ */
+
+/* ── Typography ─────────────────────────────────────────────── */
+html.theme-premium,
+html.theme-premium body {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system,
+               BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Surface & background ───────────────────────────────────── */
+html.theme-premium body { background: #f6f7f9; }
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+html.theme-premium #apps-rail,
+html.theme-premium .os-newchrome-sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e8eaed;
+}
+
+html.theme-premium .os-newchrome-workspace {
+  background: #fff;
+  border-bottom: 1px solid #e8eaed;
+}
+html.theme-premium .os-newchrome-workspace:hover { background: #f9fafb; }
+
+html.theme-premium .os-newchrome-workspace-logo {
+  border-radius: 8px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+html.theme-premium .os-newchrome-section-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #b0b7c3;
+  letter-spacing: 0.08em;
+  padding-top: 16px;
+}
+
+html.theme-premium .os-newchrome-row {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  gap: 8px;
+  transition: background 0.1s, color 0.1s;
+}
+html.theme-premium .os-newchrome-row:hover {
+  background: #f4f4f5;
+  color: #111827;
+}
+html.theme-premium .os-newchrome-row.active {
+  background: rgba(97, 183, 70, 0.09);
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+/* ── Nav icons — hide emoji, show SVG ───────────────────────── */
+html.theme-premium .os-newchrome-row-icon {
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 0;        /* hides emoji text */
+  flex-shrink: 0;
+}
+html.theme-premium .os-newchrome-row-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+html.theme-premium .os-newchrome-row.active .os-newchrome-row-icon { color: var(--brand); }
+html.theme-premium .os-newchrome-row:hover .os-newchrome-row-icon  { color: #374151; }
+
+/* ── Sidebar badges ─────────────────────────────────────────── */
+html.theme-premium .os-newchrome-badge {
+  font-size: 9.5px;
+  border-radius: 5px;
+}
+html.theme-premium .os-newchrome-badge.muted {
+  color: #b0b7c3;
+  font-weight: 500;
+}
+
+/* ── Pinned / recent property rows ──────────────────────────── */
+html.theme-premium .os-newchrome-property-row { font-size: 12.5px; }
+html.theme-premium .os-newchrome-property-sub { color: #9ca3af; }
+html.theme-premium .os-newchrome-all-link { color: #6b7280; font-size: 11.5px; }
+html.theme-premium .os-newchrome-all-link:hover { color: var(--brand-dark); }
+
+/* ── Top bar ─────────────────────────────────────────────────── */
+html.theme-premium #top-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e8eaed;
+}
+
+/* ── Search ──────────────────────────────────────────────────── */
+html.theme-premium .os-newchrome-search {
+  background: #f4f4f5;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  gap: 7px;
+}
+html.theme-premium .os-newchrome-search:focus-within {
+  background: #fff;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(97, 183, 70, 0.1);
+}
+html.theme-premium .os-newchrome-search input { font-size: 13px; }
+html.theme-premium .os-newchrome-search input::placeholder { color: #adb5bd; }
+html.theme-premium .os-newchrome-kbd {
+  font-size: 10px;
+  border-radius: 4px;
+  color: #adb5bd;
+  border-color: #e5e7eb;
+}
+
+/* Search icon — hide emoji */
+html.theme-premium .os-newchrome-search-icon {
+  font-size: 0;
+  width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+html.theme-premium .os-newchrome-search-icon svg { width: 13px; height: 13px; display: block; }
+
+/* ── Topbar icon buttons ─────────────────────────────────────── */
+html.theme-premium .os-newchrome-quick-create {
+  background: var(--brand);
+  border-radius: 7px;
+  width: 30px;
+  height: 30px;
+  box-shadow: 0 1px 3px rgba(97, 183, 70, 0.35);
+}
+html.theme-premium .os-newchrome-quick-create:hover {
+  background: var(--brand-dark);
+  box-shadow: 0 2px 6px rgba(97, 183, 70, 0.45);
+}
+
+html.theme-premium .os-newchrome-bell {
+  border-radius: 7px;
+  color: #4b5563;
+  font-size: 0;    /* hides bell emoji */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+html.theme-premium .os-newchrome-bell:hover { background: #f4f4f5; }
+html.theme-premium .os-newchrome-bell svg { width: 16px; height: 16px; color: #4b5563; }
+html.theme-premium .os-newchrome-bell .os-newchrome-bell-badge {
+  top: 3px; right: 3px;
+  font-size: 9px;
+}
+
+/* Theme toggle button */
+html.theme-premium #theme-toggle-btn {
+  color: var(--brand-dark);
+}
+html.theme-premium #theme-toggle-btn:hover {
+  background: rgba(97, 183, 70, 0.08);
+}
+
+html.theme-premium .os-newchrome-avatar {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  box-shadow: 0 0 0 2px rgba(97, 183, 70, 0.2);
+}
+
+/* ── Quick-create dropdown ───────────────────────────────────── */
+html.theme-premium .os-newchrome-qc-menu {
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.1);
+  border-color: #e8eaed;
+}
+html.theme-premium .os-newchrome-qc-item {
+  font-size: 13px;
+  border-radius: 6px;
+  color: #374151;
+}
+html.theme-premium .os-newchrome-qc-item:hover {
+  background: #f4f4f5;
+  color: #111827;
+}
+
+/* QC item icon spans — hide emoji, show SVG */
+html.theme-premium .os-newchrome-qc-item > span {
+  font-size: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+html.theme-premium .os-newchrome-qc-item:hover > span { color: #374151; }
+html.theme-premium .os-newchrome-qc-item > span svg { width: 14px; height: 14px; display: block; }
+
+/* ── Dashboard stage cards ───────────────────────────────────── */
+html.theme-premium .stage-card {
+  border: 1px solid #e8eaed;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 10px rgba(0,0,0,0.03);
+  border-radius: 10px;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+html.theme-premium .stage-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 8px 20px rgba(0,0,0,0.05);
+  transform: translateY(-1px);
+}
+
+/* Stage icon — hide emoji, show SVG */
+html.theme-premium .stage-icon {
+  font-size: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(97, 183, 70, 0.08);
+  border-radius: 8px;
+  color: var(--brand);
+  margin-bottom: 10px;
+}
+html.theme-premium .stage-icon svg { width: 18px; height: 18px; display: block; }
+
+html.theme-premium .stage-count {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.04em;
+}
+html.theme-premium .stage-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  margin-top: 3px;
+}
+
+/* ── App tiles ───────────────────────────────────────────────── */
+html.theme-premium .app-tile {
+  border: 1px solid #e8eaed;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border-radius: 10px;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+html.theme-premium .app-tile:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+/* App icon — hide emoji, show SVG */
+html.theme-premium .app-icon {
+  font-size: 0;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(97, 183, 70, 0.08);
+  border-radius: 10px;
+  color: var(--brand);
+}
+html.theme-premium .app-icon svg { width: 20px; height: 20px; display: block; }
+html.theme-premium .app-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #111827;
+}
+html.theme-premium .app-role {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #adb5bd;
+  margin-top: 3px;
+}
+
+/* ── Cards ───────────────────────────────────────────────────── */
+html.theme-premium .card {
+  border: 1px solid #e8eaed;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 10px rgba(0,0,0,0.03);
+  border-radius: 10px;
+}
+
+/* ── Section titles ──────────────────────────────────────────── */
+html.theme-premium .section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+html.theme-premium .btn {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: 8px;
+}
+html.theme-premium .btn-primary {
+  background: var(--brand);
+  box-shadow: 0 1px 3px rgba(97, 183, 70, 0.3);
+}
+html.theme-premium .btn-primary:hover {
+  background: var(--brand-dark);
+  box-shadow: 0 2px 6px rgba(97, 183, 70, 0.4);
+}
+html.theme-premium .btn-secondary {
+  border-color: #dde1e7;
+  color: #374151;
+}
+html.theme-premium .btn-secondary:hover { background: #f4f4f5; border-color: #c4c9d4; }
+
+/* ── Forms ───────────────────────────────────────────────────── */
+html.theme-premium .form-input,
+html.theme-premium .form-select,
+html.theme-premium .form-textarea {
+  border-color: #dde1e7;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #111827;
+}
+html.theme-premium .form-input:focus,
+html.theme-premium .form-select:focus,
+html.theme-premium .form-textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(97, 183, 70, 0.1);
+}
+html.theme-premium .form-label { font-weight: 600; color: #374151; font-size: 0.82rem; }
+
+/* ── Kanban ──────────────────────────────────────────────────── */
+html.theme-premium .kanban-col {
+  border-color: #e8eaed;
+  box-shadow: none;
+  border-radius: 10px;
+}
+html.theme-premium .kanban-col-head { background: #f9fafb; }
+html.theme-premium .kanban-card {
+  border-color: #e8eaed;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  border-radius: 8px;
+}
+html.theme-premium .kanban-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+html.theme-premium .kanban-title { font-weight: 700; font-size: 0.85rem; color: #374151; }
+
+/* ── DataTable ───────────────────────────────────────────────── */
+html.theme-premium .dt-wrap {
+  border: 1px solid #e8eaed;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border-radius: 10px;
+}
+html.theme-premium .dt-table thead th {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #9ca3af;
+  letter-spacing: 0.06em;
+  background: #f9fafb;
+}
+html.theme-premium .dt-table tbody tr:hover { background: #f9fafb; }
+
+/* ── Property cards ──────────────────────────────────────────── */
+html.theme-premium .property-card {
+  border: 1px solid #e8eaed;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border-radius: 10px;
+}
+html.theme-premium .property-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+html.theme-premium .property-name { font-weight: 700; color: #111827; }
+
+/* ── Login ───────────────────────────────────────────────────── */
+html.theme-premium .login-card {
+  border: 1px solid #e8eaed;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05), 0 16px 40px rgba(0,0,0,0.06);
+  border-radius: 14px;
+}
+html.theme-premium .login-logo { letter-spacing: -1.5px; }
+html.theme-premium .login-tagline { color: #9ca3af; }
+
+/* ── Activity ────────────────────────────────────────────────── */
+html.theme-premium .activity-dot {
+  background: var(--brand);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* ── Search results dropdown ─────────────────────────────────── */
+html.theme-premium .search-results,
+html.theme-premium .os-newchrome .search-results {
+  border-radius: 10px;
+  border-color: #e8eaed;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.1);
+}
+html.theme-premium .search-result:hover { background: #f4f4f5; color: #111827; }
+html.theme-premium .search-section-header { font-size: 0.65rem; letter-spacing: 0.07em; }
+
+/* ── Empty state ─────────────────────────────────────────────── */
+html.theme-premium .empty-state .empty-icon {
+  font-size: 2.5rem;
+  opacity: 0.4;
+}
+
+/* ── FAB ─────────────────────────────────────────────────────── */
+html.theme-premium .fab {
+  box-shadow: 0 4px 14px rgba(97, 183, 70, 0.45);
+}
+
+/* ── User menu ───────────────────────────────────────────────── */
+html.theme-premium .user-menu {
+  border-radius: 10px;
+  border-color: #e8eaed;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.1);
+}
+html.theme-premium .user-menu .user-name { font-weight: 700; }
+html.theme-premium .user-menu a:hover,
+html.theme-premium .user-menu button:hover { background: #f4f4f5; color: #111827; }
+
+/* ── Lifecycle stepper ───────────────────────────────────────── */
+html.theme-premium .os-newchrome-stepper {
+  border-color: #e8eaed;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border-radius: 10px;
+}
+html.theme-premium .os-newchrome-step-connector { background: #e8eaed; }
+html.theme-premium .os-newchrome-step-dot { border-color: #dde1e7; color: #adb5bd; }
+
+/* ── Badges ──────────────────────────────────────────────────── */
+html.theme-premium .badge { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.02em; }
+html.theme-premium .status-badge { font-weight: 600; font-size: 0.68rem; letter-spacing: 0.03em; }
+
+/* ── Notifications panel ─────────────────────────────────────── */
+html.theme-premium .os-newchrome-notif-panel {
+  border-radius: 10px;
+  border-color: #e8eaed;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.1);
+}
+
+/* ── Pin modal ───────────────────────────────────────────────── */
+html.theme-premium .os-newchrome-pin-modal {
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.08), 0 24px 60px rgba(0,0,0,0.12);
+}
