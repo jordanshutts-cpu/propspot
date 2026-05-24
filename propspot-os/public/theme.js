@@ -20,6 +20,32 @@
 
   var ICONS = {
     'inbox':          S('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'),
+    'paperclip':      S('<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.58 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'),
+    'trash':          S('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+    'archive':        S('<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>'),
+    'ban':            S('<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>'),
+    'moon':           S('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'),
+    'reply':          S('<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>'),
+    'forward':        S('<polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>'),
+    'pencil':         S('<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>'),
+    'link':           S('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
+    'rotate-ccw':     S('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>'),
+    'expand':         S('<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>'),
+    'x':              S('<line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>'),
+    'alarm-clock':    S('<circle cx="12" cy="13" r="8"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/><path d="m9 13 2 2 4-4"/>'),
+    'settings':       S('<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'),
+    'chevron-down':   S('<polyline points="6 9 12 15 18 9"/>'),
+    'chevron-right':  S('<polyline points="9 18 15 12 9 6"/>'),
+    'chevron-up':     S('<polyline points="18 15 12 9 6 15"/>'),
+    'plus':           S('<line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>'),
+    'arrow-down':     S('<line x1="12" x2="12" y1="5" y2="19"/><polyline points="19 12 12 19 5 12"/>'),
+    'arrow-right':    S('<line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/>'),
+    'image':          S('<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'),
+    'pin':            S('<line x1="12" x2="12" y1="17" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>'),
+    'eye':            S('<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>'),
+    'send':           S('<path d="M22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
+    'file-text':      S('<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/>'),
+    'list':           S('<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'),
     'mail':           S('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'),
     'target':         S('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'),
     'users':          S('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
@@ -101,6 +127,41 @@
     '\uD83D\uDC64': 'user',           // 👤
     '\uD83D\uDCC7': 'book-open',      // 📇
     '\uD83C\uDFDB\uFE0F': 'book-open',// 🏛️
+    // Satellite tools (inbox / pulse / underwriting / fieldcam)
+    '📬': 'inbox',          // 📬
+    '📨': 'mail',           // 📨
+    '📁': 'folder-open',    // 📁
+    '📎': 'paperclip',      // 📎
+    '🗑️': 'trash',    // trash with selector
+    '🗑': 'trash',          // trash no selector
+    '🚫': 'ban',            // ban
+    '😴': 'moon',           // sleeping face
+    '⏰':       'alarm-clock',    // alarm clock
+    '📩': 'arrow-down',     // envelope-with-arrow
+    '↩️': 'reply',          // reply with selector
+    '↩':       'reply',          // reply no selector
+    '↪️': 'forward',        // forward
+    '✏️': 'pencil',         // pencil with selector
+    '✏':       'pencil',         // pencil no selector
+    '🔗': 'link',           // link
+    '↻':       'rotate-ccw',     // rotate
+    '⤢':       'expand',         // NE-SW arrow
+    '✕':       'x',              // multiply
+    '✖':       'x',              // heavy multiply
+    '✖️': 'x',              // heavy multiply with selector
+    '⚙️': 'settings',       // gear with selector
+    '⚙':       'settings',       // gear no selector
+    '▾':       'chevron-down',   // small down triangle
+    '▸':       'chevron-right',  // small right triangle
+    '▴':       'chevron-up',     // small up triangle
+    '↓':       'arrow-down',     // down arrow
+    '→':       'arrow-right',    // right arrow
+    '📜': 'list',           // scroll
+    '📄': 'file-text',      // page facing up
+    '🖼️': 'image',    // framed picture
+    '📌': 'pin',            // round pushpin
+    '👁️': 'eye',      // eye
+    '📤': 'send',           // outbox tray
   };
 
   // ── State helpers ──────────────────────────────────────────
@@ -159,11 +220,30 @@
     el.innerHTML = icon;
   }
 
+  // Walk every leaf element under root and replace any element whose
+  // entire text content is a single recognized emoji. This is how we
+  // catch the dozens of emojis sprinkled through the satellite tools
+  // (inbox, pulse, underwriting) without needing to touch each HTML.
+  function scanForEmojiLeaves(root) {
+    if (!root || !root.querySelectorAll) return;
+    var SKIP_TAGS = { SCRIPT:1, STYLE:1, NOSCRIPT:1, IFRAME:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1 };
+    var els = root.querySelectorAll('span, button, a, div, h1, h2, h3, h4, h5, li, td, th');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (el.children.length > 0) continue;             // not a leaf
+      if (SKIP_TAGS[el.tagName]) continue;
+      if (el.dataset && el.dataset.premiumEmoji !== undefined) continue;
+      var t = (el.textContent || '').trim();
+      if (!t || t.length > 4) continue;
+      if (iconForEmoji(t)) replaceIconEl(el);
+    }
+  }
+
   function replaceEmojisIn(root) {
     if (!isPremium()) return;
     root = root || document;
 
-    // 1. Simple single-emoji containers
+    // 1. Simple single-emoji containers (fast path)
     var simpleSelectors = [
       '.stage-icon',
       '.app-icon',
@@ -178,7 +258,12 @@
     // 2. Quick-create menu item icon spans
     root.querySelectorAll('.os-newchrome-qc-item > span').forEach(replaceIconEl);
 
-    // 3. Bell button — has a text node + badge child; handle separately
+    // 3. Catch-all: any leaf element on the page whose text is an
+    // emoji we know about (covers inbox, pulse, fieldcam, maintenance,
+    // underwriting buttons/badges/etc.).
+    scanForEmojiLeaves(root === document ? document.body : root);
+
+    // 4. Bell button — has a text node + badge child; handle separately
     var bellBtn = root.querySelector ? root.querySelector('.os-newchrome-bell') : null;
     if (bellBtn) {
       // Avoid re-processing

@@ -15,7 +15,14 @@ html.theme-premium body {
 }
 
 /* ── Surface & background ───────────────────────────────────── */
-html.theme-premium body { background: #f6f7f9; }
+/* Subtle radial gradient gives the canvas warmth without being noisy. */
+html.theme-premium body {
+  background:
+    radial-gradient(1200px 800px at 0% 0%,   rgba(97,183,70,0.06)  0%, transparent 60%),
+    radial-gradient(1200px 800px at 100% 0%, rgba(59,130,246,0.04) 0%, transparent 55%),
+    #f7f8fa;
+  background-attachment: fixed;
+}
 
 /* ── Sidebar ────────────────────────────────────────────────── */
 html.theme-premium #apps-rail,
@@ -38,11 +45,27 @@ html.theme-premium .os-newchrome-workspace-logo {
 
 html.theme-premium .os-newchrome-section-label {
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: 800;
   color: #b0b7c3;
-  letter-spacing: 0.08em;
-  padding-top: 16px;
+  letter-spacing: 0.1em;
+  padding-top: 18px;
 }
+/* Color each section label and tint its row icons to add depth. */
+html.theme-premium .os-newchrome-section-label[data-section="for-you"]  { color: #61B746; }
+html.theme-premium .os-newchrome-section-label[data-section="pipeline"] { color: #3b82f6; }
+html.theme-premium .os-newchrome-section-label[data-section="tools"]    { color: #8b5cf6; }
+html.theme-premium .os-newchrome-section-label[data-section="soon"]     { color: #94a3b8; }
+html.theme-premium .os-newchrome-section-label[data-section="pinned"]   { color: #f59e0b; }
+html.theme-premium .os-newchrome-section-label[data-section="recent"]   { color: #06b6d4; }
+/* Tint the rows immediately following each label. Each block ends at the
+   next section label, so a sibling-combinator chain covers the run. */
+html.theme-premium .os-newchrome-section-label[data-section="for-you"]  ~ .os-newchrome-row .os-newchrome-row-icon { color: #61B746; }
+html.theme-premium .os-newchrome-section-label[data-section="pipeline"] ~ .os-newchrome-row .os-newchrome-row-icon { color: #3b82f6; }
+html.theme-premium .os-newchrome-section-label[data-section="tools"]    ~ .os-newchrome-row .os-newchrome-row-icon { color: #8b5cf6; }
+/* Re-mute icons that follow the next label (sibling chain runs forward
+   indefinitely, so each later label overrides the earlier one). */
+html.theme-premium .os-newchrome-section-label[data-section="pipeline"] ~ .os-newchrome-section-label ~ .os-newchrome-row .os-newchrome-row-icon { color: #8b5cf6; }
+html.theme-premium .os-newchrome-section-label[data-section="tools"]    ~ .os-newchrome-section-label ~ .os-newchrome-row .os-newchrome-row-icon { color: #94a3b8; }
 
 html.theme-premium .os-newchrome-row {
   padding: 5px 10px;
@@ -58,9 +81,10 @@ html.theme-premium .os-newchrome-row:hover {
   color: #111827;
 }
 html.theme-premium .os-newchrome-row.active {
-  background: rgba(97, 183, 70, 0.09);
+  background: linear-gradient(90deg, rgba(97,183,70,0.14), rgba(97,183,70,0.05));
   color: var(--brand-dark);
   font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--brand);
 }
 
 /* ── Nav icons — hide emoji, show SVG ───────────────────────── */
@@ -230,17 +254,48 @@ html.theme-premium .stage-card:hover {
 /* Stage icon — hide emoji, show SVG */
 html.theme-premium .stage-icon {
   font-size: 0;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(97, 183, 70, 0.08);
-  border-radius: 8px;
+  background: rgba(97, 183, 70, 0.10);
+  border-radius: 10px;
   color: var(--brand);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  transition: transform 0.15s ease;
 }
-html.theme-premium .stage-icon svg { width: 18px; height: 18px; display: block; }
+html.theme-premium .stage-card:hover .stage-icon { transform: scale(1.05); }
+html.theme-premium .stage-icon svg { width: 19px; height: 19px; display: block; }
+
+/* Each pipeline stage gets its own accent color so the dashboard pops. */
+html.theme-premium .pipeline-grid .stage-card:nth-child(1) .stage-icon { background: rgba(59,130,246,0.12);  color: #3b82f6; }   /* Prospects → blue */
+html.theme-premium .pipeline-grid .stage-card:nth-child(2) .stage-icon { background: rgba(168,85,247,0.12);  color: #a855f7; }   /* Leads → purple */
+html.theme-premium .pipeline-grid .stage-card:nth-child(3) .stage-icon { background: rgba(245,158,11,0.12);  color: #f59e0b; }   /* Opportunities → amber */
+html.theme-premium .pipeline-grid .stage-card:nth-child(4) .stage-icon { background: rgba(236,72,153,0.12);  color: #ec4899; }   /* Under Contract → pink */
+html.theme-premium .pipeline-grid .stage-card:nth-child(5) .stage-icon { background: rgba(20,184,166,0.12);  color: #14b8a6; }   /* Renovating → teal */
+html.theme-premium .pipeline-grid .stage-card:nth-child(6) .stage-icon { background: rgba(97,183,70,0.12);   color: var(--brand); } /* Listed/Rented → brand */
+
+/* Holdings desk cards — 4 distinct accents. */
+html.theme-premium #holdings-grid .stage-card:nth-child(1) .stage-icon { background: rgba(97,183,70,0.12);   color: var(--brand); } /* Monthly Carry */
+html.theme-premium #holdings-grid .stage-card:nth-child(2) .stage-icon { background: rgba(59,130,246,0.12);  color: #3b82f6; }      /* Due in 7d */
+html.theme-premium #holdings-grid .stage-card:nth-child(3) .stage-icon { background: rgba(239,68,68,0.12);   color: #ef4444; }      /* Overdue */
+html.theme-premium #holdings-grid .stage-card:nth-child(4) .stage-icon { background: rgba(100,116,139,0.12); color: #64748b; }      /* Active */
+
+/* Card hover gets a brand-tinted glow instead of plain shadow. */
+html.theme-premium .stage-card {
+  position: relative;
+  overflow: hidden;
+}
+html.theme-premium .stage-card::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 60%, rgba(97,183,70,0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+html.theme-premium .stage-card:hover::after { opacity: 1; }
 
 html.theme-premium .stage-count {
   font-size: 1.75rem;
@@ -317,13 +372,16 @@ html.theme-premium .btn {
   border-radius: 8px;
 }
 html.theme-premium .btn-primary {
-  background: var(--brand);
-  box-shadow: 0 1px 3px rgba(97, 183, 70, 0.3);
+  background: linear-gradient(180deg, #6cc051 0%, var(--brand) 100%);
+  box-shadow: 0 1px 2px rgba(97, 183, 70, 0.25), 0 3px 8px rgba(97, 183, 70, 0.2);
+  border: none;
 }
 html.theme-premium .btn-primary:hover {
-  background: var(--brand-dark);
-  box-shadow: 0 2px 6px rgba(97, 183, 70, 0.4);
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-dark) 100%);
+  box-shadow: 0 2px 4px rgba(97, 183, 70, 0.35), 0 6px 14px rgba(97, 183, 70, 0.3);
+  transform: translateY(-1px);
 }
+html.theme-premium .btn-primary:active { transform: translateY(0); }
 html.theme-premium .btn-secondary {
   border-color: #dde1e7;
   color: #374151;

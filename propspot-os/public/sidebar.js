@@ -183,7 +183,8 @@
 
   // ── Section/row builders ────────────────────────────────────────
   function sectionLabel(text) {
-    return `<div class="os-newchrome-section-label">${text}</div>`;
+    var slug = text.toLowerCase().replace(/\s+/g, '-');
+    return `<div class="os-newchrome-section-label" data-section="${slug}">${text}</div>`;
   }
 
   function row({ icon, label, href = '#', osnav, app, appPath, badge, badgeClass = '', soon = false }) {
