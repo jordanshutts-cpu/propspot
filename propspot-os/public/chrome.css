@@ -188,6 +188,8 @@ body.os-newchrome .page {
   font-size: 13px;
   color: #1f2937;
 }
+/* Workspace row doubles as the Home button — clicking it navigates
+   to /dashboard.html. The chevron is no longer rendered. */
 .os-newchrome-workspace {
   display: flex;
   align-items: center;
@@ -199,8 +201,28 @@ body.os-newchrome .page {
   user-select: none;
   background: #fff;
   flex-shrink: 0;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  transition: background 0.12s ease;
 }
 .os-newchrome-workspace:hover { background: #f9fafb; }
+/* Active state when on the dashboard — slim brand accent on the left
+   edge, subtle brand-tinted background. Matches the pill treatment
+   used by nav rows but adapted for the larger workspace tile. */
+.os-newchrome-workspace.active {
+  background: linear-gradient(90deg, rgba(97,183,70,0.08), transparent 80%);
+}
+.os-newchrome-workspace.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 28px;
+  background: var(--brand);
+  border-radius: 0 3px 3px 0;
+}
 .os-newchrome-workspace-logo {
   width: 28px;
   height: 28px;

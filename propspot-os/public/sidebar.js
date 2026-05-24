@@ -465,9 +465,10 @@
   // ── Sidebar HTML cache (sessionStorage) ────────────────────────
   // Stores the last rendered sidebar HTML so it can be shown instantly
   // on the next page load instead of waiting for async data fetches.
-  // Bumped to v2 so the brand-bar + collapse-button shipping in this
-  // release doesn't get masked by stale v1 cache from old sessions.
-  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v2';
+  // Bumped to v3 — workspace tile is now the Home button (anchor +
+  // chevron removed + Home row removed). Old v2 cache would briefly
+  // re-show the old structure before fresh render replaces it.
+  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v3';
 
   function saveSidebarCache(html) {
     try { sessionStorage.setItem(SIDEBAR_CACHE_KEY, html); } catch (e) {}
@@ -539,18 +540,18 @@
           </button>
         </div>
 
-        <div class="os-newchrome-workspace">
+        <a class="os-newchrome-workspace ${window.NAV_CURRENT === 'dashboard' ? 'active' : ''}"
+           href="/dashboard.html"
+           data-osnav="dashboard"
+           title="Restoration Homes · Home">
           <div class="os-newchrome-workspace-logo">R</div>
           <div class="os-newchrome-workspace-text">
             <div class="os-newchrome-workspace-name">Restoration Homes</div>
             <div class="os-newchrome-workspace-user">${escHtml(user.full_name || user.email || 'Signed in')}</div>
           </div>
-          <span class="os-newchrome-workspace-chev">▾</span>
-        </div>
+        </a>
 
         <div class="os-newchrome-sidebar-scroll">
-
-          ${row({ icon: '🏠', label: 'Home', osnav: 'dashboard', href: '/dashboard.html' })}
 
           ${sectionLabel('For you')}
           ${row({ icon: '📧', label: 'Inbox',    app: 'inbox',    badge: counts.inbox })}
