@@ -5,7 +5,7 @@ const path    = require('path');
 
 const app = express();
 
-app.use(cors({ origin: process.env.APP_URL || '*', credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 // Compose/reply send attachments inline as base64 (so we don't need
 // multer + multipart upload). Gmail's per-message limit is 25MB; with
 // base64 inflation we cap the JSON body at 35MB to stay under that
