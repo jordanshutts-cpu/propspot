@@ -151,7 +151,12 @@ window.__newChromeEnabled = function () {
   } catch (e) {}
   return false;
 };
-if (window.__newChromeEnabled()) {
+// Skip chrome loading on unauthenticated pages (login, reset-password,
+// accept-invite) — sidebar.js/topbar.js call ensurePlaceholders() which
+// would manufacture chrome elements onto those pages and dump the cached
+// sidebar HTML on top of the login form. Auth gates use !getToken() as
+// the signal because token presence is the universal authenticated marker.
+if (window.__newChromeEnabled() && localStorage.getItem(TOKEN_KEY)) {
   // Persist the flag so navigating within the workspace keeps it on.
   try { localStorage.setItem('propspot_newchrome', '1'); } catch (e) {}
   // Apply os-newchrome to body immediately (synchronously, before sidebar.js
@@ -300,7 +305,13 @@ async function requireAuth() {
   }
 }
 
-async function signOut() { clearToken(); window.location.href = '/index.html'; }
+async function signOut() {
+  clearToken();
+  // Drop the cached sidebar HTML so a different user signing in next
+  // doesn't briefly see the previous user's pinned/recent properties.
+  try { sessionStorage.removeItem('propspot_sidebar_cache'); } catch (e) {}
+  window.location.href = '/index.html';
+}
 
 function toggleSidebar() {
   const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
