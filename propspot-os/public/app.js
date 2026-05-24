@@ -27,9 +27,13 @@
     div.id = 'os-page-loader';
     div.className = 'os-page-loader';
     div.innerHTML =
+      '<div class="os-page-loader-bar" aria-hidden="true"></div>' +
       '<div class="os-page-loader-stack">' +
         '<div class="os-page-loader-logo" role="img" aria-label="Prop Spot"></div>' +
         '<div class="os-page-loader-wordmark">Prop Spot</div>' +
+        '<div class="os-page-loader-dots" aria-hidden="true">' +
+          '<span></span><span></span><span></span>' +
+        '</div>' +
       '</div>';
     (document.body || document.documentElement).appendChild(div);
   }

@@ -43,6 +43,49 @@ html.page-loading .os-page-loader,
   pointer-events: all;
   transition: opacity 0.1s ease-out;
 }
+/* Slim brand-colored progress bar at the very top of the loader.
+   Indeterminate sliding gradient gives a continuous 'work happening'
+   signal — same pattern as Vercel / GitHub / Linear. */
+.os-page-loader-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: rgba(97,183,70,0.10);
+  overflow: hidden;
+}
+.os-page-loader-bar::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 40%;
+  background: linear-gradient(90deg,
+    rgba(97,183,70,0)   0%,
+    rgba(97,183,70,0.6) 40%,
+    #61B746             50%,
+    rgba(97,183,70,0.6) 60%,
+    rgba(97,183,70,0)   100%);
+  animation: os-loader-bar-slide 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes os-loader-bar-slide {
+  0%   { left: -45%; }
+  100% { left: 100%; }
+}
+/* Three tiny dots beneath the wordmark — quietly animate to reinforce
+   that something is in motion. */
+.os-page-loader-dots {
+  display: flex; gap: 6px; margin-top: 4px;
+}
+.os-page-loader-dots span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(97,183,70,0.4);
+  animation: os-loader-dot 1.2s ease-in-out infinite;
+}
+.os-page-loader-dots span:nth-child(2) { animation-delay: 0.15s; }
+.os-page-loader-dots span:nth-child(3) { animation-delay: 0.30s; }
+@keyframes os-loader-dot {
+  0%, 80%, 100% { background: rgba(97,183,70,0.25); transform: scale(0.85); }
+  40%           { background: #61B746;              transform: scale(1.1);  }
+}
+
 .os-page-loader-stack {
   display: flex; flex-direction: column; align-items: center;
   gap: 20px; position: relative;
@@ -86,8 +129,12 @@ html.page-loading .os-page-loader,
 }
 @media (prefers-reduced-motion: reduce) {
   .os-page-loader-logo,
-  .os-page-loader-logo::before { animation: none; }
+  .os-page-loader-logo::before,
+  .os-page-loader-bar::before,
+  .os-page-loader-dots span { animation: none; }
   .os-page-loader-logo::before { opacity: 0.5; transform: scale(1); }
+  .os-page-loader-bar::before  { width: 100%; left: 0; opacity: 0.6; }
+  .os-page-loader-dots span    { background: rgba(97,183,70,0.4); }
   main { transition: none; }
 }
 
