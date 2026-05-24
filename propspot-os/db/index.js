@@ -97,15 +97,15 @@ async function initDb() {
     );
   }
 
-  // Hardcoded owner promotion (idempotent). This guarantees the founding
-  // account always has owner+admin even when BOOTSTRAP_OWNER_EMAIL is unset
+  // Hardcoded owner promotions (idempotent). Guarantees the founding
+  // accounts always have owner+admin even when BOOTSTRAP_OWNER_EMAIL is unset
   // in Railway. The UPDATE is a no-op once both columns already match.
   await pool.query(
     `UPDATE users
         SET is_owner = TRUE, role = 'admin'
-      WHERE LOWER(email) = $1
+      WHERE LOWER(email) = ANY($1::text[])
         AND (is_owner = FALSE OR role IS DISTINCT FROM 'admin')`,
-    ['ejslipakoff@gmail.com']
+    [['ejslipakoff@gmail.com', 'jordan@sellrh.com']]
   );
 
   console.log('Database schema + seed ready');
