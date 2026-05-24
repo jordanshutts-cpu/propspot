@@ -304,18 +304,25 @@
     });
   }
 
-  // Sticky chip injected at the top of the main content area.
+  // Floating chip pinned just below the top-header. We render it
+  // straight into <body> (not into <main>) and rely on position: fixed
+  // CSS — this avoids getting trapped inside page-specific flex
+  // layouts (inbox / pulse three-column views) that swallowed the
+  // chip as a side column.
   function renderScopeChip() {
     let chipHost = document.getElementById('os-newchrome-scope-chip-host');
     if (!chipHost) {
       chipHost = document.createElement('div');
       chipHost.id = 'os-newchrome-scope-chip-host';
-      // Insert at the very top of <main> if present, else <body>.
-      const main = document.querySelector('main, #page, .page') || document.body;
-      main.insertBefore(chipHost, main.firstChild);
+      document.body.appendChild(chipHost);
     }
     const meta = getScopedPropertyMeta();
-    if (!meta) { chipHost.innerHTML = ''; return; }
+    if (!meta) {
+      chipHost.innerHTML = '';
+      document.body.classList.remove('has-scope-chip');
+      return;
+    }
+    document.body.classList.add('has-scope-chip');
     chipHost.innerHTML = `
       <div class="os-newchrome-scope-chip" role="status">
         <span class="os-newchrome-scope-chip-dot"></span>
