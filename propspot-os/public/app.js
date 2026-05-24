@@ -26,7 +26,7 @@
     const div = document.createElement('div');
     div.id = 'os-page-loader';
     div.className = 'os-page-loader';
-    div.innerHTML = '<div class="os-page-loader-spinner"></div>';
+    div.innerHTML = '<div class="os-page-loader-logo" role="img" aria-label="Prop Spot"></div>';
     (document.body || document.documentElement).appendChild(div);
   }
   function show() {
@@ -74,16 +74,16 @@
 
   // ── Content-ready signal via fetch tracking ─────────────────
   // Wrap fetch to count pending requests. When the count drops to 0
-  // (and stays there briefly), mark 'content' ready. If no fetches
-  // happen at all within 300ms of script load, mark anyway so static
-  // pages still drop the curtain.
+  // (with a tiny settle window), mark 'content' ready. Static-page
+  // fallback fires earlier so pages that issue no fetches don't pay
+  // an extra wait.
   let pendingFetches = 0;
   let settleTimer = null;
   function scheduleSettle() {
     clearTimeout(settleTimer);
     settleTimer = setTimeout(() => {
       if (pendingFetches === 0) window.__markChromeReady('content');
-    }, 80);
+    }, 40);
   }
   if (typeof window.fetch === 'function') {
     const origFetch = window.fetch.bind(window);
@@ -101,12 +101,12 @@
       return p;
     };
   }
-  // Static-page fallback: if no fetches were issued, settle anyway.
-  setTimeout(() => { if (pendingFetches === 0) scheduleSettle(); }, 300);
+  // Static-page fallback: if no fetches were issued, settle quickly.
+  setTimeout(() => { if (pendingFetches === 0) scheduleSettle(); }, 150);
 
   // Hard fallback: never strand the page behind the loader, even if
   // a fetch hangs forever (SSE, long-poll, broken endpoint).
-  setTimeout(() => { ready.add('content'); ready.add('sidebar'); ready.add('topbar'); ready.add('legacy'); maybeHide(); }, 1500);
+  setTimeout(() => { ready.add('content'); ready.add('sidebar'); ready.add('topbar'); ready.add('legacy'); maybeHide(); }, 800);
 
   // Same-origin link clicks → mask the OUTGOING navigation
   document.addEventListener('click', (e) => {

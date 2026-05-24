@@ -3,55 +3,60 @@
    ============================================================ */
 
 /* ── Page transition loader ────────────────────────────────────
-   Covers the page until JS-rendered chrome (sidebar/topbar) is in
-   place AND in-flight content fetches resolve, smoothing the
-   flash-of-unstyled-content when navigating between OS pages.
-
-   Activated by html.page-loading (set inline in each page's <head>);
-   app.js removes the class once sidebar.js + topbar.js signal ready.
+   Covers the page content (NOT the chrome — sidebar/topbar stay
+   visible) until JS-rendered chrome AND in-flight content fetches
+   resolve. Activated by html.page-loading (set inline in each page's
+   <head>); app.js removes the class once parts signal ready.
    Re-shown on internal link clicks for outgoing transitions.
 
-   The body itself is HIDDEN while page-loading so half-rendered
-   placeholders ('Loading…', empty rows, raw JSON spans) never peek
-   through during the loader's fade. Body then crossfades in as the
-   loader snaps out. */
-html.page-loading body {
+   Only <main> (the page body) is hidden during loading — the
+   sidebar/topbar stay in place so the navigation never feels blank.
+   A semi-transparent backdrop with the PropSpot logo gently pulses
+   in the center. */
+html.page-loading main {
   opacity: 0 !important;
 }
-body {
+main {
   opacity: 1;
-  transition: opacity 0.18s ease-in;
+  transition: opacity 0.14s ease-in;
 }
 .os-page-loader {
   position: fixed; inset: 0;
-  background: #f4f5f7;
+  background: rgba(244,245,247,0.92);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: 99999;
   display: flex; align-items: center; justify-content: center;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  /* Snap-out: zero-duration opacity, visibility delayed by the body
-     fade-in so the loader doesn't disappear until the body is on. */
-  transition: opacity 0s 0.18s, visibility 0s 0.18s linear;
+  /* Snap-out: zero-duration opacity, visibility delayed slightly past
+     the main fade-in so the logo stays visible until content is up. */
+  transition: opacity 0s 0.14s, visibility 0s 0.14s linear;
 }
 html.page-loading .os-page-loader,
 .os-page-loader.show {
   opacity: 1;
   visibility: visible;
   pointer-events: all;
-  transition: none;
+  transition: opacity 0.08s ease-out;
 }
-.os-page-loader-spinner {
-  width: 30px; height: 30px;
-  border: 2.5px solid rgba(0,0,0,0.07);
-  border-top-color: #61B746;
-  border-radius: 50%;
-  animation: os-page-loader-spin 0.7s linear infinite;
+.os-page-loader-logo {
+  width: 64px; height: 64px;
+  background-image: url('/logo.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: os-loader-breathe 1.4s ease-in-out infinite;
+  filter: drop-shadow(0 2px 8px rgba(97,183,70,0.25));
 }
-@keyframes os-page-loader-spin { to { transform: rotate(360deg); } }
+@keyframes os-loader-breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.85; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .os-page-loader-spinner { animation: none; border-top-color: rgba(0,0,0,0.2); }
-  body { transition: none; }
+  .os-page-loader-logo { animation: none; opacity: 0.9; }
+  main { transition: none; }
 }
 
 :root {
