@@ -14,7 +14,10 @@
 // can't strand the page behind a permanent spinner.
 (function setupPageLoader() {
   const useNewChrome = !!(window.__newChromeEnabled && window.__newChromeEnabled());
-  const requiredParts = useNewChrome ? ['sidebar', 'topbar'] : ['legacy'];
+  // 'content' is signalled when in-flight fetches settle (or after a
+  // fallback timer). Pairs with chrome readiness so the loader only
+  // drops when both the chrome AND the page body are rendered.
+  const requiredParts = useNewChrome ? ['sidebar', 'topbar', 'content'] : ['legacy', 'content'];
   const ready = new Set();
   let hidden = false;
 
@@ -69,8 +72,41 @@
     }
   }
 
-  // Hard fallback: never strand the page behind the loader.
-  setTimeout(hide, 1200);
+  // ── Content-ready signal via fetch tracking ─────────────────
+  // Wrap fetch to count pending requests. When the count drops to 0
+  // (and stays there briefly), mark 'content' ready. If no fetches
+  // happen at all within 300ms of script load, mark anyway so static
+  // pages still drop the curtain.
+  let pendingFetches = 0;
+  let settleTimer = null;
+  function scheduleSettle() {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      if (pendingFetches === 0) window.__markChromeReady('content');
+    }, 80);
+  }
+  if (typeof window.fetch === 'function') {
+    const origFetch = window.fetch.bind(window);
+    window.fetch = function (...args) {
+      pendingFetches++;
+      clearTimeout(settleTimer);
+      const onDone = () => {
+        pendingFetches = Math.max(0, pendingFetches - 1);
+        if (pendingFetches === 0) scheduleSettle();
+      };
+      let p;
+      try { p = origFetch(...args); }
+      catch (e) { onDone(); throw e; }
+      p.then(onDone, onDone);
+      return p;
+    };
+  }
+  // Static-page fallback: if no fetches were issued, settle anyway.
+  setTimeout(() => { if (pendingFetches === 0) scheduleSettle(); }, 300);
+
+  // Hard fallback: never strand the page behind the loader, even if
+  // a fetch hangs forever (SSE, long-poll, broken endpoint).
+  setTimeout(() => { ready.add('content'); ready.add('sidebar'); ready.add('topbar'); ready.add('legacy'); maybeHide(); }, 1500);
 
   // Same-origin link clicks → mask the OUTGOING navigation
   document.addEventListener('click', (e) => {
