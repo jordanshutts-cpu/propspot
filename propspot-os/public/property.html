@@ -223,9 +223,9 @@
       <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>
     </div>`;
 
-    html += `<div class="stage-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:20px;">
-      <button class="btn btn-danger btn-full" onclick="deleteThisProperty()">🗑️ Delete Property</button>
-      <p class="text-muted text-xs" style="text-align:center;margin-top:8px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
+    html += `<div class="stage-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <button class="btn btn-danger" style="padding:6px 14px;font-size:.8rem;" onclick="deleteThisProperty()">🗑️ Delete Property</button>
+      <p class="text-muted text-xs" style="text-align:center;margin:0;max-width:560px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
     </div>`;
 
     document.getElementById('page').innerHTML = html;
