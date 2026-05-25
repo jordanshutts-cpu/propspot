@@ -306,9 +306,87 @@
     if (e.key === 'Escape' && document.body.classList.contains('mobile-rail-open')) closeMobileRail();
   });
 
+  // ── Edge-swipe to open the drawer ────────────────────────────────
+  // Touch from the left ~22px of the screen, drag right > 60px → open.
+  // While the drawer is open, touch anywhere and drag left > 60px → close.
+  let _swipeStartX = 0, _swipeStartY = 0, _swipeArmed = false, _swipeMode = null;
+  document.addEventListener('touchstart', (e) => {
+    if (window.innerWidth > 768) return;
+    const t = e.touches[0]; if (!t) return;
+    _swipeStartX = t.clientX;
+    _swipeStartY = t.clientY;
+    const isOpen = document.body.classList.contains('mobile-rail-open');
+    if (!isOpen && _swipeStartX <= 22) { _swipeArmed = true; _swipeMode = 'open'; }
+    else if (isOpen)                   { _swipeArmed = true; _swipeMode = 'close'; }
+    else                               { _swipeArmed = false; }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!_swipeArmed) return;
+    const t = e.touches[0]; if (!t) return;
+    const dx = t.clientX - _swipeStartX;
+    const dy = Math.abs(t.clientY - _swipeStartY);
+    if (dy > 40) { _swipeArmed = false; return; }     // dominantly vertical → not a swipe
+    if (_swipeMode === 'open'  && dx >  60) { openMobileRail();  _swipeArmed = false; }
+    if (_swipeMode === 'close' && dx < -60) { closeMobileRail(); _swipeArmed = false; }
+  }, { passive: true });
+
+  // ── Mobile bottom nav ────────────────────────────────────────────
+  // A persistent 5-tab bottom bar so primary destinations are always
+  // one tap away on phones — Home / Database / Camera / Inbox / More.
+  // Mounted into body; CSS hides it on desktop and on the camera page.
+  function renderMobileBottomNav() {
+    if (document.getElementById('mobile-bottom-nav')) return;
+    // Don't render on the unauthenticated sign-in / accept-invite pages
+    // (no chrome there at all).
+    if (!localStorage.getItem('ros_token')) return;
+    // Don't render on the fullscreen camera page (it has its own UI).
+    if (document.querySelector('.cam-wrap')) return;
+
+    const current = window.NAV_CURRENT || '';
+    const nav = document.createElement('nav');
+    nav.id = 'mobile-bottom-nav';
+    nav.className = 'mobile-bottom-nav';
+    nav.innerHTML = `
+      <a class="mbn-tab ${current === 'dashboard' ? 'active' : ''}" href="/dashboard.html" data-tab="dashboard">
+        <span class="mbn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </span>
+        <span class="mbn-label">Home</span>
+      </a>
+      <a class="mbn-tab ${current === 'database' ? 'active' : ''}" href="/database.html" data-tab="database">
+        <span class="mbn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </span>
+        <span class="mbn-label">Database</span>
+      </a>
+      <a class="mbn-tab mbn-tab-camera" href="/fieldcam-camera.html" data-tab="camera" title="Open camera">
+        <span class="mbn-icon mbn-icon-camera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </span>
+        <span class="mbn-label">Camera</span>
+      </a>
+      <a class="mbn-tab ${current === 'inbox' ? 'active' : ''}" href="/inbox.html" data-tab="inbox" data-app="inbox">
+        <span class="mbn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        </span>
+        <span class="mbn-label">Inbox</span>
+      </a>
+      <button type="button" class="mbn-tab mbn-tab-more" onclick="toggleMobileRail(event)" aria-label="Open menu">
+        <span class="mbn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </span>
+        <span class="mbn-label">More</span>
+      </button>
+    `;
+    document.body.appendChild(nav);
+  }
+  window.__renderMobileBottomNav = renderMobileBottomNav;
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderNewTopBar);
+    document.addEventListener('DOMContentLoaded', () => { renderNewTopBar(); renderMobileBottomNav(); });
   } else {
     renderNewTopBar();
+    renderMobileBottomNav();
   }
 })();

@@ -793,6 +793,111 @@ body.mobile-rail-open { overflow: hidden; touch-action: none; }
   .os-hero-subtitle { font-size: 0.82rem !important; }
 }
 
+/* ── Mobile bottom nav ─────────────────────────────────────────────
+   Persistent 5-tab bar so the most-used destinations stay one tap away
+   on phones. Hidden on desktop and on the fullscreen camera page. */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 0;
+  z-index: 950;
+  background: var(--surface, #fff);
+  border-top: 1px solid var(--border, #e5e7eb);
+  box-shadow: 0 -4px 20px rgba(15,23,42,0.06);
+  padding: 6px 8px max(8px, env(safe-area-inset-bottom, 0px));
+  justify-content: space-around;
+  align-items: stretch;
+  gap: 2px;
+}
+@media (max-width: 768px) {
+  .mobile-bottom-nav { display: flex; }
+  /* Make room at the bottom of every page so content doesn't slide under nav */
+  body.os-newchrome main.page,
+  body.os-newlayout main.page {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  /* FieldCam FAB rides above the bottom nav on mobile */
+  .fc-mobile-camera-fab {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+.mbn-tab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  text-decoration: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color .12s, background .12s, transform .08s;
+  min-width: 0;
+}
+.mbn-tab:active { transform: scale(0.94); }
+.mbn-tab:hover  { color: var(--text, #111827); }
+.mbn-tab.active { color: var(--brand-dark, #15803d); }
+
+.mbn-icon {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+}
+.mbn-icon svg { width: 22px; height: 22px; }
+
+.mbn-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Camera tab — slightly elevated brand chip so it pops as the primary
+   FieldCam action without overwhelming the nav */
+.mbn-tab-camera .mbn-icon-camera {
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--brand, #61B746), #4f9c38);
+  color: #fff;
+  box-shadow: 0 6px 16px -4px rgba(97,183,70,0.45);
+  margin-top: -16px;            /* lifts the chip above the bar */
+  margin-bottom: 2px;
+  transition: transform .08s, box-shadow .15s;
+}
+.mbn-tab-camera:active .mbn-icon-camera { transform: translateY(1px); }
+.mbn-tab-camera .mbn-icon-camera svg { width: 22px; height: 22px; }
+.mbn-tab-camera { color: var(--text, #111827); }
+
+/* Dark mode parity */
+html.theme-dark .mobile-bottom-nav {
+  background: var(--d-surface, #1e1e1e);
+  border-top-color: var(--d-border, #2a2a2a);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.30);
+}
+html.theme-dark .mbn-tab { color: var(--d-text-muted); }
+html.theme-dark .mbn-tab:hover { color: var(--d-text); }
+html.theme-dark .mbn-tab.active { color: var(--d-brand, #6ed057); }
+html.theme-dark .mbn-tab-camera { color: var(--d-text); }
+html.theme-dark .mbn-tab-camera .mbn-icon-camera {
+  background: linear-gradient(135deg, #6ed057, #4f9c38);
+  box-shadow: 0 6px 16px -4px rgba(110,208,87,0.40);
+}
+
+/* Camera page is fullscreen — no bottom nav, no top header padding */
+body.cam-page .mobile-bottom-nav,
+.cam-wrap ~ .mobile-bottom-nav {
+  display: none !important;
+}
+
 /* ── FieldCam camera FAB — sticky bottom-right on mobile for quick access
    from any FieldCam page. Lives outside the page so it's always visible. */
 .fc-mobile-camera-fab {
