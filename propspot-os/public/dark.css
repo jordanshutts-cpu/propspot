@@ -572,7 +572,7 @@ html.theme-dark .os-newchrome-notif-empty { color: var(--d-text-muted); }
 
 /* ── Scope chip (sub-header) ─────────────────────────────────── */
 html.theme-dark .os-newchrome-scope-chip {
-  background: linear-gradient(180deg, rgba(110,208,87,0.10), rgba(110,208,87,0.04));
+  background: var(--d-surface, #1e1e1e);
   border-bottom: 1px solid var(--d-border-bright);
   color: var(--d-text);
 }
