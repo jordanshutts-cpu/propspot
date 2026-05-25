@@ -1,19 +1,23 @@
 // scripts/import-master-tracker.js
 //
-// One-time (re-runnable) import of all RH deals from the master Finance Tracker
+// Re-runnable import of all RH deals from the master Finance Tracker
 // workbook into the propspot-os Postgres `properties` table.
 //
 // Usage (from propspot-os/):
 //   npm run import-master-tracker
 //   node scripts/import-master-tracker.js [/absolute/path/to/tracker.xlsx]
 //
-// Safe to re-run: ON CONFLICT (normalized_address) DO UPDATE.
-// Existing values are NEVER overwritten with null — COALESCE keeps whatever is
-// already stored when the tracker row is missing a value.
+// Source: "1a. RHI" sheet only — all purchased / active / historical deals.
+// Dead pipeline deals ("5. A. Projects") are intentionally excluded.
 //
-// Sources read from the workbook:
-//   "1a. RHI"          — ~147 purchased / active / historical deals
-//   "5. A. Projects"   — ~103 Dead pipeline deals that never closed
+// Rules for sold_date / sold_price:
+//   Only populated for status = Sold or Assigned (actual dispositions).
+//   Active deals (Renovations, Purchasing, Listed, UC with Buyer, Rented)
+//   have projected dates/prices in those columns — those are NOT stored.
+//
+// Safe to re-run: ON CONFLICT (normalized_address) DO UPDATE.
+// sold_date and sold_price are direct-assigned so bad projected values
+// already in the DB get corrected on re-run.
 
 'use strict';
 
@@ -31,16 +35,14 @@ const DEFAULT_XLSX = path.join(
 );
 
 // ── Column indices (0-based) in "1a. RHI" row-2 headers ─────────────────────
-// Verified against the live workbook.
 const COL = {
   status:           0,   // A  — Sold / Renovations / Purchasing / Rented / …
   strategy:         1,   // B  — Fix N' Flip / LTR / LTR Fund I / Wholetail / …
-  lender:           2,   // C  — Lender (text; used for contact lookup later)
   dataSource:       3,   // D  — Referral / FC / PPL / MLS / PPC / Wholesaler
   conversion:       4,   // E  — Door Knocking / Cold Calling / Auction / …
   propType:         5,   // F  — SFH / Mobile / etc.
   address:          6,   // G  — Full street address (canonical key)
-  purchaseDate:    10,   // K
+  purchaseDate:    10,   // K  — Purchase Date
   purchasePrice:   11,   // L  — Purchase Price on HUD
   bridgeOrigFee:   28,   // AC — Bridge Origination Fee
   loanServicing:   29,   // AD — Loan Servicing Fee
@@ -52,16 +54,17 @@ const COL = {
   renoBudget:      71,   // BT — Reno Budget
   renoSpent:       72,   // BU — Reno Spend (Salesforce actual)
   renoDraws:       74,   // BW — Reno Draws Received
-  saleDate:       103,   // CZ — Sale Date
-  uwArv:          105,   // DB — ARV (from sales section)
-  soldPrice:      106,   // DC — Actual Sale Price
+  saleDate:       103,   // CZ — Sale Date (actual for Sold/Assigned only)
+  uwArv:          105,   // DB — ARV (flip/sales underwrite)
+  soldPrice:      106,   // DC — Actual Sale Price (Sold only)
   dscrArv:        144,   // EO — DSCR ARV (LTR / rental deals)
 };
 
+// ── Statuses that represent actual closed/disposed deals ─────────────────────
+// Only these get sold_date / sold_price populated.
+const CLOSED_STATUSES = new Set(['Sold', 'Assigned']);
+
 // ── Status mapping: tracker text → propspot status enum ─────────────────────
-// Valid propspot values: purchasing | renovating | selling | renting | rented |
-//   sold | dropped | assigned | listed_for_rent | listed_for_sale |
-//   under_contract_buyer
 const STATUS_MAP = {
   'Sold':            'sold',
   'Assigned':        'assigned',
@@ -71,9 +74,11 @@ const STATUS_MAP = {
   'UC with Buyer':   'under_contract_buyer',
   'Renovations':     'renovating',
   'Purchasing':      'purchasing',
-  'Dead':            'dropped',
-  'Wholesale':       'dropped',
 };
+
+// ── Rental strategies / statuses (prefer DSCR ARV over flip ARV) ─────────────
+const RENTAL_STATUSES   = new Set(['Rented', 'Listed for Rent']);
+const RENTAL_STRATEGIES = new Set(['LTR', 'LTR Fund I', 'STR']);
 
 // ── Value cleaners ──────────────────────────────────────────────────────────
 function num(v) {
@@ -85,7 +90,6 @@ function num(v) {
 }
 
 function rate(v) {
-  // Rate may be stored as decimal (0.1099) or percentage points (10.99)
   const n = num(v);
   if (n == null) return null;
   return n > 1 ? parseFloat((n / 100).toFixed(4)) : n;
@@ -99,6 +103,9 @@ function isoDate(v) {
   }
   const s = String(v).trim();
   if (s.match(/^\d{4}-\d{2}-\d{2}/)) return s.slice(0, 10);
+  // M/D/YYYY format
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
   return null;
 }
 
@@ -108,29 +115,25 @@ function str(v) {
   return s || null;
 }
 
-// ── Read all property rows from the workbook ─────────────────────────────────
+// ── Read all property rows from "1a. RHI" ────────────────────────────────────
 function readTracker(xlsxPath) {
   const wb = XLSX.readFile(xlsxPath, {
     cellDates:  true,
-    sheetRows:  600,    // enough for all RHI rows; limits large sheets for speed
+    sheetRows:  300,
   });
 
-  const rows = [];
-  const seen = new Set();  // dedup by address (case-insensitive)
-
-  // ── 1a. RHI ─────────────────────────────────────────────────────────────
   const ws = wb.Sheets['1a. RHI'];
   if (!ws) throw new Error('Sheet "1a. RHI" not found in workbook');
 
-  // header:1 → 2-D array; row 0 = Excel row 1 (section title)
-  //                        row 1 = Excel row 2 (column headers)
-  //                        row 2+ = data rows
   const data = XLSX.utils.sheet_to_json(ws, {
     header:    1,
     defval:    null,
-    raw:       true,
+    raw:       false,   // parse everything as formatted strings
     cellDates: true,
   });
+
+  const rows = [];
+  const seen = new Set();
 
   for (let i = 2; i < data.length; i++) {
     const row = data[i];
@@ -144,12 +147,27 @@ function readTracker(xlsxPath) {
     const statusText   = String(row[COL.status]   || '').trim();
     const strategyText = String(row[COL.strategy] || '').trim();
     const purchase     = num(row[COL.purchasePrice]);
-    // Skip pure section-label / totals rows
+
+    // Skip section-header / totals rows with no meaningful data
     if (!statusText && !strategyText && !purchase) continue;
+
+    // Skip rows whose status doesn't map to a known propspot value
+    // (catches section labels like "2021 Closings", "LTR Fund", etc.)
+    if (statusText && !STATUS_MAP[statusText]) continue;
 
     const key = addrStr.toUpperCase();
     if (seen.has(key)) continue;
     seen.add(key);
+
+    const isClosed  = CLOSED_STATUSES.has(statusText);
+    const isRental  = RENTAL_STATUSES.has(statusText) || RENTAL_STRATEGIES.has(strategyText);
+
+    // ARV: rentals prefer DSCR ARV; flips prefer sales section ARV
+    const flipArv  = num(row[COL.uwArv]);
+    const dscrArv  = num(row[COL.dscrArv]);
+    const uwArv    = isRental
+      ? (dscrArv || flipArv)
+      : (flipArv  || dscrArv);
 
     rows.push({
       addrStr,
@@ -170,36 +188,20 @@ function readTracker(xlsxPath) {
       reno_budget:          num(row[COL.renoBudget]),
       reno_spent:           num(row[COL.renoSpent]),
       reno_draws_received:  num(row[COL.renoDraws]),
-      sold_date:            isoDate(row[COL.saleDate]),
-      sold_price:           num(row[COL.soldPrice]),
-      uw_arv:               num(row[COL.uwArv]) || num(row[COL.dscrArv]),
+      // sold_date / sold_price: ONLY for actual closed deals
+      sold_date:            isClosed ? isoDate(row[COL.saleDate])  : null,
+      sold_price:           statusText === 'Sold' ? num(row[COL.soldPrice]) : null,
+      uw_arv:               uwArv,
     });
-  }
-
-  // ── 5. A. Projects — Dead pipeline deals ────────────────────────────────
-  const ws2 = wb.Sheets['5. A. Projects'];
-  if (ws2) {
-    const data2 = XLSX.utils.sheet_to_json(ws2, {
-      header: 1, defval: null, raw: true, cellDates: true,
-    });
-    for (let i = 1; i < data2.length; i++) {
-      const row = data2[i];
-      if (!row || !row[0]) continue;
-      const statusVal = String(row[28] || '').trim();  // AC = 0-based 28
-      if (!statusVal.includes('Dead')) continue;
-      const addrStr = String(row[0]).trim();
-      if (!addrStr) continue;
-      const key = addrStr.toUpperCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push({ addrStr, status: 'dropped', strategy: null });
-    }
   }
 
   return rows;
 }
 
 // ── Upsert one row ──────────────────────────────────────────────────────────
+// Note: sold_date and sold_price are NOT wrapped in COALESCE — they are
+// direct-assigned so re-running the script can correct previously stored
+// projected values.
 const UPSERT_SQL = `
   INSERT INTO properties (
     address_line1, city, state, zip, normalized_address,
@@ -236,8 +238,8 @@ const UPSERT_SQL = `
     reno_budget            = COALESCE(EXCLUDED.reno_budget,            properties.reno_budget),
     reno_spent             = COALESCE(EXCLUDED.reno_spent,             properties.reno_spent),
     reno_draws_received    = COALESCE(EXCLUDED.reno_draws_received,    properties.reno_draws_received),
-    sold_date              = COALESCE(EXCLUDED.sold_date,              properties.sold_date),
-    sold_price             = COALESCE(EXCLUDED.sold_price,             properties.sold_price),
+    sold_date              = EXCLUDED.sold_date,
+    sold_price             = EXCLUDED.sold_price,
     uw_arv                 = COALESCE(EXCLUDED.uw_arv,                 properties.uw_arv),
     updated_at             = NOW()
   RETURNING (xmax = 0) AS is_insert
@@ -290,7 +292,7 @@ async function main() {
       else updated++;
 
       const done = inserted + updated;
-      if (done % 50 === 0) process.stdout.write(`  … ${done} processed\r`);
+      if (done % 50 === 0) process.stdout.write(`  ... ${done} processed\r`);
 
     } catch (e) {
       errors++;
