@@ -89,6 +89,12 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/properties
 // Accepts either FieldCam-legacy {name, address} or Prop Spot structured fields.
+// Dedup strategy (three layers):
+//   1. Exact normalized_address match — same address, unit, city, state, zip
+//   2. Fuzzy match — same street line + city + state, ignoring zip/unit variance
+//      (catches '00000' zip fallbacks from CSV imports vs real zips)
+//   3. ON CONFLICT DO NOTHING + re-select — closes the race-condition window
+//      between the pre-insert check and the actual INSERT
 router.post('/', async (req, res) => {
   const { name, address, notes, lat, lng } = req.body;
   let { address_line1, unit, city, state, zip, parcel_id } = req.body;
@@ -106,24 +112,51 @@ router.post('/', async (req, res) => {
 
   const normalized = normalizeAddress({ address_line1, unit, city, state, zip });
 
+  // Normalised street line only (no unit / zip) — used for fuzzy fallback
+  const normLine = normalizeAddress({ address_line1, unit: '', city: '', state: '', zip: '' })
+    .split('|')[0];
+
   try {
-    const { rows: existing } = await query(
+    // ── Layer 1: exact normalized_address match ──────────────────
+    const { rows: exact } = await query(
       `SELECT ${SELECT_FIELDS}
          FROM properties p
          LEFT JOIN users u ON u.id = p.created_by
         WHERE p.normalized_address = $1`,
       [normalized]
     );
-    if (existing[0]) {
-      // Return existing so the UI can offer "use existing" instead of bouncing.
-      return res.status(200).json(existing[0]);
+    if (exact[0]) return res.status(200).json(exact[0]);
+
+    // ── Layer 2: fuzzy match (same street + city + state) ────────
+    // Catches cases where zip differs (e.g. '00000' default vs real zip)
+    // or unit was omitted in one version of the address.
+    if (normLine && city && state) {
+      const { rows: fuzzy } = await query(
+        `SELECT ${SELECT_FIELDS}
+           FROM properties p
+           LEFT JOIN users u ON u.id = p.created_by
+          WHERE SPLIT_PART(p.normalized_address, '|', 1) = $1
+            AND UPPER(TRIM(p.city))  = $2
+            AND UPPER(TRIM(p.state)) = $3
+          LIMIT 1`,
+        [normLine, city.trim().toUpperCase(), state.trim().toUpperCase()]
+      );
+      if (fuzzy[0]) {
+        console.log(`[properties] fuzzy dedup: "${normalized}" → existing id ${fuzzy[0].id}`);
+        return res.status(200).json(fuzzy[0]);
+      }
     }
 
-    const { rows } = await query(`
+    // ── Layer 3: atomic upsert — closes the race-condition window ─
+    // If two concurrent requests both pass the checks above, the DB
+    // UNIQUE constraint on normalized_address fires. ON CONFLICT DO
+    // NOTHING suppresses the error; we then re-select the winner.
+    const { rows: inserted } = await query(`
       INSERT INTO properties
         (address_line1, unit, city, state, zip, normalized_address, parcel_id,
          lat, lng, notes, display_name, created_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (normalized_address) DO NOTHING
       RETURNING *
     `, [
       address_line1.trim(),
@@ -140,7 +173,18 @@ router.post('/', async (req, res) => {
       req.userId
     ]);
 
-    res.status(201).json(rows[0]);
+    if (inserted[0]) return res.status(201).json(inserted[0]);
+
+    // ON CONFLICT path: another concurrent request beat us — return theirs
+    const { rows: winner } = await query(
+      `SELECT ${SELECT_FIELDS}
+         FROM properties p
+         LEFT JOIN users u ON u.id = p.created_by
+        WHERE p.normalized_address = $1`,
+      [normalized]
+    );
+    return res.status(200).json(winner[0]);
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to create property' });
