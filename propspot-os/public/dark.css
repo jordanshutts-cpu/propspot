@@ -1603,6 +1603,8 @@ html.theme-dark .db-card-foot   { border-top-color: var(--d-border); }
 
 /* Brighten the status accents on dark so they read like the
    Hivemind cards (which use saturated highlights against black). */
+html.theme-dark .db-card[data-status="prospect"],
+html.theme-dark .db-col[data-status="prospect"]              { --card-accent: #cbd5e1; --col-accent: #cbd5e1; --card-accent-bg: rgba(203,213,225,0.18); }
 html.theme-dark .db-card[data-status="purchasing"],
 html.theme-dark .db-col[data-status="purchasing"]            { --card-accent: #fbbf24; --col-accent: #fbbf24; --card-accent-bg: rgba(251,191,36,0.18); }
 html.theme-dark .db-card[data-status="renovating"],

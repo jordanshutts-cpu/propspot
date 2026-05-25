@@ -164,6 +164,7 @@
 
   // ── Status dot colors (mirrors PROPERTY_STATUSES in app.js) ──────
   const STATUS_DOT = {
+    prospect:             '#94a3b8',
     purchasing:           '#f59e0b',
     renovating:           '#2563eb',
     renting:              '#0284c7',

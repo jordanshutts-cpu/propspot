@@ -42,6 +42,7 @@ const DEFAULT_TRACKER_XLSX = path.join(
 //  Any new value must be added here AND in the ALTER TABLE in schema.sql.
 // =============================================================================
 const STATUSES = {
+  prospect:              { label: 'Prospect',            color: '#94a3b8' },
   purchasing:            { label: 'Purchasing',          color: '#f59e0b' },
   renovating:            { label: 'Renovating',          color: '#3b82f6' },
   selling:               { label: 'Selling',             color: '#8b5cf6' },

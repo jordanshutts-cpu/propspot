@@ -1421,6 +1421,7 @@ function escHtml(s) {
 // Property-level status across the overall lifecycle.
 // Tuple shape: [value, label, text-color, background-color]
 const PROPERTY_STATUSES = [
+  ['prospect',             'Prospect',           '#475569', '#e2e8f0'],   // slate  → Potential future purchases
   ['purchasing',           'Purchasing',         '#92400e', '#fef3c7'],   // amber  → Acquisitions
   ['renovating',           'Renovating',         '#1e40af', '#dbeafe'],   // blue   → Holdings
   ['renting',              'Renting',            '#075985', '#e0f2fe'],   // sky    → Holdings

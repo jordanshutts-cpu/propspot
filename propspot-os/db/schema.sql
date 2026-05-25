@@ -160,7 +160,7 @@ DO $$ BEGIN
   END IF;
   ALTER TABLE properties ADD CONSTRAINT properties_status_check
     CHECK (status IN (
-      'purchasing','renovating','selling','renting','rented','sold','dropped',
+      'prospect','purchasing','renovating','selling','renting','rented','sold','dropped',
       'assigned','listed_for_rent','listed_for_sale','under_contract_buyer'
     ));
 END $$;
