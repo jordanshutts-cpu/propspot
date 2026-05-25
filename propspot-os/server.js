@@ -115,7 +115,24 @@ app.get('/api/config', (req, res) => {
 
 // ── Static Frontend ────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── FieldCam custom-domain routing ─────────────────────────────────
+// When accessed via fieldcam.propspot.io (configurable via FIELDCAM_HOSTNAME),
+// serve FieldCam pages directly instead of the main OS shell.
+//   /          → fieldcam dashboard  (fieldcam.html)
+//   /camera    → full-screen camera  (fieldcam-camera.html)
+//   /property  → property detail     (fieldcam-property.html)
+//   /api/*     → pass through to API routes as normal
+// Static assets (.js, .css, images) are served by express.static above.
+const FIELDCAM_HOSTNAME = process.env.FIELDCAM_HOSTNAME || 'fieldcam.propspot.io';
+
 app.get('*', (req, res) => {
+  if (req.hostname === FIELDCAM_HOSTNAME) {
+    const p = req.path;
+    if (p.startsWith('/camera'))  return res.sendFile(path.join(__dirname, 'public', 'fieldcam-camera.html'));
+    if (p.startsWith('/property')) return res.sendFile(path.join(__dirname, 'public', 'fieldcam-property.html'));
+    return res.sendFile(path.join(__dirname, 'public', 'fieldcam.html'));
+  }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
