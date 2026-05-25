@@ -113,6 +113,34 @@
     .ps-rx-emoji { font-size:1rem; }
     .ps-rx-count { font-size:.75rem; font-weight:600; }
 
+    /* ── Reply quote block (inside message) ────────────────────── */
+    .ps-reply-quote {
+      display:flex; align-items:stretch; gap:8px;
+      background:var(--bg); border:1px solid var(--border);
+      border-left:3px solid var(--brand); border-radius:6px;
+      padding:6px 10px; margin-bottom:4px; cursor:pointer;
+      transition:background .1s;
+    }
+    .ps-reply-quote:hover { background:var(--brand-light); }
+    .ps-reply-quote-name { font-size:.75rem; font-weight:700; color:var(--brand); margin-bottom:2px; }
+    .ps-reply-quote-text { font-size:.78rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:480px; }
+
+    /* ── Reply context bar above composer ───────────────────────── */
+    .ps-reply-bar {
+      display:none; align-items:center; gap:8px;
+      padding:8px 14px; background:var(--brand-light);
+      border-top:1px solid rgba(97,183,70,.2);
+      border-bottom:1px solid rgba(97,183,70,.15);
+      font-size:.8rem;
+    }
+    .ps-reply-bar.open { display:flex; }
+    .ps-reply-bar-icon { color:var(--brand); flex-shrink:0; }
+    .ps-reply-bar-body { flex:1; min-width:0; }
+    .ps-reply-bar-to { font-weight:700; color:var(--brand); }
+    .ps-reply-bar-preview { color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ps-reply-bar-close { width:22px; height:22px; border:none; background:transparent; cursor:pointer; color:var(--text-muted); border-radius:5px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .ps-reply-bar-close:hover { background:rgba(0,0,0,.06); color:var(--text); }
+
     /* ── Inline edit mode ───────────────────────────────────────── */
     .ps-edit-wrap { margin-top:2px; }
     .ps-edit-ta {
@@ -372,6 +400,9 @@
   // Inline edit state
   let editingMsgId = null, editOrigHtml = null;
 
+  // Reply state
+  let replyingTo = null; // { id, senderName, body }
+
   // Emoji picker state
   let emojiPickerTarget = null;
   const COMMON_EMOJIS = ['👍','👎','❤️','😂','😮','😢','😡','🎉','🔥','👏','🙏','💪','👀','🤔','😎','✅','❌','💯','🚀','⭐','💡','📌','🔔','💰','🏆','😊','🤣','😅','🙌','👋','🎯','✨'];
@@ -521,6 +552,7 @@
   // ── Messages ───────────────────────────────────────────────────
   async function loadMessages(scope) {
     if (editingMsgId) cancelEditMsg();
+    replyingTo = null;
     const ch = scope.channel_id ? allChannels.find(c => c.id === scope.channel_id) : null;
     const canManage = isOwner || activeScope?.my_role === 'admin';
 
@@ -540,6 +572,14 @@
         <p class="text-muted text-sm" style="padding:8px 4px;">Loading…</p>
       </div>
       <div class="ps-composer-wrap">
+        <div id="ps-reply-bar" class="ps-reply-bar">
+          <span class="ps-reply-bar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></span>
+          <div class="ps-reply-bar-body">
+            <div class="ps-reply-bar-to" id="ps-reply-bar-to"></div>
+            <div class="ps-reply-bar-preview" id="ps-reply-bar-preview"></div>
+          </div>
+          <button class="ps-reply-bar-close" onclick="cancelReply()" title="Cancel reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
         <div id="ps-mention-picker" class="ps-mention-picker"></div>
         <div class="ps-composer">
           <textarea id="ps-textarea" placeholder="Message ${escHtml(activeScope.name)}… (type @ to mention someone)" rows="1"
@@ -596,9 +636,10 @@
     const rxHtml = reactionsHtml(m.reactions || [], mid);
 
     // Toolbar SVGs
-    const svgEdit = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-    const svgDel  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-    const svgMore = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
+    const svgEdit  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    const svgDel   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+    const svgMore  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
+    const svgReply = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`;
 
     const quickEmojis = ['👍','❤️','😂','🎉','🤔'];
     const quickBtns = quickEmojis.map(e =>
@@ -608,10 +649,27 @@
     const toolbar = `<div class="ps-msg-toolbar">
       ${quickBtns}
       <button class="ps-msg-action-btn" title="More reactions" onclick="openEmojiPicker('${mid}',event,this)">${svgMore}</button>
-      ${isOwn ? `<div class="ps-toolbar-sep"></div>
-        <button class="ps-msg-action-btn" title="Edit message" onclick="editMsg('${mid}')">${svgEdit}</button>
+      <div class="ps-toolbar-sep"></div>
+      <button class="ps-msg-action-btn" title="Reply" onclick="startReply('${mid}','${esc1(senderName)}')">${svgReply}</button>
+      ${isOwn ? `<button class="ps-msg-action-btn" title="Edit message" onclick="editMsg('${mid}')">${svgEdit}</button>
         <button class="ps-msg-action-btn danger" title="Delete message" onclick="deleteMsg('${mid}')">${svgDel}</button>` : ''}
     </div>`;
+
+    // Reply-to quote block
+    let replyQuote = '';
+    if (m.reply_to) {
+      const rt = m.reply_to;
+      // Strip HTML from quoted body for the preview
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderBody(rt.body || '');
+      const preview = tmp.textContent.slice(0, 120);
+      replyQuote = `<div class="ps-reply-quote" onclick="scrollToMsg('${rt.id}')">
+        <div>
+          <div class="ps-reply-quote-name">${escHtml(rt.sender_name)}</div>
+          <div class="ps-reply-quote-text">${escHtml(preview)}</div>
+        </div>
+      </div>`;
+    }
 
     out += `<div class="ps-msg${compact ? ' compact' : ''}" id="msg-${mid}">
       <div class="ps-msg-avatar" style="background:${avatarColor(m.sender_id)}">${escHtml(initial)}</div>
@@ -620,6 +678,7 @@
           <span class="ps-msg-name">${escHtml(senderName)}</span>
           <span class="ps-msg-time">${time}</span>
         </div>
+        ${replyQuote}
         <div class="ps-msg-text" id="msgt-${mid}">${textOut}${edited}</div>
         <div class="ps-reactions" id="rxc-${mid}">${rxHtml}</div>
       </div>
@@ -952,6 +1011,41 @@
     ta.focus();
   }
 
+  // ── Reply ──────────────────────────────────────────────────────
+  function startReply(msgId, senderName) {
+    const msg = messages.find(m => m.id === msgId);
+    if (!msg) return;
+    replyingTo = { id: msgId, senderName, body: msg.body || '' };
+
+    // Show the reply bar above the composer
+    const bar = document.getElementById('ps-reply-bar');
+    const toEl = document.getElementById('ps-reply-bar-to');
+    const preEl = document.getElementById('ps-reply-bar-preview');
+    if (bar && toEl && preEl) {
+      // Strip HTML from body for preview
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderBody(msg.body || '');
+      toEl.textContent  = 'Replying to ' + senderName;
+      preEl.textContent = tmp.textContent.slice(0, 100);
+      bar.classList.add('open');
+    }
+    document.getElementById('ps-textarea')?.focus();
+  }
+
+  function cancelReply() {
+    replyingTo = null;
+    document.getElementById('ps-reply-bar')?.classList.remove('open');
+  }
+
+  function scrollToMsg(msgId) {
+    const el = document.getElementById(`msg-${msgId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.style.transition = 'background .15s';
+    el.style.background = 'rgba(97,183,70,.22)';
+    setTimeout(() => { el.style.background = ''; }, 1200);
+  }
+
   // ── Send message ───────────────────────────────────────────────
   async function sendMsg() {
     if (!activeScope) return;
@@ -976,6 +1070,7 @@
     const payload = activeScope.type === 'channel'
       ? { channel_id: activeScope.id, body: text }
       : { dm_id:      activeScope.id, body: text };
+    if (replyingTo) { payload.reply_to_id = replyingTo.id; cancelReply(); }
     try {
       await satelliteApiFetch('pulse', '/api/pulse/messages', {
         method: 'POST', body: JSON.stringify(payload)

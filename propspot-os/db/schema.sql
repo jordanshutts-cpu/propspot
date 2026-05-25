@@ -1203,6 +1203,18 @@ CREATE TABLE IF NOT EXISTS chat_reactions (
 CREATE INDEX IF NOT EXISTS chat_reactions_message_idx ON chat_reactions(message_id);
 CREATE INDEX IF NOT EXISTS chat_reactions_user_idx    ON chat_reactions(user_id);
 
+-- ── Reply-to threading on Pulse messages ─────────────────────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'chat_messages' AND column_name = 'reply_to_id'
+  ) THEN
+    ALTER TABLE chat_messages
+      ADD COLUMN reply_to_id UUID REFERENCES chat_messages(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS chat_messages_reply_to_idx ON chat_messages(reply_to_id);
+
 -- ── 2026-05-23 one-time: archive every open thread with no activity in the
 -- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
 -- without years of backfilled history cluttering the lists. Owners can

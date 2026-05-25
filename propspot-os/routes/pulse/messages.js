@@ -137,6 +137,26 @@ async function hydrateMessage(row) {
   }
   const reactions = Array.from(rxMap, ([emoji, users]) => ({ emoji, count: users.length, users }));
 
+  // Reply-to parent (shallow — just enough for the quote block)
+  let reply_to = null;
+  if (row.reply_to_id) {
+    const rRes = await query(
+      `SELECT m.id, m.body, m.sender_id, u.full_name, u.email
+         FROM chat_messages m
+         LEFT JOIN users u ON u.id = m.sender_id
+        WHERE m.id = $1`,
+      [row.reply_to_id]
+    );
+    if (rRes.rows[0]) {
+      const p = rRes.rows[0];
+      reply_to = {
+        id: p.id,
+        body: p.body,
+        sender_name: p.full_name || p.email || 'Unknown'
+      };
+    }
+  }
+
   return {
     ...row,
     sender_name: sender.full_name || sender.email || 'Unknown',
@@ -147,7 +167,8 @@ async function hydrateMessage(row) {
       user_id: r.mentioned_user_id,
       name: r.full_name || r.email || 'Unknown'
     })),
-    reactions
+    reactions,
+    reply_to
   };
 }
 
@@ -212,11 +233,32 @@ async function hydrateMessages(rows) {
     return Array.from(map, ([emoji, users]) => ({ emoji, count: users.length, users }));
   }
 
+  // Batch reply-to parents
+  const replyIds = [...new Set(rows.map(r => r.reply_to_id).filter(Boolean))];
+  const replyByMsg = new Map(); // child_msg_id → reply_to object
+  if (replyIds.length) {
+    const rpRes = await query(
+      `SELECT m.id, m.body, m.sender_id, u.full_name, u.email
+         FROM chat_messages m
+         LEFT JOIN users u ON u.id = m.sender_id
+        WHERE m.id = ANY($1::uuid[])`,
+      [replyIds]
+    );
+    const parentById = new Map(rpRes.rows.map(p => [p.id, p]));
+    for (const r of rows) {
+      if (r.reply_to_id) {
+        const p = parentById.get(r.reply_to_id);
+        if (p) replyByMsg.set(r.id, { id: p.id, body: p.body, sender_name: p.full_name || p.email || 'Unknown' });
+      }
+    }
+  }
+
   return rows.map(r => ({
     ...r,
     attachments: attsByMsg.get(r.id) || [],
     mentions: mentByMsg.get(r.id) || [],
-    reactions: groupReactions(rxByMsg.get(r.id))
+    reactions: groupReactions(rxByMsg.get(r.id)),
+    reply_to: replyByMsg.get(r.id) || null
   }));
 }
 
@@ -261,9 +303,9 @@ async function publishUnreadFanout(scope, senderId) {
   }
 }
 
-// ── POST /api/pulse/messages  {channel_id|dm_id, body, client_message_id?, attachments?[]} ──
+// ── POST /api/pulse/messages  {channel_id|dm_id, body, client_message_id?, attachments?[], reply_to_id?} ──
 router.post('/', async (req, res) => {
-  const { channel_id, dm_id, body, client_message_id, attachments } = req.body || {};
+  const { channel_id, dm_id, body, client_message_id, attachments, reply_to_id } = req.body || {};
 
   // Exactly one of channel_id / dm_id required
   if ((!channel_id && !dm_id) || (channel_id && dm_id)) {
@@ -288,11 +330,23 @@ router.post('/', async (req, res) => {
   const cleanBody = (body || '').trim();
 
   try {
+    // Validate reply_to_id belongs to the same scope (optional field)
+    let validReplyToId = null;
+    if (reply_to_id) {
+      const rCheck = await query(
+        `SELECT id FROM chat_messages
+          WHERE id = $1 AND deleted_at IS NULL
+            AND (channel_id = $2 OR dm_id = $3)`,
+        [reply_to_id, channel_id || null, dm_id || null]
+      );
+      if (rCheck.rows.length) validReplyToId = reply_to_id;
+    }
+
     const ins = await query(`
-      INSERT INTO chat_messages (channel_id, dm_id, sender_id, client_message_id, body)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO chat_messages (channel_id, dm_id, sender_id, client_message_id, body, reply_to_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [channel_id || null, dm_id || null, req.userId, client_message_id || null, cleanBody]);
+    `, [channel_id || null, dm_id || null, req.userId, client_message_id || null, cleanBody, validReplyToId]);
 
     const row = ins.rows[0];
 
