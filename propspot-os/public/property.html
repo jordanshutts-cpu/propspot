@@ -60,16 +60,18 @@
     }
     .pp-select-wrap.open .pp-select-chev { transform: rotate(180deg); color: var(--brand); }
     .pp-select-menu {
-      position: absolute; top: calc(100% + 6px); left: 0;
-      min-width: 100%;
+      /* position:fixed so the menu can escape any ancestor with
+         overflow:hidden (the property data card clips overflow:auto).
+         JS sets top/left based on the trigger's bounding rect. */
+      position: fixed;
       background: #fff;
       border: 1px solid #e8eaed;
       border-radius: 10px;
       box-shadow: 0 8px 24px rgba(15,23,42,0.12), 0 2px 6px rgba(15,23,42,0.04);
       padding: 4px;
-      z-index: 100;
+      z-index: 1200;
       display: none;
-      max-height: 320px;
+      max-height: 360px;
       overflow-y: auto;
       animation: pp-select-in 0.12s ease-out;
     }
@@ -979,6 +981,48 @@ async function addContactLink(){
       });
     }
 
+    // Position the fixed menu relative to the trigger. Flip above the
+    // trigger if there isn't room below (keeps the full option list
+    // visible without scrolling, where possible).
+    function positionMenu() {
+      const rect = trigger.getBoundingClientRect();
+      const menuW = Math.max(rect.width, 200);
+      // Render hidden to measure desired height
+      menu.style.visibility = 'hidden';
+      menu.style.display = 'block';
+      const desiredH = menu.scrollHeight;
+      menu.style.visibility = '';
+      menu.style.display = '';
+
+      const gap = 6;
+      const vpH = window.innerHeight;
+      const vpW = window.innerWidth;
+      const spaceBelow = vpH - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      // Prefer below; flip above only if much more space there.
+      const placeAbove = spaceBelow < Math.min(desiredH, 200) && spaceAbove > spaceBelow;
+
+      let top, maxH;
+      if (placeAbove) {
+        maxH = Math.min(desiredH, spaceAbove);
+        top  = rect.top - gap - maxH;
+      } else {
+        maxH = Math.min(desiredH, spaceBelow);
+        top  = rect.bottom + gap;
+      }
+      // Clamp left so the menu can't run off the right edge
+      const left = Math.min(rect.left, vpW - menuW - 6);
+
+      menu.style.top      = Math.max(6, top) + 'px';
+      menu.style.left     = Math.max(6, left) + 'px';
+      menu.style.minWidth = menuW + 'px';
+      menu.style.maxHeight = Math.max(120, maxH) + 'px';
+    }
+
+    function reposIfOpen() { if (wrap.classList.contains('open')) positionMenu(); }
+    window.addEventListener('resize', reposIfOpen);
+    window.addEventListener('scroll',  reposIfOpen, true);
+
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       if (trigger.disabled) return;
@@ -986,7 +1030,10 @@ async function addContactLink(){
       document.querySelectorAll('.pp-select-wrap.open').forEach(w => { if (w !== wrap) w.classList.remove('open'); });
       const opening = !wrap.classList.contains('open');
       wrap.classList.toggle('open');
-      if (opening) buildItems();   // rebuild in case options changed
+      if (opening) {
+        buildItems();      // rebuild in case options changed
+        positionMenu();    // measure + place + clamp
+      }
     });
 
     // Keyboard nav on the trigger
@@ -997,21 +1044,37 @@ async function addContactLink(){
     });
 
     // Insert before the original select, then move the select inside
-    // so form submission still picks it up; hide the native UI.
+    // the wrap so form submission still picks it up; hide native UI.
     selectEl.parentNode.insertBefore(wrap, selectEl);
     selectEl.style.display = 'none';
     wrap.appendChild(trigger);
-    wrap.appendChild(menu);
     wrap.appendChild(selectEl);
+    // The menu lives on <body> so transforms / overflow:hidden on any
+    // ancestor card can't clip it. positionMenu() uses fixed coords
+    // from the trigger's bounding rect.
+    document.body.appendChild(menu);
+
+    // Mirror wrap.open state onto the menu so CSS [.pp-select-wrap.open
+    // .pp-select-menu { display: block }] keeps working even though
+    // the menu is no longer a descendant.
+    const obs = new MutationObserver(() => {
+      menu.style.display = wrap.classList.contains('open') ? 'block' : 'none';
+    });
+    obs.observe(wrap, { attributes: true, attributeFilter: ['class'] });
 
     syncValueLabel();
     buildItems();
   }
 
   // Single doc-wide outside-click handler closes any open dropdown.
+  // The menu lives on <body> now, so clicks INSIDE the menu would
+  // otherwise be treated as 'outside' the wrap. Allow them via the
+  // .pp-select-menu closest() check.
   document.addEventListener('click', (e) => {
+    const insideMenu = e.target.closest('.pp-select-menu');
     document.querySelectorAll('.pp-select-wrap.open').forEach(w => {
-      if (!w.contains(e.target)) w.classList.remove('open');
+      if (w.contains(e.target) || insideMenu) return;
+      w.classList.remove('open');
     });
   });
   document.addEventListener('keydown', (e) => {
