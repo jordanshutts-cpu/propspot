@@ -47,18 +47,12 @@ async function requireMaintenanceGrant(req, res, next) {
 }
 
 async function requirePulseGrant(req, res, next) {
+  // Pulse is open to every authenticated org member — no explicit grant needed.
+  // Owners get elevated role so they can manage channels; everyone else is 'member'.
   try {
-    const { rows } = await query(`
-      SELECT ag.role, ag.scope, u.is_owner
-        FROM users u
-        LEFT JOIN app_grants ag ON ag.user_id = u.id
-        LEFT JOIN apps a       ON a.id = ag.app_id AND a.slug = 'pulse'
-       WHERE u.id = $1`, [req.userId]);
-    const row = rows[0];
-    if (!row) return res.status(401).json({ error: 'User not found' });
-    if (row.is_owner) { req.pulseGrant = { role: 'owner', scope: { all: true } }; return next(); }
-    if (!row.role) return res.status(403).json({ error: 'No access to Pulse' });
-    req.pulseGrant = { role: row.role, scope: row.scope || { all: true } };
+    const { rows } = await query(`SELECT is_owner FROM users WHERE id = $1`, [req.userId]);
+    if (!rows[0]) return res.status(401).json({ error: 'User not found' });
+    req.pulseGrant = { role: rows[0].is_owner ? 'owner' : 'member', scope: { all: true } };
     next();
   } catch (err) { res.status(500).json({ error: 'Authorization check failed' }); }
 }

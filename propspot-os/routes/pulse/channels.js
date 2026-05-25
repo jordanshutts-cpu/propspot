@@ -238,6 +238,58 @@ router.get('/:id/members', async (req, res) => {
   }
 });
 
+// PATCH /api/pulse/channels/:id — update name / description / is_private
+router.patch('/:id', async (req, res) => {
+  const channelId = req.params.id;
+  const { name, description, is_private } = req.body || {};
+  try {
+    const { rows: ch } = await query(`SELECT slug FROM chat_channels WHERE id = $1`, [channelId]);
+    if (!ch.length) return res.status(404).json({ error: 'Channel not found' });
+    if (!(await isOwner(req.userId)) && !(await isAdmin(channelId, req.userId))) {
+      return res.status(403).json({ error: 'Only channel admins or org owners can edit channel settings' });
+    }
+    const sets = [], vals = [];
+    let i = 1;
+    if (name !== undefined)        { sets.push(`name = $${i++}`);       vals.push(name.trim()); }
+    if (description !== undefined) { sets.push(`description = $${i++}`); vals.push(description?.trim() || null); }
+    if (is_private !== undefined)  { sets.push(`is_private = $${i++}`); vals.push(!!is_private); }
+    if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+    vals.push(channelId);
+    const { rows } = await query(
+      `UPDATE chat_channels SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${i} RETURNING *`,
+      vals
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'A channel with that name already exists' });
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update channel' });
+  }
+});
+
+// PATCH /api/pulse/channels/:id/members/:userId  { role: 'admin'|'member' }
+router.patch('/:id/members/:userId', async (req, res) => {
+  const { id: channelId, userId: targetUserId } = req.params;
+  const { role } = req.body || {};
+  if (!['admin', 'member'].includes(role)) {
+    return res.status(400).json({ error: 'role must be "admin" or "member"' });
+  }
+  try {
+    if (!(await isOwner(req.userId)) && !(await isAdmin(channelId, req.userId))) {
+      return res.status(403).json({ error: 'Only channel admins can change member roles' });
+    }
+    const { rows } = await query(
+      `UPDATE chat_channel_members SET role = $1 WHERE channel_id = $2 AND user_id = $3 RETURNING *`,
+      [role, channelId, targetUserId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Member not found in this channel' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update member role' });
+  }
+});
+
 // ── Archive / unarchive ─────────────────────────────────────────────────
 // An archived channel disappears from the default sidebar list but keeps its
 // members and message history. Anyone can unarchive it via the "Show archived"

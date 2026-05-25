@@ -9,53 +9,117 @@
   <link rel="stylesheet" href="style.css">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
-    /* Full-height layout: override default page padding */
     body.os-newlayout .page { padding:0 !important; max-width:none !important; height:calc(100vh - 56px); display:flex; overflow:hidden; }
 
+    /* ── Outer wrap ─────────────────────────────────────────────── */
     .pulse-wrap { display:flex; width:100%; height:100%; overflow:hidden; }
 
-    /* Sidebar */
-    .ps-sidebar { width:230px; flex:0 0 230px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); overflow:hidden; }
-    .ps-sidebar-head { padding:14px 14px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
-    .ps-sidebar-head .ps-app-name { font-weight:800; font-size:.95rem; color:var(--text); flex:1; }
-    .ps-sidebar-body { flex:1; overflow-y:auto; padding:6px 0; }
-    .ps-section { padding:12px 14px 4px; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; }
-    .ps-row { display:flex; align-items:center; gap:8px; padding:7px 10px; margin:0 4px; border-radius:8px; cursor:pointer; font-size:.88rem; color:var(--text-muted); transition:background .1s,color .1s; }
+    /* ── Channel sidebar ────────────────────────────────────────── */
+    .ps-sidebar { width:240px; flex:0 0 240px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--surface); overflow:hidden; }
+    .ps-sidebar-head { padding:14px 14px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .ps-app-name { font-weight:800; font-size:.95rem; color:var(--text); flex:1; }
+    .ps-sidebar-body { flex:1; overflow-y:auto; padding:4px 0 40px; }
+
+    .ps-section-row { display:flex; align-items:center; padding:10px 14px 2px; }
+    .ps-section { font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; flex:1; }
+    .ps-new-btn { width:20px; height:20px; border-radius:5px; border:none; background:transparent; cursor:pointer; color:var(--text-muted); font-size:1.1rem; line-height:1; display:flex; align-items:center; justify-content:center; transition:background .1s,color .1s; }
+    .ps-new-btn:hover { background:var(--brand-light); color:var(--brand); }
+
+    .ps-row { display:flex; align-items:center; gap:8px; padding:6px 10px; margin:1px 4px; border-radius:8px; cursor:pointer; font-size:.88rem; color:var(--text-muted); transition:background .1s,color .1s; }
     .ps-row:hover { background:var(--brand-light); color:var(--text); }
     .ps-row.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
-    .ps-row-icon { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
+    .ps-row-icon { font-size:.85rem; flex-shrink:0; width:16px; text-align:center; font-weight:700; color:var(--text-muted); }
+    .ps-row.active .ps-row-icon { color:var(--brand); }
     .ps-row-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .ps-badge { background:var(--brand); color:#fff; border-radius:100px; font-size:.62rem; font-weight:700; padding:1px 6px; min-width:16px; text-align:center; }
+    .ps-badge { background:var(--brand); color:#fff; border-radius:100px; font-size:.62rem; font-weight:700; padding:1px 6px; min-width:16px; text-align:center; flex-shrink:0; }
+    .ps-join-btn { font-size:.68rem; font-weight:700; color:var(--brand-dark,#15803d); border:1px solid rgba(97,183,70,.35); background:rgba(97,183,70,.08); border-radius:100px; padding:2px 8px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+    .ps-join-btn:hover { background:rgba(97,183,70,.15); }
+    .ps-dm-avatar { width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.62rem; font-weight:700; flex-shrink:0; }
+    .ps-row.dimmed { opacity:.6; }
 
-    /* Main area */
+    /* ── Main area ──────────────────────────────────────────────── */
     .ps-main { flex:1; min-width:0; display:flex; flex-direction:column; }
     .ps-main-head { height:52px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; padding:0 16px; background:var(--surface); flex-shrink:0; }
-    .ps-main-head .ps-ch-name { font-weight:700; font-size:.95rem; }
+    .ps-ch-name { font-weight:700; font-size:.95rem; }
+    .ps-ch-desc { font-size:.78rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px; }
+    .ps-members-badge { font-size:.72rem; color:var(--text-muted); background:var(--bg); border:1px solid var(--border); border-radius:100px; padding:2px 8px; white-space:nowrap; }
     .ps-conn { width:8px; height:8px; border-radius:50%; background:#d1d5db; flex-shrink:0; transition:background .3s; }
     .ps-conn.on { background:#22c55e; }
-    .ps-messages { flex:1; overflow-y:auto; padding:16px 16px 8px; display:flex; flex-direction:column; gap:2px; }
-    /* Message */
-    .ps-msg { display:flex; gap:10px; align-items:flex-start; padding:2px 0; }
+    .ps-settings-btn { width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--surface); cursor:pointer; color:var(--text-muted); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .1s,color .1s,border-color .1s; }
+    .ps-settings-btn:hover { background:var(--brand-light); color:var(--brand); border-color:rgba(97,183,70,.3); }
+
+    .ps-messages { flex:1; overflow-y:auto; padding:16px 16px 8px; display:flex; flex-direction:column; gap:0; }
+    .ps-msg { display:flex; gap:10px; align-items:flex-start; padding:2px 4px; border-radius:6px; }
+    .ps-msg:hover { background:var(--brand-light); }
     .ps-msg-avatar { width:34px; height:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0; margin-top:1px; }
     .ps-msg-body { flex:1; min-width:0; }
     .ps-msg-meta { display:flex; align-items:baseline; gap:6px; margin-bottom:2px; }
     .ps-msg-name { font-weight:700; font-size:.88rem; }
     .ps-msg-time { font-size:.7rem; color:var(--text-muted); }
+    .ps-msg-edited { font-size:.68rem; color:var(--text-muted); font-style:italic; }
     .ps-msg-text { font-size:.9rem; line-height:1.55; word-break:break-word; }
+    .ps-msg.compact { padding-top:1px; }
     .ps-msg.compact .ps-msg-avatar { visibility:hidden; }
     .ps-msg.compact .ps-msg-meta { display:none; }
-    /* Date divider */
-    .ps-divider { text-align:center; font-size:.72rem; color:var(--text-muted); margin:10px 0; position:relative; }
+    .ps-divider { text-align:center; font-size:.72rem; color:var(--text-muted); margin:12px 0 8px; position:relative; }
     .ps-divider::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:var(--border); }
     .ps-divider span { background:var(--bg); position:relative; padding:0 12px; }
-    /* Empty main */
-    .ps-empty { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--text-muted); }
-    /* Composer */
+    .ps-empty { flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; color:var(--text-muted); }
+    .ps-empty svg { opacity:.3; }
+
     .ps-composer { border-top:1px solid var(--border); padding:10px 12px; display:flex; gap:8px; align-items:flex-end; background:var(--surface); flex-shrink:0; }
-    .ps-composer textarea { flex:1; resize:none; border:1.5px solid var(--border); border-radius:10px; padding:9px 12px; font-size:.9rem; font-family:inherit; line-height:1.4; max-height:120px; overflow-y:auto; background:var(--bg); color:var(--text); }
-    .ps-composer textarea:focus { outline:none; border-color:var(--brand); }
-    .ps-send { padding:9px 16px; font-size:.88rem; border-radius:10px; align-self:flex-end; white-space:nowrap; }
-    @media(max-width:640px) { .ps-sidebar { width:180px; flex:0 0 180px; } }
+    .ps-composer textarea { flex:1; resize:none; border:1.5px solid var(--border); border-radius:10px; padding:9px 12px; font-size:.9rem; font-family:inherit; line-height:1.4; max-height:120px; overflow-y:auto; background:var(--bg); color:var(--text); transition:border-color .15s; }
+    .ps-composer textarea:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(97,183,70,.08); }
+    .ps-send { padding:9px 18px; font-size:.88rem; border-radius:10px; align-self:flex-end; white-space:nowrap; flex-shrink:0; }
+
+    /* ── Modals ─────────────────────────────────────────────────── */
+    .ps-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:900; display:none; align-items:center; justify-content:center; backdrop-filter:blur(3px); }
+    .ps-backdrop.open { display:flex; }
+    .ps-modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; width:min(420px,90vw); box-shadow:0 20px 60px -10px rgba(0,0,0,.3); }
+    .ps-modal h3 { margin:0 0 16px; font-size:1.1rem; }
+    .ps-modal label { display:block; font-size:.8rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; margin-top:12px; }
+    .ps-modal input[type=text], .ps-modal textarea { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:.9rem; font-family:inherit; background:var(--bg); color:var(--text); box-sizing:border-box; }
+    .ps-modal input[type=text]:focus, .ps-modal textarea:focus { outline:none; border-color:var(--brand); }
+    .ps-modal textarea { resize:vertical; min-height:64px; }
+    .ps-toggle-row { display:flex; align-items:center; gap:10px; margin-top:14px; }
+    .ps-toggle-row label { margin:0; font-size:.88rem; font-weight:500; color:var(--text); }
+    .ps-modal-foot { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+    .ps-btn-cancel { padding:8px 16px; border-radius:9px; border:1px solid var(--border); background:var(--bg); cursor:pointer; font-size:.88rem; color:var(--text); }
+    .ps-btn-cancel:hover { background:var(--brand-light); }
+
+    /* ── Channel settings panel (right drawer) ──────────────────── */
+    .ps-settings-panel { position:fixed; top:56px; right:0; bottom:0; width:min(340px,90vw); background:var(--surface); border-left:1px solid var(--border); z-index:200; transform:translateX(100%); transition:transform .22s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; box-shadow:-8px 0 32px -8px rgba(0,0,0,.12); }
+    .ps-settings-panel.open { transform:translateX(0); }
+    .ps-sp-head { padding:16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .ps-sp-title { font-weight:700; font-size:.95rem; flex:1; }
+    .ps-sp-close { width:28px; height:28px; border:none; background:none; cursor:pointer; color:var(--text-muted); border-radius:6px; display:flex; align-items:center; justify-content:center; }
+    .ps-sp-close:hover { background:var(--brand-light); color:var(--text); }
+    .ps-sp-body { flex:1; overflow-y:auto; padding:16px; }
+    .ps-sp-section { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; margin:16px 0 8px; }
+    .ps-sp-section:first-child { margin-top:0; }
+    .ps-sp-field { margin-bottom:12px; }
+    .ps-sp-field label { display:block; font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; }
+    .ps-sp-field input, .ps-sp-field textarea { width:100%; padding:8px 10px; border:1.5px solid var(--border); border-radius:9px; font-size:.88rem; font-family:inherit; background:var(--bg); color:var(--text); box-sizing:border-box; }
+    .ps-sp-field input:focus, .ps-sp-field textarea:focus { outline:none; border-color:var(--brand); }
+    .ps-sp-save { width:100%; padding:9px; border-radius:9px; margin-top:4px; }
+    .ps-member-row { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
+    .ps-member-row:last-child { border-bottom:none; }
+    .ps-member-avatar { width:28px; height:28px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.72rem; flex-shrink:0; }
+    .ps-member-info { flex:1; min-width:0; }
+    .ps-member-name { font-size:.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ps-member-role { font-size:.7rem; color:var(--text-muted); }
+    .ps-member-actions { display:flex; gap:4px; }
+    .ps-member-btn { font-size:.68rem; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); cursor:pointer; color:var(--text-muted); white-space:nowrap; }
+    .ps-member-btn:hover { border-color:var(--brand); color:var(--brand); }
+    .ps-member-btn.danger:hover { border-color:#ef4444; color:#ef4444; }
+    .ps-add-member { display:flex; gap:6px; margin-top:12px; }
+    .ps-add-member select { flex:1; padding:7px 10px; border:1.5px solid var(--border); border-radius:9px; font-size:.85rem; background:var(--bg); color:var(--text); }
+    .ps-add-member select:focus { outline:none; border-color:var(--brand); }
+
+    @media(max-width:640px) {
+      .ps-sidebar { width:190px; flex:0 0 190px; }
+      .ps-ch-desc { display:none; }
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -65,106 +129,227 @@
 
 <main class="page">
   <div class="pulse-wrap">
+
+    <!-- ── Channel/DM sidebar ──────────────────────────────────── -->
     <div class="ps-sidebar">
       <div class="ps-sidebar-head">
-        <span style="font-size:1.2rem;">💬</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="color:var(--brand);flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="ps-app-name">Pulse</span>
       </div>
       <div class="ps-sidebar-body" id="ps-sidebar-body">
-        <p class="text-muted text-sm" style="padding:14px 14px;">Loading…</p>
+        <p class="text-muted text-sm" style="padding:14px;">Loading…</p>
       </div>
     </div>
 
+    <!-- ── Main message area ───────────────────────────────────── -->
     <div class="ps-main" id="ps-main">
       <div class="ps-empty" style="height:100%;">
-        <div style="font-size:2.5rem;">💬</div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <p>Select a channel to start</p>
       </div>
     </div>
+
   </div>
 </main>
+
+<!-- ── Create Channel modal ──────────────────────────────────── -->
+<div class="ps-backdrop" id="new-ch-modal" onclick="closeModal('new-ch-modal')">
+  <div class="ps-modal" onclick="event.stopPropagation()">
+    <h3>New Channel</h3>
+    <label>Channel name</label>
+    <input type="text" id="new-ch-name" placeholder="e.g. renovations" maxlength="64" oninput="slugifyPreview(this)">
+    <label>Description <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+    <textarea id="new-ch-desc" placeholder="What's this channel about?" rows="2"></textarea>
+    <div class="ps-toggle-row">
+      <input type="checkbox" id="new-ch-private">
+      <label for="new-ch-private">Private — only invited members can see this channel</label>
+    </div>
+    <div class="ps-modal-foot">
+      <button class="ps-btn-cancel" onclick="closeModal('new-ch-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createChannel()">Create channel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Channel settings panel ────────────────────────────────── -->
+<div class="ps-settings-panel" id="ch-settings-panel">
+  <div class="ps-sp-head">
+    <span class="ps-sp-title" id="sp-title">Channel settings</span>
+    <button class="ps-sp-close" onclick="closeSettings()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="ps-sp-body" id="sp-body"></div>
+</div>
 
 <script>window.NAV_CURRENT = 'pulse';</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  let myId = null, pulseBase = '';
-  let activeScope = null; // {type,id,name}
+  let myId = null, isOwner = false;
+  let activeScope = null; // { type:'channel'|'dm', id, name, my_role }
   let messages = [], sseSource = null, lastSender = null, lastDate = null;
+  let allChannels = [], allDms = [], allUsers = [];
+  let settingsChannelId = null;
 
+  // ── Boot ───────────────────────────────────────────────────────
   async function init() {
     const me = await requireAuth(); if (!me) return;
     myId = me.id;
-    // Pulse is now served by the OS — pulseBase is always same-origin ('')
-    pulseBase = '';
-    loadSidebar();
+    isOwner = !!me.is_owner;
+    await loadSidebar();
+    // Auto-open #general (or first channel)
+    const general = allChannels.find(c => c.slug === 'general' && c.is_member)
+                 || allChannels.find(c => c.is_member);
+    if (general) openCh(general.id, general.name || general.slug, general.my_role);
   }
 
+  // ── Sidebar ────────────────────────────────────────────────────
   async function loadSidebar() {
     const [channels, dms] = await Promise.all([
-      satelliteApiFetch('pulse','/api/pulse/channels').catch(()=>[]),
-      satelliteApiFetch('pulse','/api/pulse/dms').catch(()=>[]),
+      satelliteApiFetch('pulse', '/api/pulse/channels').catch(() => []),
+      satelliteApiFetch('pulse', '/api/pulse/dms').catch(() => []),
     ]);
+    allChannels = Array.isArray(channels) ? channels : [];
+    allDms      = Array.isArray(dms)      ? dms      : [];
+
+    // Auto-join public channels (including #general) if not already a member
+    for (const ch of allChannels) {
+      if (!ch.is_member && !ch.is_private) {
+        await satelliteApiFetch('pulse', `/api/pulse/channels/${ch.id}/join`, { method: 'POST' }).catch(() => {});
+        ch.is_member = true; ch.my_role = 'member';
+      }
+    }
+    renderSidebar();
+  }
+
+  function renderSidebar() {
+    const memberChs   = allChannels.filter(c => c.is_member);
+    const joinableChs = allChannels.filter(c => !c.is_member && !c.is_private);
     let html = '';
-    if (channels.length) {
-      html += `<div class="ps-section">Channels</div>`;
-      html += channels.map(ch => {
-        const active = activeScope?.id===ch.id ? ' active' : '';
-        const unread = ch.unread>0 ? `<span class="ps-badge">${ch.unread}</span>` : '';
-        return `<div class="ps-row${active}" onclick="openCh(${JSON.stringify(ch.id)},${JSON.stringify(ch.name||ch.slug)})">
+
+    // Channels section
+    html += `<div class="ps-section-row">
+      <span class="ps-section">Channels</span>
+      ${isOwner ? `<button class="ps-new-btn" onclick="openNewChannelModal()" title="New channel">+</button>` : ''}
+    </div>`;
+    if (memberChs.length) {
+      html += memberChs.map(ch => {
+        const active = activeScope?.id === ch.id ? ' active' : '';
+        const unread = ch.unread > 0 ? `<span class="ps-badge">${ch.unread}</span>` : '';
+        return `<div class="ps-row${active}" onclick="openCh('${ch.id}',${JSON.stringify(ch.name||ch.slug)},${JSON.stringify(ch.my_role)})">
           <span class="ps-row-icon">#</span>
-          <span class="ps-row-name">${escHtml(ch.name||ch.slug)}</span>${unread}
+          <span class="ps-row-name">${escHtml(ch.name || ch.slug)}</span>${unread}
         </div>`;
       }).join('');
+    } else {
+      html += `<p class="text-muted text-sm" style="padding:6px 14px;">No channels yet.</p>`;
     }
-    if (dms.length) {
-      html += `<div class="ps-section">Direct Messages</div>`;
-      html += dms.map(dm => {
-        const others = (dm.members||[]).filter(m=>m.user_id!==myId);
-        const name = others.map(m=>m.full_name||m.email||'?').join(', ') || 'Group';
-        const active = activeScope?.id===dm.id ? ' active' : '';
-        const unread = dm.unread>0 ? `<span class="ps-badge">${dm.unread}</span>` : '';
-        const init1 = (others[0]?.full_name||others[0]?.email||'?')[0]?.toUpperCase();
-        return `<div class="ps-row${active}" onclick="openDm(${JSON.stringify(dm.id)},${JSON.stringify(name)})">
-          <div style="width:20px;height:20px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;flex-shrink:0;">${escHtml(init1||'?')}</div>
+
+    // Joinable public channels (user wasn't auto-added — shouldn't normally show)
+    if (joinableChs.length) {
+      html += `<div class="ps-section-row" style="margin-top:8px;"><span class="ps-section">Browse</span></div>`;
+      html += joinableChs.map(ch => `
+        <div class="ps-row dimmed">
+          <span class="ps-row-icon">#</span>
+          <span class="ps-row-name">${escHtml(ch.name || ch.slug)}</span>
+          <button class="ps-join-btn" onclick="joinChannel('${ch.id}',event)">Join</button>
+        </div>`).join('');
+    }
+
+    // DMs section
+    if (allDms.length) {
+      html += `<div class="ps-section-row" style="margin-top:8px;"><span class="ps-section">Direct Messages</span></div>`;
+      html += allDms.map(dm => {
+        const others  = (dm.members || []).filter(m => m.user_id !== myId);
+        const name    = others.map(m => m.full_name || m.email || '?').join(', ') || 'Group DM';
+        const active  = activeScope?.id === dm.id ? ' active' : '';
+        const unread  = dm.unread > 0 ? `<span class="ps-badge">${dm.unread}</span>` : '';
+        const initial = (others[0]?.full_name || others[0]?.email || '?')[0]?.toUpperCase();
+        return `<div class="ps-row${active}" onclick="openDm('${dm.id}',${JSON.stringify(name)})">
+          <div class="ps-dm-avatar" style="background:${avatarColor(dm.id)}">${escHtml(initial || '?')}</div>
           <span class="ps-row-name">${escHtml(name)}</span>${unread}
         </div>`;
       }).join('');
     }
-    if (!html) html = `<p class="text-muted text-sm" style="padding:14px;">No channels yet.</p>`;
+
     document.getElementById('ps-sidebar-body').innerHTML = html;
   }
 
-  async function openCh(id, name) { activeScope={type:'channel',id,name:'#'+name}; await loadMessages({channel_id:id}); loadSidebar(); }
-  async function openDm(id, name) { activeScope={type:'dm',id,name};               await loadMessages({dm_id:id}); loadSidebar(); }
+  async function joinChannel(id, e) {
+    e?.stopPropagation();
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/channels/${id}/join`, { method: 'POST' });
+      await loadSidebar();
+      const ch = allChannels.find(c => c.id === id);
+      if (ch) openCh(ch.id, ch.name || ch.slug, 'member');
+    } catch(err) { showToast(err.message, 'error'); }
+  }
 
+  // ── Open channel / DM ──────────────────────────────────────────
+  function openCh(id, name, myRole) {
+    activeScope = { type: 'channel', id, name: '#' + name, my_role: myRole };
+    closeSettings();
+    renderSidebar();
+    loadMessages({ channel_id: id });
+    satelliteApiFetch('pulse', `/api/pulse/channels/${id}/read`, { method: 'POST' }).catch(() => {});
+  }
+
+  function openDm(id, name) {
+    activeScope = { type: 'dm', id, name };
+    closeSettings();
+    renderSidebar();
+    loadMessages({ dm_id: id });
+  }
+
+  // ── Load & render messages ─────────────────────────────────────
   async function loadMessages(scope) {
-    const main = document.getElementById('ps-main');
-    main.innerHTML = `
+    const ch = scope.channel_id ? allChannels.find(c => c.id === scope.channel_id) : null;
+    const canManage = isOwner || activeScope?.my_role === 'admin';
+
+    document.getElementById('ps-main').innerHTML = `
       <div class="ps-main-head">
         <span class="ps-ch-name">${escHtml(activeScope.name)}</span>
+        ${ch?.description ? `<span class="ps-ch-desc">${escHtml(ch.description)}</span>` : ''}
+        <span style="flex:1"></span>
+        ${ch ? `<span class="ps-members-badge" id="ps-member-count">${ch.member_count || 0} members</span>` : ''}
         <span class="ps-conn" id="ps-conn"></span>
+        ${scope.channel_id && canManage ? `
+          <button class="ps-settings-btn" onclick="openSettings('${scope.channel_id}')" title="Channel settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 18.07a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 14a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 10 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>` : ''}
       </div>
-      <div class="ps-messages" id="ps-messages"><p class="text-muted text-sm">Loading…</p></div>
+      <div class="ps-messages" id="ps-messages"><p class="text-muted text-sm" style="padding:8px 4px;">Loading…</p></div>
       <div class="ps-composer">
         <textarea id="ps-textarea" placeholder="Message ${escHtml(activeScope.name)}…" rows="1"
           onkeydown="handleKey(event)" oninput="autoH(this)"></textarea>
         <button class="btn btn-primary ps-send" onclick="sendMsg()">Send</button>
       </div>`;
+
     try {
       const qp = scope.channel_id ? `?channel_id=${scope.channel_id}` : `?dm_id=${scope.dm_id}`;
-      messages = await satelliteApiFetch('pulse', '/api/pulse/messages'+qp+'&limit=80');
+      const result = await satelliteApiFetch('pulse', '/api/pulse/messages' + qp + '&limit=80');
+      // Backend returns { messages: [...], has_more: bool }
+      messages = Array.isArray(result) ? result : (result.messages || []);
       renderMsgs();
     } catch(e) {
-      document.getElementById('ps-messages').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
+      const el = document.getElementById('ps-messages');
+      if (el) el.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
     }
     connectSSE(scope);
+    document.getElementById('ps-textarea')?.focus();
   }
 
   function renderMsgs() {
     const el = document.getElementById('ps-messages'); if (!el) return;
-    lastSender=null; lastDate=null;
-    if (!messages.length) { el.innerHTML=`<div class="ps-empty"><div style="font-size:2rem">💬</div><p>No messages yet — say hello!</p></div>`; return; }
+    lastSender = null; lastDate = null;
+    if (!messages.length) {
+      el.innerHTML = `<div class="ps-empty" style="height:100%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="40" height="40"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>No messages yet — say hello!</p></div>`;
+      return;
+    }
     el.innerHTML = messages.map(m => msgHtml(m)).join('');
     el.scrollTop = el.scrollHeight;
   }
@@ -180,12 +365,15 @@
     const time = new Date(m.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     const senderName = m.sender_name || m.sender_email || 'Unknown';
     const initial = senderName[0]?.toUpperCase() || '?';
-    const textOut = m.content_html || (escHtml(m.content||'')).replace(/\n/g,'<br>');
-    out += `<div class="ps-msg${compact?' compact':''}">
+    // body is the canonical field — fall back to content/content_html for legacy rows
+    const rawText = m.body || m.content || '';
+    const textOut = escHtml(rawText).replace(/\n/g, '<br>');
+    const edited  = m.edited_at ? ` <span class="ps-msg-edited">(edited)</span>` : '';
+    out += `<div class="ps-msg${compact ? ' compact' : ''}">
       <div class="ps-msg-avatar" style="background:${avatarColor(m.sender_id)}">${escHtml(initial)}</div>
       <div class="ps-msg-body">
         <div class="ps-msg-meta"><span class="ps-msg-name">${escHtml(senderName)}</span><span class="ps-msg-time">${time}</span></div>
-        <div class="ps-msg-text">${textOut}</div>
+        <div class="ps-msg-text">${textOut}${edited}</div>
       </div>
     </div>`;
     lastSender = m.sender_id;
@@ -194,50 +382,243 @@
 
   function appendMsg(m) {
     const el = document.getElementById('ps-messages'); if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     el.insertAdjacentHTML('beforeend', msgHtml(m));
     lastSender = m.sender_id;
     if (atBottom) el.scrollTop = el.scrollHeight;
   }
 
+  // ── SSE real-time ──────────────────────────────────────────────
   function connectSSE(scope) {
-    if (sseSource) { try{sseSource.close();}catch(e){} sseSource=null; }
+    if (sseSource) { try { sseSource.close(); } catch(e) {} sseSource = null; }
     const token = getToken(); if (!token) return;
     const qp = scope.channel_id ? `channel_id=${scope.channel_id}` : `dm_id=${scope.dm_id}`;
-    sseSource = new EventSource(`${pulseBase}/api/pulse/stream?token=${encodeURIComponent(token)}&${qp}`);
+    sseSource = new EventSource(`/api/pulse/stream?token=${encodeURIComponent(token)}&${qp}`);
     const dot = () => document.getElementById('ps-conn');
-    sseSource.onopen = () => { const d=dot(); if(d) d.classList.add('on'); };
-    sseSource.onerror = () => { const d=dot(); if(d) d.classList.remove('on'); };
+    sseSource.onopen  = () => { const d = dot(); if (d) d.classList.add('on'); };
+    sseSource.onerror = () => { const d = dot(); if (d) d.classList.remove('on'); };
     sseSource.onmessage = e => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type==='message'||data.type==='new_message') {
-          const msg = data.message||data;
-          messages.push(msg); appendMsg(msg);
+        if (data.type === 'message' || data.type === 'new_message') {
+          const msg = data.message || data;
+          messages.push(msg);
+          appendMsg(msg);
+        } else if (data.type === 'message_updated') {
+          const idx = messages.findIndex(m => m.id === data.message?.id);
+          if (idx >= 0) { messages[idx] = data.message; renderMsgs(); }
+        } else if (data.type === 'message_deleted') {
+          messages = messages.filter(m => m.id !== data.message_id);
+          renderMsgs();
         }
       } catch(_) {}
     };
   }
 
+  // ── Send message ───────────────────────────────────────────────
   async function sendMsg() {
     if (!activeScope) return;
     const ta = document.getElementById('ps-textarea'); if (!ta) return;
     const text = ta.value.trim(); if (!text) return;
     ta.value = ''; ta.style.height = '';
-    const body = activeScope.type==='channel' ? {channel_id:activeScope.id,content:text} : {dm_id:activeScope.id,content:text};
+    // Use 'body' — that is what the backend expects
+    const payload = activeScope.type === 'channel'
+      ? { channel_id: activeScope.id, body: text }
+      : { dm_id:      activeScope.id, body: text };
     try {
-      await satelliteApiFetch('pulse','/api/pulse/messages',{method:'POST',body:JSON.stringify(body)});
-    } catch(e) { showToast(e.message,'error'); ta.value=text; }
+      await satelliteApiFetch('pulse', '/api/pulse/messages', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+    } catch(e) { showToast(e.message, 'error'); ta.value = text; }
   }
 
-  function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
-  function autoH(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+  function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }
+  function autoH(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
 
+  // ── Create channel (owner only) ────────────────────────────────
+  function openNewChannelModal() {
+    document.getElementById('new-ch-name').value  = '';
+    document.getElementById('new-ch-desc').value  = '';
+    document.getElementById('new-ch-private').checked = false;
+    document.getElementById('new-ch-modal').classList.add('open');
+    setTimeout(() => document.getElementById('new-ch-name')?.focus(), 50);
+  }
+  function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+  function slugifyPreview(input) {
+    // Lowercase & clean to channel slug rules — just visual hint, backend does canonical slug
+  }
+
+  async function createChannel() {
+    const name       = document.getElementById('new-ch-name').value.trim();
+    const description = document.getElementById('new-ch-desc').value.trim();
+    const is_private = document.getElementById('new-ch-private').checked;
+    if (!name) { showToast('Channel name required', 'error'); return; }
+    try {
+      const ch = await satelliteApiFetch('pulse', '/api/pulse/channels', {
+        method: 'POST',
+        body: JSON.stringify({ name, description: description || null, is_private })
+      });
+      closeModal('new-ch-modal');
+      await loadSidebar();
+      openCh(ch.id, ch.name || ch.slug, 'admin');
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Channel settings panel ─────────────────────────────────────
+  function closeSettings() {
+    document.getElementById('ch-settings-panel')?.classList.remove('open');
+    settingsChannelId = null;
+  }
+
+  async function openSettings(channelId) {
+    settingsChannelId = channelId;
+    const ch = allChannels.find(c => c.id === channelId);
+    if (!ch) return;
+    document.getElementById('sp-title').textContent = `#${ch.name || ch.slug}`;
+
+    // Load members + all users in parallel
+    const [members, users] = await Promise.all([
+      satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members`).catch(() => []),
+      apiFetch('/api/users').catch(() => [])
+    ]);
+    allUsers = Array.isArray(users) ? users : [];
+
+    const memberIds = new Set(members.map(m => m.user_id));
+    const nonMembers = allUsers.filter(u => !memberIds.has(u.id));
+
+    document.getElementById('sp-body').innerHTML = `
+      <div class="ps-sp-section">Settings</div>
+      <div class="ps-sp-field">
+        <label>Channel name</label>
+        <input type="text" id="sp-name" value="${escHtml(ch.name || ch.slug)}">
+      </div>
+      <div class="ps-sp-field">
+        <label>Description</label>
+        <textarea id="sp-desc" rows="2">${escHtml(ch.description || '')}</textarea>
+      </div>
+      <div class="ps-toggle-row" style="margin-bottom:12px;">
+        <input type="checkbox" id="sp-private" ${ch.is_private ? 'checked' : ''}>
+        <label for="sp-private" style="margin:0;font-size:.88rem;font-weight:500;color:var(--text);">Private channel</label>
+      </div>
+      <button class="btn btn-primary ps-sp-save" onclick="saveChannelSettings('${channelId}')">Save settings</button>
+
+      <div class="ps-sp-section" style="margin-top:20px;">Members (${members.length})</div>
+      <div id="sp-members-list">
+        ${members.map(m => {
+          const name = m.full_name || m.email || 'Unknown';
+          const isSelf = m.user_id === myId;
+          const isGen  = ch.slug === 'general';
+          return `<div class="ps-member-row">
+            <div class="ps-member-avatar" style="background:${avatarColor(m.user_id)}">${escHtml(name[0]?.toUpperCase()||'?')}</div>
+            <div class="ps-member-info">
+              <div class="ps-member-name">${escHtml(name)}</div>
+              <div class="ps-member-role">${m.role === 'admin' ? '⭐ Admin' : 'Member'}</div>
+            </div>
+            <div class="ps-member-actions">
+              ${!isSelf ? `<button class="ps-member-btn" onclick="toggleMemberRole('${channelId}','${m.user_id}','${m.role === 'admin' ? 'member' : 'admin'}')">${m.role === 'admin' ? 'Demote' : 'Make admin'}</button>` : ''}
+              ${!isSelf && !isGen ? `<button class="ps-member-btn danger" onclick="removeMember('${channelId}','${m.user_id}')">Remove</button>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      ${nonMembers.length ? `
+        <div class="ps-sp-section" style="margin-top:16px;">Add member</div>
+        <div class="ps-add-member">
+          <select id="sp-add-user">
+            <option value="">Select a person…</option>
+            ${nonMembers.map(u => `<option value="${u.id}">${escHtml(u.full_name || u.email)}</option>`).join('')}
+          </select>
+          <button class="btn btn-primary" onclick="addMember('${channelId}')">Add</button>
+        </div>` : ''}
+
+      <div class="ps-sp-section" style="margin-top:20px;">Danger zone</div>
+      ${ch.slug !== 'general' ? `<button class="btn" style="color:#ef4444;border-color:#ef4444;width:100%;" onclick="archiveChannel('${channelId}')">Archive channel</button>` : ''}
+    `;
+    document.getElementById('ch-settings-panel').classList.add('open');
+  }
+
+  async function saveChannelSettings(channelId) {
+    const name       = document.getElementById('sp-name')?.value.trim();
+    const description = document.getElementById('sp-desc')?.value.trim();
+    const is_private = document.getElementById('sp-private')?.checked;
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name, description: description || null, is_private })
+      });
+      showToast('Saved', 'success');
+      await loadSidebar();
+      // Update active scope name if this is the open channel
+      if (activeScope?.id === channelId) {
+        activeScope.name = '#' + name;
+        const el = document.querySelector('.ps-ch-name');
+        if (el) el.textContent = activeScope.name;
+      }
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  async function addMember(channelId) {
+    const sel = document.getElementById('sp-add-user');
+    const userId = sel?.value;
+    if (!userId) { showToast('Select a person first', 'error'); return; }
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId })
+      });
+      showToast('Member added', 'success');
+      openSettings(channelId); // refresh panel
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  async function removeMember(channelId, userId) {
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members/${userId}`, { method: 'DELETE' });
+      openSettings(channelId);
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  async function toggleMemberRole(channelId, userId, newRole) {
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: newRole })
+      });
+      openSettings(channelId);
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  async function archiveChannel(channelId) {
+    if (!confirm('Archive this channel? It will be hidden from the sidebar but history is kept.')) return;
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/archive`, { method: 'POST' });
+      closeSettings();
+      await loadSidebar();
+      // If the archived channel was open, show empty state
+      if (activeScope?.id === channelId) {
+        activeScope = null;
+        document.getElementById('ps-main').innerHTML = `<div class="ps-empty" style="height:100%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>Channel archived — select another channel</p></div>`;
+      }
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────
   function avatarColor(str) {
-    const COLS=['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
-    let h=0; for(let i=0;i<(str||'').length;i++) h=((h<<5)-h)+str.charCodeAt(i);
-    return COLS[Math.abs(h)%COLS.length];
+    const COLS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#6366f1'];
+    let h = 0; for (let i = 0; i < (str||'').length; i++) h = ((h << 5) - h) + str.charCodeAt(i);
+    return COLS[Math.abs(h) % COLS.length];
   }
+
+  // Close settings panel when clicking outside
+  document.addEventListener('click', e => {
+    const panel = document.getElementById('ch-settings-panel');
+    const btn   = document.querySelector('.ps-settings-btn');
+    if (!panel?.classList.contains('open')) return;
+    if (panel.contains(e.target) || btn?.contains(e.target)) return;
+    closeSettings();
+  });
 
   init();
 </script>
