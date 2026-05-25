@@ -280,41 +280,97 @@
       ['Lender',                    property.lender_name || '—'],
       ['Seller',                    property.seller_name || '—'],
     ];
-    let html = `
-      <div id="lifecycle-stepper"></div>
-      <div class="card mb-16">
-        <div class="card-body">
-          <div class="flex-between" style="gap:12px;flex-wrap:wrap;">
-            <div>
-              ${property.display_name ? `<div class="property-name">${escHtml(property.display_name)}</div>` : ''}
-              <div class="${property.display_name ? 'property-address' : 'property-name'}">${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}</div>
-              <div class="property-address">${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              ${propertyStatusBadge(property.status)}
-              <button class="btn btn-secondary" style="padding:6px 12px;font-size:.82rem;" onclick="openEditDetails()">✏️ Edit</button>
-            </div>
-          </div>
+    // ── KPIs for the hero strip ─────────────────────────────────
+    const holdingsForCarry = property.holdings_items || [];
+    const monthlyCarry = holdingsForCarry.reduce((s, h) => {
+      const a = Number(h.amount || 0);
+      const f = (h.frequency || '').toLowerCase();
+      if (!a) return s;
+      if (f === 'monthly')      return s + a;
+      if (f === 'weekly')       return s + a * 52 / 12;
+      if (f === 'biweekly')     return s + a * 26 / 12;
+      if (f === 'quarterly')    return s + a / 3;
+      if (f === 'semiannual' || f === 'semi_annual') return s + a / 6;
+      if (f === 'annual' || f === 'yearly')          return s + a / 12;
+      return s; // one-time / unknown
+    }, 0);
+    const activeRecords = (property.prospects?.length || 0)
+                        + (property.leads?.length || 0)
+                        + (property.opportunities?.length || 0)
+                        + (property.purchases?.length || 0)
+                        + (property.projects?.length || 0);
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;margin-top:14px;font-size:.85rem;">
+    const purchase = property.purchase_price != null ? formatMoney(property.purchase_price) : '—';
+    const sold     = property.sold_price     != null ? formatMoney(property.sold_price)     : '—';
+    const carry    = monthlyCarry > 0 ? formatMoney(Math.round(monthlyCarry)) : '—';
+    const carrySub = holdingsForCarry.length
+      ? `${holdingsForCarry.length} ${holdingsForCarry.length === 1 ? 'holding' : 'holdings'}`
+      : 'No holdings';
+
+    const heroAddr = `${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}, ${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}`;
+
+    let html = `
+      <a href="javascript:history.back()" class="text-sm" style="text-decoration:none;color:var(--text-muted);display:inline-block;margin-bottom:10px;">‹ Back</a>
+
+      <section class="os-hero">
+        <div class="os-hero-eyebrow">Property</div>
+        <h1 class="os-hero-title">${escHtml(property.display_name || property.address_line1)}</h1>
+        <div class="os-hero-subtitle">${heroAddr}</div>
+        <div class="os-hero-actions" style="margin: 0 0 16px;">
+          ${propertyStatusBadge(property.status)}
+          <button class="btn btn-secondary" style="padding:6px 12px;font-size:.82rem;" onclick="openEditDetails()">✏️ Edit details</button>
+        </div>
+        <div class="os-kpi-row">
+          <div class="os-kpi">
+            <div class="os-kpi-label">Purchase Price</div>
+            <div class="os-kpi-value brand">${purchase}</div>
+            <div class="os-kpi-sub">${property.purchase_date ? 'Closed ' + dateFmt(property.purchase_date) : 'Not purchased'}</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Sold Price</div>
+            <div class="os-kpi-value">${sold}</div>
+            <div class="os-kpi-sub">${property.sold_date ? 'Sold ' + dateFmt(property.sold_date) : 'Not sold'}</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Monthly Carry</div>
+            <div class="os-kpi-value">${carry}</div>
+            <div class="os-kpi-sub">${carrySub}</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Pipeline Records</div>
+            <div class="os-kpi-value">${activeRecords}</div>
+            <div class="os-kpi-sub">${(property.contacts?.length || 0)} ${property.contacts?.length === 1 ? 'contact' : 'contacts'} · ${(property.photos?.length || 0)} ${property.photos?.length === 1 ? 'photo' : 'photos'}</div>
+          </div>
+        </div>
+      </section>
+
+      <div id="lifecycle-stepper"></div>
+
+      <div class="os-section-head">
+        <div class="os-section-title">Details</div>
+        <div class="os-section-line"></div>
+      </div>
+      <div class="os-panel">
+        <div class="os-panel-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 22px;font-size:.85rem;">
             ${fields.map(([label, value]) => `
               <div>
-                <div class="text-muted text-xs" style="font-weight:600;letter-spacing:.02em;">${escHtml(label)}</div>
-                <div style="margin-top:2px;">${value && value !== '—' ? escHtml(value) : '<span class="text-muted">—</span>'}</div>
+                <div class="text-muted text-xs" style="font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${escHtml(label)}</div>
+                <div style="margin-top:3px;font-weight:500;">${value && value !== '—' ? escHtml(value) : '<span class="text-muted">—</span>'}</div>
               </div>
             `).join('')}
           </div>
 
-          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;">
-            <label class="text-muted text-xs" for="status-select" style="font-weight:600;">Change status:</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border);">
+            <label class="text-muted text-xs" for="status-select" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Change status</label>
             <select id="status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeStatus(this.value)">
               ${PROPERTY_STATUSES.map(([k, label]) => `<option value="${k}"${property.status === k ? ' selected' : ''}>${label}</option>`).join('')}
             </select>
           </div>
 
           ${property.status === 'purchasing' ? `
-          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
-            <label class="text-muted text-xs" for="acq-status-select" style="font-weight:600;">Acquisition stage:</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;">
+            <label class="text-muted text-xs" for="acq-status-select" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Acquisition stage</label>
             <select id="acq-status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeAcquisitionStatus(this.value)">
               ${ACQUISITION_STATUSES.map(([k, label]) => `<option value="${k}"${(property.acquisition_status || 'under_contract') === k ? ' selected' : ''}>${label}</option>`).join('')}
             </select>
@@ -329,16 +385,22 @@
 
     for (const [label, stage, rows] of sections){
       html += `<div class="stage-section">
-        <h3>${label}<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addRecord('${stage}')">+ Add</button></h3>
-        ${rows.length ? rows.map(r => pipeRow(stage, r)).join('') : '<div class="text-muted text-xs">None yet.</div>'}
+        <div class="os-section-head">
+          <div class="os-section-title">${label} ${rows.length ? `<span style="opacity:.6;margin-left:6px;">(${rows.length})</span>` : ''}</div>
+          <div class="os-section-line"></div>
+          <a href="#" class="os-section-link" onclick="event.preventDefault();addRecord('${stage}')">+ Add</a>
+        </div>
+        ${rows.length ? rows.map(r => pipeRow(stage, r)).join('') : '<div class="text-muted text-xs" style="padding:6px 0 4px;">None yet.</div>'}
       </div>`;
     }
 
     const holdings = property.holdings_items || [];
     html += `<div class="stage-section">
-      <h3>💼 Holdings <span class="text-muted text-xs" style="font-weight:400;">(${holdings.length})</span>
-        <a class="btn btn-secondary" data-app="holdings" data-app-path="/" href="#" style="padding:4px 10px;font-size:.7rem;margin-left:auto;text-decoration:none;">Manage ↗</a>
-      </h3>
+      <div class="os-section-head">
+        <div class="os-section-title">💼 Holdings ${holdings.length ? `<span style="opacity:.6;margin-left:6px;">(${holdings.length})</span>` : ''}</div>
+        <div class="os-section-line"></div>
+        <a class="os-section-link" data-app="holdings" data-app-path="/" href="#">Manage ↗</a>
+      </div>
       ${holdings.length
         ? holdings.map(h => {
             const badge = holdingDueBadge(h.next_due_date, h.reminder_days_before);
@@ -354,19 +416,25 @@
               <span class="status-pill" style="background:${badge.cls === 'badge-danger' ? '#fee2e2' : badge.cls === 'badge-warn' ? '#fef3c7' : 'var(--brand-light)'}; color:${badge.cls === 'badge-danger' ? '#b91c1c' : badge.cls === 'badge-warn' ? '#92400e' : 'var(--brand)'};">${escHtml(badge.label)}</span>
             </a>`;
           }).join('')
-        : '<div class="text-muted text-xs">None yet. <a data-app="holdings" data-app-path="/" href="#">Add one in Holdings Desk ↗</a></div>'
+        : '<div class="text-muted text-xs" style="padding:6px 0 4px;">None yet. <a data-app="holdings" data-app-path="/" href="#">Add one in Holdings Desk ↗</a></div>'
       }
     </div>`;
 
     html += `<div class="stage-section">
-      <h3>📧 Email <span class="text-muted text-xs" style="font-weight:400;" id="email-threads-count"></span>
-        <a class="btn btn-secondary" data-app="inbox" data-app-path="/" href="#" style="padding:4px 10px;font-size:.7rem;margin-left:auto;text-decoration:none;">Open Inbox ↗</a>
-      </h3>
-      <div id="email-threads-list" class="text-muted text-xs">Loading…</div>
+      <div class="os-section-head">
+        <div class="os-section-title">📧 Email <span class="text-muted text-xs" style="font-weight:400;margin-left:6px;" id="email-threads-count"></span></div>
+        <div class="os-section-line"></div>
+        <a class="os-section-link" data-app="inbox" data-app-path="/" href="#">Open Inbox ↗</a>
+      </div>
+      <div id="email-threads-list" class="text-muted text-xs" style="padding:6px 0 4px;">Loading…</div>
     </div>`;
 
     html += `<div class="stage-section">
-      <h3>📇 Contacts<button class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;" onclick="addContactLink()">+ Link</button></h3>
+      <div class="os-section-head">
+        <div class="os-section-title">📇 Contacts ${property.contacts.length ? `<span style="opacity:.6;margin-left:6px;">(${property.contacts.length})</span>` : ''}</div>
+        <div class="os-section-line"></div>
+        <a href="#" class="os-section-link" onclick="event.preventDefault();addContactLink()">+ Link</a>
+      </div>
       ${property.contacts.length
         ? property.contacts.map(c => `<div class="contact-row">
             <div class="avatar">${escHtml(c.full_name.charAt(0).toUpperCase())}</div>
@@ -376,31 +444,36 @@
             </div>
             <button class="icon-btn" style="background:rgba(239,68,68,.15);color:var(--danger);" onclick="unlink('${c.id}','${c.role}')" title="Unlink">×</button>
           </div>`).join('')
-        : '<div class="text-muted text-xs">No contacts linked.</div>'}
+        : '<div class="text-muted text-xs" style="padding:6px 0 4px;">No contacts linked.</div>'}
     </div>`;
 
     html += `<div class="stage-section">
-      <h3>📷 Photos <span class="text-muted text-xs" style="font-weight:400;">(${property.photos.length})</span></h3>
+      <div class="os-section-head">
+        <div class="os-section-title">📷 Photos ${property.photos.length ? `<span style="opacity:.6;margin-left:6px;">(${property.photos.length})</span>` : ''}</div>
+        <div class="os-section-line"></div>
+      </div>
       ${property.photos.length
         ? `<div class="photo-grid">${property.photos.map((ph, i) => `
             <div class="photo-tile" onclick="openLightbox(${i})">
               <img src="${escHtml(ph.url)}" alt="">
               ${ph.uploader_name ? `<div class="photo-meta">${escHtml(ph.uploader_name)}</div>` : ''}
             </div>`).join('')}</div>`
-        : '<div class="text-muted text-xs">No photos yet. Upload via the FieldCam app.</div>'}
+        : '<div class="text-muted text-xs" style="padding:6px 0 4px;">No photos yet. Upload via the FieldCam app.</div>'}
     </div>`;
 
     html += `<div class="stage-section">
-      <h3>📎 Files <span class="text-muted text-xs" style="font-weight:400;" id="files-count"></span>
-        <label class="btn btn-secondary" style="padding:4px 10px;font-size:.7rem;margin-left:auto;cursor:pointer;">
+      <div class="os-section-head">
+        <div class="os-section-title">📎 Files <span class="text-muted text-xs" style="font-weight:400;margin-left:6px;" id="files-count"></span></div>
+        <div class="os-section-line"></div>
+        <label class="os-section-link" style="cursor:pointer;">
           + Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)">
         </label>
-      </h3>
-      <div id="files-list" class="text-muted text-xs">Loading…</div>
+      </div>
+      <div id="files-list" class="text-muted text-xs" style="padding:6px 0 4px;">Loading…</div>
       <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>
     </div>`;
 
-    html += `<div class="stage-section" style="margin-top:32px;border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+    html += `<div class="stage-section" style="margin-top:40px;border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;align-items:center;gap:8px;">
       <button class="btn btn-danger" style="padding:6px 14px;font-size:.8rem;" onclick="deleteThisProperty()">🗑️ Delete Property</button>
       <p class="text-muted text-xs" style="text-align:center;margin:0;max-width:560px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
     </div>`;
