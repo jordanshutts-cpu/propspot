@@ -589,6 +589,70 @@
       background: rgba(97,183,70,0.08);
     }
     .prop-no-match-link svg { width: 11px; height: 11px; }
+
+    /* ── New prospect button & form ──────────────────────────────── */
+    .new-prop-btn {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(97,183,70,0.10);
+      border: 1.5px dashed rgba(97,183,70,0.42);
+      border-radius: 11px;
+      color: var(--cam-brand);
+      font-size: 0.86rem; font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      transition: background .12s, border-color .12s;
+    }
+    .new-prop-btn:active { background: rgba(97,183,70,0.20); border-color: rgba(97,183,70,0.7); }
+    .new-prop-btn svg { width: 15px; height: 15px; flex-shrink:0; }
+    .new-prop-btn-label { flex:1; text-align:left; }
+    .new-prop-btn-sub { font-size:.72rem; font-weight:500; color:rgba(97,183,70,0.7); }
+
+    #new-prop-form { display:none; }
+    #new-prop-form.active { display:block; }
+    .new-prop-form-title {
+      font-weight:700; font-size:.92rem; color:#fff;
+      display:flex; align-items:center; gap:8px;
+      margin-bottom:12px;
+    }
+    .new-prop-form-title svg { width:15px; height:15px; color:var(--cam-brand); }
+    .new-prop-field {
+      width: 100%; box-sizing: border-box;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff; font-size: 0.88rem; font-family: inherit;
+      outline: none; margin-bottom: 8px;
+      transition: border-color .15s, background .15s;
+    }
+    .new-prop-field:focus { border-color: var(--cam-brand); background: rgba(255,255,255,0.09); }
+    .new-prop-field::placeholder { color: rgba(255,255,255,0.32); }
+    .new-prop-row { display:flex; gap:8px; margin-bottom:0; }
+    .new-prop-row .new-prop-field { margin-bottom:8px; }
+    .new-prop-gps-hint {
+      font-size: 0.73rem; color: rgba(97,183,70,0.85);
+      padding: 0 2px 8px; display:none;
+    }
+    .new-prop-actions { display:flex; gap:8px; margin-top:6px; }
+    .new-prop-cancel {
+      flex:1; padding:11px; border-radius:10px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:transparent; color:rgba(255,255,255,0.7);
+      font-size:0.88rem; font-weight:600; cursor:pointer;
+    }
+    .new-prop-submit {
+      flex:2; padding:11px; border-radius:10px;
+      border:none; background:var(--cam-brand);
+      color:#052e10; font-size:0.88rem; font-weight:800;
+      cursor:pointer;
+      box-shadow:0 4px 14px -4px var(--cam-brand-glow);
+      transition:transform .08s;
+    }
+    .new-prop-submit:active { transform:translateY(1px); }
+    .new-prop-submit:disabled { background:#404040; color:#888; box-shadow:none; }
     .notes-input {
       width: 100%;
       background: rgba(255,255,255,0.06);
@@ -783,11 +847,44 @@
     Assign to property
   </div>
 
-  <input type="text" class="sheet-search" id="prop-search"
-         placeholder="Search by address…" oninput="filterProps(this.value)">
+  <!-- New Prospect button — visible in default mode -->
+  <button class="new-prop-btn" id="new-prop-btn" onclick="openNewPropForm()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <div class="new-prop-btn-label">
+      New Prospect Property
+      <div class="new-prop-btn-sub">Take photos + create a new property</div>
+    </div>
+  </button>
 
-  <div id="sheet-props-list" style="max-height: 44vh; overflow-y: auto;">
-    <p class="prop-empty">Loading…</p>
+  <!-- New property creation form (hidden until button clicked) -->
+  <div id="new-prop-form">
+    <div class="new-prop-form-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      New Prospect Property
+    </div>
+    <input type="text" id="new-prop-address1" class="new-prop-field"
+           placeholder="Address (e.g. 123 Main St)" autocomplete="street-address">
+    <div class="new-prop-row">
+      <input type="text" id="new-prop-city" class="new-prop-field" placeholder="City" style="flex:2" autocomplete="address-level2">
+      <input type="text" id="new-prop-state" class="new-prop-field" placeholder="ST" style="flex:1;max-width:64px;" maxlength="2" autocomplete="address-level1">
+      <input type="text" id="new-prop-zip" class="new-prop-field" placeholder="ZIP" style="flex:1" inputmode="numeric" autocomplete="postal-code">
+    </div>
+    <input type="text" id="new-prop-nickname" class="new-prop-field"
+           placeholder="Nickname (optional — e.g. Smith House)">
+    <div class="new-prop-gps-hint" id="new-prop-gps-hint"></div>
+    <div class="new-prop-actions">
+      <button class="new-prop-cancel" onclick="cancelNewPropForm()">Cancel</button>
+      <button class="new-prop-submit" id="new-prop-submit" onclick="submitNewProp()">Create &amp; Select</button>
+    </div>
+  </div>
+
+  <!-- Existing property search (hidden while form is open) -->
+  <div id="prop-search-section">
+    <input type="text" class="sheet-search" id="prop-search"
+           placeholder="Search existing properties…" oninput="filterProps(this.value)">
+    <div id="sheet-props-list" style="max-height: 38vh; overflow-y: auto;">
+      <p class="prop-empty">Loading…</p>
+    </div>
   </div>
 
   <div id="folder-group" style="display:none;">
@@ -1346,6 +1443,82 @@
   function closeSheet() {
     document.getElementById('settings-sheet').classList.remove('open');
     document.getElementById('sheet-overlay').classList.remove('open');
+  }
+
+  // ── New Prospect Property ─────────────────────────────────────
+  function openNewPropForm() {
+    document.getElementById('new-prop-form').classList.add('active');
+    document.getElementById('prop-search-section').style.display = 'none';
+    document.getElementById('new-prop-btn').style.display = 'none';
+    // Reset fields
+    ['new-prop-address1','new-prop-city','new-prop-state','new-prop-zip','new-prop-nickname'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.getElementById('new-prop-submit').textContent = 'Create & Select';
+    document.getElementById('new-prop-submit').disabled = false;
+    // Show GPS hint if available
+    const hint = document.getElementById('new-prop-gps-hint');
+    if (userLat != null && userLng != null) {
+      hint.textContent = `📍 GPS location will be attached (${userLat.toFixed(4)}, ${userLng.toFixed(4)})`;
+      hint.style.display = 'block';
+    } else {
+      hint.style.display = 'none';
+    }
+    setTimeout(() => document.getElementById('new-prop-address1')?.focus(), 80);
+  }
+
+  function cancelNewPropForm() {
+    document.getElementById('new-prop-form').classList.remove('active');
+    document.getElementById('prop-search-section').style.display = '';
+    document.getElementById('new-prop-btn').style.display = '';
+  }
+
+  async function submitNewProp() {
+    const addr1    = document.getElementById('new-prop-address1').value.trim();
+    const city     = document.getElementById('new-prop-city').value.trim();
+    const state    = document.getElementById('new-prop-state').value.trim().toUpperCase();
+    const zip      = document.getElementById('new-prop-zip').value.trim();
+    const nickname = document.getElementById('new-prop-nickname').value.trim();
+
+    if (!addr1)  { showToast('Street address required', 'error'); return; }
+    if (!city)   { showToast('City required', 'error'); return; }
+    if (!state)  { showToast('State required (2-letter)', 'error'); return; }
+    if (!zip)    { showToast('ZIP required', 'error'); return; }
+
+    const submitBtn = document.getElementById('new-prop-submit');
+    submitBtn.textContent = 'Creating…';
+    submitBtn.disabled = true;
+
+    const payload = {
+      address_line1: addr1,
+      city,
+      state,
+      zip,
+      status: 'prospect',
+    };
+    if (nickname) payload.name = nickname;
+    if (userLat != null) payload.lat = userLat;
+    if (userLng != null) payload.lng = userLng;
+
+    try {
+      const prop = await apiFetch('/api/fieldcam/properties', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      // Prepend to local list (dedup by id)
+      if (!allProps.find(p => p.id === prop.id)) allProps.unshift(prop);
+      filteredProps = allProps.slice();
+
+      cancelNewPropForm();
+      await selectProp(prop.id);
+      closeSheet();
+      showToast('Prospect created — take photos to upload!', 'ok');
+    } catch (err) {
+      showToast(err.message || 'Failed to create property', 'error');
+      submitBtn.textContent = 'Create & Select';
+      submitBtn.disabled = false;
+    }
   }
 
   // Hard exit cleanup so camera doesn't hold the device when tab navigates away.

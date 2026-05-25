@@ -95,8 +95,10 @@ router.get('/:id', async (req, res) => {
 //      (catches '00000' zip fallbacks from CSV imports vs real zips)
 //   3. ON CONFLICT DO NOTHING + re-select — closes the race-condition window
 //      between the pre-insert check and the actual INSERT
+const VALID_STATUSES = ['prospect','purchasing','renovating','selling','renting','rented','sold','dropped','assigned','listed_for_rent','listed_for_sale','under_contract_buyer'];
+
 router.post('/', async (req, res) => {
-  const { name, address, notes, lat, lng } = req.body;
+  const { name, address, notes, lat, lng, status } = req.body;
   let { address_line1, unit, city, state, zip, parcel_id } = req.body;
 
   if (!address_line1) {
@@ -151,11 +153,12 @@ router.post('/', async (req, res) => {
     // If two concurrent requests both pass the checks above, the DB
     // UNIQUE constraint on normalized_address fires. ON CONFLICT DO
     // NOTHING suppresses the error; we then re-select the winner.
+    const insertStatus = VALID_STATUSES.includes(status) ? status : 'purchasing';
     const { rows: inserted } = await query(`
       INSERT INTO properties
         (address_line1, unit, city, state, zip, normalized_address, parcel_id,
-         lat, lng, notes, display_name, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         lat, lng, notes, display_name, created_by, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (normalized_address) DO NOTHING
       RETURNING *
     `, [
@@ -170,7 +173,8 @@ router.post('/', async (req, res) => {
       lng ? parseFloat(lng) : null,
       notes?.trim() || null,
       name?.trim()  || null,
-      req.userId
+      req.userId,
+      insertStatus
     ]);
 
     if (inserted[0]) return res.status(201).json(inserted[0]);
