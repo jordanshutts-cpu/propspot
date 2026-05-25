@@ -648,8 +648,8 @@
           ${row({ icon: '🛠️', label: 'Work Orders',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
           ${row({ icon: '💬', label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
           ${row({ icon: '📊', label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
-          ${row({ icon: '🗂️', label: 'Database',     osnav: 'database',     href: '/database.html',          badge: total,              badgeClass: 'muted' })}
-          ${row({ icon: '📈', label: 'Activity',     osnav: 'activity',     href: '/activity.html' })}
+          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>', label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' })}
+          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'Activity', osnav: 'activity', href: '/activity.html' })}
 
           ${sectionLabel('Soon')}
           ${row({ icon: '🌐', label: 'Listings',         soon: true })}
