@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Tasks</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+    .stat-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 12px; text-align:center; }
+    .stat-num  { font-size:2rem; font-weight:800; color:var(--brand); line-height:1; margin-bottom:4px; }
+    .stat-num.bad  { color:#dc2626; }
+    .stat-num.warn { color:#d97706; }
+    .stat-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:600; }
+    .pill-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+    .pill { padding:6px 14px; border-radius:100px; border:1.5px solid var(--border); background:var(--surface); font-size:.82rem; font-weight:500; cursor:pointer; color:var(--text-muted); transition:all .12s; }
+    .pill:hover { border-color:var(--brand); color:var(--brand); }
+    .pill.active { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
+    .task-list { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .task-row { display:flex; gap:14px; align-items:flex-start; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .task-row:last-child { border-bottom:none; }
+    .task-row:hover { background:var(--brand-light); }
+    .task-row.pri-urgent { border-left:3px solid #dc2626; padding-left:13px; }
+    .task-row.pri-high   { border-left:3px solid #d97706; padding-left:13px; }
+    .task-check { flex-shrink:0; width:22px; height:22px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s; margin-top:2px; }
+    .task-check:hover { border-color:var(--brand); }
+    .task-check.done { background:var(--brand); border-color:var(--brand); }
+    .task-check.done::after { content:'\\2713'; color:#fff; font-size:12px; font-weight:700; }
+    .task-body { flex:1; min-width:0; }
+    .task-title { font-weight:700; font-size:.95rem; margin-bottom:3px; }
+    .task-title.done { text-decoration:line-through; opacity:.6; }
+    .task-sub { font-size:.78rem; color:var(--text-muted); margin-bottom:4px; }
+    .task-tags { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+    .badge-xs { font-size:.68rem; padding:2px 8px; border-radius:100px; font-weight:600; display:inline-block; }
+    .bdg-pri-urgent { background:#fee2e2; color:#b91c1c; }
+    .bdg-pri-high   { background:#fef3c7; color:#92400e; }
+    .bdg-pri-normal { background:#dcfce7; color:#15803d; }
+    .bdg-pri-low    { background:var(--border); color:var(--text-muted); }
+    .bdg-st-open        { background:#dbeafe; color:#1e40af; }
+    .bdg-st-in_progress { background:#fef3c7; color:#92400e; }
+    .bdg-st-done        { background:#dcfce7; color:#15803d; }
+    .bdg-st-cancelled   { background:var(--border); color:var(--text-muted); }
+    .due-badge { font-size:.72rem; color:var(--text-muted); }
+    .due-badge.overdue { color:#dc2626; font-weight:600; }
+    .avatar-xs { width:20px; height:20px; border-radius:50%; object-fit:cover; }
+    .assignee-chip { display:inline-flex; align-items:center; gap:4px; font-size:.72rem; color:var(--text-muted); }
+
+    /* Modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:500; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:var(--surface); border-radius:var(--radius); box-shadow:0 8px 40px rgba(0,0,0,.2); width:100%; max-width:560px; max-height:90vh; overflow-y:auto; padding:24px; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+    .modal-head h2 { font-size:1.1rem; font-weight:700; margin:0; }
+    .modal-close { background:var(--bg); border:none; border-radius:8px; width:32px; height:32px; cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center; color:var(--text-muted); }
+    .modal-close:hover { color:var(--text); background:var(--border); }
+    .form-row { display:flex; gap:12px; }
+    .form-row .form-group { flex:1; }
+    .modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+
+    /* Detail panel */
+    .detail-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:500; align-items:flex-start; justify-content:flex-end; }
+    .detail-overlay.open { display:flex; }
+    .detail-panel { background:var(--surface); width:100%; max-width:640px; height:100vh; overflow-y:auto; padding:28px; box-shadow:-4px 0 30px rgba(0,0,0,.15); }
+    .detail-section { margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+    .detail-section h3 { font-size:.85rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin-bottom:10px; }
+    .checklist-item { display:flex; align-items:center; gap:8px; padding:6px 0; }
+    .checklist-item input[type=checkbox] { width:16px; height:16px; accent-color:var(--brand); }
+    .checklist-item .item-text { flex:1; font-size:.88rem; }
+    .checklist-item .item-text.done { text-decoration:line-through; opacity:.6; }
+    .checklist-item .item-del { opacity:0; cursor:pointer; color:var(--text-muted); font-size:.8rem; }
+    .checklist-item:hover .item-del { opacity:1; }
+    .add-item-row { display:flex; gap:6px; margin-top:6px; }
+    .add-item-row input { flex:1; }
+    .att-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+    .att-card { background:var(--bg); border-radius:8px; padding:10px; font-size:.78rem; text-align:center; position:relative; border:1px solid var(--border); }
+    .att-card img { width:100%; height:80px; object-fit:cover; border-radius:4px; margin-bottom:6px; }
+    .att-card .att-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .att-card .att-del { position:absolute; top:4px; right:6px; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:50%; width:20px; height:20px; font-size:.7rem; cursor:pointer; display:none; align-items:center; justify-content:center; }
+    .att-card:hover .att-del { display:flex; }
+    .comment-item { display:flex; gap:10px; margin-bottom:12px; }
+    .comment-avatar { width:28px; height:28px; border-radius:50%; background:var(--border); flex-shrink:0; object-fit:cover; }
+    .comment-body { flex:1; }
+    .comment-meta { font-size:.72rem; color:var(--text-muted); margin-bottom:2px; }
+    .comment-text { font-size:.88rem; line-height:1.4; }
+    .comment-form { display:flex; gap:8px; margin-top:10px; }
+    .comment-form input { flex:1; }
+
+    .drop-zone { border:2px dashed var(--border); border-radius:8px; padding:20px; text-align:center; color:var(--text-muted); font-size:.82rem; cursor:pointer; transition:all .15s; margin-bottom:8px; }
+    .drop-zone:hover, .drop-zone.dragover { border-color:var(--brand); color:var(--brand); background:var(--brand-light); }
+
+    .empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
+    .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:.4; }
+    .empty-state p { font-size:.9rem; }
+
+    @media(max-width:640px) { .stat-grid { grid-template-columns:repeat(2,1fr); } .form-row { flex-direction:column; } .detail-panel { max-width:100%; } }
+  </style>
+</head>
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num warn" id="s-open">-</div><div class="stat-label">Open</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-progress">-</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card"><div class="stat-num bad" id="s-overdue">-</div><div class="stat-label">Overdue</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-done">-</div><div class="stat-label">Done</div></div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">Tasks</span>
+    <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="openCreate()">+ New Task</button>
+  </div>
+
+  <div class="pill-row" id="pills">
+    <button class="pill active" data-f="active">Active</button>
+    <button class="pill" data-f="open">Open</button>
+    <button class="pill" data-f="in_progress">In Progress</button>
+    <button class="pill" data-f="done">Done</button>
+    <button class="pill" data-f="mine">Assigned to Me</button>
+    <button class="pill" data-f="created">Created by Me</button>
+  </div>
+
+  <div id="list"><p class="text-muted text-sm">Loading...</p></div>
+</main>
+
+<!-- Create/Edit modal -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h2 id="modal-title">New Task</h2>
+      <button class="modal-close" onclick="closeCreate()">&#10005;</button>
+    </div>
+    <form id="create-form" onsubmit="submitCreate(event)">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="c-title" placeholder="e.g. Build the login page redesign" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="c-desc" rows="3" style="min-height:0;resize:vertical;" placeholder="What needs to be done and why..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-input" id="c-priority">
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input class="form-input" id="c-due" type="date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Assign To</label>
+          <select class="form-input" id="c-assign">
+            <option value="">-- Unassigned --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Property (optional)</label>
+          <select class="form-input" id="c-property">
+            <option value="">-- None --</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Requirements / Sub-tasks</label>
+        <div id="c-items"></div>
+        <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:.8rem;margin-top:6px;" onclick="addCreateItem()">+ Add item</button>
+      </div>
+      <p id="c-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" style="padding:10px 18px;font-size:.88rem;" onclick="closeCreate()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="padding:10px 18px;font-size:.88rem;" id="c-save">Create Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Detail side panel -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()">
+  <div class="detail-panel" onclick="event.stopPropagation()">
+    <div id="detail-content">Loading...</div>
+  </div>
+</div>
+
+<script>window.NAV_CURRENT = 'tasks';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+const STATUS_LBL = {open:'Open',in_progress:'In Progress',done:'Done',cancelled:'Cancelled'};
+const PRI_LBL = {low:'Low',normal:'Normal',high:'High',urgent:'Urgent'};
+let allTasks = [], usersCache = [], propsCache = [], currentFilter = 'active', currentUser = null, openTaskId = null;
+
+async function init() {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+  await Promise.all([loadUsers(), loadProperties()]);
+  await loadTasks();
+}
+
+async function loadUsers() {
+  try {
+    usersCache = await apiFetch('/api/users');
+    const sel = document.getElementById('c-assign');
+    sel.innerHTML = '<option value="">-- Unassigned --</option>' +
+      usersCache.map(u => `<option value="${u.id}">${esc(u.full_name || u.email)}</option>`).join('');
+  } catch {}
+}
+
+async function loadProperties() {
+  try {
+    propsCache = await apiFetch('/api/properties');
+    const sel = document.getElementById('c-property');
+    sel.innerHTML = '<option value="">-- None --</option>' +
+      propsCache.map(p => `<option value="${p.id}">${esc(p.address_line1)}, ${esc(p.city)}</option>`).join('');
+  } catch {}
+}
+
+async function loadTasks() {
+  try {
+    allTasks = await apiFetch('/api/tasks');
+    renderStats();
+    renderList();
+  } catch (err) {
+    document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${esc(err.message)}</p>`;
+  }
+}
+
+function renderStats() {
+  const today = new Date().toISOString().split('T')[0];
+  const open = allTasks.filter(t => t.status === 'open').length;
+  const prog = allTasks.filter(t => t.status === 'in_progress').length;
+  const overdue = allTasks.filter(t => t.due_date && t.due_date < today && t.status !== 'done' && t.status !== 'cancelled').length;
+  const done = allTasks.filter(t => t.status === 'done').length;
+  document.getElementById('s-open').textContent = open;
+  document.getElementById('s-progress').textContent = prog;
+  document.getElementById('s-overdue').textContent = overdue;
+  document.getElementById('s-done').textContent = done;
+}
+
+function filterTasks() {
+  const today = new Date().toISOString().split('T')[0];
+  switch(currentFilter) {
+    case 'active': return allTasks.filter(t => t.status === 'open' || t.status === 'in_progress');
+    case 'open': return allTasks.filter(t => t.status === 'open');
+    case 'in_progress': return allTasks.filter(t => t.status === 'in_progress');
+    case 'done': return allTasks.filter(t => t.status === 'done');
+    case 'mine': return allTasks.filter(t => t.assigned_to === currentUser.id && t.status !== 'done' && t.status !== 'cancelled');
+    case 'created': return allTasks.filter(t => t.created_by === currentUser.id);
+    default: return allTasks;
+  }
+}
+
+function renderList() {
+  const tasks = filterTasks();
+  if (tasks.length === 0) {
+    document.getElementById('list').innerHTML = `
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <p>No tasks here yet.</p>
+      </div>`;
+    return;
+  }
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('list').innerHTML = `<div class="task-list">${tasks.map(t => {
+    const isDone = t.status === 'done';
+    const isOverdue = t.due_date && t.due_date < today && !isDone;
+    const priClass = (t.priority === 'urgent' || t.priority === 'high') ? ` pri-${t.priority}` : '';
+    return `
+      <div class="task-row${priClass}" onclick="openDetail('${t.id}')">
+        <div class="task-check ${isDone ? 'done' : ''}" onclick="event.stopPropagation();toggleDone('${t.id}',${isDone})"></div>
+        <div class="task-body">
+          <div class="task-title ${isDone ? 'done' : ''}">${esc(t.title)}</div>
+          <div class="task-sub">${t.description ? esc(t.description.substring(0, 80)) + (t.description.length > 80 ? '...' : '') : ''}</div>
+          <div class="task-tags">
+            <span class="badge-xs bdg-pri-${t.priority}">${PRI_LBL[t.priority]}</span>
+            <span class="badge-xs bdg-st-${t.status}">${STATUS_LBL[t.status]}</span>
+            ${t.due_date ? `<span class="due-badge ${isOverdue ? 'overdue' : ''}">Due ${formatDate(t.due_date)}</span>` : ''}
+            ${t.assigned_to_name ? `<span class="assignee-chip">${t.assigned_to_avatar ? `<img class="avatar-xs" src="${t.assigned_to_avatar}">` : ''} ${esc(t.assigned_to_name)}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+// ── Filter pills
+document.getElementById('pills').addEventListener('click', e => {
+  const pill = e.target.closest('.pill');
+  if (!pill) return;
+  document.querySelectorAll('#pills .pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  currentFilter = pill.dataset.f;
+  renderList();
+});
+
+// ── Create task
+let createItems = [];
+function openCreate() {
+  createItems = [];
+  document.getElementById('c-items').innerHTML = '';
+  document.getElementById('create-form').reset();
+  document.getElementById('c-err').style.display = 'none';
+  document.getElementById('modal-title').textContent = 'New Task';
+  document.getElementById('c-save').textContent = 'Create Task';
+  document.getElementById('modal-create').classList.add('open');
+}
+function closeCreate() { document.getElementById('modal-create').classList.remove('open'); }
+document.getElementById('modal-create').addEventListener('click', e => { if (e.target === e.currentTarget) closeCreate(); });
+
+function addCreateItem() {
+  const div = document.getElementById('c-items');
+  const idx = div.children.length;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;align-items:center;';
+  row.innerHTML = `<input class="form-input" style="flex:1;padding:6px 10px;font-size:.85rem;" placeholder="Requirement ${idx+1}" data-item-idx="${idx}">
+    <button type="button" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;" onclick="this.parentElement.remove()">&#10005;</button>`;
+  div.appendChild(row);
+  row.querySelector('input').focus();
+}
+
+async function submitCreate(e) {
+  e.preventDefault();
+  const title = document.getElementById('c-title').value.trim();
+  if (!title) return;
+  const items = Array.from(document.querySelectorAll('#c-items input')).map(i => ({text: i.value})).filter(i => i.text.trim());
+  const body = {
+    title,
+    description: document.getElementById('c-desc').value.trim() || null,
+    priority: document.getElementById('c-priority').value,
+    due_date: document.getElementById('c-due').value || null,
+    assigned_to: document.getElementById('c-assign').value || null,
+    property_id: document.getElementById('c-property').value || null,
+    items
+  };
+  try {
+    document.getElementById('c-save').disabled = true;
+    await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify(body) });
+    closeCreate();
+    await loadTasks();
+  } catch (err) {
+    document.getElementById('c-err').textContent = err.message;
+    document.getElementById('c-err').style.display = '';
+  } finally {
+    document.getElementById('c-save').disabled = false;
+  }
+}
+
+// ── Toggle done
+async function toggleDone(id, wasDone) {
+  try {
+    await apiFetch(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status: wasDone ? 'open' : 'done' }) });
+    await loadTasks();
+  } catch {}
+}
+
+// ── Detail panel
+async function openDetail(id) {
+  openTaskId = id;
+  document.getElementById('detail-overlay').classList.add('open');
+  document.getElementById('detail-content').innerHTML = '<p class="text-muted">Loading...</p>';
+  try {
+    const task = await apiFetch(`/api/tasks/${id}`);
+    renderDetail(task);
+  } catch (err) {
+    document.getElementById('detail-content').innerHTML = `<p class="text-muted">Error: ${esc(err.message)}</p>`;
+  }
+}
+function closeDetail() { openTaskId = null; document.getElementById('detail-overlay').classList.remove('open'); }
+
+function renderDetail(task) {
+  const today = new Date().toISOString().split('T')[0];
+  const isOverdue = task.due_date && task.due_date < today && task.status !== 'done';
+  const html = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+      <div>
+        <h2 style="font-size:1.2rem;font-weight:700;margin:0 0 4px 0;">${esc(task.title)}</h2>
+        <div style="font-size:.8rem;color:var(--text-muted);">
+          Created by ${esc(task.created_by_name || 'Unknown')} &middot; ${formatDate(task.created_at)}
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeDetail()">&#10005;</button>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <select class="form-input" style="width:auto;padding:4px 10px;font-size:.8rem;" onchange="updateTask('${task.id}','status',this.value)">
+        ${Object.entries(STATUS_LBL).map(([k,v]) => `<option value="${k}" ${task.status===k?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <select class="form-input" style="width:auto;padding:4px 10px;font-size:.8rem;" onchange="updateTask('${task.id}','priority',this.value)">
+        ${Object.entries(PRI_LBL).map(([k,v]) => `<option value="${k}" ${task.priority===k?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <select class="form-input" style="width:auto;padding:4px 10px;font-size:.8rem;" onchange="updateTask('${task.id}','assigned_to',this.value)">
+        <option value="">Unassigned</option>
+        ${usersCache.map(u => `<option value="${u.id}" ${task.assigned_to===u.id?'selected':''}>${esc(u.full_name || u.email)}</option>`).join('')}
+      </select>
+      <input type="date" class="form-input" style="width:auto;padding:4px 10px;font-size:.8rem;" value="${task.due_date||''}" onchange="updateTask('${task.id}','due_date',this.value)">
+    </div>
+
+    ${task.description ? `<div style="font-size:.9rem;line-height:1.5;margin-bottom:16px;white-space:pre-wrap;">${esc(task.description)}</div>` : ''}
+    ${isOverdue ? `<div style="background:#fee2e2;color:#b91c1c;padding:8px 12px;border-radius:6px;font-size:.82rem;font-weight:600;margin-bottom:16px;">Overdue - was due ${formatDate(task.due_date)}</div>` : ''}
+
+    <div class="detail-section">
+      <h3>Requirements / Checklist (${task.items.filter(i=>i.is_done).length}/${task.items.length})</h3>
+      <div id="checklist-items">
+        ${task.items.map(item => `
+          <div class="checklist-item">
+            <input type="checkbox" ${item.is_done?'checked':''} onchange="toggleItem('${task.id}','${item.id}',this.checked)">
+            <span class="item-text ${item.is_done?'done':''}">${esc(item.text)}</span>
+            <span class="item-del" onclick="deleteItem('${task.id}','${item.id}')">&#10005;</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="add-item-row">
+        <input class="form-input" style="padding:6px 10px;font-size:.85rem;" placeholder="Add a requirement..." id="new-item-input" onkeydown="if(event.key==='Enter'){event.preventDefault();addItem('${task.id}')}">
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:.8rem;" onclick="addItem('${task.id}')">Add</button>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Attachments (${task.attachments.length})</h3>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="event.preventDefault();this.classList.remove('dragover');uploadFiles('${task.id}',event.dataTransfer.files)">
+        Drop files here or click to upload
+      </div>
+      <input type="file" id="file-input" multiple style="display:none" onchange="uploadFiles('${task.id}',this.files)">
+      <div class="att-grid" id="att-grid">
+        ${task.attachments.map(att => {
+          const isImg = att.mime_type && att.mime_type.startsWith('image/');
+          return `<div class="att-card">
+            <button class="att-del" onclick="event.stopPropagation();deleteAtt('${task.id}','${att.id}')">&#10005;</button>
+            ${isImg ? `<img src="${att.url}" alt="${esc(att.filename)}" onclick="window.open('${att.url}','_blank')">` : `<div style="height:80px;display:flex;align-items:center;justify-content:center;font-size:2rem;opacity:.3;">&#128196;</div>`}
+            <div class="att-name"><a href="${att.url}" target="_blank" style="color:inherit;text-decoration:none;">${esc(att.filename)}</a></div>
+            <div style="font-size:.7rem;color:var(--text-muted);">${att.uploaded_by_name || ''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Comments (${task.comments.length})</h3>
+      <div id="comments-list">
+        ${task.comments.map(c => `
+          <div class="comment-item">
+            ${c.user_avatar ? `<img class="comment-avatar" src="${c.user_avatar}">` : `<div class="comment-avatar"></div>`}
+            <div class="comment-body">
+              <div class="comment-meta"><strong>${esc(c.user_name)}</strong> &middot; ${formatDate(c.created_at)}</div>
+              <div class="comment-text">${esc(c.body)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="comment-form">
+        <input class="form-input" style="padding:8px 10px;font-size:.85rem;" placeholder="Add a comment..." id="comment-input" onkeydown="if(event.key==='Enter'){event.preventDefault();addComment('${task.id}')}">
+        <button class="btn btn-primary" style="padding:8px 14px;font-size:.82rem;" onclick="addComment('${task.id}')">Post</button>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+      <button class="btn btn-secondary" style="padding:8px 14px;font-size:.8rem;color:#dc2626;" onclick="deleteTask('${task.id}')">Delete Task</button>
+    </div>
+  `;
+  document.getElementById('detail-content').innerHTML = html;
+}
+
+// ── Task CRUD helpers
+async function updateTask(id, field, value) {
+  try {
+    await apiFetch(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ [field]: value || null }) });
+    await loadTasks();
+    await openDetail(id);
+  } catch {}
+}
+
+async function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
+  try {
+    await apiFetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    closeDetail();
+    await loadTasks();
+  } catch {}
+}
+
+// ── Checklist items
+async function toggleItem(taskId, itemId, checked) {
+  try {
+    await apiFetch(`/api/tasks/${taskId}/items/${itemId}`, { method: 'PATCH', body: JSON.stringify({ is_done: checked }) });
+    await openDetail(taskId);
+  } catch {}
+}
+
+async function addItem(taskId) {
+  const input = document.getElementById('new-item-input');
+  const text = input.value.trim();
+  if (!text) return;
+  try {
+    await apiFetch(`/api/tasks/${taskId}/items`, { method: 'POST', body: JSON.stringify({ text }) });
+    input.value = '';
+    await openDetail(taskId);
+  } catch {}
+}
+
+async function deleteItem(taskId, itemId) {
+  try {
+    await apiFetch(`/api/tasks/${taskId}/items/${itemId}`, { method: 'DELETE' });
+    await openDetail(taskId);
+  } catch {}
+}
+
+// ── Attachments
+async function uploadFiles(taskId, files) {
+  for (const file of files) {
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      await apiFetch(`/api/tasks/${taskId}/attachments`, { method: 'POST', body: form });
+    } catch {}
+  }
+  await openDetail(taskId);
+}
+
+async function deleteAtt(taskId, attId) {
+  try {
+    await apiFetch(`/api/tasks/${taskId}/attachments/${attId}`, { method: 'DELETE' });
+    await openDetail(taskId);
+  } catch {}
+}
+
+// ── Comments
+async function addComment(taskId) {
+  const input = document.getElementById('comment-input');
+  const body = input.value.trim();
+  if (!body) return;
+  try {
+    await apiFetch(`/api/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
+    input.value = '';
+    await openDetail(taskId);
+  } catch {}
+}
+
+// ── Clipboard paste for screenshots
+document.addEventListener('paste', async (e) => {
+  if (!openTaskId) return;
+  const items = e.clipboardData.items;
+  const files = [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      if (blob) files.push(new File([blob], `screenshot-${Date.now()}.png`, { type: blob.type }));
+    }
+  }
+  if (files.length === 0) return;
+  for (const file of files) {
+    const form = new FormData();
+    form.append('file', file);
+    try { await apiFetch(`/api/tasks/${openTaskId}/attachments`, { method: 'POST', body: form }); } catch {}
+  }
+  await openDetail(openTaskId);
+});
+
+// ── Utilities
+function esc(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatDate(d) {
+  if (!d) return '';
+  const date = new Date(d);
+  return date.toLocaleDateString('en-US', { month:'short', day:'numeric', year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+}
+
+init();
+</script>
+</body>
+</html>

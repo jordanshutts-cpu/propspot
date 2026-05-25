@@ -1215,6 +1215,58 @@ DO $$ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS chat_messages_reply_to_idx ON chat_messages(reply_to_id);
 
+-- ── Tasks (To-Do Tracker) ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tasks (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title           TEXT NOT NULL,
+  description     TEXT,
+  status          TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','done','cancelled')),
+  priority        TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('low','normal','high','urgent')),
+  due_date        DATE,
+  property_id     UUID REFERENCES properties(id) ON DELETE SET NULL,
+  created_by      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  assigned_to     UUID REFERENCES users(id) ON DELETE SET NULL,
+  completed_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS tasks_assigned_idx ON tasks(assigned_to);
+CREATE INDEX IF NOT EXISTS tasks_created_by_idx ON tasks(created_by);
+CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status);
+CREATE INDEX IF NOT EXISTS tasks_due_date_idx ON tasks(due_date);
+
+CREATE TABLE IF NOT EXISTS task_items (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id     UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  text        TEXT NOT NULL,
+  is_done     BOOLEAN NOT NULL DEFAULT FALSE,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS task_items_task_idx ON task_items(task_id);
+
+CREATE TABLE IF NOT EXISTS task_attachments (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id         UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  filename        TEXT NOT NULL,
+  url             TEXT NOT NULL,
+  cloudinary_id   TEXT,
+  mime_type       TEXT,
+  size_bytes      INT,
+  uploaded_by     UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS task_attachments_task_idx ON task_attachments(task_id);
+
+CREATE TABLE IF NOT EXISTS task_comments (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id     UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS task_comments_task_idx ON task_comments(task_id);
+
 -- ── 2026-05-23 one-time: archive every open thread with no activity in the
 -- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
 -- without years of backfilled history cluttering the lists. Owners can

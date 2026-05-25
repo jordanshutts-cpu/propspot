@@ -54,9 +54,9 @@ router.get('/', async (req, res) => {
 
     safeCount(`
       SELECT COUNT(*)::int AS count
-        FROM work_orders
-       WHERE status IN ('open','scheduled','in_progress')
-         AND (created_by = $1 OR reported_by = $1)
+        FROM tasks
+       WHERE status IN ('open','in_progress')
+         AND (assigned_to = $1 OR created_by = $1)
     `, [me]),
 
     // ── Pipeline (Jordan's flow: prospect → lead → opportunity → acquisition
