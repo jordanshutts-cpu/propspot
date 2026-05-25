@@ -128,9 +128,24 @@
     .ps-member-btn { font-size:.68rem; padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); cursor:pointer; color:var(--text-muted); white-space:nowrap; }
     .ps-member-btn:hover { border-color:var(--brand); color:var(--brand); }
     .ps-member-btn.danger:hover { border-color:#ef4444; color:#ef4444; }
-    .ps-add-member { display:flex; gap:6px; margin-top:12px; }
-    .ps-add-member select { flex:1; padding:7px 10px; border:1.5px solid var(--border); border-radius:9px; font-size:.85rem; background:var(--bg); color:var(--text); }
-    .ps-add-member select:focus { outline:none; border-color:var(--brand); }
+    .ps-add-member { display:flex; gap:6px; margin-top:12px; align-items:flex-start; }
+
+    /* Custom user picker (replaces native select) */
+    .ps-upick { position:relative; flex:1; }
+    .ps-upick-input-wrap { position:relative; }
+    .ps-upick-search-icon { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--text-muted); pointer-events:none; }
+    .ps-upick-input { width:100%; padding:8px 10px 8px 30px; border:1.5px solid var(--border); border-radius:9px; font-size:.85rem; font-family:inherit; background:var(--bg); color:var(--text); box-sizing:border-box; cursor:pointer; }
+    .ps-upick-input:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(97,183,70,.08); }
+    .ps-upick-input.has-value { background:var(--brand-light); border-color:rgba(97,183,70,.4); color:var(--brand); font-weight:600; }
+    .ps-upick-list { position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 28px -4px rgba(0,0,0,.15); max-height:220px; overflow-y:auto; z-index:500; display:none; }
+    .ps-upick-list.open { display:block; }
+    .ps-upick-item { display:flex; align-items:center; gap:9px; padding:8px 11px; cursor:pointer; transition:background .1s; }
+    .ps-upick-item:hover,.ps-upick-item.focused { background:var(--brand-light); }
+    .ps-upick-avatar { width:26px; height:26px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.65rem; flex-shrink:0; }
+    .ps-upick-info { flex:1; min-width:0; }
+    .ps-upick-name { font-size:.84rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ps-upick-email { font-size:.7rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ps-upick-empty { padding:12px; text-align:center; font-size:.8rem; color:var(--text-muted); }
     .ps-danger-zone { margin-top:8px; }
     .ps-danger-btn { width:100%; padding:9px; border-radius:9px; border:1.5px solid #ef4444; background:transparent; color:#ef4444; cursor:pointer; font-size:.88rem; font-weight:600; transition:background .1s; }
     .ps-danger-btn:hover { background:rgba(239,68,68,.06); }
@@ -217,6 +232,12 @@
   let settingsChannelId = null;
   let pendingMentions = new Map(); // fullName → userId
   let mentionState = null; // null | {start, filtered, focused}
+
+  // ── Custom user picker state (Add member panel) ────────────────
+  let upickUsers = [];     // full non-member list
+  let upickFiltered = [];  // currently visible subset
+  let upickSelected = null; // { id, name } | null
+  let upickFocused = -1;
 
   // Safe single-quote escape for use inside JS string literals in onclick attrs
   function esc1(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
@@ -744,11 +765,17 @@
       ${nonMembers.length ? `
         <div class="ps-sp-section" style="margin-top:16px;">Add member</div>
         <div class="ps-add-member">
-          <select id="sp-add-user">
-            <option value="">Select a person…</option>
-            ${nonMembers.map(u => `<option value="${u.id}">${escHtml(u.full_name || u.email)}</option>`).join('')}
-          </select>
-          <button class="btn btn-primary" onclick="addMember('${channelId}')">Add</button>
+          <div class="ps-upick" id="sp-upick">
+            <div class="ps-upick-input-wrap">
+              <svg class="ps-upick-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input class="ps-upick-input" id="sp-upick-input" type="text" placeholder="Search people…" autocomplete="off"
+                oninput="filterUpick(this.value)"
+                onfocus="openUpick()"
+                onkeydown="upickKey(event)">
+            </div>
+            <div class="ps-upick-list" id="sp-upick-list"></div>
+          </div>
+          <button class="btn btn-primary" onclick="addMember('${channelId}')" style="flex-shrink:0;">Add</button>
         </div>` : ''}
 
       ${!isGen ? `
@@ -758,7 +785,92 @@
         </div>` : ''}
     `;
     document.getElementById('ch-settings-panel').classList.add('open');
+
+    // Initialise custom user picker with non-member list
+    upickUsers    = nonMembers;
+    upickFiltered = nonMembers;
+    upickSelected = null;
+    upickFocused  = -1;
+    renderUpickList('');
   }
+
+  // ── Custom user picker helpers ─────────────────────────────────
+  function renderUpickList(q) {
+    const list = document.getElementById('sp-upick-list');
+    if (!list) return;
+    const needle = q.toLowerCase();
+    upickFiltered = needle
+      ? upickUsers.filter(u => (u.full_name||'').toLowerCase().includes(needle) || (u.email||'').toLowerCase().includes(needle))
+      : upickUsers;
+    if (!upickFiltered.length) {
+      list.innerHTML = `<div class="ps-upick-empty">No matching people</div>`;
+    } else {
+      list.innerHTML = upickFiltered.map((u, i) => {
+        const name    = u.full_name || u.email;
+        const initial = (name[0] || '?').toUpperCase();
+        return `<div class="ps-upick-item${i === upickFocused ? ' focused' : ''}" data-idx="${i}" onmousedown="selectUpickUser(${i})">
+          <div class="ps-upick-avatar" style="background:${avatarColor(u.id)}">${escHtml(initial)}</div>
+          <div class="ps-upick-info">
+            <div class="ps-upick-name">${escHtml(name)}</div>
+            ${u.full_name ? `<div class="ps-upick-email">${escHtml(u.email)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  function openUpick() {
+    document.getElementById('sp-upick-list')?.classList.add('open');
+  }
+
+  function closeUpick() {
+    document.getElementById('sp-upick-list')?.classList.remove('open');
+  }
+
+  function filterUpick(q) {
+    upickFocused = -1;
+    renderUpickList(q);
+    document.getElementById('sp-upick-list')?.classList.add('open');
+  }
+
+  function selectUpickUser(idx) {
+    const u = upickFiltered[idx];
+    if (!u) return;
+    upickSelected = { id: u.id, name: u.full_name || u.email };
+    const input = document.getElementById('sp-upick-input');
+    if (input) {
+      input.value = upickSelected.name;
+      input.classList.add('has-value');
+    }
+    closeUpick();
+  }
+
+  function upickKey(e) {
+    const list = document.getElementById('sp-upick-list');
+    const isOpen = list?.classList.contains('open');
+    if (!isOpen && e.key !== 'Enter') { openUpick(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      upickFocused = Math.min(upickFocused + 1, upickFiltered.length - 1);
+      renderUpickList(document.getElementById('sp-upick-input')?.value || '');
+      list?.classList.add('open');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      upickFocused = Math.max(upickFocused - 1, 0);
+      renderUpickList(document.getElementById('sp-upick-input')?.value || '');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (upickFocused >= 0) { selectUpickUser(upickFocused); }
+    } else if (e.key === 'Escape') {
+      closeUpick();
+    }
+  }
+
+  // Close picker on outside click
+  document.addEventListener('mousedown', e => {
+    const wrap = document.getElementById('sp-upick');
+    if (wrap && !wrap.contains(e.target)) closeUpick();
+  }, true);
 
   async function saveChannelSettings(channelId) {
     const name        = document.getElementById('sp-name')?.value.trim();
@@ -781,16 +893,16 @@
   }
 
   async function addMember(channelId) {
-    const sel = document.getElementById('sp-add-user');
-    const userId = sel?.value;
+    const userId = upickSelected?.id;
     if (!userId) { showToast('Select a person first', 'error'); return; }
     try {
       await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members`, {
         method: 'POST',
         body: JSON.stringify({ user_id: userId })
       });
+      upickSelected = null;
       showToast('Member added', 'success');
-      openSettings(channelId); // refresh panel
+      openSettings(channelId); // refresh panel (reinitialises picker)
     } catch (e) { showToast(e.message, 'error'); }
   }
 
