@@ -93,9 +93,28 @@ function attachCrud(router, { table, allowedFields, entityType }) {
 
   router.delete('/:id', async (req, res) => {
     try {
+      // Fetch property_id BEFORE deleting so the activity log can
+      // surface a clickable property chip on the dashboard's Recent
+      // Activity feed. All attachCrud tables (prospects/leads/opps/
+      // purchases/projects) have a property_id column. The lookup is
+      // wrapped in a try so tables without that column don't break
+      // the delete flow.
+      let propertyId = null;
+      try {
+        const { rows: pre } = await query(
+          `SELECT property_id FROM ${table} WHERE id = $1`,
+          [req.params.id]
+        );
+        propertyId = pre[0]?.property_id || null;
+      } catch (_) { /* table has no property_id — leave null */ }
+
       await query(`DELETE FROM ${table} WHERE id = $1`, [req.params.id]);
       await logActivity({
-        actorUserId: req.userId, entityType, entityId: req.params.id, action: 'deleted'
+        actorUserId: req.userId,
+        entityType,
+        entityId: req.params.id,
+        action: 'deleted',
+        payload: propertyId ? { property_id: propertyId } : null
       });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Failed to delete' }); }
