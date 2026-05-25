@@ -58,9 +58,13 @@ html.theme-dark body {
    render their dark variants. */
 html.theme-dark { color-scheme: dark; }
 
-/* ── Page loader — deep canvas with breathing logo ─────────── */
+/* ── Page loader — deep canvas with brand-colored mask glyph ─ */
 html.theme-dark .os-page-loader { background: var(--d-bg); }
-html.theme-dark .os-page-loader-logo { mix-blend-mode: screen; filter: brightness(1.05); }
+html.theme-dark .os-page-loader-logo {
+  background-color: var(--d-brand);   /* brand fills the mask shape */
+  /* drop-shadow filter on a masked element creates a soft brand glow */
+  filter: drop-shadow(0 0 18px rgba(110,208,87,0.40));
+}
 html.theme-dark .os-page-loader-dots span { background: rgba(110,208,87,0.35); }
 
 /* ── Top header ──────────────────────────────────────────────── */
@@ -131,22 +135,9 @@ html.theme-dark .os-newchrome-brand-logo img {
     0 1px 3px rgba(0,0,0,0.40);
 }
 
-/* Same treatment for the loader logo. NOTE: must use background-color
-   (NOT the 'background' shorthand) because the light-mode rule already
-   sets background-image: url('/logo.png') — the shorthand would wipe
-   that out, leaving an empty white square. */
-html.theme-dark .os-page-loader-logo {
-  mix-blend-mode: normal;
-  background-color: #fff;
-  background-clip: padding-box;     /* white only inside the chip, not under the glow */
-  border-radius: 20px;
-  padding: 14px;
-  box-sizing: border-box;
-  box-shadow:
-    0 0 0 1px rgba(110,208,87,0.45),
-    0 0 28px rgba(110,208,87,0.30),
-    0 4px 16px rgba(0,0,0,0.50);
-}
+/* Loader logo is now a CSS mask (see style.css). The brand color
+   override above (background-color: var(--d-brand)) does all the
+   work — no chip, no shadow, no white plate. */
 html.theme-dark .os-newchrome-collapse-btn { color: var(--d-text-dim); }
 html.theme-dark .os-newchrome-collapse-btn:hover { background: rgba(255,255,255,0.05); color: var(--d-text); }
 
