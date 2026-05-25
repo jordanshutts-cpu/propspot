@@ -809,6 +809,12 @@ html.theme-dark .activity-dot {
   background: var(--d-brand);
   box-shadow: 0 0 0 3px rgba(110,208,87,0.18);
 }
+html.theme-dark .activity-desc            { color: var(--d-text); }
+html.theme-dark .activity-desc .act-verb  { color: var(--d-text-muted); }
+html.theme-dark .activity-desc .act-create{ color: var(--d-brand); }
+html.theme-dark .activity-desc .act-delete{ color: #fca5a5; }
+html.theme-dark .activity-desc .act-field { color: var(--d-text); }
+html.theme-dark .activity-desc .act-value { color: var(--d-brand); }
 
 /* ── Dashboard hero + KPIs + panels ──────────────────────────── */
 html.theme-dark .dash-hero {

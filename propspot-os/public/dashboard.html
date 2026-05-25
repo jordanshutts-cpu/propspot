@@ -328,6 +328,13 @@
     .activity-prop:hover { background: rgba(97,183,70,0.18); transform: translateY(-1px); }
     .activity-prop-arrow { color: var(--brand); font-weight: 700; }
     .activity-prop-city { color: var(--text-muted); font-weight: 500; font-size: 0.76rem; }
+    /* Humanized action sentence — colors the verb subtly + emphasises the changed field/value */
+    .activity-desc        { color: var(--text); }
+    .activity-desc .act-verb   { color: var(--text-muted); font-weight: 500; }
+    .activity-desc .act-create { color: #15803d; font-weight: 600; }
+    .activity-desc .act-delete { color: #b91c1c; font-weight: 600; }
+    .activity-desc .act-field  { color: var(--text); font-weight: 600; }
+    .activity-desc .act-value  { color: var(--brand-dark, #15803d); font-weight: 600; }
 
     /* Skeleton placeholders */
     .skel { color: transparent; background: linear-gradient(90deg, var(--bg) 0%, var(--border) 50%, var(--bg) 100%);
@@ -553,6 +560,136 @@
     }).join('');
   }
 
+  // ── Activity feed humanizer ──────────────────────────────────────
+  // The server stores `payload: req.body` (the fields the actor changed)
+  // alongside the action verb. We use that here to turn "Ethan updated
+  // property" into something readable like "Ethan moved 2331 Johnstone
+  // to Under Contract · Due Diligence" or "Ethan set Purchase Price to
+  // $250,000".
+  const ENTITY_NOUN = {
+    property: 'property',
+    prospect: 'prospect',
+    lead: 'lead',
+    opportunity: 'opportunity',
+    purchase: 'purchase',
+    project: 'project',
+    holding: 'holding',
+    contact: 'contact',
+    photo: 'photo',
+    file: 'file',
+    email: 'email',
+    note: 'note'
+  };
+  const FIELD_LABELS = {
+    status:                 'status',
+    acquisition_status:     'acquisition stage',
+    display_name:           'name',
+    address_line1:          'address',
+    unit:                   'unit',
+    city:                   'city',
+    state:                  'state',
+    zip:                    'ZIP',
+    county:                 'county',
+    tms:                    'TMS',
+    parcel_id:              'parcel ID',
+    lockbox_code:           'lockbox code',
+    owner:                  'owner',
+    owner_name:             'owner',
+    notes:                  'notes',
+    purchase_price:         'purchase price',
+    purchase_date:          'purchase date',
+    anticipated_close_date: 'anticipated close date',
+    sold_price:             'sold price',
+    sold_date:              'sold date',
+    lender_contact_id:      'lender',
+    seller_contact_id:      'seller',
+    lender_name:            'lender',
+    seller_name:            'seller',
+    source:                 'source',
+    raw_name:               'name',
+    raw_phone:              'phone',
+    motivation_notes:       'motivation notes',
+    our_offer:              'offer',
+    appointment_at:         'appointment',
+    contract_date:          'contract date',
+    kind:                   'kind',
+    amount:                 'amount',
+    frequency:              'frequency',
+    next_due_date:          'next due',
+    vendor:                 'vendor',
+    category:               'category',
+    name:                   'name',
+    full_name:              'name',
+    role:                   'role',
+    phone:                  'phone',
+    email:                  'email'
+  };
+  const SKIP_PAYLOAD_KEYS = new Set([
+    'property_id', 'id', 'created_at', 'updated_at',
+    'created_by', 'updated_by'
+  ]);
+
+  function fmtPayloadValue(key, value) {
+    if (value == null || value === '') return '—';
+    if (key === 'status')             return propertyStatusLabel(value) || value;
+    if (key === 'acquisition_status') return acquisitionStatusLabel(value) || value;
+    if (typeof value === 'number' && /price|amount|offer/i.test(key)) return formatMoney(value);
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) && /date|_at$/i.test(key)) {
+      return formatDate(value);
+    }
+    if (typeof value === 'boolean') return value ? 'yes' : 'no';
+    let s = String(value);
+    if (s.length > 48) s = s.slice(0, 48) + '…';
+    return s;
+  }
+
+  function describeActivity(r) {
+    const action  = r.action || 'changed';
+    const ent     = ENTITY_NOUN[r.entity_type] || r.entity_type || 'item';
+    const payload = (r.payload && typeof r.payload === 'object') ? r.payload : {};
+
+    if (action === 'created')           return `<span class="act-verb act-create">created</span> a ${ent}`;
+    if (action === 'deleted')           return `<span class="act-verb act-delete">deleted</span> a ${ent}`;
+    if (action === 'photos_recovered')  return `<span class="act-verb">recovered</span> ${payload.inserted || ''} photo${payload.inserted === 1 ? '' : 's'}`.replace(/\s+/g, ' ');
+
+    // Status changes get a special, prominent treatment.
+    if (action === 'status_changed' || (action === 'updated' && payload.status)) {
+      const newStatus = fmtPayloadValue('status', payload.status);
+      const extra = payload.acquisition_status
+        ? ` · ${fmtPayloadValue('acquisition_status', payload.acquisition_status)}`
+        : '';
+      return `<span class="act-verb">moved</span> ${ent} to <strong class="act-value">${escHtml(newStatus + extra)}</strong>`;
+    }
+
+    if (action === 'updated' || action === 'changed') {
+      const keys = Object.keys(payload).filter(k => !SKIP_PAYLOAD_KEYS.has(k));
+      if (!keys.length) return `<span class="act-verb">updated</span> ${ent}`;
+
+      if (keys.length === 1) {
+        const k = keys[0];
+        const label = FIELD_LABELS[k] || k.replace(/_/g, ' ');
+        const val = fmtPayloadValue(k, payload[k]);
+        const isClear = payload[k] == null || payload[k] === '';
+        if (isClear) return `<span class="act-verb">cleared</span> <strong class="act-field">${escHtml(label)}</strong> on ${ent}`;
+        return `<span class="act-verb">set</span> <strong class="act-field">${escHtml(label)}</strong> to <strong class="act-value">${escHtml(val)}</strong>`;
+      }
+
+      // multiple fields — list them, prioritizing meaningful ones first
+      const PRIORITY = ['purchase_price', 'sold_price', 'purchase_date', 'sold_date',
+                        'display_name', 'address_line1', 'owner_name', 'notes'];
+      const sorted = keys.slice().sort((a, b) => {
+        const ia = PRIORITY.indexOf(a), ib = PRIORITY.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      });
+      const shown = sorted.slice(0, 3).map(k => FIELD_LABELS[k] || k.replace(/_/g, ' '));
+      const more  = sorted.length > 3 ? ` <span class="text-muted">+${sorted.length - 3} more</span>` : '';
+      return `<span class="act-verb">updated</span> <strong class="act-field">${escHtml(shown.join(', '))}</strong>${more} on ${ent}`;
+    }
+
+    // Fallback for any unmapped action verb.
+    return `<span class="act-verb">${escHtml(action)}</span> ${ent}`;
+  }
+
   async function loadActivity(){
     try{
       const rows = await getActivity({ limit: 8 });
@@ -571,8 +708,7 @@
             <div style="flex:1;min-width:0;">
               <div class="activity-text">
                 <strong>${escHtml(r.actor_name || 'System')}</strong>
-                ${escHtml(r.action)}
-                <em>${escHtml(r.entity_type)}</em>
+                <span class="activity-desc">${describeActivity(r)}</span>
                 ${propLink}
               </div>
               <div class="activity-time">${formatDate(r.created_at)}</div>
