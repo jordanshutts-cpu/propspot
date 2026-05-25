@@ -686,6 +686,160 @@ html.theme-dark .ib-composer textarea {
   color: var(--d-text);
 }
 
+/* ── Inbox (premium overhaul — dark) ─────────────────────────── */
+html.theme-dark .inbox-3col { background: var(--d-bg); }
+html.theme-dark .col { background: var(--d-surface); }
+html.theme-dark .col-left,
+html.theme-dark .col-middle { border-right-color: var(--d-border); }
+html.theme-dark .col-middle { background: var(--d-surface); }
+html.theme-dark .col-right  { background: var(--d-bg); }
+html.theme-dark .resizer::after { background: var(--d-border); }
+html.theme-dark .resizer:hover::after,
+html.theme-dark .resizer.dragging::after { background: var(--d-brand); }
+
+html.theme-dark .col-left .nav-scroll,
+html.theme-dark .col-middle .thread-list,
+html.theme-dark .messages-scroll {
+  scrollbar-color: rgba(110,208,87,0.22) transparent;
+}
+html.theme-dark .col-left .nav-scroll::-webkit-scrollbar-thumb,
+html.theme-dark .col-middle .thread-list::-webkit-scrollbar-thumb,
+html.theme-dark .messages-scroll::-webkit-scrollbar-thumb { background: rgba(110,208,87,0.22); }
+
+html.theme-dark .col-left .col-head {
+  border-bottom-color: var(--d-border);
+  background: linear-gradient(180deg, rgba(110,208,87,0.05) 0%, transparent 100%);
+}
+html.theme-dark .col-left .col-head .brand-eyebrow { color: var(--d-brand); }
+html.theme-dark .col-left .col-head .brand-title   { color: var(--d-text-strong); }
+
+html.theme-dark .ib-compose-btn {
+  background: linear-gradient(135deg, var(--d-brand) 0%, #15803d 100%);
+  color: #0a0e14;
+  box-shadow: 0 4px 12px -3px rgba(110,208,87,0.55),
+              inset 0 1px 0 rgba(255,255,255,0.10);
+}
+html.theme-dark .ib-compose-btn:hover {
+  box-shadow: 0 6px 16px -3px rgba(110,208,87,0.70),
+              inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+html.theme-dark .nav-section[data-section="inbox"]  .nav-section-head { color: var(--d-brand); }
+html.theme-dark .nav-section[data-section="shared"] .nav-section-head { color: #fbbf24; }
+html.theme-dark .nav-section-head .nav-head-total {
+  background: var(--d-bg);
+  color: var(--d-text-muted);
+}
+
+html.theme-dark .ib-nav-item:hover {
+  background: rgba(110,208,87,0.08);
+  color: var(--d-brand);
+}
+html.theme-dark .ib-nav-item .ib-filter-icon,
+html.theme-dark .ib-nav-item .ib-inbox-icon { color: var(--d-text-dim); }
+html.theme-dark .ib-nav-item:hover .ib-filter-icon,
+html.theme-dark .ib-nav-item:hover .ib-inbox-icon,
+html.theme-dark .ib-nav-item.active .ib-filter-icon,
+html.theme-dark .ib-nav-item.active .ib-inbox-icon { color: var(--d-brand) !important; }
+html.theme-dark .ib-nav-item .count { color: var(--d-text-muted); }
+html.theme-dark .ib-nav-item:hover .count,
+html.theme-dark .ib-nav-item.active .count { color: var(--d-brand); }
+html.theme-dark .ib-nav-item .count.count-unread {
+  background: var(--d-brand);
+  color: #0a0e14;
+  box-shadow: 0 0 0 3px rgba(110,208,87,0.14);
+}
+html.theme-dark .ib-nav-item.active .count.count-unread {
+  background: var(--d-brand);
+  color: #0a0e14;
+}
+
+html.theme-dark .col-middle .col-head {
+  background: var(--d-surface);
+  border-bottom-color: var(--d-border);
+}
+html.theme-dark .col-middle .col-head h3 { color: var(--d-text-strong); }
+
+html.theme-dark .ib-icon-btn {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+  color: var(--d-text-muted);
+}
+html.theme-dark .ib-icon-btn:hover {
+  background: rgba(110,208,87,0.10);
+  border-color: var(--d-brand);
+  color: var(--d-brand);
+}
+
+html.theme-dark .ib-search-icon { color: var(--d-text-dim); }
+html.theme-dark .search-input {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark .search-input:focus {
+  border-color: var(--d-brand);
+  box-shadow: 0 0 0 3px rgba(110,208,87,0.12);
+}
+
+html.theme-dark .col-middle .thread-list { background: var(--d-surface); }
+html.theme-dark .thread-card {
+  border-bottom-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark .thread-card:hover { background: rgba(110,208,87,0.05); }
+html.theme-dark .thread-card.unread::before {
+  background: var(--d-brand);
+  box-shadow: 0 0 8px -1px rgba(110,208,87,0.55);
+}
+html.theme-dark .thread-card.active {
+  background: linear-gradient(90deg, rgba(110,208,87,0.12) 0%, rgba(110,208,87,0.04) 100%);
+}
+html.theme-dark .thread-card.active::before { background: var(--d-brand); }
+html.theme-dark .thread-card.unread .thread-from,
+html.theme-dark .thread-card.unread .thread-subject { color: var(--d-text-strong); }
+html.theme-dark .thread-from   { color: var(--d-text); }
+html.theme-dark .thread-time   { color: var(--d-text-muted); }
+html.theme-dark .thread-card.unread .thread-time { color: var(--d-brand); }
+html.theme-dark .thread-subject{ color: var(--d-text); }
+html.theme-dark .thread-snippet{ color: var(--d-text-muted); }
+html.theme-dark .thread-avatar {
+  background: linear-gradient(135deg, var(--d-brand) 0%, #15803d 100%);
+  color: #0a0e14;
+}
+html.theme-dark .property-tag {
+  background: rgba(110,208,87,0.16);
+  color: var(--d-brand);
+}
+html.theme-dark .attach-tag { color: var(--d-text-muted); }
+
+html.theme-dark .inbox-tabs {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+}
+html.theme-dark .inbox-tab { color: var(--d-text-dim); }
+html.theme-dark .inbox-tab:hover { color: var(--d-text); }
+html.theme-dark .inbox-tab.active {
+  background: var(--d-surface-2);
+  color: var(--d-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.40);
+}
+
+/* Premium empty state — dark */
+html.theme-dark .col-right .empty-pane.lg .empty-icon {
+  background: linear-gradient(135deg, rgba(110,208,87,0.12) 0%, rgba(110,208,87,0.04) 100%);
+  color: var(--d-brand);
+  box-shadow: inset 0 0 0 1px rgba(110,208,87,0.20);
+}
+html.theme-dark .col-right .empty-pane.lg .empty-title { color: var(--d-text-strong); }
+html.theme-dark .col-right .empty-pane.lg .empty-blurb { color: var(--d-text-muted); }
+html.theme-dark .col-right .empty-pane.lg .empty-shortcuts { color: var(--d-text-dim); }
+html.theme-dark .col-right .empty-pane.lg .empty-shortcuts kbd {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+
 /* ── Pulse ───────────────────────────────────────────────────── */
 html.theme-dark .ps-sidebar,
 html.theme-dark .ps-main-head,

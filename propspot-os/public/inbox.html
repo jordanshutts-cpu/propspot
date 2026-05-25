@@ -29,57 +29,134 @@
       background: var(--surface);
     }
     .col-left   { width: 240px; flex: 0 0 auto; border-right: 1px solid var(--border); }
-    .col-middle { width: 380px; flex: 0 0 auto; border-right: 1px solid var(--border); background: var(--bg); }
-    .col-right  { flex: 1 1 0; min-width: 0; }
+    .col-middle { width: 380px; flex: 0 0 auto; border-right: 1px solid var(--border); background: var(--surface); }
+    .col-right  { flex: 1 1 0; min-width: 0; background: var(--bg); }
 
-    /* Resizer between columns */
+    /* Resizer between columns — subtle brand glow on hover */
     .resizer {
       width: 4px;
       flex: 0 0 4px;
       cursor: col-resize;
       background: transparent;
       transition: background .12s;
+      position: relative;
     }
-    .resizer:hover,
-    .resizer.dragging { background: var(--brand); }
+    .resizer::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px; height: 28px;
+      background: var(--border);
+      border-radius: 2px;
+      transition: background .12s, height .12s;
+    }
+    .resizer:hover::after,
+    .resizer.dragging::after {
+      background: var(--brand);
+      height: 48px;
+    }
+
+    /* Custom thin scrollbars across the inbox */
+    .col-left .nav-scroll,
+    .col-middle .thread-list,
+    .messages-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(97,183,70,0.22) transparent;
+    }
+    .col-left .nav-scroll::-webkit-scrollbar,
+    .col-middle .thread-list::-webkit-scrollbar,
+    .messages-scroll::-webkit-scrollbar { width: 6px; }
+    .col-left .nav-scroll::-webkit-scrollbar-thumb,
+    .col-middle .thread-list::-webkit-scrollbar-thumb,
+    .messages-scroll::-webkit-scrollbar-thumb {
+      background: rgba(97,183,70,0.22);
+      border-radius: 100px;
+    }
+    .col-left .nav-scroll::-webkit-scrollbar-thumb:hover,
+    .col-middle .thread-list::-webkit-scrollbar-thumb:hover,
+    .messages-scroll::-webkit-scrollbar-thumb:hover { background: rgba(97,183,70,0.40); }
 
     /* ── Left column (nav) ───────────────────────────────────────── */
     .col-left .col-head {
-      padding: 12px 12px 8px;
+      padding: 14px 14px 12px;
       border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(97,183,70,0.04) 0%, transparent 100%);
     }
     .col-left .col-head .brand {
       display: flex; align-items: center; gap: 8px;
-      font-size: 1rem; font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
-    .search-input {
+    .col-left .col-head .brand-eyebrow {
+      font-size: 0.65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--brand);
+    }
+    .col-left .col-head .brand-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    /* Compose CTA — branded gradient, hover lift, SVG icon */
+    .ib-compose-btn {
       width: 100%;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: .85rem;
-      background: var(--bg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: .88rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 12px -3px rgba(97,183,70,0.45),
+                  inset 0 1px 0 rgba(255,255,255,0.20);
+      transition: transform .12s ease, box-shadow .15s ease, filter .12s ease;
     }
-    .search-input:focus { outline: none; border-color: var(--brand); }
+    .ib-compose-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px -3px rgba(97,183,70,0.55),
+                  inset 0 1px 0 rgba(255,255,255,0.20);
+      filter: brightness(1.04);
+    }
+    .ib-compose-btn:active { transform: translateY(0); }
+    .ib-compose-btn svg { width: 14px; height: 14px; }
 
-    .nav-section { padding: 12px 8px 4px; }
+    .nav-section { padding: 14px 8px 4px; }
     .nav-section-head {
       display: flex; align-items: center; gap: 4px;
-      padding: 0 6px 6px;
-      font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
-      color: var(--text-muted); font-weight: 700;
+      padding: 0 8px 8px;
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+      font-weight: 800;
     }
-    .nav-section-head .nav-head-title { flex: 1; }
+    .nav-section-head .nav-head-title { flex: 1; display: inline-flex; align-items: center; gap: 6px; }
+    .nav-section-head .nav-head-title::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.6;
+    }
+    /* Color-coded section labels — matches sidebar pattern */
+    .nav-section[data-section="inbox"]  .nav-section-head { color: #15803d; }
+    .nav-section[data-section="shared"] .nav-section-head { color: #b45309; }
+
     .nav-section-head .nav-head-total {
-      font-size: .7rem;
+      font-size: .68rem;
       color: var(--text-muted);
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0;
       text-transform: none;
-      padding: 1px 6px;
-      background: rgba(0,0,0,.04);
-      border-radius: 10px;
+      padding: 2px 7px;
+      background: var(--bg);
+      border-radius: 100px;
       min-width: 18px;
       text-align: center;
     }
@@ -90,97 +167,353 @@
       border-radius: 4px; color: var(--text-muted); line-height: 1;
     }
     .nav-section-icon-btn:hover { background: var(--brand-light); color: var(--brand-dark); }
+
     .ib-nav-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 10px; border-radius: 6px;
-      cursor: pointer; font-size: .88rem;
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; margin: 1px 4px;
+      border-radius: 8px;
+      cursor: pointer; font-size: .85rem;
       color: var(--text);
+      position: relative;
+      transition: background .12s ease, color .12s ease, transform .10s ease;
     }
-    .ib-nav-item:hover { background: var(--bg); }
-    .ib-nav-item.active { background: var(--brand-light); color: var(--brand-dark); font-weight: 600; }
+    .ib-nav-item:hover {
+      background: rgba(97,183,70,0.08);
+      color: var(--brand-dark, #15803d);
+    }
+    .ib-nav-item.active {
+      background: rgba(97,183,70,0.12);
+      color: var(--brand-dark);
+      font-weight: 600;
+    }
+    .ib-nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: -2px; top: 50%;
+      transform: translateY(-50%);
+      width: 3px; height: 16px;
+      background: var(--brand);
+      border-radius: 0 3px 3px 0;
+    }
+    .ib-nav-item .ib-filter-icon,
+    .ib-nav-item .ib-inbox-icon {
+      width: 18px; height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: color .12s ease;
+      flex-shrink: 0;
+    }
+    .ib-nav-item:hover .ib-filter-icon,
+    .ib-nav-item:hover .ib-inbox-icon,
+    .ib-nav-item.active .ib-filter-icon,
+    .ib-nav-item.active .ib-inbox-icon { color: var(--brand-dark); }
     .ib-nav-item .count {
       margin-left: auto;
       font-size: .72rem;
       color: var(--text-muted);
       font-variant-numeric: tabular-nums;
+      font-weight: 600;
     }
-    .ib-nav-item.active .count { color: var(--brand-dark); }
+    .ib-nav-item:hover .count,
+    .ib-nav-item.active .count { color: var(--brand-dark); font-weight: 700; }
     .ib-nav-item .count.count-unread {
-      color: var(--brand-dark);
-      background: var(--brand-light);
-      padding: 1px 7px;
-      border-radius: 10px;
+      color: #fff;
+      background: var(--brand);
+      padding: 2px 8px;
+      border-radius: 100px;
       font-weight: 700;
+      box-shadow: 0 0 0 3px rgba(97,183,70,0.10);
     }
     .ib-nav-item.active .count.count-unread {
-      background: var(--brand-dark);
-      color: #fff;
+      background: var(--brand-dark, #15803d);
+      box-shadow: 0 0 0 3px rgba(21,128,61,0.18);
     }
 
-    .col-left .nav-scroll {
-      flex: 1; overflow-y: auto;
-    }
+    .col-left .nav-scroll { flex: 1; overflow-y: auto; }
 
     /* ── Middle column (thread list) ─────────────────────────────── */
     .col-middle .col-head {
-      padding: 10px 14px;
+      padding: 14px 16px 12px;
       border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 8px;
       background: var(--surface);
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .col-middle .col-head .head-row {
+      display: flex; align-items: center; gap: 8px;
     }
     .col-middle .col-head h3 {
-      flex: 1; margin: 0; font-size: .95rem; font-weight: 700;
+      flex: 1; margin: 0;
+      font-size: 1rem; font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--text);
     }
-    .col-middle .thread-list { flex: 1; overflow-y: auto; background: var(--surface); }
+    .ib-icon-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 30px; height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: background .12s, border-color .12s, color .12s, transform .12s;
+    }
+    .ib-icon-btn:hover {
+      background: rgba(97,183,70,0.08);
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+    .ib-icon-btn:active { transform: scale(0.95); }
+    .ib-icon-btn svg { width: 13px; height: 13px; }
 
+    /* Search box — modernized with icon prefix */
+    .ib-search-wrap {
+      position: relative;
+    }
+    .ib-search-icon {
+      position: absolute;
+      left: 11px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px 12px 8px 34px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: .85rem;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color .12s, box-shadow .12s;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(97,183,70,0.10);
+    }
+
+    .col-middle .thread-list {
+      flex: 1; overflow-y: auto; background: var(--surface);
+      padding: 4px 0;
+    }
+
+    /* Thread card — premium feel with avatar circle, vertical unread bar */
     .thread-card {
-      display: block; padding: 12px 14px;
+      display: block;
+      padding: 12px 16px 12px 18px;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
       font-size: .85rem;
+      position: relative;
+      transition: background .12s ease, padding-left .12s ease;
     }
-    .thread-card:hover { background: var(--bg); }
-    .thread-card.active { background: var(--brand-light); }
-    .thread-card.unread .thread-from,
-    .thread-card.unread .thread-subject { font-weight: 700; }
+    .thread-card::before {
+      /* Left accent bar — invisible by default, brand-green when unread,
+         solid brand when active. Smooth gradient on hover. */
+      content: '';
+      position: absolute;
+      left: 0; top: 8px; bottom: 8px;
+      width: 3px;
+      background: transparent;
+      border-radius: 0 3px 3px 0;
+      transition: background .12s ease;
+    }
+    .thread-card:hover {
+      background: rgba(97,183,70,0.04);
+      padding-left: 20px;
+    }
     .thread-card.unread::before {
-      content: ''; display: inline-block; width: 8px; height: 8px;
-      border-radius: 50%; background: var(--brand);
-      margin-right: 6px; vertical-align: middle;
+      background: var(--brand);
+      box-shadow: 0 0 8px -1px rgba(97,183,70,0.50);
     }
-    .thread-row1 { display: flex; gap: 8px; align-items: center; }
-    .thread-from { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .thread-time { font-size: .72rem; color: var(--text-muted); flex-shrink: 0; }
-    .thread-subject { margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .thread-snippet { margin-top: 3px; font-size: .78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .thread-meta-row { display: flex; gap: 6px; margin-top: 5px; align-items: center; }
-    .property-tag {
-      background: var(--brand-light); color: var(--brand-dark);
-      padding: 1px 6px; border-radius: 4px;
-      font-size: .68rem; font-weight: 600;
+    .thread-card.active {
+      background: linear-gradient(90deg, rgba(97,183,70,0.10) 0%, rgba(97,183,70,0.04) 100%);
     }
-    .attach-tag { font-size: .72rem; color: var(--text-muted); }
+    .thread-card.active::before {
+      background: var(--brand-dark, #15803d);
+    }
+    .thread-card.unread .thread-from,
+    .thread-card.unread .thread-subject { font-weight: 700; color: var(--text); }
 
-    /* Per-shared-inbox tabs */
+    .thread-row1 {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 3px;
+    }
+    .thread-avatar {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.7rem;
+      flex-shrink: 0;
+      letter-spacing: -0.02em;
+      box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    }
+    .thread-from {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+      font-weight: 500;
+      letter-spacing: -0.005em;
+    }
+    .thread-time {
+      font-size: .7rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.01em;
+      font-weight: 500;
+    }
+    .thread-card.unread .thread-time { color: var(--brand-dark); font-weight: 700; }
+    .thread-subject {
+      margin-top: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+      font-size: .82rem;
+      padding-left: 32px;       /* aligns with text after avatar */
+    }
+    .thread-snippet {
+      margin-top: 2px;
+      font-size: .76rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding-left: 32px;
+    }
+    .thread-meta-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      align-items: center;
+      padding-left: 32px;
+      flex-wrap: wrap;
+    }
+    .property-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(97,183,70,0.12);
+      color: var(--brand-dark);
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: .66rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+    }
+    .property-tag svg { width: 9px; height: 9px; }
+    .attach-tag {
+      font-size: .68rem;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-weight: 600;
+    }
+    .attach-tag svg { width: 11px; height: 11px; }
+
+    /* Per-shared-inbox tabs — pill toggle (matches FieldCam pattern) */
     .inbox-tabs {
-      display: flex; gap: 4px; padding: 0 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      overflow-x: auto; flex-shrink: 0;
+      display: inline-flex;
+      gap: 2px;
+      padding: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      margin: 10px 16px 4px;
+      overflow-x: auto;
+      flex-shrink: 0;
     }
     .inbox-tab {
-      background: none; border: 0; padding: 10px 8px;
-      font-size: .85rem; color: var(--text-muted); cursor: pointer;
-      border-bottom: 2px solid transparent; white-space: nowrap;
+      background: none; border: 0;
+      padding: 5px 12px;
+      font-size: .76rem; font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 100px;
+      white-space: nowrap;
+      transition: background .12s, color .12s;
     }
     .inbox-tab:hover { color: var(--text); }
-    .inbox-tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+    .inbox-tab.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
 
-    /* ── Right column (thread detail) ────────────────────────────── */
+    /* ── Right column (thread detail / empty state) ──────────────── */
     .col-right .empty-pane {
-      display: flex; align-items: center; justify-content: center;
-      flex: 1; color: var(--text-muted);
-      font-size: .9rem; padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: var(--text-muted);
+      font-size: .9rem;
+      padding: 40px 20px;
+      text-align: center;
+      height: 100%;
+    }
+    .col-right .empty-pane.lg .empty-icon {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(97,183,70,0.10) 0%, rgba(97,183,70,0.04) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      color: var(--brand-dark);
+      box-shadow: inset 0 0 0 1px rgba(97,183,70,0.18);
+    }
+    .col-right .empty-pane.lg .empty-icon svg { width: 36px; height: 36px; }
+    .col-right .empty-pane.lg .empty-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+    }
+    .col-right .empty-pane.lg .empty-blurb {
+      font-size: .85rem;
+      color: var(--text-muted);
+      max-width: 340px;
+      line-height: 1.5;
+    }
+    .col-right .empty-pane.lg .empty-shortcuts {
+      display: flex;
+      gap: 14px;
+      margin-top: 18px;
+      font-size: .72rem;
+      color: var(--text-muted);
+    }
+    .col-right .empty-pane.lg .empty-shortcuts kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: .68rem;
+      color: var(--text);
+      margin: 0 3px;
     }
     #thread-detail {
       display: flex;
@@ -368,17 +701,41 @@
     <!-- LEFT: nav (compose lives here) -->
     <aside class="col col-left" id="col-left">
       <div class="col-head">
-        <div class="brand"><span>📧</span><span>Inbox</span></div>
-        <button class="btn btn-primary" onclick="openCompose()" style="width:100%;margin-top:8px;">✏️ Compose</button>
+        <div class="brand">
+          <div>
+            <div class="brand-eyebrow">Communications</div>
+            <div class="brand-title">Inbox</div>
+          </div>
+        </div>
+        <button class="ib-compose-btn" onclick="openCompose()" title="Compose new message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          Compose
+        </button>
       </div>
       <div class="nav-scroll">
-        <div class="nav-section">
+        <div class="nav-section" data-section="inbox">
           <div class="nav-section-head"><span class="nav-head-title">Inbox</span></div>
-          <div class="ib-nav-item active" data-filter="open"><span class="ib-filter-icon" data-icon="open">📬</span><span>Open</span><span class="count" id="count-open"></span></div>
-          <div class="ib-nav-item" data-filter="archived"><span class="ib-filter-icon" data-icon="archived">📁</span><span>Archived</span></div>
-          <div class="ib-nav-item" data-filter="assigned"><span class="ib-filter-icon" data-icon="assigned">👤</span><span>Assigned to me</span></div>
+          <div class="ib-nav-item active" data-filter="open">
+            <span class="ib-filter-icon" data-icon="open">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            </span>
+            <span>Open</span>
+            <span class="count" id="count-open"></span>
+          </div>
+          <div class="ib-nav-item" data-filter="archived">
+            <span class="ib-filter-icon" data-icon="archived">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="5" rx="1"/><path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><line x1="10" y1="13" x2="14" y2="13"/></svg>
+            </span>
+            <span>Archived</span>
+          </div>
+          <div class="ib-nav-item" data-filter="assigned">
+            <span class="ib-filter-icon" data-icon="assigned">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span>Assigned to me</span>
+          </div>
         </div>
-        <div class="nav-section">
+        <div class="nav-section" data-section="shared">
           <div class="nav-section-head">
             <span class="nav-head-title">Shared inboxes</span>
             <span class="nav-head-total" id="shared-total" title="Total open across all shared inboxes"></span>
@@ -394,12 +751,19 @@
 
     <!-- MIDDLE: thread list -->
     <section class="col col-middle" id="col-middle">
-      <div class="col-head" style="flex-direction:column;align-items:stretch;gap:8px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <h3 id="active-inbox-title" style="flex:1;margin:0;">All open threads</h3>
-          <button class="btn btn-secondary btn-sm" onclick="refreshThreads()" title="Refresh">↻</button>
+      <div class="col-head">
+        <div class="head-row">
+          <h3 id="active-inbox-title">All open threads</h3>
+          <button class="ib-icon-btn" onclick="refreshThreads()" title="Refresh threads" aria-label="Refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
         </div>
-        <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
+        <div class="ib-search-wrap">
+          <span class="ib-search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="search" class="search-input" id="search-input" placeholder="Search subject, sender, snippet…">
+        </div>
       </div>
       <nav class="inbox-tabs" id="inbox-tabs" style="display:none;">
         <button class="inbox-tab" data-tab="unassigned">Unassigned</button>
@@ -419,7 +783,18 @@
     <!-- RIGHT: selected thread -->
     <section class="col col-right" id="col-right">
       <div id="thread-detail">
-        <div class="empty-pane">Select a thread on the left to view it</div>
+        <div class="empty-pane lg">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <div class="empty-title">Select a thread to read</div>
+          <div class="empty-blurb">Pick any conversation from the list to see the full thread, reply inline, assign it to a teammate, or tag it to a property.</div>
+          <div class="empty-shortcuts">
+            <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+            <span><kbd>R</kbd> reply</span>
+            <span><kbd>E</kbd> archive</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -809,20 +1184,37 @@ function renderThreadList() {
 function threadCardHtml(t) {
   const from = (t.participants && t.participants[0]) || '(no sender)';
   const subj = t.subject || '(no subject)';
+  // First-letter avatar — strips display name + email noise so "Jordan
+  // <jordan@x.com>" still produces "J".
+  const cleanFrom = String(from).replace(/<[^>]+>/g, '').trim() || from;
+  const initial = (cleanFrom.match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase();
   const tag = t.address_line1
-    ? `<span class="property-tag" title="${escapeHtml(propertyLabel(t))}">🏠 ${escapeHtml(t.address_line1)}</span>`
+    ? `<span class="property-tag" title="${escapeHtml(propertyLabel(t))}">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+         ${escapeHtml(t.address_line1)}
+       </span>`
     : '';
-  const att = t.has_attachments ? '<span class="attach-tag">📎</span>' : '';
-  const assigned = t.assigned_name ? `<span class="attach-tag">👤 ${escapeHtml(t.assigned_name.split(' ')[0])}</span>` : '';
+  const att = t.has_attachments
+    ? `<span class="attach-tag" title="Has attachments">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+       </span>`
+    : '';
+  const assigned = t.assigned_name
+    ? `<span class="attach-tag" title="Assigned to ${escapeHtml(t.assigned_name)}">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+         ${escapeHtml(t.assigned_name.split(' ')[0])}
+       </span>`
+    : '';
   const active = STATE.activeThreadId === t.id ? 'active' : '';
   return `
     <div class="thread-card ${t.unread ? 'unread' : ''} ${active}" data-thread-id="${escapeHtml(t.id)}">
       <div class="thread-row1">
+        <span class="thread-avatar">${escapeHtml(initial)}</span>
         <span class="thread-from">${escapeHtml(from)}</span>
         <span class="thread-time">${relativeTime(t.last_message_at)}</span>
       </div>
       <div class="thread-subject">${escapeHtml(subj)}</div>
-      <div class="thread-meta-row">${tag}${att}${assigned}</div>
+      ${(tag || att || assigned) ? `<div class="thread-meta-row">${tag}${att}${assigned}</div>` : ''}
     </div>
   `;
 }
