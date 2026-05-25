@@ -1191,6 +1191,18 @@ CREATE TABLE IF NOT EXISTS recent_properties (
 CREATE INDEX IF NOT EXISTS idx_recent_user_time
   ON recent_properties (user_id, visited_at DESC);
 
+-- ── Emoji reactions on Pulse messages ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS chat_reactions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id  UUID NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emoji       TEXT NOT NULL CHECK (char_length(emoji) <= 8),
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (message_id, user_id, emoji)
+);
+CREATE INDEX IF NOT EXISTS chat_reactions_message_idx ON chat_reactions(message_id);
+CREATE INDEX IF NOT EXISTS chat_reactions_user_idx    ON chat_reactions(user_id);
+
 -- ── 2026-05-23 one-time: archive every open thread with no activity in the
 -- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
 -- without years of backfilled history cluttering the lists. Owners can

@@ -121,6 +121,22 @@ async function hydrateMessage(row) {
     [row.id]
   );
 
+  // Reactions grouped by emoji
+  const rxRes = await query(
+    `SELECT r.emoji, r.user_id, u.full_name, u.email
+       FROM chat_reactions r
+       LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.message_id = $1
+      ORDER BY r.created_at ASC`,
+    [row.id]
+  );
+  const rxMap = new Map();
+  for (const r of rxRes.rows) {
+    if (!rxMap.has(r.emoji)) rxMap.set(r.emoji, []);
+    rxMap.get(r.emoji).push({ user_id: r.user_id, name: r.full_name || r.email || 'Unknown' });
+  }
+  const reactions = Array.from(rxMap, ([emoji, users]) => ({ emoji, count: users.length, users }));
+
   return {
     ...row,
     sender_name: sender.full_name || sender.email || 'Unknown',
@@ -130,7 +146,8 @@ async function hydrateMessage(row) {
     mentions: mRes.rows.map(r => ({
       user_id: r.mentioned_user_id,
       name: r.full_name || r.email || 'Unknown'
-    }))
+    })),
+    reactions
   };
 }
 
@@ -171,10 +188,35 @@ async function hydrateMessages(rows) {
     mentByMsg.set(r.message_id, arr);
   }
 
+  // Batch reactions
+  const rxRes = await query(
+    `SELECT r.message_id, r.emoji, r.user_id, u.full_name, u.email
+       FROM chat_reactions r
+       LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.message_id = ANY($1::uuid[])
+      ORDER BY r.created_at ASC`,
+    [ids]
+  );
+  const rxByMsg = new Map();
+  for (const r of rxRes.rows) {
+    const arr = rxByMsg.get(r.message_id) || [];
+    arr.push(r);
+    rxByMsg.set(r.message_id, arr);
+  }
+  function groupReactions(rawRows) {
+    const map = new Map();
+    for (const r of (rawRows || [])) {
+      if (!map.has(r.emoji)) map.set(r.emoji, []);
+      map.get(r.emoji).push({ user_id: r.user_id, name: r.full_name || r.email || 'Unknown' });
+    }
+    return Array.from(map, ([emoji, users]) => ({ emoji, count: users.length, users }));
+  }
+
   return rows.map(r => ({
     ...r,
     attachments: attsByMsg.get(r.id) || [],
-    mentions: mentByMsg.get(r.id) || []
+    mentions: mentByMsg.get(r.id) || [],
+    reactions: groupReactions(rxByMsg.get(r.id))
   }));
 }
 
@@ -429,6 +471,76 @@ router.get('/', async (req, res) => {
     messages: hydrated.reverse(),
     has_more: rows.length === limit
   });
+});
+
+// ── POST /api/pulse/messages/:id/react  { emoji } — toggle a reaction ────────
+router.post('/:id/react', async (req, res) => {
+  const messageId = req.params.id;
+  const { emoji } = req.body || {};
+  if (!emoji || typeof emoji !== 'string' || [...emoji].length > 4) {
+    return res.status(400).json({ error: 'valid emoji required' });
+  }
+
+  try {
+    const { rows: msgRows } = await query(
+      `SELECT channel_id, dm_id, deleted_at FROM chat_messages WHERE id = $1`,
+      [messageId]
+    );
+    if (!msgRows.length || msgRows[0].deleted_at) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    const msg = msgRows[0];
+    const scope = { channel_id: msg.channel_id, dm_id: msg.dm_id };
+
+    if (msg.channel_id && !(await userHasChannel(req.userId, msg.channel_id))) {
+      return res.status(403).json({ error: 'Not a member of this channel' });
+    }
+    if (msg.dm_id && !(await userHasDm(req.userId, msg.dm_id))) {
+      return res.status(403).json({ error: 'Not a member of this DM' });
+    }
+
+    // Toggle: remove if exists, add if not
+    const existing = await query(
+      `SELECT id FROM chat_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
+      [messageId, req.userId, emoji]
+    );
+    if (existing.rows.length) {
+      await query(
+        `DELETE FROM chat_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
+        [messageId, req.userId, emoji]
+      );
+    } else {
+      await query(
+        `INSERT INTO chat_reactions (message_id, user_id, emoji)
+         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [messageId, req.userId, emoji]
+      );
+    }
+
+    // Fetch updated reactions for this message
+    const rxRes = await query(
+      `SELECT r.emoji, r.user_id, u.full_name, u.email
+         FROM chat_reactions r
+         LEFT JOIN users u ON u.id = r.user_id
+        WHERE r.message_id = $1
+        ORDER BY r.created_at ASC`,
+      [messageId]
+    );
+    const rxMap = new Map();
+    for (const r of rxRes.rows) {
+      if (!rxMap.has(r.emoji)) rxMap.set(r.emoji, []);
+      rxMap.get(r.emoji).push({ user_id: r.user_id, name: r.full_name || r.email || 'Unknown' });
+    }
+    const reactions = Array.from(rxMap, ([e, users]) => ({ emoji: e, count: users.length, users }));
+
+    // Broadcast reaction update to all scope subscribers
+    hub.publish(scopeKey(scope), { type: 'reaction_update', message_id: messageId, reactions });
+
+    return res.json({ ok: true, reactions });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to toggle reaction' });
+  }
 });
 
 module.exports = router;

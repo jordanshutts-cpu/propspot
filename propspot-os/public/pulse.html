@@ -49,7 +49,9 @@
     .ps-settings-btn:hover { background:var(--brand-light); color:var(--brand); border-color:rgba(97,183,70,.3); }
 
     .ps-messages { flex:1; overflow-y:auto; padding:16px 16px 8px; display:flex; flex-direction:column; gap:0; }
-    .ps-msg { display:flex; gap:10px; align-items:flex-start; padding:2px 6px; border-radius:6px; }
+
+    /* ── Message rows ───────────────────────────────────────────── */
+    .ps-msg { display:flex; gap:10px; align-items:flex-start; padding:2px 6px; border-radius:6px; position:relative; }
     .ps-msg:hover { background:var(--brand-light); }
     .ps-msg-avatar { width:34px; height:34px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0; margin-top:1px; }
     .ps-msg-body { flex:1; min-width:0; }
@@ -70,6 +72,94 @@
     /* @mention highlight in messages */
     .ps-mention { background:rgba(97,183,70,.15); color:var(--brand); border-radius:4px; padding:0 3px; font-weight:600; }
     .ps-mention-me { background:rgba(97,183,70,.28); color:var(--brand); border-radius:4px; padding:0 3px; font-weight:700; }
+
+    /* ── Hover action toolbar ───────────────────────────────────── */
+    .ps-msg-toolbar {
+      display:none; position:absolute; right:8px; top:2px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; box-shadow:0 2px 14px rgba(0,0,0,.12);
+      align-items:center; gap:1px; padding:3px 5px; z-index:50;
+      white-space:nowrap;
+    }
+    .ps-msg:hover .ps-msg-toolbar { display:flex; }
+    .ps-rx-quick-btn {
+      font-size:.95rem; padding:3px 4px; border:none; background:transparent;
+      cursor:pointer; border-radius:6px; line-height:1;
+      transition:background .1s, transform .08s;
+    }
+    .ps-rx-quick-btn:hover { background:var(--brand-light); transform:scale(1.2); }
+    .ps-msg-action-btn {
+      width:26px; height:26px; border:none; background:transparent;
+      cursor:pointer; border-radius:6px; display:flex; align-items:center;
+      justify-content:center; color:var(--text-muted);
+      transition:background .1s, color .1s;
+    }
+    .ps-msg-action-btn:hover { background:var(--brand-light); color:var(--text); }
+    .ps-msg-action-btn.danger:hover { background:rgba(239,68,68,.1); color:#ef4444; }
+    .ps-toolbar-sep { width:1px; height:16px; background:var(--border); margin:0 2px; flex-shrink:0; }
+
+    /* ── Reaction chips ─────────────────────────────────────────── */
+    .ps-reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; min-height:0; }
+    .ps-rx-chip {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:2px 8px 2px 6px; border-radius:100px;
+      border:1.5px solid var(--border); background:var(--bg);
+      font-size:.82rem; cursor:pointer; line-height:1;
+      transition:border-color .1s, background .1s;
+      user-select:none;
+    }
+    .ps-rx-chip:hover { border-color:var(--brand); background:var(--brand-light); }
+    .ps-rx-chip.by-me { border-color:var(--brand); background:rgba(97,183,70,.12); color:var(--brand); }
+    .ps-rx-emoji { font-size:1rem; }
+    .ps-rx-count { font-size:.75rem; font-weight:600; }
+
+    /* ── Inline edit mode ───────────────────────────────────────── */
+    .ps-edit-wrap { margin-top:2px; }
+    .ps-edit-ta {
+      width:100%; padding:8px 10px; border:1.5px solid var(--brand);
+      border-radius:8px; font-size:.9rem; font-family:inherit;
+      line-height:1.4; resize:none; min-height:52px; max-height:180px;
+      background:var(--bg); color:var(--text); box-sizing:border-box;
+      display:block;
+    }
+    .ps-edit-ta:focus { outline:none; box-shadow:0 0 0 3px rgba(97,183,70,.1); }
+    .ps-edit-actions { display:flex; gap:6px; margin-top:6px; align-items:center; }
+    .ps-edit-save { padding:5px 14px; border-radius:8px; font-size:.83rem; }
+    .ps-edit-cancel { padding:5px 12px; border-radius:8px; font-size:.83rem; border:1px solid var(--border); background:var(--bg); cursor:pointer; color:var(--text); }
+    .ps-edit-cancel:hover { background:var(--brand-light); }
+    .ps-edit-hint { font-size:.7rem; color:var(--text-muted); }
+
+    /* ── Full emoji picker overlay ──────────────────────────────── */
+    .ps-emoji-picker {
+      position:fixed; background:var(--surface);
+      border:1px solid var(--border); border-radius:14px;
+      box-shadow:0 8px 36px -4px rgba(0,0,0,.22);
+      padding:10px; z-index:1000; display:none; width:280px;
+    }
+    .ps-emoji-picker.open { display:block; }
+    .ps-emoji-grid { display:grid; grid-template-columns:repeat(8, 1fr); gap:2px; }
+    .ps-emoji-btn {
+      font-size:1.2rem; padding:5px; border:none; background:transparent;
+      cursor:pointer; border-radius:6px; line-height:1; text-align:center;
+      transition:background .1s, transform .08s;
+    }
+    .ps-emoji-btn:hover { background:var(--brand-light); transform:scale(1.2); }
+
+    /* ── Markdown in messages ───────────────────────────────────── */
+    .ps-msg-text code {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:4px; padding:1px 5px; font-family:ui-monospace,monospace;
+      font-size:.82em;
+    }
+    .ps-msg-text pre {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; padding:10px 12px; overflow-x:auto;
+      margin:4px 0; white-space:pre;
+    }
+    .ps-msg-text pre code {
+      background:transparent; border:none; padding:0;
+      font-size:.85em; line-height:1.55; display:block; white-space:pre;
+    }
 
     /* ── Composer ────────────────────────────────────────────────── */
     .ps-composer-wrap { border-top:1px solid var(--border); background:var(--surface); flex-shrink:0; position:relative; }
@@ -103,6 +193,26 @@
     .ps-btn-cancel { padding:8px 16px; border-radius:9px; border:1px solid var(--border); background:var(--bg); cursor:pointer; font-size:.88rem; color:var(--text); }
     .ps-btn-cancel:hover { background:var(--brand-light); }
 
+    /* ── New DM modal user picker ───────────────────────────────── */
+    .ps-ndm-pick { position:relative; }
+    .ps-ndm-list {
+      position:absolute; top:calc(100% + 4px); left:0; right:0;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; box-shadow:0 8px 28px -4px rgba(0,0,0,.15);
+      max-height:200px; overflow-y:auto; z-index:500; display:none;
+    }
+    .ps-ndm-list.open { display:block; }
+    .ps-ndm-item { display:flex; align-items:center; gap:9px; padding:8px 12px; cursor:pointer; transition:background .1s; }
+    .ps-ndm-item:hover,.ps-ndm-item.focused { background:var(--brand-light); }
+    .ps-ndm-item-av { width:28px; height:28px; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.7rem; flex-shrink:0; }
+    .ps-ndm-tag {
+      display:inline-flex; align-items:center; gap:5px;
+      background:var(--brand-light); color:var(--brand);
+      border:1px solid rgba(97,183,70,.3); border-radius:100px;
+      padding:3px 10px; font-size:.82rem; font-weight:600; margin-top:6px;
+    }
+    .ps-ndm-tag button { border:none; background:transparent; cursor:pointer; color:var(--brand); font-size:1rem; line-height:1; padding:0 0 0 2px; }
+
     /* ── Channel settings panel (right drawer) ──────────────────── */
     .ps-settings-panel { position:fixed; top:56px; right:0; bottom:0; width:min(360px,90vw); background:var(--surface); border-left:1px solid var(--border); z-index:200; transform:translateX(100%); transition:transform .22s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; box-shadow:-8px 0 32px -8px rgba(0,0,0,.12); }
     .ps-settings-panel.open { transform:translateX(0); }
@@ -129,6 +239,9 @@
     .ps-member-btn:hover { border-color:var(--brand); color:var(--brand); }
     .ps-member-btn.danger:hover { border-color:#ef4444; color:#ef4444; }
     .ps-add-member { display:flex; gap:6px; margin-top:12px; align-items:flex-start; }
+    .ps-danger-zone { margin-top:8px; }
+    .ps-danger-btn { width:100%; padding:9px; border-radius:9px; border:1.5px solid #ef4444; background:transparent; color:#ef4444; cursor:pointer; font-size:.88rem; font-weight:600; transition:background .1s; }
+    .ps-danger-btn:hover { background:rgba(239,68,68,.06); }
 
     /* Custom user picker (replaces native select) */
     .ps-upick { position:relative; flex:1; }
@@ -146,9 +259,6 @@
     .ps-upick-name { font-size:.84rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ps-upick-email { font-size:.7rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ps-upick-empty { padding:12px; text-align:center; font-size:.8rem; color:var(--text-muted); }
-    .ps-danger-zone { margin-top:8px; }
-    .ps-danger-btn { width:100%; padding:9px; border-radius:9px; border:1.5px solid #ef4444; background:transparent; color:#ef4444; cursor:pointer; font-size:.88rem; font-weight:600; transition:background .1s; }
-    .ps-danger-btn:hover { background:rgba(239,68,68,.06); }
 
     @media(max-width:640px) {
       .ps-sidebar { width:190px; flex:0 0 190px; }
@@ -189,6 +299,9 @@
   </div>
 </main>
 
+<!-- ── Full emoji picker (floating, shared) ───────────────────── -->
+<div id="ps-emoji-picker" class="ps-emoji-picker"></div>
+
 <!-- ── Create Channel modal ──────────────────────────────────── -->
 <div class="ps-backdrop" id="new-ch-modal" onclick="closeModal('new-ch-modal')">
   <div class="ps-modal" onclick="event.stopPropagation()">
@@ -204,6 +317,26 @@
     <div class="ps-modal-foot">
       <button class="ps-btn-cancel" onclick="closeModal('new-ch-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="createChannel()">Create channel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── New DM modal ───────────────────────────────────────────── -->
+<div class="ps-backdrop" id="new-dm-modal" onclick="closeModal('new-dm-modal')">
+  <div class="ps-modal" onclick="event.stopPropagation()">
+    <h3>New Direct Message</h3>
+    <label>Send to</label>
+    <div class="ps-ndm-pick">
+      <input class="ps-modal input[type=text]" type="text" id="ndm-search"
+        style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:.9rem;font-family:inherit;background:var(--bg);color:var(--text);box-sizing:border-box;"
+        placeholder="Search people…" autocomplete="off"
+        oninput="filterNdm(this.value)" onfocus="openNdmList()">
+      <div class="ps-ndm-list" id="ndm-list"></div>
+    </div>
+    <div id="ndm-tags" style="display:flex;flex-wrap:wrap;gap:4px;min-height:4px;"></div>
+    <div class="ps-modal-foot">
+      <button class="ps-btn-cancel" onclick="closeModal('new-dm-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createDm()">Open DM</button>
     </div>
   </div>
 </div>
@@ -230,16 +363,23 @@
   let lastSender = null, lastDate = null;
   let allChannels = [], allDms = [], allOrgUsers = [];
   let settingsChannelId = null;
-  let pendingMentions = new Map(); // fullName → userId
-  let mentionState = null; // null | {start, filtered, focused}
+  let pendingMentions = new Map();
+  let mentionState = null;
 
-  // ── Custom user picker state (Add member panel) ────────────────
-  let upickUsers = [];     // full non-member list
-  let upickFiltered = [];  // currently visible subset
-  let upickSelected = null; // { id, name } | null
-  let upickFocused = -1;
+  // Custom user picker (add member panel)
+  let upickUsers = [], upickFiltered = [], upickSelected = null, upickFocused = -1;
 
-  // Safe single-quote escape for use inside JS string literals in onclick attrs
+  // Inline edit state
+  let editingMsgId = null, editOrigHtml = null;
+
+  // Emoji picker state
+  let emojiPickerTarget = null;
+  const COMMON_EMOJIS = ['👍','👎','❤️','😂','😮','😢','😡','🎉','🔥','👏','🙏','💪','👀','🤔','😎','✅','❌','💯','🚀','⭐','💡','📌','🔔','💰','🏆','😊','🤣','😅','🙌','👋','🎯','✨'];
+
+  // New DM state
+  let ndmSelected = null, ndmFiltered = [];
+
+  // Safe single-quote escape for JS string literals in onclick attrs
   function esc1(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
   // ── Boot ───────────────────────────────────────────────────────
@@ -249,14 +389,12 @@
     myId = me.id;
     isOwner = !!me.is_owner;
 
-    // Load users for @mention picker (non-blocking)
     satelliteApiFetch('pulse', '/api/pulse/users')
       .then(u => { allOrgUsers = Array.isArray(u) ? u : []; })
       .catch(() => {});
 
     await loadSidebar();
 
-    // Auto-open #general or first joined channel
     const general = allChannels.find(c => c.slug === 'general' && c.is_member)
                  || allChannels.find(c => c.is_member);
     if (general) openCh(general.id, general.name || general.slug, general.my_role || 'member');
@@ -277,14 +415,12 @@
       return;
     }
 
-    // Auto-join every public channel the user hasn't joined yet (#general etc.)
     for (const ch of allChannels) {
       if (!ch.is_member && !ch.is_private) {
         try {
           await satelliteApiFetch('pulse', `/api/pulse/channels/${ch.id}/join`, { method: 'POST' });
-          ch.is_member = true;
-          ch.my_role   = 'member';
-        } catch (_) { /* ignore — might be a race with another tab */ }
+          ch.is_member = true; ch.my_role = 'member';
+        } catch (_) {}
       }
     }
     renderSidebar();
@@ -295,7 +431,6 @@
     const joinableChs = allChannels.filter(c => !c.is_member && !c.is_private);
     let html = '';
 
-    // Channels section header
     html += `<div class="ps-section-row">
       <span class="ps-section">Channels</span>
       ${isOwner ? `<button class="ps-new-btn" onclick="openNewChannelModal()" title="New channel">+</button>` : ''}
@@ -303,9 +438,8 @@
 
     if (memberChs.length) {
       html += memberChs.map(ch => {
-        const active  = activeScope?.id === ch.id ? ' active' : '';
-        const unread  = ch.unread > 0 ? `<span class="ps-badge">${ch.unread}</span>` : '';
-        // Use data-* attrs to avoid JSON.stringify in double-quoted onclick
+        const active = activeScope?.id === ch.id ? ' active' : '';
+        const unread = ch.unread > 0 ? `<span class="ps-badge">${ch.unread}</span>` : '';
         return `<div class="ps-row${active}" data-ch-id="${ch.id}" data-ch-name="${escHtml(ch.name || ch.slug)}" data-ch-role="${escHtml(ch.my_role || 'member')}" onclick="handleChClick(this)">
           <span class="ps-row-icon">#</span>
           <span class="ps-row-name">${escHtml(ch.name || ch.slug)}</span>${unread}
@@ -315,7 +449,6 @@
       html += `<p class="text-muted text-sm" style="padding:6px 14px;">No channels yet.</p>`;
     }
 
-    // Joinable public channels (shouldn't normally appear since we auto-join)
     if (joinableChs.length) {
       html += `<div class="ps-section-row" style="margin-top:8px;"><span class="ps-section">Browse</span></div>`;
       html += joinableChs.map(ch => `
@@ -326,9 +459,13 @@
         </div>`).join('');
     }
 
-    // DMs section
+    // DMs section — always shown with + button
+    html += `<div class="ps-section-row" style="margin-top:8px;">
+      <span class="ps-section">Direct Messages</span>
+      <button class="ps-new-btn" onclick="openNewDmModal()" title="New direct message">+</button>
+    </div>`;
+
     if (allDms.length) {
-      html += `<div class="ps-section-row" style="margin-top:8px;"><span class="ps-section">Direct Messages</span></div>`;
       html += allDms.map(dm => {
         const others  = (dm.members || []).filter(m => m.user_id !== myId);
         const name    = dm.title || others.map(m => m.full_name || m.email || '?').join(', ') || 'Group DM';
@@ -340,21 +477,19 @@
           <span class="ps-row-name">${escHtml(name)}</span>${unread}
         </div>`;
       }).join('');
+    } else {
+      html += `<p class="text-muted text-sm" style="padding:6px 14px;opacity:.55;">No DMs yet</p>`;
     }
 
     document.getElementById('ps-sidebar-body').innerHTML = html;
   }
 
-  // Data-attribute click handlers (avoids JSON.stringify quoting issues)
   function handleChClick(el) {
-    const id   = el.dataset.chId;
-    const name = el.dataset.chName;
-    const role = el.dataset.chRole;
+    const id = el.dataset.chId, name = el.dataset.chName, role = el.dataset.chRole;
     if (id) openCh(id, name, role);
   }
   function handleDmClick(el) {
-    const id   = el.dataset.dmId;
-    const name = el.dataset.dmName;
+    const id = el.dataset.dmId, name = el.dataset.dmName;
     if (id) openDm(id, name);
   }
 
@@ -371,22 +506,21 @@
   // ── Open channel / DM ──────────────────────────────────────────
   function openCh(id, name, myRole) {
     activeScope = { type: 'channel', id, name: name.startsWith('#') ? name : '#' + name, my_role: myRole };
-    closeSettings();
-    renderSidebar();
+    closeSettings(); renderSidebar();
     loadMessages({ channel_id: id });
     satelliteApiFetch('pulse', `/api/pulse/channels/${id}/read`, { method: 'POST' }).catch(() => {});
   }
 
   function openDm(id, name) {
     activeScope = { type: 'dm', id, name };
-    closeSettings();
-    renderSidebar();
+    closeSettings(); renderSidebar();
     loadMessages({ dm_id: id });
     satelliteApiFetch('pulse', `/api/pulse/dms/${id}/read`, { method: 'POST' }).catch(() => {});
   }
 
   // ── Messages ───────────────────────────────────────────────────
   async function loadMessages(scope) {
+    if (editingMsgId) cancelEditMsg();
     const ch = scope.channel_id ? allChannels.find(c => c.id === scope.channel_id) : null;
     const canManage = isOwner || activeScope?.my_role === 'admin';
 
@@ -422,7 +556,7 @@
       renderMsgs();
     } catch (e) {
       const el = document.getElementById('ps-messages');
-      if (el) el.innerHTML = `<p class="text-muted text-sm" style="color:#ef4444;padding:8px;">Error loading messages: ${escHtml(e.message)}</p>`;
+      if (el) el.innerHTML = `<p style="color:#ef4444;padding:8px;font-size:.85rem;">Error loading messages: ${escHtml(e.message)}</p>`;
     }
     connectSSE(scope);
     document.getElementById('ps-textarea')?.focus();
@@ -440,6 +574,7 @@
     el.scrollTop = el.scrollHeight;
   }
 
+  // ── Message HTML ───────────────────────────────────────────────
   function msgHtml(m) {
     const dateStr = new Date(m.created_at).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
     let out = '';
@@ -447,57 +582,126 @@
       out += `<div class="ps-divider"><span>${escHtml(dateStr)}</span></div>`;
       lastDate = dateStr; lastSender = null;
     }
-    const compact = m.sender_id === lastSender;
-    const time = new Date(m.created_at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+    const compact    = m.sender_id === lastSender;
+    const time       = new Date(m.created_at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
     const senderName = m.sender_name || m.sender_email || 'Unknown';
-    const initial = senderName[0]?.toUpperCase() || '?';
-    // body is the canonical field; fall back to content for legacy rows
-    const rawBody = m.body || m.content || '';
-    const textOut = renderBody(rawBody);
-    const edited  = m.edited_at ? ` <span class="ps-msg-edited">(edited)</span>` : '';
-    out += `<div class="ps-msg${compact ? ' compact' : ''}">
+    const initial    = senderName[0]?.toUpperCase() || '?';
+    const rawBody    = m.body || m.content || '';
+    const textOut    = renderBody(rawBody);
+    const edited     = m.edited_at ? ` <span class="ps-msg-edited">(edited)</span>` : '';
+    const isOwn      = m.sender_id === myId;
+    const mid        = m.id;
+
+    // Reaction chips
+    const rxHtml = reactionsHtml(m.reactions || [], mid);
+
+    // Toolbar SVGs
+    const svgEdit = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    const svgDel  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+    const svgMore = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
+
+    const quickEmojis = ['👍','❤️','😂','🎉','🤔'];
+    const quickBtns = quickEmojis.map(e =>
+      `<button class="ps-rx-quick-btn" title="${e}" onclick="reactMsg('${mid}','${e}',event)">${e}</button>`
+    ).join('');
+
+    const toolbar = `<div class="ps-msg-toolbar">
+      ${quickBtns}
+      <button class="ps-msg-action-btn" title="More reactions" onclick="openEmojiPicker('${mid}',event,this)">${svgMore}</button>
+      ${isOwn ? `<div class="ps-toolbar-sep"></div>
+        <button class="ps-msg-action-btn" title="Edit message" onclick="editMsg('${mid}')">${svgEdit}</button>
+        <button class="ps-msg-action-btn danger" title="Delete message" onclick="deleteMsg('${mid}')">${svgDel}</button>` : ''}
+    </div>`;
+
+    out += `<div class="ps-msg${compact ? ' compact' : ''}" id="msg-${mid}">
       <div class="ps-msg-avatar" style="background:${avatarColor(m.sender_id)}">${escHtml(initial)}</div>
       <div class="ps-msg-body">
         <div class="ps-msg-meta">
           <span class="ps-msg-name">${escHtml(senderName)}</span>
           <span class="ps-msg-time">${time}</span>
         </div>
-        <div class="ps-msg-text">${textOut}${edited}</div>
+        <div class="ps-msg-text" id="msgt-${mid}">${textOut}${edited}</div>
+        <div class="ps-reactions" id="rxc-${mid}">${rxHtml}</div>
       </div>
+      ${toolbar}
     </div>`;
     lastSender = m.sender_id;
     return out;
   }
 
-  // Render message body: safely parse mention spans, escape everything else
-  function renderBody(raw) {
-    if (!raw) return '';
-    if (!raw.includes('pulse-mention')) {
-      // Plain text — just escape and convert newlines
-      return escHtml(raw).replace(/\n/g, '<br>');
-    }
-    // Body has mention HTML — parse out the spans safely
-    const parts = [];
-    let last = 0;
-    const re = /<span[^>]*class="pulse-mention"[^>]*data-uid="([0-9a-f-]{36})"[^>]*>(.*?)<\/span>/gi;
-    let m;
-    while ((m = re.exec(raw)) !== null) {
-      // Plain text before this mention
-      if (m.index > last) parts.push(escHtml(raw.slice(last, m.index)).replace(/\n/g, '<br>'));
-      const uid  = m[1];
-      const text = m[2].replace(/^@/, '');
-      const cls  = uid === myId ? 'ps-mention-me' : 'ps-mention';
-      parts.push(`<span class="${cls}">@${escHtml(text)}</span>`);
-      last = m.index + m[0].length;
-    }
-    if (last < raw.length) parts.push(escHtml(raw.slice(last)).replace(/\n/g, '<br>'));
-    return parts.join('');
+  // ── Reaction chips HTML ────────────────────────────────────────
+  function reactionsHtml(reactions, msgId) {
+    if (!reactions || !reactions.length) return '';
+    return reactions.map(r => {
+      const byMe  = r.users?.some(u => u.user_id === myId);
+      const names = r.users?.map(u => u.name).join(', ') || '';
+      const emojiSafe = escHtml(r.emoji);
+      return `<button class="ps-rx-chip${byMe ? ' by-me' : ''}" title="${escHtml(names)}" onclick="reactMsg('${msgId}','${esc1(r.emoji)}',event)">
+        <span class="ps-rx-emoji">${r.emoji}</span>
+        <span class="ps-rx-count">${r.count}</span>
+      </button>`;
+    }).join('');
   }
 
+  // ── Message body renderer with markdown + mentions ─────────────
+  function renderBody(raw) {
+    if (!raw) return '';
+
+    // 1. Extract ``` code blocks
+    const codeBlocks = [];
+    let s = raw.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => {
+      codeBlocks.push(`<pre><code>${escHtml(code.trimEnd())}</code></pre>`);
+      return `\x00CB${codeBlocks.length - 1}\x00`;
+    });
+
+    // 2. Extract `inline code`
+    const inlineCodes = [];
+    s = s.replace(/`([^`\n]+)`/g, (_, code) => {
+      inlineCodes.push(`<code>${escHtml(code)}</code>`);
+      return `\x00IC${inlineCodes.length - 1}\x00`;
+    });
+
+    // 3. Process mention spans + plain text
+    const segs = [];
+    if (s.includes('pulse-mention')) {
+      let last = 0;
+      const re = /<span[^>]*class="pulse-mention"[^>]*data-uid="([0-9a-f-]{36})"[^>]*>(.*?)<\/span>/gi;
+      let m;
+      while ((m = re.exec(s)) !== null) {
+        if (m.index > last) segs.push(applyMarkdown(s.slice(last, m.index)));
+        const uid = m[1], text = m[2].replace(/^@/, '');
+        const cls = uid === myId ? 'ps-mention-me' : 'ps-mention';
+        segs.push(`<span class="${cls}">@${escHtml(text)}</span>`);
+        last = m.index + m[0].length;
+      }
+      if (last < s.length) segs.push(applyMarkdown(s.slice(last)));
+    } else {
+      segs.push(applyMarkdown(s));
+    }
+
+    let result = segs.join('');
+    // 4. Restore placeholders
+    result = result.replace(/\x00IC(\d+)\x00/g, (_, i) => inlineCodes[+i] || '');
+    result = result.replace(/\x00CB(\d+)\x00/g, (_, i) => codeBlocks[+i] || '');
+    return result;
+  }
+
+  function applyMarkdown(text) {
+    let s = escHtml(text);
+    s = s.replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>');
+    s = s.replace(/\*(.+?)\*/gs, '<em>$1</em>');
+    s = s.replace(/\n/g, '<br>');
+    return s;
+  }
+
+  // ── Append new message from SSE ────────────────────────────────
   function appendMsg(m) {
     const el = document.getElementById('ps-messages');
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    // Remove empty-state placeholder if present
+    const empty = el.querySelector('.ps-empty');
+    if (empty) el.innerHTML = '';
     el.insertAdjacentHTML('beforeend', msgHtml(m));
     lastSender = m.sender_id;
     if (atBottom) el.scrollTop = el.scrollHeight;
@@ -521,50 +725,187 @@
           messages.push(msg);
           appendMsg(msg);
         } else if (data.type === 'message_updated') {
-          const idx = messages.findIndex(m => m.id === data.message?.id);
-          if (idx >= 0) { messages[idx] = data.message; renderMsgs(); }
+          const msg = data.message;
+          if (!msg) return;
+          const idx = messages.findIndex(m => m.id === msg.id);
+          if (idx >= 0) messages[idx] = msg;
+          // Patch in-place, but don't clobber an active edit
+          if (editingMsgId !== msg.id) {
+            const textEl = document.getElementById(`msgt-${msg.id}`);
+            if (textEl) {
+              const edited = msg.edited_at ? ` <span class="ps-msg-edited">(edited)</span>` : '';
+              textEl.innerHTML = renderBody(msg.body || '') + edited;
+            }
+          }
         } else if (data.type === 'message_deleted') {
           messages = messages.filter(m => m.id !== data.message_id);
-          renderMsgs();
+          document.getElementById(`msg-${data.message_id}`)?.remove();
+          if (!messages.length) {
+            const el = document.getElementById('ps-messages');
+            if (el) el.innerHTML = `<div class="ps-empty" style="height:100%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="40" height="40"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>No messages yet — say hello!</p></div>`;
+          }
+        } else if (data.type === 'reaction_update') {
+          const idx = messages.findIndex(m => m.id === data.message_id);
+          if (idx >= 0) messages[idx].reactions = data.reactions || [];
+          const rxEl = document.getElementById(`rxc-${data.message_id}`);
+          if (rxEl) rxEl.innerHTML = reactionsHtml(data.reactions || [], data.message_id);
         }
       } catch (_) {}
     };
   }
 
-  // ── @mention picker ────────────────────────────────────────────
-  function onComposerInput(ta) {
-    autoH(ta);
-    updateMentionPicker(ta);
+  // ── Inline edit ────────────────────────────────────────────────
+  function editMsg(id) {
+    if (editingMsgId && editingMsgId !== id) cancelEditMsg();
+    const msg = messages.find(m => m.id === id);
+    if (!msg || msg.sender_id !== myId) return;
+    const textEl = document.getElementById(`msgt-${id}`);
+    if (!textEl) return;
+    editingMsgId = id;
+    editOrigHtml = textEl.innerHTML;
+    // Strip mention spans back to @Name for editing
+    const editText = (msg.body || '').replace(/<span[^>]*class="pulse-mention"[^>]*>(@[^<]*)<\/span>/g, '$1');
+    textEl.innerHTML = `<div class="ps-edit-wrap">
+      <textarea class="ps-edit-ta" id="edit-ta-${id}" onkeydown="editKey(event,'${id}')">${escHtml(editText)}</textarea>
+      <div class="ps-edit-actions">
+        <button class="btn btn-primary ps-edit-save" onclick="saveEditMsg('${id}')">Save changes</button>
+        <button class="ps-edit-cancel" onclick="cancelEditMsg()">Cancel</button>
+        <span class="ps-edit-hint">Enter to save · Esc to cancel</span>
+      </div>
+    </div>`;
+    const ta = document.getElementById(`edit-ta-${id}`);
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+      ta.addEventListener('input', () => {
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
+      });
+    }
   }
 
-  function updateMentionPicker(ta) {
-    const val = ta.value;
-    const pos = ta.selectionStart;
+  function editKey(e, id) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditMsg(id); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelEditMsg(); }
+  }
 
-    // Walk backwards from cursor to find an active @ trigger
+  async function saveEditMsg(id) {
+    const ta = document.getElementById(`edit-ta-${id}`);
+    if (!ta) return;
+    const body = ta.value.trim();
+    if (!body) { showToast('Message cannot be empty', 'error'); return; }
+    try {
+      const updated = await satelliteApiFetch('pulse', `/api/pulse/messages/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ body })
+      });
+      editingMsgId = null; editOrigHtml = null;
+      const idx = messages.findIndex(m => m.id === id);
+      if (idx >= 0) messages[idx] = updated;
+      const textEl = document.getElementById(`msgt-${id}`);
+      if (textEl) {
+        const edited = updated.edited_at ? ` <span class="ps-msg-edited">(edited)</span>` : '';
+        textEl.innerHTML = renderBody(updated.body || '') + edited;
+      }
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  function cancelEditMsg() {
+    if (!editingMsgId) return;
+    const textEl = document.getElementById(`msgt-${editingMsgId}`);
+    if (textEl && editOrigHtml !== null) textEl.innerHTML = editOrigHtml;
+    editingMsgId = null; editOrigHtml = null;
+  }
+
+  // ── Delete message ─────────────────────────────────────────────
+  async function deleteMsg(id) {
+    if (!confirm('Delete this message? This cannot be undone.')) return;
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/messages/${id}`, { method: 'DELETE' });
+      document.getElementById(`msg-${id}`)?.remove();
+      messages = messages.filter(m => m.id !== id);
+      if (!messages.length) {
+        const el = document.getElementById('ps-messages');
+        if (el) el.innerHTML = `<div class="ps-empty" style="height:100%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="40" height="40"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>No messages yet — say hello!</p></div>`;
+      }
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Reactions ──────────────────────────────────────────────────
+  async function reactMsg(id, emoji, e) {
+    e?.stopPropagation();
+    closeEmojiPicker();
+    try {
+      const { reactions } = await satelliteApiFetch('pulse', `/api/pulse/messages/${id}/react`, {
+        method: 'POST',
+        body: JSON.stringify({ emoji })
+      });
+      const idx = messages.findIndex(m => m.id === id);
+      if (idx >= 0) messages[idx].reactions = reactions;
+      const rxEl = document.getElementById(`rxc-${id}`);
+      if (rxEl) rxEl.innerHTML = reactionsHtml(reactions, id);
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Emoji picker ───────────────────────────────────────────────
+  function openEmojiPicker(msgId, e, btn) {
+    e?.stopPropagation();
+    emojiPickerTarget = msgId;
+    const picker = document.getElementById('ps-emoji-picker');
+    if (!picker) return;
+
+    picker.innerHTML = `<div class="ps-emoji-grid">${
+      COMMON_EMOJIS.map(em =>
+        `<button class="ps-emoji-btn" onclick="reactMsg('${msgId}','${esc1(em)}',event)">${em}</button>`
+      ).join('')
+    }</div>`;
+
+    picker.classList.add('open');
+
+    const ref   = (btn || e?.target || document.body);
+    const rect  = ref.getBoundingClientRect();
+    const pw    = 280;
+    let left = Math.min(rect.left, window.innerWidth - pw - 8);
+    if (left < 4) left = 4;
+    picker.style.left = left + 'px';
+    picker.style.top  = (rect.top - 8) + 'px'; // will adjust below
+
+    requestAnimationFrame(() => {
+      const ph   = picker.offsetHeight;
+      let   top  = rect.top - ph - 8;
+      if (top < 4) top = rect.bottom + 8;
+      picker.style.top = top + 'px';
+    });
+  }
+
+  function closeEmojiPicker() {
+    document.getElementById('ps-emoji-picker')?.classList.remove('open');
+    emojiPickerTarget = null;
+  }
+
+  // ── @mention picker ────────────────────────────────────────────
+  function onComposerInput(ta) { autoH(ta); updateMentionPicker(ta); }
+
+  function updateMentionPicker(ta) {
+    const val = ta.value, pos = ta.selectionStart;
     let atPos = -1;
     for (let i = pos - 1; i >= 0; i--) {
       if (val[i] === '@') {
-        // Valid trigger: at start or preceded by whitespace
         if (i === 0 || /[\s\n]/.test(val[i - 1])) { atPos = i; }
         break;
       }
       if (/[\s\n]/.test(val[i])) break;
     }
-
     if (atPos < 0) { closeMentionPicker(); return; }
-
     const query = val.slice(atPos + 1, pos).toLowerCase();
     if (query.length > 30) { closeMentionPicker(); return; }
-
     const filtered = allOrgUsers.filter(u => {
-      const n = (u.full_name || '').toLowerCase();
-      const em = (u.email || '').toLowerCase();
+      const n = (u.full_name || '').toLowerCase(), em = (u.email || '').toLowerCase();
       return n.startsWith(query) || n.includes(' ' + query) || em.startsWith(query);
     }).slice(0, 8);
-
     if (!filtered.length) { closeMentionPicker(); return; }
-
     mentionState = { start: atPos, filtered, focused: 0 };
     renderMentionPicker();
   }
@@ -573,11 +914,9 @@
     const picker = document.getElementById('ps-mention-picker');
     if (!picker || !mentionState) return;
     picker.innerHTML = mentionState.filtered.map((u, i) => {
-      const name    = u.full_name || u.email;
-      const initial = name[0]?.toUpperCase() || '?';
-      const isFocus = i === mentionState.focused;
-      return `<div class="ps-mention-item${isFocus ? ' focused' : ''}" data-midx="${i}" onclick="selectMentionByIdx(${i})">
-        <div class="ps-mention-item-avatar" style="background:${avatarColor(u.id)}">${escHtml(initial)}</div>
+      const name = u.full_name || u.email;
+      return `<div class="ps-mention-item${i === mentionState.focused ? ' focused' : ''}" onclick="selectMentionByIdx(${i})">
+        <div class="ps-mention-item-avatar" style="background:${avatarColor(u.id)}">${escHtml((name[0]||'?').toUpperCase())}</div>
         <div>
           <div class="ps-mention-item-name">${escHtml(name)}</div>
           ${u.full_name ? `<div class="ps-mention-item-email">${escHtml(u.email)}</div>` : ''}
@@ -601,7 +940,7 @@
   function selectMention(user) {
     const ta = document.getElementById('ps-textarea');
     if (!ta || !mentionState) return;
-    const name   = user.full_name || user.email;
+    const name = user.full_name || user.email;
     const before = ta.value.slice(0, mentionState.start);
     const after  = ta.value.slice(ta.selectionStart);
     const insert = `@${name} `;
@@ -623,7 +962,6 @@
     ta.value = ''; ta.style.height = '';
     closeMentionPicker();
 
-    // Convert tracked @mentions to HTML spans for backend mention parsing
     if (pendingMentions.size) {
       pendingMentions.forEach((uid, name) => {
         const safe = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -640,35 +978,16 @@
       : { dm_id:      activeScope.id, body: text };
     try {
       await satelliteApiFetch('pulse', '/api/pulse/messages', {
-        method: 'POST',
-        body: JSON.stringify(payload)
+        method: 'POST', body: JSON.stringify(payload)
       });
-    } catch (e) {
-      showToast(e.message, 'error');
-      ta.value = text; // restore on error
-    }
+    } catch (e) { showToast(e.message, 'error'); ta.value = text; }
   }
 
   function handleKey(e) {
-    // @mention picker keyboard navigation
     if (mentionState) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        mentionState.focused = Math.min(mentionState.focused + 1, mentionState.filtered.length - 1);
-        renderMentionPicker();
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        mentionState.focused = Math.max(mentionState.focused - 1, 0);
-        renderMentionPicker();
-        return;
-      }
-      if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        selectMentionByIdx(mentionState.focused);
-        return;
-      }
+      if (e.key === 'ArrowDown') { e.preventDefault(); mentionState.focused = Math.min(mentionState.focused + 1, mentionState.filtered.length - 1); renderMentionPicker(); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); mentionState.focused = Math.max(mentionState.focused - 1, 0); renderMentionPicker(); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectMentionByIdx(mentionState.focused); return; }
       if (e.key === 'Escape') { e.preventDefault(); closeMentionPicker(); return; }
     }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
@@ -676,7 +995,78 @@
 
   function autoH(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
 
-  // ── Create channel (owner only) ────────────────────────────────
+  // ── New DM ─────────────────────────────────────────────────────
+  function openNewDmModal() {
+    ndmSelected = null;
+    ndmFiltered = allOrgUsers.filter(u => u.id !== myId);
+    document.getElementById('ndm-search').value = '';
+    document.getElementById('ndm-tags').innerHTML = '';
+    renderNdmList(ndmFiltered);
+    document.getElementById('new-dm-modal').classList.add('open');
+    setTimeout(() => document.getElementById('ndm-search')?.focus(), 60);
+  }
+
+  function filterNdm(q) {
+    const needle = q.toLowerCase();
+    ndmFiltered = allOrgUsers.filter(u => u.id !== myId && (
+      (u.full_name || '').toLowerCase().includes(needle) ||
+      (u.email || '').toLowerCase().includes(needle)
+    ));
+    renderNdmList(ndmFiltered);
+    document.getElementById('ndm-list')?.classList.add('open');
+  }
+
+  function openNdmList() {
+    if (!ndmFiltered.length) ndmFiltered = allOrgUsers.filter(u => u.id !== myId);
+    renderNdmList(ndmFiltered);
+    document.getElementById('ndm-list')?.classList.add('open');
+  }
+
+  function renderNdmList(users) {
+    const list = document.getElementById('ndm-list');
+    if (!list) return;
+    if (!users.length) {
+      list.innerHTML = `<div style="padding:10px;text-align:center;font-size:.8rem;color:var(--text-muted);">No matching people</div>`;
+      return;
+    }
+    list.innerHTML = users.slice(0, 10).map(u => {
+      const name = u.full_name || u.email;
+      return `<div class="ps-ndm-item" onmousedown="selectNdmUser('${u.id}','${esc1(name)}')">
+        <div class="ps-ndm-item-av" style="background:${avatarColor(u.id)}">${escHtml((name[0]||'?').toUpperCase())}</div>
+        <div>
+          <div style="font-size:.85rem;font-weight:600;">${escHtml(name)}</div>
+          ${u.full_name ? `<div style="font-size:.72rem;color:var(--text-muted);">${escHtml(u.email)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function selectNdmUser(id, name) {
+    ndmSelected = { id, name };
+    document.getElementById('ndm-search').value = '';
+    document.getElementById('ndm-list')?.classList.remove('open');
+    const tags = document.getElementById('ndm-tags');
+    if (tags) tags.innerHTML = `<div class="ps-ndm-tag">${escHtml(name)}<button onclick="ndmClearSelected()">×</button></div>`;
+  }
+
+  function ndmClearSelected() {
+    ndmSelected = null;
+    document.getElementById('ndm-tags').innerHTML = '';
+  }
+
+  async function createDm() {
+    if (!ndmSelected) { showToast('Select a person first', 'error'); return; }
+    try {
+      const dm = await satelliteApiFetch('pulse', '/api/pulse/dms', {
+        method: 'POST', body: JSON.stringify({ user_ids: [ndmSelected.id] })
+      });
+      closeModal('new-dm-modal');
+      await loadSidebar();
+      openDm(dm.id, ndmSelected.name);
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Create channel ─────────────────────────────────────────────
   function openNewChannelModal() {
     document.getElementById('new-ch-name').value  = '';
     document.getElementById('new-ch-desc').value  = '';
@@ -693,8 +1083,7 @@
     if (!name) { showToast('Channel name is required', 'error'); return; }
     try {
       const ch = await satelliteApiFetch('pulse', '/api/pulse/channels', {
-        method: 'POST',
-        body: JSON.stringify({ name, description: description || null, is_private })
+        method: 'POST', body: JSON.stringify({ name, description: description || null, is_private })
       });
       closeModal('new-ch-modal');
       await loadSidebar();
@@ -714,12 +1103,11 @@
     if (!ch) return;
     document.getElementById('sp-title').textContent = `#${ch.name || ch.slug}`;
 
-    // Fetch members + all users in parallel
     const [members, users] = await Promise.all([
       satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members`).catch(() => []),
       apiFetch('/api/users').catch(() => [])
     ]);
-    const orgUsers = Array.isArray(users) ? users : [];
+    const orgUsers  = Array.isArray(users) ? users : [];
     const memberIds = new Set((Array.isArray(members) ? members : []).map(m => m.user_id));
     const nonMembers = orgUsers.filter(u => !memberIds.has(u.id));
     const isGen = ch.slug === 'general';
@@ -769,9 +1157,7 @@
             <div class="ps-upick-input-wrap">
               <svg class="ps-upick-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input class="ps-upick-input" id="sp-upick-input" type="text" placeholder="Search people…" autocomplete="off"
-                oninput="filterUpick(this.value)"
-                onfocus="openUpick()"
-                onkeydown="upickKey(event)">
+                oninput="filterUpick(this.value)" onfocus="openUpick()" onkeydown="upickKey(event)">
             </div>
             <div class="ps-upick-list" id="sp-upick-list"></div>
           </div>
@@ -786,11 +1172,8 @@
     `;
     document.getElementById('ch-settings-panel').classList.add('open');
 
-    // Initialise custom user picker with non-member list
-    upickUsers    = nonMembers;
-    upickFiltered = nonMembers;
-    upickSelected = null;
-    upickFocused  = -1;
+    upickUsers = nonMembers; upickFiltered = nonMembers;
+    upickSelected = null; upickFocused = -1;
     renderUpickList('');
   }
 
@@ -806,10 +1189,9 @@
       list.innerHTML = `<div class="ps-upick-empty">No matching people</div>`;
     } else {
       list.innerHTML = upickFiltered.map((u, i) => {
-        const name    = u.full_name || u.email;
-        const initial = (name[0] || '?').toUpperCase();
+        const name = u.full_name || u.email;
         return `<div class="ps-upick-item${i === upickFocused ? ' focused' : ''}" data-idx="${i}" onmousedown="selectUpickUser(${i})">
-          <div class="ps-upick-avatar" style="background:${avatarColor(u.id)}">${escHtml(initial)}</div>
+          <div class="ps-upick-avatar" style="background:${avatarColor(u.id)}">${escHtml((name[0]||'?').toUpperCase())}</div>
           <div class="ps-upick-info">
             <div class="ps-upick-name">${escHtml(name)}</div>
             ${u.full_name ? `<div class="ps-upick-email">${escHtml(u.email)}</div>` : ''}
@@ -819,17 +1201,11 @@
     }
   }
 
-  function openUpick() {
-    document.getElementById('sp-upick-list')?.classList.add('open');
-  }
-
-  function closeUpick() {
-    document.getElementById('sp-upick-list')?.classList.remove('open');
-  }
+  function openUpick()  { document.getElementById('sp-upick-list')?.classList.add('open'); }
+  function closeUpick() { document.getElementById('sp-upick-list')?.classList.remove('open'); }
 
   function filterUpick(q) {
-    upickFocused = -1;
-    renderUpickList(q);
+    upickFocused = -1; renderUpickList(q);
     document.getElementById('sp-upick-list')?.classList.add('open');
   }
 
@@ -838,10 +1214,7 @@
     if (!u) return;
     upickSelected = { id: u.id, name: u.full_name || u.email };
     const input = document.getElementById('sp-upick-input');
-    if (input) {
-      input.value = upickSelected.name;
-      input.classList.add('has-value');
-    }
+    if (input) { input.value = upickSelected.name; input.classList.add('has-value'); }
     closeUpick();
   }
 
@@ -849,28 +1222,11 @@
     const list = document.getElementById('sp-upick-list');
     const isOpen = list?.classList.contains('open');
     if (!isOpen && e.key !== 'Enter') { openUpick(); return; }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      upickFocused = Math.min(upickFocused + 1, upickFiltered.length - 1);
-      renderUpickList(document.getElementById('sp-upick-input')?.value || '');
-      list?.classList.add('open');
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      upickFocused = Math.max(upickFocused - 1, 0);
-      renderUpickList(document.getElementById('sp-upick-input')?.value || '');
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (upickFocused >= 0) { selectUpickUser(upickFocused); }
-    } else if (e.key === 'Escape') {
-      closeUpick();
-    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); upickFocused = Math.min(upickFocused + 1, upickFiltered.length - 1); renderUpickList(document.getElementById('sp-upick-input')?.value || ''); list?.classList.add('open'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); upickFocused = Math.max(upickFocused - 1, 0); renderUpickList(document.getElementById('sp-upick-input')?.value || ''); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (upickFocused >= 0) selectUpickUser(upickFocused); }
+    else if (e.key === 'Escape') { closeUpick(); }
   }
-
-  // Close picker on outside click
-  document.addEventListener('mousedown', e => {
-    const wrap = document.getElementById('sp-upick');
-    if (wrap && !wrap.contains(e.target)) closeUpick();
-  }, true);
 
   async function saveChannelSettings(channelId) {
     const name        = document.getElementById('sp-name')?.value.trim();
@@ -879,8 +1235,7 @@
     if (!name) { showToast('Channel name is required', 'error'); return; }
     try {
       await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name, description: description || null, is_private })
+        method: 'PATCH', body: JSON.stringify({ name, description: description || null, is_private })
       });
       showToast('Settings saved', 'success');
       await loadSidebar();
@@ -897,12 +1252,11 @@
     if (!userId) { showToast('Select a person first', 'error'); return; }
     try {
       await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members`, {
-        method: 'POST',
-        body: JSON.stringify({ user_id: userId })
+        method: 'POST', body: JSON.stringify({ user_id: userId })
       });
       upickSelected = null;
       showToast('Member added', 'success');
-      openSettings(channelId); // refresh panel (reinitialises picker)
+      openSettings(channelId);
     } catch (e) { showToast(e.message, 'error'); }
   }
 
@@ -917,8 +1271,7 @@
   async function toggleMemberRole(channelId, userId, newRole) {
     try {
       await satelliteApiFetch('pulse', `/api/pulse/channels/${channelId}/members/${userId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ role: newRole })
+        method: 'PATCH', body: JSON.stringify({ role: newRole })
       });
       openSettings(channelId);
     } catch (e) { showToast(e.message, 'error'); }
@@ -949,7 +1302,8 @@
     return COLS[Math.abs(h) % COLS.length];
   }
 
-  // Close settings panel when clicking outside it
+  // ── Global click handlers ──────────────────────────────────────
+  // Close settings panel on outside click
   document.addEventListener('click', e => {
     const panel = document.getElementById('ch-settings-panel');
     const btn   = e.target.closest('.ps-settings-btn');
@@ -958,12 +1312,30 @@
     closeSettings();
   });
 
-  // Close mention picker when clicking outside composer area
+  // Close mention picker on outside click
   document.addEventListener('click', e => {
     if (!mentionState) return;
     const wrap = document.querySelector('.ps-composer-wrap');
     if (wrap && !wrap.contains(e.target)) closeMentionPicker();
   });
+
+  // Close emoji picker on outside click
+  document.addEventListener('click', e => {
+    const picker = document.getElementById('ps-emoji-picker');
+    if (picker?.classList.contains('open') && !picker.contains(e.target)) closeEmojiPicker();
+  });
+
+  // Close upick on outside click
+  document.addEventListener('mousedown', e => {
+    const wrap = document.getElementById('sp-upick');
+    if (wrap && !wrap.contains(e.target)) closeUpick();
+  }, true);
+
+  // Close ndm list on outside click
+  document.addEventListener('mousedown', e => {
+    const pick = document.querySelector('.ps-ndm-pick');
+    if (pick && !pick.contains(e.target)) document.getElementById('ndm-list')?.classList.remove('open');
+  }, true);
 
   init();
 </script>
