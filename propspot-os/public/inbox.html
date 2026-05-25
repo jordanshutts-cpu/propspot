@@ -205,6 +205,15 @@
       transition: color .12s ease;
       flex-shrink: 0;
     }
+    /* Force inline SVGs to render at the container's full size — Feather-
+       style icons drawn at viewBox="0 0 24 24" otherwise auto-shrink in
+       inline-flex containers and render with their lower paths clipped. */
+    .ib-nav-item .ib-filter-icon svg,
+    .ib-nav-item .ib-inbox-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
     .ib-nav-item:hover .ib-filter-icon,
     .ib-nav-item:hover .ib-inbox-icon,
     .ib-nav-item.active .ib-filter-icon,
