@@ -167,13 +167,22 @@
   };
 
   // ── State helpers ──────────────────────────────────────────
-  // 'classic' | 'premium' | 'dark'. 'dark' is a Palantir-style dark
+  // 'premium' (light) | 'dark'. 'dark' is a Palantir-style dark
   // variant of premium — both classes (.theme-premium + .theme-dark)
   // get applied so premium.css carries through and dark.css layers on
   // top for surface/color overrides.
+  //
+  // Legacy 'classic' values from older sessions are silently migrated
+  // to 'premium' so no user is ever left without the chrome upgrades.
   function getTheme() {
-    try { return localStorage.getItem('propspot_theme') || 'classic'; }
-    catch (e) { return 'classic'; }
+    try {
+      var t = localStorage.getItem('propspot_theme');
+      if (t === 'classic' || !t) {
+        t = 'premium';
+        try { localStorage.setItem('propspot_theme', t); } catch (e) {}
+      }
+      return t;
+    } catch (e) { return 'premium'; }
   }
   function isPremium() { var t = getTheme(); return t === 'premium' || t === 'dark'; }
   function isDark()    { return getTheme() === 'dark'; }
@@ -426,25 +435,22 @@
   }
 
   // ── Public toggle / setter ─────────────────────────────────
-  // toggleTheme keeps the classic↔premium cycle for legacy callers
-  // (e.g. keyboard shortcuts) — dark is reached via setTheme('dark').
+  // toggleTheme now flips Light ↔ Dark (classic was retired).
   function toggleTheme() {
-    var current = getTheme();
-    var next    = current === 'classic' ? 'premium' : 'classic';
-    setTheme(next);
+    setTheme(isDark() ? 'premium' : 'dark');
   }
   function setTheme(next) {
-    if (!['classic','premium','dark'].includes(next)) return;
-    var prevWasPremium = isPremium();
+    // 'classic' is silently mapped to 'premium' to honor the retirement
+    // of the classic theme — older code paths or stale bookmarks still
+    // work, they just land on Light.
+    if (next === 'classic') next = 'premium';
+    if (!['premium','dark'].includes(next)) return;
     try { localStorage.setItem('propspot_theme', next); } catch (e) {}
     applyTheme();
-    var nowPremium = isPremium();
-    if (nowPremium) {
-      // Small delay so any newly-loaded CSS is parsed before we inject SVGs
-      setTimeout(function () { replaceEmojisIn(document); }, 60);
-    } else if (prevWasPremium) {
-      restoreEmojis();
-    }
+    // Always premium — re-run the emoji → SVG replacement so any new
+    // CSS is parsed before we inject icons. Idempotent thanks to the
+    // data-premium-emoji guard in replaceIconEl.
+    setTimeout(function () { replaceEmojisIn(document); }, 60);
   }
 
   // ── Observe sidebar / topbar re-renders ───────────────────

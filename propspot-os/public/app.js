@@ -739,10 +739,9 @@ function openSettings() {
           <div class="settings-row">
             <div class="settings-row-text">
               <div class="settings-row-title">Theme</div>
-              <div class="settings-row-sub">Classic original look, refined Light theme, or a Palantir-style Dark mode.</div>
+              <div class="settings-row-sub">Refined Light theme or a Palantir-style Dark mode.</div>
             </div>
             <div class="settings-segmented" role="group">
-              <button type="button" class="settings-seg-btn ${currentTheme==='classic' ? 'active' : ''}" data-theme="classic" onclick="pickTheme('classic')">Classic</button>
               <button type="button" class="settings-seg-btn ${currentTheme==='premium' ? 'active' : ''}" data-theme="premium" onclick="pickTheme('premium')">Light</button>
               <button type="button" class="settings-seg-btn ${currentTheme==='dark'    ? 'active' : ''}" data-theme="dark"    onclick="pickTheme('dark')">Dark</button>
             </div>
