@@ -11,6 +11,32 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
+    /* ── "Open camera" launch button on the dashboard hero ─────── */
+    .fc-cam-launch {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: linear-gradient(135deg, var(--brand, #61B746), #4f9c38);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 6px 18px -4px rgba(97,183,70,0.40);
+      transition: transform .08s, box-shadow .15s;
+    }
+    .fc-cam-launch:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px -4px rgba(97,183,70,0.50);
+    }
+    .fc-cam-launch:active { transform: translateY(0); }
+    .fc-cam-launch svg { width: 15px; height: 15px; }
+    html.theme-dark .fc-cam-launch {
+      background: linear-gradient(135deg, #6ed057, #4f9c38);
+      box-shadow: 0 6px 18px -4px rgba(110,208,87,0.30);
+    }
+
     /* ── Project map — large, premium, branded ─────────────────── */
     .fc-map-section {
       background: var(--surface);
@@ -489,6 +515,12 @@
         <div class="os-hero-eyebrow">FieldCam</div>
         <h1 class="os-hero-title">Site Documentation</h1>
         <div class="os-hero-subtitle">${total} ${total === 1 ? 'property' : 'properties'} tracked · ${totalPhotos} ${totalPhotos === 1 ? 'photo' : 'photos'} captured · ${withGps} geo-tagged</div>
+        <div style="display:flex;gap:10px;margin:14px 0 6px;flex-wrap:wrap;">
+          <a href="/fieldcam-camera.html" class="fc-cam-launch">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Open camera
+          </a>
+        </div>
         <div class="os-kpi-row">
           <div class="os-kpi">
             <div class="os-kpi-label">Properties</div>

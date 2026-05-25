@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <title>FieldCam — Camera</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Apply theme classes before paint to avoid FOUC. The camera viewfinder
+    // is always dark, but the property drawer / toasts adopt the user's theme.
+    try {
+      var _c = document.documentElement.classList;
+      _c.add('theme-premium');
+      if (localStorage.getItem('propspot_theme') === 'dark') _c.add('theme-dark');
+    } catch (e) {}
+  </script>
+  <style>
+    /* ── Fullscreen base — camera page is its own immersive surface ─── */
+    html, body {
+      margin: 0; padding: 0;
+      background: #000;
+      overflow: hidden;
+      height: 100%;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    body { -webkit-user-select: none; user-select: none; }
+
+    /* Brand accent — adopts current theme's brand color */
+    :root {
+      --cam-brand:        #61B746;
+      --cam-brand-glow:   rgba(97,183,70,0.40);
+    }
+    html.theme-dark { --cam-brand: #6ed057; }
+
+    /* ── Full-screen flex column ─────────────────────────────────── */
+    .cam-wrap {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+    }
+
+    /* ── Video takes all remaining space ─────────────────────────── */
+    #video-el {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ── Upload-mode placeholder ─────────────────────────────────── */
+    #upload-mode-wrap {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 40px 24px;
+      text-align: center;
+    }
+    #upload-mode-wrap.active { display: flex; }
+    .upload-illustration {
+      width: 80px; height: 80px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.10);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--cam-brand);
+    }
+    .upload-illustration svg { width: 38px; height: 38px; }
+    .upload-msg {
+      color: rgba(255,255,255,0.70);
+      font-size: 0.92rem;
+      line-height: 1.45;
+      max-width: 280px;
+    }
+    .upload-btn {
+      background: var(--cam-brand);
+      color: #052e10;
+      border: none;
+      padding: 13px 26px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: 0 6px 18px -6px var(--cam-brand-glow);
+      transition: transform .08s, box-shadow .15s;
+    }
+    .upload-btn:active { transform: translateY(1px); }
+    .upload-btn svg { width: 16px; height: 16px; }
+    .upload-link {
+      color: rgba(255,255,255,0.55);
+      font-size: 0.82rem;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .upload-link:hover { color: rgba(255,255,255,0.85); }
+
+    /* ── Top overlay ─────────────────────────────────────────────── */
+    .cam-top {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: env(safe-area-inset-top, 12px) 14px 14px;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent);
+      z-index: 20;
+    }
+    .cam-btn {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.14);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .12s, transform .08s;
+    }
+    .cam-btn:active { transform: scale(0.93); background: rgba(255,255,255,0.28); }
+    .cam-btn svg { width: 19px; height: 19px; }
+    .cam-btn.torch-on { background: #f5c518; color: #000; border-color: #f5c518; }
+
+    /* Mode pill switcher */
+    .mode-toggle {
+      display: flex;
+      gap: 4px;
+      flex: 1;
+      padding: 3px;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 100px;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 100px;
+      border: none;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      background: transparent;
+      color: rgba(255,255,255,0.62);
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      transition: background .14s, color .14s;
+    }
+    .mode-btn svg { width: 12px; height: 12px; }
+    .mode-btn.active {
+      background: var(--cam-brand);
+      color: #052e10;
+      box-shadow: 0 2px 6px -1px var(--cam-brand-glow);
+    }
+
+    #torch-tip {
+      display: none;
+      position: absolute;
+      top: 70px; left: 14px;
+      background: rgba(0,0,0,0.80);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      border-radius: 100px;
+      z-index: 30;
+      white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    /* ── Bottom panel (in flex flow — fixes mobile scroll quirks) ── */
+    .cam-bottom {
+      flex-shrink: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 10px 14px env(safe-area-inset-bottom, 18px);
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── Zoom row ────────────────────────────────────────────────── */
+    .zoom-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 2px 2px 8px;
+    }
+    .zoom-presets {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+    .zoom-preset-btn {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.20);
+      color: rgba(255,255,255,0.88);
+      border-radius: 100px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 5px 13px;
+      cursor: pointer;
+      transition: all .14s;
+      min-width: 46px;
+      text-align: center;
+    }
+    .zoom-preset-btn.active {
+      background: var(--cam-brand);
+      border-color: var(--cam-brand);
+      color: #052e10;
+    }
+    .zoom-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .zoom-icon { color: rgba(255,255,255,0.6); }
+    .zoom-icon svg { width: 14px; height: 14px; }
+    .zoom-lbl {
+      color: rgba(255,255,255,0.85);
+      font-size: 0.74rem;
+      font-weight: 700;
+      min-width: 36px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    #zoom-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 3px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.25);
+      outline: none;
+    }
+    #zoom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+    #zoom-slider::-moz-range-thumb {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    }
+
+    /* ── Recording timer ─────────────────────────────────────────── */
+    #rec-timer-row {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 4px;
+      gap: 8px;
+    }
+    #rec-timer {
+      color: #FF3B30;
+      font-size: 0.96rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Thumbnail strip ─────────────────────────────────────────── */
+    .thumb-strip-outer {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      margin-bottom: 6px;
+    }
+    .thumb-strip-outer::-webkit-scrollbar { display: none; }
+    .thumb-strip {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+      padding: 4px 0;
+      min-height: 68px;
+      align-items: center;
+      width: max-content;
+      min-width: 100%;
+    }
+    .thumb-empty-msg {
+      color: rgba(255,255,255,0.40);
+      font-size: 0.74rem;
+      white-space: nowrap;
+      padding: 0 4px;
+    }
+    .thumb-wrap {
+      position: relative;
+      flex-shrink: 0;
+      width: 60px; height: 60px;
+      border-radius: 9px;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.30);
+    }
+    .thumb-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+    }
+    .thumb-remove {
+      position: absolute;
+      top: 2px; right: 2px;
+      width: 18px; height: 18px;
+      background: rgba(0,0,0,0.72);
+      border: none; color: #fff;
+      border-radius: 50%;
+      font-size: 0.62rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .thumb-video-icon {
+      width: 100%; height: 100%;
+      background: #1c1c1e;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #fff; font-size: 1.3rem;
+      gap: 2px;
+    }
+    .thumb-video-icon span { font-size: 0.55rem; opacity: 0.6; }
+
+    /* ── Property indicator strip ─────────────────────────────────── */
+    .prop-indicator {
+      display: flex; align-items: center; gap: 7px;
+      padding: 4px 8px 6px;
+      cursor: pointer;
+      color: rgba(255,255,255,0.55);
+    }
+    .prop-indicator:hover { color: rgba(255,255,255,0.85); }
+    .prop-indicator svg { width: 13px; height: 13px; color: var(--cam-brand); }
+    .prop-indicator-name {
+      font-size: 0.78rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 240px;
+    }
+    .prop-indicator.has-prop .prop-indicator-name { color: rgba(255,255,255,0.92); }
+
+    /* ── Shutter row ─────────────────────────────────────────────── */
+    .shutter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 4px 0;
+    }
+    .shutter-btn {
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      background: #fff;
+      border: 4px solid rgba(255,255,255,0.30);
+      outline: 3px solid var(--cam-brand);
+      cursor: pointer;
+      position: relative;
+      transition: transform .08s;
+    }
+    .shutter-btn:active { transform: scale(0.91); }
+    .shutter-badge {
+      position: absolute;
+      top: -6px; right: -8px;
+      background: var(--cam-brand);
+      color: #052e10;
+      border-radius: 100px;
+      font-size: 0.66rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      display: none;
+      min-width: 20px;
+      text-align: center;
+    }
+    .shutter-btn.has-photos .shutter-badge { display: block; }
+    .shutter-btn.video-idle {
+      background: transparent;
+      border: 4px solid #FF3B30;
+      outline: 3px solid rgba(255,59,48,0.30);
+    }
+    .shutter-btn.video-idle::after {
+      content: '';
+      width: 22px; height: 22px;
+      background: #FF3B30;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .shutter-btn.video-rec {
+      background: #FF3B30;
+      border: 4px solid rgba(255,255,255,0.3);
+      outline: 3px solid rgba(255,59,48,0.4);
+      animation: rec-pulse .9s ease-in-out infinite;
+    }
+    .shutter-btn.video-rec::after {
+      content: '';
+      width: 20px; height: 20px;
+      background: #fff;
+      border-radius: 4px;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    @keyframes rec-pulse {
+      0%, 100% { outline-color: rgba(255,59,48,0.4); }
+      50%      { outline-color: rgba(255,59,48,0.85); }
+    }
+
+    .upload-all-btn {
+      background: var(--cam-brand);
+      color: #052e10;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      min-width: 92px;
+      line-height: 1.25;
+      text-align: center;
+      box-shadow: 0 4px 14px -4px var(--cam-brand-glow);
+      transition: transform .08s;
+    }
+    .upload-all-btn:active { transform: translateY(1px); }
+    .upload-all-btn:disabled { background: #404040; color: #888; box-shadow: none; }
+    .upload-all-btn.empty {
+      background: rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.45);
+      box-shadow: none;
+    }
+    .upload-all-btn .upload-count-big {
+      font-size: 0.95rem;
+      display: block;
+      font-weight: 900;
+    }
+
+    /* ── Upload progress ─────────────────────────────────────────── */
+    .upload-progress { display: none; padding-top: 10px; }
+    .prog-bar  {
+      height: 4px; background: rgba(255,255,255,0.20);
+      border-radius: 4px; overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      background: var(--cam-brand);
+      transition: width .3s;
+      width: 0%;
+    }
+    .prog-lbl  {
+      color: rgba(255,255,255,0.75);
+      font-size: 0.76rem;
+      text-align: center;
+      margin-top: 6px;
+    }
+    .prog-link {
+      text-align: center;
+      margin-top: 6px;
+    }
+    .prog-link a {
+      color: var(--cam-brand);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    /* ── Property sheet (theme-aware bottom drawer) ───────────────── */
+    .sheet-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      z-index: 90;
+      display: none;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .sheet-overlay.open { display: block; opacity: 1; }
+    .sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #1c1c1e;
+      color: #fff;
+      border-radius: 22px 22px 0 0;
+      padding: 16px 18px calc(env(safe-area-inset-bottom, 0px) + 24px);
+      z-index: 100;
+      transform: translateY(100%);
+      transition: transform .28s cubic-bezier(.2,.7,.2,1);
+      max-height: 82dvh;
+      overflow-y: auto;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.45);
+    }
+    .sheet.open { transform: translateY(0); }
+    .sheet-handle {
+      width: 38px; height: 4px;
+      background: rgba(255,255,255,0.22);
+      border-radius: 4px;
+      margin: 0 auto 14px;
+    }
+    .sheet-title {
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sheet-title svg { width: 16px; height: 16px; color: var(--cam-brand); }
+    .sheet-section {
+      margin: 16px 0 4px;
+      color: rgba(255,255,255,0.55);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .sheet-search {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 9px 12px;
+      color: #fff;
+      font-size: 0.86rem;
+      outline: none;
+      margin-bottom: 8px;
+      transition: border-color .15s, background .15s;
+    }
+    .sheet-search:focus {
+      border-color: var(--cam-brand);
+      background: rgba(255,255,255,0.08);
+    }
+    .sheet-search::placeholder { color: rgba(255,255,255,0.38); }
+    .prop-opt {
+      padding: 10px 12px;
+      border: 1.5px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      color: #fff;
+      background: rgba(255,255,255,0.02);
+      transition: background .12s, border-color .12s;
+    }
+    .prop-opt:hover { background: rgba(255,255,255,0.06); }
+    .prop-opt.selected {
+      border-color: var(--cam-brand);
+      background: rgba(97,183,70,0.16);
+    }
+    .prop-opt-name { font-weight: 600; font-size: 0.88rem; }
+    .prop-opt-sub  { font-size: 0.74rem; color: rgba(255,255,255,0.50); margin-top: 2px; }
+    .prop-empty {
+      color: rgba(255,255,255,0.40);
+      font-size: 0.84rem;
+      text-align: center;
+      padding: 12px;
+    }
+    .notes-input {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 0.88rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 56px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .notes-input:focus { border-color: var(--cam-brand); }
+    .sheet-done-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      background: var(--cam-brand);
+      color: #052e10;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 16px -6px var(--cam-brand-glow);
+    }
+    .sheet-done-btn:active { transform: translateY(1px); }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    .cam-toast {
+      position: fixed;
+      bottom: 32%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(20,20,20,0.92);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 100px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 200;
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      pointer-events: none;
+      animation: toastIn .25s cubic-bezier(.2,.7,.2,1);
+    }
+    .cam-toast.error  { border-color: rgba(255,80,80,0.50); color: #ffbcbc; }
+    .cam-toast.ok     { border-color: rgba(110,208,87,0.50); color: #d4f7c4; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 12px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* ── Flash effect when capturing ──────────────────────────────── */
+    .capture-flash {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      z-index: 999;
+      pointer-events: none;
+      opacity: 0.55;
+      transition: opacity .14s ease-out;
+    }
+  </style>
+</head>
+<body>
+<div class="cam-wrap">
+
+  <!-- Live video stream -->
+  <video id="video-el" autoplay playsinline muted></video>
+
+  <!-- Library / upload-mode placeholder (shown when Library tab selected) -->
+  <div id="upload-mode-wrap">
+    <div class="upload-illustration">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+    </div>
+    <p class="upload-msg">Choose one or more photos from your device library to attach to a property.</p>
+    <input type="file" id="upload-input" accept="image/*,video/*" multiple
+           onchange="handleFileSelect(this)" style="display:none">
+    <button class="upload-btn" onclick="document.getElementById('upload-input').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
+      Choose Photos
+    </button>
+  </div>
+
+  <!-- Top bar: back, torch, mode switch, camera flip -->
+  <div class="cam-top">
+    <button class="cam-btn" onclick="handleBack()" title="Back" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="cam-btn" id="torch-btn" onclick="toggleTorch()" title="Toggle flash" aria-label="Toggle flash">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 2v11h3v9l7-12h-4l4-8H7z"/></svg>
+    </button>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-cam" onclick="setMode('camera')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Photo
+      </button>
+      <button class="mode-btn" id="mode-video" onclick="setMode('video')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        Video
+      </button>
+      <button class="mode-btn" id="mode-up" onclick="setMode('upload')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Library
+      </button>
+    </div>
+
+    <button class="cam-btn" onclick="flipCamera()" title="Flip camera" aria-label="Flip camera">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>
+
+    <div id="torch-tip">Flash not available on this device</div>
+  </div>
+
+  <!-- Bottom panel (in flex flow — fixes iOS keyboard quirks) -->
+  <div class="cam-bottom">
+
+    <div id="rec-timer-row">
+      <span id="rec-timer">● 00:00</span>
+    </div>
+
+    <!-- Zoom -->
+    <div class="zoom-row" id="zoom-row">
+      <div class="zoom-presets" id="zoom-presets">
+        <button class="zoom-preset-btn" id="preset-05" onclick="setZoomPreset(0.5)">0.5×</button>
+        <button class="zoom-preset-btn active" id="preset-1" onclick="setZoomPreset(1)">1×</button>
+        <button class="zoom-preset-btn" id="preset-2" onclick="setZoomPreset(2)">2×</button>
+        <button class="zoom-preset-btn" id="preset-5" onclick="setZoomPreset(5)">5×</button>
+      </div>
+      <div class="zoom-slider-row">
+        <span class="zoom-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input type="range" id="zoom-slider" min="0.5" max="5" step="0.1" value="1"
+               oninput="handleZoom(this.value)">
+        <span class="zoom-lbl" id="zoom-lbl">1.0×</span>
+      </div>
+    </div>
+
+    <!-- Thumbnail strip -->
+    <div class="thumb-strip-outer" id="thumb-strip-outer">
+      <div class="thumb-strip" id="thumb-strip">
+        <span class="thumb-empty-msg" id="thumb-empty-msg">Photos you take appear here</span>
+      </div>
+    </div>
+
+    <!-- Property indicator pill -->
+    <div class="prop-indicator" id="prop-indicator" onclick="openSheet()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span class="prop-indicator-name" id="prop-indicator-name">Tap to select a property</span>
+    </div>
+
+    <!-- Shutter row -->
+    <div class="shutter-row">
+      <button class="cam-btn" style="width:48px;height:48px;" onclick="openSheet()" aria-label="Open settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="shutter-btn" id="shutter-btn" onclick="shutterPress()" aria-label="Capture">
+        <span class="shutter-badge" id="shutter-badge">0</span>
+      </button>
+      <button class="upload-all-btn empty" id="upload-all-btn" onclick="uploadAll()">
+        Upload<span class="upload-count-big" id="upload-count">0</span>
+      </button>
+    </div>
+
+    <!-- Progress -->
+    <div class="upload-progress" id="upload-progress">
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+      <div class="prog-lbl" id="prog-lbl">Uploading…</div>
+      <div class="prog-link" id="prog-view-link"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Property sheet -->
+<div class="sheet-overlay" id="sheet-overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="settings-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    Assign to property
+  </div>
+
+  <input type="text" class="sheet-search" id="prop-search"
+         placeholder="Search by address…" oninput="filterProps(this.value)">
+
+  <div id="sheet-props-list" style="max-height: 44vh; overflow-y: auto;">
+    <p class="prop-empty">Loading…</p>
+  </div>
+
+  <div id="folder-group" style="display:none;">
+    <div class="sheet-section">Folder (optional)</div>
+    <div id="sheet-folder-list"></div>
+  </div>
+
+  <div class="sheet-section">Notes (applied to this batch)</div>
+  <textarea class="notes-input" id="photo-notes" rows="2"
+            placeholder="e.g. Kitchen demo complete…"></textarea>
+
+  <button class="sheet-done-btn" onclick="closeSheet()">Done</button>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const params      = new URLSearchParams(location.search);
+  const PRESET_PROP = params.get('property_id');
+  const RETURN_TO   = params.get('return') || '/fieldcam.html';
+
+  let stream = null, facingMode = 'environment';
+  let torchOn = false, torchSupported = false;
+  let currentZoom = 1, zoomMin = 1, zoomMax = 5, hardwareZoom = false;
+  let queue = [];
+  let selectedPropId = PRESET_PROP || null;
+  let selectedFolderId = null;
+  let allProps = [];
+  let filteredProps = [];
+  let allFolders = [];
+  let userLat = null, userLng = null;
+  let currentMode = 'camera';
+
+  // Video recording state
+  let mediaRecorder = null, recordedChunks = [], isRecording = false;
+  let recTimerInterval = null, recSeconds = 0;
+
+  // ── Utilities ─────────────────────────────────────────────────
+  function showToast(msg, kind = '') {
+    const el = document.createElement('div');
+    el.className = 'cam-toast' + (kind ? ' ' + kind : '');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => {
+      el.style.transition = 'opacity .22s';
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 220);
+    }, 1800);
+  }
+
+  function handleBack() {
+    stopCamera();
+    if (history.length > 1) history.back();
+    else location.href = RETURN_TO;
+  }
+
+  // ── Init ──────────────────────────────────────────────────────
+  async function init() {
+    const user = await requireAuth(); if (!user) return;
+    await loadAllProperties();
+    startGPS();
+    startCamera();
+  }
+
+  async function startGPS() {
+    if (!navigator.geolocation) return;
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true, timeout: 8000, maximumAge: 30000
+        });
+      });
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      // Auto-select nearest property within ~500m if none preselected
+      if (!selectedPropId && allProps.length) {
+        const withGps = allProps.filter(p => p.lat != null && p.lng != null);
+        if (withGps.length) {
+          const sorted = withGps.map(p => ({
+            p, d: haversine(userLat, userLng, p.lat, p.lng)
+          })).sort((a, b) => a.d - b.d);
+          if (sorted[0] && sorted[0].d < 500) selectProp(sorted[0].p.id);
+        }
+      }
+    } catch (_) {}
+  }
+
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // meters
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  // ── Camera ────────────────────────────────────────────────────
+  async function startCamera() {
+    stopCamera();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
+        audio: currentMode === 'video'
+      });
+      const video = document.getElementById('video-el');
+      video.srcObject = stream;
+
+      const track = stream.getVideoTracks()[0];
+      const caps  = track.getCapabilities ? track.getCapabilities() : {};
+
+      // Hardware zoom support
+      if (caps.zoom) {
+        hardwareZoom = true;
+        zoomMin = caps.zoom.min || 1;
+        zoomMax = caps.zoom.max || 5;
+        const slider = document.getElementById('zoom-slider');
+        slider.min = zoomMin;
+        slider.max = zoomMax;
+        document.getElementById('preset-05').style.display = zoomMin <= 0.5 ? '' : 'none';
+        document.getElementById('preset-5').style.display  = zoomMax >= 4   ? '' : 'none';
+      } else {
+        hardwareZoom = false;
+        zoomMin = 1; zoomMax = 3;
+        const slider = document.getElementById('zoom-slider');
+        slider.min = 1; slider.max = zoomMax;
+        document.getElementById('preset-05').style.display = 'none';
+        document.getElementById('preset-5').style.display  = 'none';
+      }
+
+      // Torch (flash) support
+      torchSupported = !!caps.torch;
+      document.getElementById('torch-btn').style.opacity = torchSupported ? '1' : '0.45';
+    } catch (err) {
+      showToast('Camera access denied — use Library mode', 'error');
+      setMode('upload');
+    }
+  }
+
+  function stopCamera() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    torchOn = false;
+    document.getElementById('torch-btn')?.classList.remove('torch-on');
+  }
+
+  async function flipCamera() {
+    torchOn = false;
+    document.getElementById('torch-btn').classList.remove('torch-on');
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    await startCamera();
+  }
+
+  // ── Torch ─────────────────────────────────────────────────────
+  async function toggleTorch() {
+    if (!torchSupported) {
+      const tip = document.getElementById('torch-tip');
+      tip.style.display = 'block';
+      setTimeout(() => tip.style.display = 'none', 2200);
+      return;
+    }
+    torchOn = !torchOn;
+    try {
+      await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] });
+      document.getElementById('torch-btn').classList.toggle('torch-on', torchOn);
+    } catch (_) {
+      torchOn = false;
+      showToast('Could not toggle flash', 'error');
+    }
+  }
+
+  // ── Zoom ──────────────────────────────────────────────────────
+  async function handleZoom(val) {
+    currentZoom = parseFloat(val);
+    document.getElementById('zoom-slider').value = currentZoom;
+    document.getElementById('zoom-lbl').textContent = currentZoom.toFixed(1) + '×';
+    updateZoomPresetHighlight();
+
+    if (hardwareZoom && stream) {
+      try {
+        const clamped = Math.max(zoomMin, Math.min(zoomMax, currentZoom));
+        await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ zoom: clamped }] });
+        document.getElementById('video-el').style.transform = '';
+        return;
+      } catch (_) {}
+    }
+    // CSS fallback (scale up only)
+    if (currentZoom > 1) {
+      document.getElementById('video-el').style.transform = `scale(${currentZoom})`;
+      document.getElementById('video-el').style.transformOrigin = 'center center';
+    } else {
+      document.getElementById('video-el').style.transform = '';
+    }
+  }
+  function setZoomPreset(level) { handleZoom(level); }
+
+  function updateZoomPresetHighlight() {
+    const presets = { 'preset-05': 0.5, 'preset-1': 1, 'preset-2': 2, 'preset-5': 5 };
+    Object.entries(presets).forEach(([id, val]) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('active', Math.abs(currentZoom - val) < 0.15);
+    });
+  }
+
+  // ── Capture ───────────────────────────────────────────────────
+  function capturePhoto() {
+    if (currentMode !== 'camera') return;
+    const video = document.getElementById('video-el');
+    if (!video.srcObject) { showToast('Camera not ready', 'error'); return; }
+
+    // White flash effect
+    const flash = document.createElement('div');
+    flash.className = 'capture-flash';
+    document.body.appendChild(flash);
+    requestAnimationFrame(() => {
+      flash.style.opacity = '0';
+      setTimeout(() => flash.remove(), 160);
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = video.videoWidth  || 1920;
+    canvas.height = video.videoHeight || 1080;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+
+    canvas.toBlob(blob => {
+      const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      queue.push({ file, url: URL.createObjectURL(blob), isVideo: false });
+      renderThumbs();
+    }, 'image/jpeg', 0.88);
+  }
+
+  // ── Library select ────────────────────────────────────────────
+  function handleFileSelect(input) {
+    Array.from(input.files).forEach(file => {
+      const isVideo = file.type.startsWith('video/');
+      queue.push({ file, url: URL.createObjectURL(file), isVideo });
+    });
+    input.value = '';
+    renderThumbs();
+  }
+
+  // ── Thumbs ────────────────────────────────────────────────────
+  function renderThumbs() {
+    const strip   = document.getElementById('thumb-strip');
+    const outer   = document.getElementById('thumb-strip-outer');
+    const btn     = document.getElementById('upload-all-btn');
+    const shutter = document.getElementById('shutter-btn');
+    const badge   = document.getElementById('shutter-badge');
+    const count   = document.getElementById('upload-count');
+    const emptyMsg = document.getElementById('thumb-empty-msg');
+
+    if (queue.length === 0) {
+      strip.innerHTML = '';
+      strip.appendChild(emptyMsg);
+      emptyMsg.style.display = 'inline';
+      btn.classList.add('empty');
+      shutter.classList.remove('has-photos');
+      count.textContent = '0';
+      badge.textContent = '0';
+      return;
+    }
+
+    strip.innerHTML = queue.map((item, i) => `
+      <div class="thumb-wrap">
+        ${item.isVideo
+          ? `<div class="thumb-video-icon">▶<span>Video</span></div>`
+          : `<img src="${item.url}" alt="">`}
+        <button class="thumb-remove" onclick="removeFromQueue(${i})" aria-label="Remove">✕</button>
+      </div>`).join('');
+
+    btn.classList.remove('empty');
+    shutter.classList.add('has-photos');
+    badge.textContent = queue.length;
+    count.textContent = queue.length;
+    requestAnimationFrame(() => { outer.scrollLeft = outer.scrollWidth; });
+  }
+
+  function removeFromQueue(idx) {
+    URL.revokeObjectURL(queue[idx].url);
+    queue.splice(idx, 1);
+    renderThumbs();
+  }
+
+  // ── Upload all ────────────────────────────────────────────────
+  async function uploadAll() {
+    if (queue.length === 0) { showToast('Take some photos first!', 'error'); return; }
+    if (!selectedPropId)    { openSheet(); showToast('Select a property first', 'error'); return; }
+
+    const btn      = document.getElementById('upload-all-btn');
+    const prog     = document.getElementById('upload-progress');
+    const fill     = document.getElementById('prog-fill');
+    const lbl      = document.getElementById('prog-lbl');
+    const viewLink = document.getElementById('prog-view-link');
+    const notes    = document.getElementById('photo-notes').value;
+
+    btn.disabled = true;
+    prog.style.display = 'block';
+    viewLink.innerHTML = '';
+
+    const total = queue.length;
+    const uploadedPropId = selectedPropId;
+    let done = 0, failed = 0;
+
+    for (let i = 0; i < queue.length; i++) {
+      lbl.textContent = `Uploading ${i + 1} of ${total}…`;
+      fill.style.width = `${(i / total) * 100}%`;
+      try {
+        const fd = new FormData();
+        fd.append('photo', queue[i].file);
+        if (userLat != null) fd.append('lat', userLat);
+        if (userLng != null) fd.append('lng', userLng);
+        if (notes)           fd.append('notes', notes);
+        if (selectedFolderId) fd.append('folder_id', selectedFolderId);
+        await apiFetch(`/api/fieldcam/photos/${uploadedPropId}`, { method: 'POST', body: fd });
+        done++;
+      } catch (e) {
+        failed++;
+        console.error(e);
+      }
+    }
+
+    fill.style.width = '100%';
+    lbl.textContent = failed === 0
+      ? `All ${done} ${done === 1 ? 'photo' : 'photos'} uploaded`
+      : `${done} uploaded, ${failed} failed`;
+
+    if (done > 0) {
+      viewLink.innerHTML = `<a href="/property.html?id=${uploadedPropId}">View photos →</a>`;
+    }
+
+    queue.forEach(item => URL.revokeObjectURL(item.url));
+    queue = [];
+    renderThumbs();
+
+    setTimeout(() => {
+      if (queue.length === 0) {
+        prog.style.display = 'none';
+        fill.style.width = '0%';
+        viewLink.innerHTML = '';
+      }
+      btn.disabled = false;
+    }, 3200);
+  }
+
+  // ── Shutter dispatcher ────────────────────────────────────────
+  function shutterPress() {
+    if (currentMode === 'video') toggleRecording();
+    else capturePhoto();
+  }
+
+  // ── Video recording ───────────────────────────────────────────
+  function toggleRecording() {
+    if (isRecording) stopRecording();
+    else startRecording();
+  }
+  function startRecording() {
+    if (!stream) { showToast('Camera not ready', 'error'); return; }
+    recordedChunks = [];
+    const mimeType = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+      .find(t => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } }) || '';
+    try {
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    } catch (e) {
+      showToast('Video not supported on this browser', 'error');
+      return;
+    }
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const type = mimeType || 'video/webm';
+      const ext  = type.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(recordedChunks, { type });
+      const file = new File([blob], `video_${Date.now()}.${ext}`, { type });
+      queue.push({ file, url: URL.createObjectURL(blob), isVideo: true });
+      renderThumbs();
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    recSeconds  = 0;
+    document.getElementById('shutter-btn').classList.replace('video-idle', 'video-rec');
+    document.getElementById('zoom-row').style.display     = 'none';
+    document.getElementById('rec-timer-row').style.display = 'flex';
+    recTimerInterval = setInterval(() => {
+      recSeconds++;
+      const m = String(Math.floor(recSeconds / 60)).padStart(2, '0');
+      const s = String(recSeconds % 60).padStart(2, '0');
+      document.getElementById('rec-timer').textContent = `● ${m}:${s}`;
+      if (recSeconds >= 120) stopRecording();
+    }, 1000);
+  }
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    clearInterval(recTimerInterval);
+    isRecording = false;
+    const btn = document.getElementById('shutter-btn');
+    btn.classList.remove('video-rec');
+    btn.classList.add('video-idle');
+    document.getElementById('rec-timer-row').style.display = 'none';
+  }
+
+  // ── Mode switch ───────────────────────────────────────────────
+  async function setMode(mode) {
+    if (isRecording) stopRecording();
+    currentMode = mode;
+    const video   = document.getElementById('video-el');
+    const upWrap  = document.getElementById('upload-mode-wrap');
+    const zoomRow = document.getElementById('zoom-row');
+    const recRow  = document.getElementById('rec-timer-row');
+    const shutter = document.getElementById('shutter-btn');
+    ['mode-cam','mode-video','mode-up'].forEach(id =>
+      document.getElementById(id)?.classList.remove('active'));
+
+    if (mode === 'camera') {
+      document.getElementById('mode-cam').classList.add('active');
+      upWrap.classList.remove('active');
+      video.style.display = 'block';
+      zoomRow.style.display = '';
+      recRow.style.display = 'none';
+      shutter.classList.remove('video-idle', 'video-rec');
+      await startCamera();
+    } else if (mode === 'video') {
+      document.getElementById('mode-video').classList.add('active');
+      upWrap.classList.remove('active');
+      video.style.display = 'block';
+      zoomRow.style.display = 'none';
+      recRow.style.display = 'none';
+      shutter.classList.remove('video-rec');
+      shutter.classList.add('video-idle');
+      await startCamera();
+    } else {
+      document.getElementById('mode-up').classList.add('active');
+      stopCamera();
+      video.style.display = 'none';
+      upWrap.classList.add('active');
+      zoomRow.style.display = 'none';
+      recRow.style.display = 'none';
+      shutter.classList.remove('video-idle', 'video-rec');
+    }
+  }
+
+  // ── Property sheet ────────────────────────────────────────────
+  async function loadAllProperties() {
+    try {
+      allProps = await apiFetch('/api/fieldcam/properties');
+    } catch (e) {
+      console.error(e);
+      allProps = [];
+    }
+    filteredProps = allProps.slice();
+    renderSheetProps();
+    if (selectedPropId) {
+      const prop = allProps.find(p => p.id === selectedPropId);
+      if (prop) updatePropIndicator(prop);
+    }
+  }
+
+  function filterProps(q) {
+    const needle = (q || '').toLowerCase().trim();
+    if (!needle) filteredProps = allProps.slice();
+    else filteredProps = allProps.filter(p => {
+      const haystack = `${p.display_name || ''} ${p.address_line1 || ''} ${p.city || ''} ${p.state || ''} ${p.zip || ''}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+    renderSheetProps();
+  }
+
+  function renderSheetProps() {
+    const el = document.getElementById('sheet-props-list');
+    if (!filteredProps.length) {
+      el.innerHTML = `<p class="prop-empty">${allProps.length ? 'No matches.' : 'No properties yet.'}</p>`;
+      return;
+    }
+    el.innerHTML = filteredProps.map(p => {
+      const name = p.display_name || p.address_line1 || 'Untitled';
+      const sub  = [p.city, p.state, p.zip].filter(Boolean).join(', ');
+      return `
+        <div class="prop-opt ${p.id === selectedPropId ? 'selected' : ''}"
+             onclick="selectProp('${p.id}')">
+          <div class="prop-opt-name">${escHtml(name)}</div>
+          <div class="prop-opt-sub">${escHtml(sub)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function updatePropIndicator(prop) {
+    const indEl = document.getElementById('prop-indicator');
+    const nameEl = document.getElementById('prop-indicator-name');
+    if (prop) {
+      indEl.classList.add('has-prop');
+      nameEl.textContent = prop.display_name || prop.address_line1 || 'Selected property';
+    } else {
+      indEl.classList.remove('has-prop');
+      nameEl.textContent = 'Tap to select a property';
+    }
+  }
+
+  async function selectProp(id) {
+    selectedPropId = id;
+    selectedFolderId = null;
+    renderSheetProps();
+    const prop = allProps.find(p => p.id === id);
+    updatePropIndicator(prop);
+    await loadFoldersForProp(id);
+  }
+
+  async function loadFoldersForProp(propId) {
+    const group  = document.getElementById('folder-group');
+    const listEl = document.getElementById('sheet-folder-list');
+    try {
+      allFolders = await apiFetch(`/api/fieldcam/folders/${propId}`);
+    } catch (_) { allFolders = []; }
+
+    if (!allFolders.length) { group.style.display = 'none'; return; }
+    group.style.display = '';
+    const noneSelected = selectedFolderId === null;
+    listEl.innerHTML = [
+      `<div class="prop-opt ${noneSelected ? 'selected' : ''}" onclick="selectFolder(null)">
+         <div class="prop-opt-name" style="color:rgba(255,255,255,0.55);">— No folder —</div>
+       </div>`
+    ].concat(allFolders.map(f => `
+      <div class="prop-opt ${selectedFolderId === f.id ? 'selected' : ''}"
+           onclick="selectFolder('${f.id}')">
+        <div class="prop-opt-name">${escHtml(f.name)}</div>
+        <div class="prop-opt-sub">${f.photo_count || 0} photo${f.photo_count !== 1 ? 's' : ''}</div>
+      </div>`)).join('');
+  }
+
+  function selectFolder(id) {
+    selectedFolderId = id;
+    loadFoldersForProp(selectedPropId);
+  }
+
+  function openSheet() {
+    renderSheetProps();
+    if (selectedPropId) loadFoldersForProp(selectedPropId);
+    document.getElementById('settings-sheet').classList.add('open');
+    document.getElementById('sheet-overlay').classList.add('open');
+  }
+  function closeSheet() {
+    document.getElementById('settings-sheet').classList.remove('open');
+    document.getElementById('sheet-overlay').classList.remove('open');
+  }
+
+  // Hard exit cleanup so camera doesn't hold the device when tab navigates away.
+  window.addEventListener('beforeunload', stopCamera);
+  window.addEventListener('pagehide', stopCamera);
+
+  // Small util — local escape (app.js has one but it's not exposed at this point on every page)
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  init();
+</script>
+</body>
+</html>
