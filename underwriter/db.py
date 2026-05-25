@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS uw_properties (
     list_price        REAL,
     source_file       TEXT,
     prelim_title_json TEXT,
+    status            TEXT,
+    strategy          TEXT,
+    purchase_date     TEXT,
+    sale_date         TEXT,
+    is_historical     INTEGER DEFAULT 0,
     added_at          TEXT    NOT NULL,
     added_by          TEXT    NOT NULL,
     UNIQUE(address)
@@ -168,6 +173,11 @@ def init_db() -> None:
             c.executescript(schema + "\n" + _INDEX_SQL)
         # Idempotent migrations for older DBs
         _migrate_add_column(c, "uw_properties", "prelim_title_json", "TEXT")
+        _migrate_add_column(c, "uw_properties", "status",            "TEXT")
+        _migrate_add_column(c, "uw_properties", "strategy",          "TEXT")
+        _migrate_add_column(c, "uw_properties", "purchase_date",     "TEXT")
+        _migrate_add_column(c, "uw_properties", "sale_date",         "TEXT")
+        _migrate_add_column(c, "uw_properties", "is_historical",     "INTEGER DEFAULT 0")
 
 
 def _split_statements(sql: str) -> list[str]:
