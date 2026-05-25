@@ -496,6 +496,42 @@ html.theme-dark .user-menu button { color: var(--d-text); }
 html.theme-dark .user-menu a:hover,
 html.theme-dark .user-menu button:hover { background: rgba(110,208,87,0.10); color: var(--d-brand); }
 html.theme-dark .user-menu button.danger:hover { background: rgba(239,68,68,0.18); color: #fca5a5; }
+html.theme-dark .user-menu .um-quick .user-menu-icon {
+  background: rgba(110,208,87,0.12);
+  color: var(--d-brand);
+}
+html.theme-dark .user-menu .um-quick:hover .user-menu-icon {
+  background: var(--d-brand);
+  color: #0a0e14;
+}
+html.theme-dark .user-menu .um-quick .um-row-sub { color: var(--d-text-muted); }
+html.theme-dark .user-menu .um-quick:hover .um-row-sub { color: var(--d-brand); }
+
+/* AI pill — dark (brighter brand-green gradient on the dark surface) */
+html.theme-dark .os-newchrome-ai-pill {
+  background: linear-gradient(135deg, var(--d-brand) 0%, #15803d 100%);
+  color: #0a0e14;
+  box-shadow: 0 4px 14px -3px rgba(110,208,87,0.50),
+              inset 0 1px 0 rgba(255,255,255,0.10);
+}
+html.theme-dark .os-newchrome-ai-pill:hover {
+  box-shadow: 0 8px 22px -3px rgba(110,208,87,0.70),
+              inset 0 1px 0 rgba(255,255,255,0.10);
+}
+html.theme-dark .os-newchrome-ai-pill-icon { background: rgba(0,0,0,0.18); }
+html.theme-dark .os-newchrome-ai-pill-glow {
+  box-shadow: 0 0 0 0 rgba(110,208,87,0.55);
+  animation-name: ai-pill-glow-dark;
+}
+@keyframes ai-pill-glow-dark {
+  0%   { box-shadow: 0 0 0 0 rgba(110,208,87,0.45); }
+  60%  { box-shadow: 0 0 0 10px rgba(110,208,87,0); }
+  100% { box-shadow: 0 0 0 0 rgba(110,208,87,0); }
+}
+html.theme-dark .os-newchrome-avatar-dot {
+  box-shadow: 0 0 0 2px var(--d-surface),
+              0 0 0 4px rgba(239,68,68,0.25);
+}
 html.theme-dark .menu-divider { background: var(--d-border); }
 html.theme-dark .user-menu-icon { color: var(--d-text-muted); }
 html.theme-dark .user-menu-icon[data-icon="user"]     { color: #c084fc; }

@@ -792,6 +792,9 @@ function renderUserMenu() {
   const el = document.getElementById('user-menu');
   if (!el) return;
   const u = getCachedUser() || {};
+  // The "+" Add-new and bell Notifications were moved out of the topbar
+  // to give the Prop Spot AI button the spotlight. They live as quick-
+  // launch rows at the top of the avatar dropdown now.
   el.innerHTML = `
     <div class="user-info" style="display:flex;gap:10px;align-items:center;">
       <div class="user-avatar-big">${avatarContent(u, 'avatar-img--big')}</div>
@@ -800,6 +803,16 @@ function renderUserMenu() {
         <div class="user-email">${escHtml(u.email || '')}</div>
       </div>
     </div>
+    <button type="button" class="um-quick um-quick-create" onclick="document.getElementById('user-menu')?.classList.remove('open'); if(typeof toggleQuickCreate==='function') toggleQuickCreate(event);">
+      <span class="user-menu-icon" data-icon="plus">＋</span>
+      <span>Create new<span class="um-row-sub">property, lead, work order, …</span></span>
+    </button>
+    <button type="button" class="um-quick um-quick-notif" id="um-notif-btn" onclick="document.getElementById('user-menu')?.classList.remove('open'); if(typeof toggleNotifications==='function') toggleNotifications(event);">
+      <span class="user-menu-icon" data-icon="bell">🔔</span>
+      <span>Notifications<span class="um-row-sub">mentions, alerts, due-soon</span></span>
+      <span class="um-notif-count" id="um-notif-count"></span>
+    </button>
+    <div class="menu-divider"></div>
     <button type="button" onclick="openEditProfile()"><span class="user-menu-icon" data-icon="user">👤</span> Edit Profile</button>
     <button type="button" onclick="openChangePassword()"><span class="user-menu-icon" data-icon="key">🔑</span> Change Password</button>
     <button type="button" onclick="window.location.href='/team.html'"><span class="user-menu-icon" data-icon="users">👥</span> Team Members</button>
@@ -807,6 +820,14 @@ function renderUserMenu() {
     <div class="menu-divider"></div>
     <button type="button" class="danger" onclick="signOut()"><span class="user-menu-icon" data-icon="logout">🚪</span> Sign Out</button>
   `;
+  // Mirror the avatar's notification dot count into the menu row.
+  const dot = document.getElementById('notif-badge');
+  const cnt = document.getElementById('um-notif-count');
+  if (cnt && dot) {
+    const n = parseInt(dot.dataset.count || '0', 10) || 0;
+    if (n > 0) { cnt.textContent = n; cnt.style.display = ''; }
+    else { cnt.style.display = 'none'; }
+  }
 }
 
 // ── Settings modal (theme + future prefs) ─────────────────────────

@@ -21,7 +21,9 @@
       <div class="os-newchrome-topbar">
         <form class="os-newchrome-search-wrap" onsubmit="submitTopSearch(event)">
           <div class="os-newchrome-search">
-            <span class="os-newchrome-search-icon">🔍</span>
+            <span class="os-newchrome-search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
             <input type="search" id="top-search" placeholder="Search properties, photos, emails, messages, contacts…" autocomplete="off"
                    oninput="onSearchInput(event)" onfocus="onSearchInput(event)" onkeydown="onSearchKey(event)">
             <span class="os-newchrome-kbd">⌘K</span>
@@ -29,20 +31,30 @@
           <div class="search-results" id="search-results"></div>
         </form>
         <div class="os-newchrome-actions">
-          <button type="button" class="os-newchrome-quick-create" id="qc-btn" title="Create new" onclick="toggleQuickCreate(event)">＋</button>
-          <button type="button" class="os-newchrome-bell" id="notif-btn" title="Notifications" onclick="toggleNotifications(event)">
-            🔔
-            <span class="os-newchrome-bell-badge" id="notif-badge">${PHASE1_NOTIF_COUNT}</span>
-          </button>
-          <button type="button" class="os-newchrome-bell os-newchrome-ai-btn" id="ai-assistant-btn"
-                  title="Prop Spot AI · coming soon"
+          <!-- Prop Spot AI — the headline feature gets the headline button.
+               Brand-gradient pill, sparkle icon, breathing glow ring. -->
+          <button type="button" class="os-newchrome-ai-pill" id="ai-assistant-btn"
+                  title="Ask Prop Spot AI — coming soon"
                   onclick="toggleAIAssistant(event)">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
-            <span class="os-newchrome-ai-pulse" aria-hidden="true"></span>
+            <span class="os-newchrome-ai-pill-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            </span>
+            <span class="os-newchrome-ai-pill-label">Ask Prop Spot AI</span>
+            <span class="os-newchrome-ai-pill-glow" aria-hidden="true"></span>
           </button>
+          <!-- Avatar with attached notification badge dot (notifications
+               UI lives inside the avatar dropdown now). -->
           <button type="button" class="os-newchrome-avatar" id="user-avatar" title="Account" onclick="toggleUserMenu(event)">
             ${avatarContent(user)}
+            <span class="os-newchrome-avatar-dot" id="notif-badge" data-count="${PHASE1_NOTIF_COUNT}"
+                  style="${PHASE1_NOTIF_COUNT > 0 ? '' : 'display:none;'}"
+                  aria-label="${PHASE1_NOTIF_COUNT} unread notifications"></span>
           </button>
+          <!-- Hidden anchor buttons (kept in DOM so quick-create + notif
+               panels can still position themselves and existing
+               keyboard / outside-click handlers don't break). -->
+          <button type="button" id="qc-btn" class="os-newchrome-hidden-anchor" onclick="toggleQuickCreate(event)" aria-hidden="true" tabindex="-1"></button>
+          <button type="button" id="notif-btn" class="os-newchrome-hidden-anchor" onclick="toggleNotifications(event)" aria-hidden="true" tabindex="-1"></button>
         </div>
       </div>
 

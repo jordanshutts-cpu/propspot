@@ -611,6 +611,49 @@ body.os-newlayout .page.page-narrow { max-width: 1100px; margin-left: auto; marg
 .user-menu .menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
 .user-menu button.danger:hover { background: #fee2e2; color: var(--danger); }
 
+/* Quick-access rows at the top of the avatar dropdown
+   (Create new / Notifications) — two-line cards with sub-label */
+.user-menu .um-quick {
+  align-items: center;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  position: relative;
+}
+.user-menu .um-quick .user-menu-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(97,183,70,0.10);
+  color: var(--brand-dark, #15803d);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.user-menu .um-quick:hover .user-menu-icon { background: var(--brand); color: #fff; }
+.user-menu .um-quick .um-row-sub {
+  display: block;
+  font-size: .68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 1px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+.user-menu .um-quick:hover .um-row-sub { color: var(--brand-dark, #15803d); opacity: 0.85; }
+.user-menu .um-notif-count {
+  margin-left: auto;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.14);
+}
+
 /* ── Slim left apps rail ─────────────────────────────────── */
 .apps-rail {
   position: fixed; top: 0; left: 0; bottom: 0;
