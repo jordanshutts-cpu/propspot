@@ -439,12 +439,14 @@ body.os-newchrome .page.page-narrow {
 }
 .os-newchrome-all-link:hover { background: var(--brand-light); border-radius: 6px; }
 
-/* Top bar inner layout
-   Flexbox is the reliable layout here: search-wrap flex:1 with margin:auto
-   centers the bar between the hamburger and the action cluster. Actions
-   sit at the right edge because of source order + their auto width. */
+/* Top bar inner layout — true 3-column centering.
+   Left 1fr column holds the hamburger (mobile-only) and balances the
+   right 1fr column's actions, so the middle `auto` column with the
+   search bar sits dead-center in the topbar regardless of how wide
+   the actions cluster gets. */
 .os-newchrome-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   height: 100%;
   width: 100%;
@@ -452,15 +454,19 @@ body.os-newchrome .page.page-narrow {
   padding: 0 18px;
   gap: 14px;
 }
+.os-newchrome-hamburger {
+  /* Stays in column 1 (1fr), left-aligned */
+  justify-self: start;
+}
 .os-newchrome-search-wrap {
   position: relative;
-  flex: 1 1 auto;
-  max-width: 580px;
-  margin: 0 auto;       /* centers within the leftover flex space */
+  /* Center column — fixed natural width up to 580px, shrinks on narrow viewports */
+  width: min(580px, 100%);
+  justify-self: center;
 }
 .os-newchrome-actions {
-  flex: 0 0 auto;
-  margin-left: auto;    /* belt-and-suspenders: pin to right edge */
+  /* Right column (1fr) — pin to right edge */
+  justify-self: end;
 }
 .os-newchrome-search {
   display: flex;
