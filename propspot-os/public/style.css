@@ -110,20 +110,23 @@ html.page-loading .os-page-loader,
   z-index: -1;
   pointer-events: none;
 }
-/* Wordmark — 'PropSpot' + brand-green '.OS' suffix */
+/* Wordmark — 'PropSpot' + brand-green '.OS' suffix. With the logo
+   removed this is the focal element; bumped up and given the
+   breathing animation so it carries the loading rhythm on its own. */
 .os-page-loader-wordmark {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 1.35rem;
+  font-size: 2.2rem;
   font-weight: 800;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.035em;
   color: #111827;
   user-select: none;
   line-height: 1;
+  animation: os-loader-breathe 1.9s ease-in-out infinite;
 }
 .os-page-loader-wordmark .os-suffix {
   color: #61B746;
   font-weight: 600;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   margin-left: 1px;
 }
 @keyframes os-loader-breathe {

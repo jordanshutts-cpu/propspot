@@ -58,25 +58,8 @@ html.theme-dark body {
    render their dark variants. */
 html.theme-dark { color-scheme: dark; }
 
-/* ── Page loader — deep canvas with PropSpot mark + wordmark ─
-   The logo PNG has a white plate baked in. On dark we paint a tidy
-   white chip around it so the chip itself reads as intentional brand
-   styling, with a soft brand-green glow ring.
-   IMPORTANT: use background-color (NOT 'background' shorthand) or
-   the light-mode background-image:url('/logo.png') gets wiped. */
+/* ── Page loader — wordmark + dots on the deep canvas ─────── */
 html.theme-dark .os-page-loader { background: var(--d-bg); }
-html.theme-dark .os-page-loader-logo {
-  mix-blend-mode: normal;
-  background-color: #fff;
-  background-clip: padding-box;
-  border-radius: 16px;
-  padding: 10px;
-  box-sizing: border-box;
-  box-shadow:
-    0 0 0 1px rgba(110,208,87,0.45),
-    0 0 28px rgba(110,208,87,0.28),
-    0 4px 16px rgba(0,0,0,0.50);
-}
 html.theme-dark .os-page-loader-wordmark { color: var(--d-text-strong); }
 html.theme-dark .os-page-loader-wordmark .os-suffix { color: var(--d-brand); }
 html.theme-dark .os-page-loader-dots span { background: rgba(110,208,87,0.35); }
