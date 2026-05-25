@@ -390,6 +390,100 @@ async function getActivity(params = {}) {
   return apiFetch(`/api/activity${qs ? '?' + qs : ''}`);
 }
 
+// ── Activity humanizer ─────────────────────────────────────────
+// Turns the raw {action, entity_type, payload} stored on each activity
+// row into a readable sentence like "set purchase price to $250,000".
+// Shared between the dashboard's Recent Activity widget and the full
+// Activity Monitor page so descriptions stay consistent.
+const ACTIVITY_ENTITY_NOUN = {
+  property: 'property', prospect: 'prospect', lead: 'lead',
+  opportunity: 'opportunity', purchase: 'purchase', project: 'project',
+  holding: 'holding', contact: 'contact', photo: 'photo',
+  file: 'file', email: 'email', note: 'note'
+};
+const ACTIVITY_FIELD_LABELS = {
+  status: 'status', acquisition_status: 'acquisition stage',
+  display_name: 'name', address_line1: 'address', unit: 'unit',
+  city: 'city', state: 'state', zip: 'ZIP', county: 'county',
+  tms: 'TMS', parcel_id: 'parcel ID', lockbox_code: 'lockbox code',
+  owner: 'owner', owner_name: 'owner', notes: 'notes',
+  purchase_price: 'purchase price', purchase_date: 'purchase date',
+  anticipated_close_date: 'anticipated close date',
+  sold_price: 'sold price', sold_date: 'sold date',
+  lender_contact_id: 'lender', seller_contact_id: 'seller',
+  lender_name: 'lender', seller_name: 'seller',
+  source: 'source', raw_name: 'name', raw_phone: 'phone',
+  motivation_notes: 'motivation notes', our_offer: 'offer',
+  appointment_at: 'appointment', contract_date: 'contract date',
+  kind: 'kind', amount: 'amount', frequency: 'frequency',
+  next_due_date: 'next due', vendor: 'vendor', category: 'category',
+  name: 'name', full_name: 'name', role: 'role',
+  phone: 'phone', email: 'email'
+};
+const ACTIVITY_SKIP_KEYS = new Set([
+  'property_id', 'id', 'created_at', 'updated_at',
+  'created_by', 'updated_by'
+]);
+
+function fmtActivityValue(key, value) {
+  if (value == null || value === '') return '—';
+  if (key === 'status' && typeof propertyStatusLabel === 'function')
+    return propertyStatusLabel(value) || value;
+  if (key === 'acquisition_status' && typeof acquisitionStatusLabel === 'function')
+    return acquisitionStatusLabel(value) || value;
+  if (typeof value === 'number' && /price|amount|offer/i.test(key))
+    return formatMoney(value);
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) && /date|_at$/i.test(key))
+    return formatDate(value);
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  let s = String(value);
+  if (s.length > 48) s = s.slice(0, 48) + '…';
+  return s;
+}
+
+function describeActivity(r) {
+  const action  = r.action || 'changed';
+  const ent     = ACTIVITY_ENTITY_NOUN[r.entity_type] || r.entity_type || 'item';
+  const payload = (r.payload && typeof r.payload === 'object') ? r.payload : {};
+
+  if (action === 'created')          return `<span class="act-verb act-create">created</span> a ${ent}`;
+  if (action === 'deleted')          return `<span class="act-verb act-delete">deleted</span> a ${ent}`;
+  if (action === 'photos_recovered') return `<span class="act-verb">recovered</span> ${payload.inserted || ''} photo${payload.inserted === 1 ? '' : 's'}`.replace(/\s+/g, ' ');
+
+  if (action === 'status_changed' || (action === 'updated' && payload.status)) {
+    const newStatus = fmtActivityValue('status', payload.status);
+    const extra = payload.acquisition_status
+      ? ` · ${fmtActivityValue('acquisition_status', payload.acquisition_status)}`
+      : '';
+    return `<span class="act-verb">moved</span> ${ent} to <strong class="act-value">${escHtml(newStatus + extra)}</strong>`;
+  }
+
+  if (action === 'updated' || action === 'changed') {
+    const keys = Object.keys(payload).filter(k => !ACTIVITY_SKIP_KEYS.has(k));
+    if (!keys.length) return `<span class="act-verb">updated</span> ${ent}`;
+    if (keys.length === 1) {
+      const k = keys[0];
+      const label = ACTIVITY_FIELD_LABELS[k] || k.replace(/_/g, ' ');
+      const val = fmtActivityValue(k, payload[k]);
+      const isClear = payload[k] == null || payload[k] === '';
+      if (isClear) return `<span class="act-verb">cleared</span> <strong class="act-field">${escHtml(label)}</strong> on ${ent}`;
+      return `<span class="act-verb">set</span> <strong class="act-field">${escHtml(label)}</strong> to <strong class="act-value">${escHtml(val)}</strong>`;
+    }
+    const PRIORITY = ['purchase_price', 'sold_price', 'purchase_date', 'sold_date',
+                      'display_name', 'address_line1', 'owner_name', 'notes'];
+    const sorted = keys.slice().sort((a, b) => {
+      const ia = PRIORITY.indexOf(a), ib = PRIORITY.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    const shown = sorted.slice(0, 3).map(k => ACTIVITY_FIELD_LABELS[k] || k.replace(/_/g, ' '));
+    const more  = sorted.length > 3 ? ` <span class="text-muted">+${sorted.length - 3} more</span>` : '';
+    return `<span class="act-verb">updated</span> <strong class="act-field">${escHtml(shown.join(', '))}</strong>${more} on ${ent}`;
+  }
+
+  return `<span class="act-verb">${escHtml(action)}</span> ${ent}`;
+}
+window.describeActivity = describeActivity;
+
 // ── Property files ─────────────────────────────────────────────
 async function getPropertyFiles(propertyId) {
   return apiFetch(`/api/property-files/${propertyId}`);

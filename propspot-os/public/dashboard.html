@@ -425,7 +425,7 @@
     <section class="dash-panel">
       <div class="dash-panel-head">
         <h2 class="dash-panel-title">Recent Activity</h2>
-        <span class="dash-panel-link" style="color:var(--text-muted);">Last 8</span>
+        <a class="dash-panel-link" href="/activity.html" title="Open the full activity monitor">View all →</a>
       </div>
       <div class="dash-panel-body" id="activity-list">
         <p class="text-muted text-sm">Loading…</p>
@@ -561,11 +561,9 @@
   }
 
   // ── Activity feed humanizer ──────────────────────────────────────
-  // The server stores `payload: req.body` (the fields the actor changed)
-  // alongside the action verb. We use that here to turn "Ethan updated
-  // property" into something readable like "Ethan moved 2331 Johnstone
-  // to Under Contract · Due Diligence" or "Ethan set Purchase Price to
-  // $250,000".
+  // The shared describeActivity() in app.js powers /activity.html. The
+  // local copy below ships with the dashboard for cache-warmth (renders
+  // before app.js fully evaluates on first paint) and matches it 1:1.
   const ENTITY_NOUN = {
     property: 'property',
     prospect: 'prospect',
