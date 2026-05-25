@@ -13,11 +13,12 @@
 
     /* Page surface: subtle dark backdrop in light mode too so cards
        pop the way they do in the reference image. Dark mode darkens
-       further via dark.css. */
+       further via dark.css. Negative margins offset the parent .page
+       padding so the backdrop runs corner-to-corner inside the chrome. */
     .db-page {
       background: linear-gradient(180deg, rgba(15,23,42,0.02) 0%, transparent 100%);
-      margin: -16px;
-      padding: 16px;
+      margin: calc(-1 * clamp(20px, 2vw, 32px));
+      padding: clamp(20px, 2vw, 32px);
       min-height: calc(100vh - 60px);
     }
 

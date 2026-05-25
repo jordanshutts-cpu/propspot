@@ -454,7 +454,12 @@ body.os-newlayout {
 body.os-newlayout .app-header   { display: none; }   /* hide old mobile header */
 body.os-newlayout .bottom-nav   { display: none; }   /* hide old left sidebar */
 body.os-newlayout .nav-collapse-btn { display: none; }
-body.os-newlayout .page         { max-width: 1200px; padding: 24px; }
+/* Fluid by default: fills the viewport so wide monitors don't waste
+   the right-hand third on dead space. Padding scales slightly with
+   width via clamp(). A page can opt INTO a constrained reading
+   width by adding the .page-narrow class on its main element. */
+body.os-newlayout .page         { max-width: var(--page-max-width, none); padding: clamp(20px, 2vw, 32px); }
+body.os-newlayout .page.page-narrow { max-width: 1100px; margin-left: auto; margin-right: auto; }
 
 /* ── Top header ────────────────────────────────────────────── */
 .top-header {

@@ -176,8 +176,16 @@ body.os-newchrome #top-header {
 }
 body.os-newchrome .top-header { padding: 0; }
 body.os-newchrome .page {
-  max-width: 1280px;
-  padding: 24px;
+  /* Fluid by default — fills the viewport so wide monitors don't waste
+     a third of the screen on empty space. Padding scales with viewport.
+     A page can opt into a constrained reading width via .page-narrow. */
+  max-width: var(--page-max-width, none);
+  padding: clamp(20px, 2vw, 32px);
+}
+body.os-newchrome .page.page-narrow {
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Sidebar inner container */
