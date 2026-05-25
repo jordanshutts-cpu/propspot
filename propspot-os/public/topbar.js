@@ -31,30 +31,33 @@
           <div class="search-results" id="search-results"></div>
         </form>
         <div class="os-newchrome-actions">
-          <!-- Prop Spot AI — the headline feature gets the headline button.
-               Brand-gradient pill, sparkle icon, breathing glow ring. -->
+          <!-- Prop Spot AI — the headline feature. Tasteful brand-tinted
+               pill with sparkle icon. No aggressive animations. -->
           <button type="button" class="os-newchrome-ai-pill" id="ai-assistant-btn"
                   title="Ask Prop Spot AI — coming soon"
                   onclick="toggleAIAssistant(event)">
             <span class="os-newchrome-ai-pill-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
             </span>
             <span class="os-newchrome-ai-pill-label">Ask Prop Spot AI</span>
-            <span class="os-newchrome-ai-pill-glow" aria-hidden="true"></span>
           </button>
-          <!-- Avatar with attached notification badge dot (notifications
-               UI lives inside the avatar dropdown now). -->
+          <!-- Add new — clean icon button -->
+          <button type="button" class="os-newchrome-icon-btn" id="qc-btn"
+                  title="Create new" aria-label="Create new"
+                  onclick="toggleQuickCreate(event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <!-- Notifications — clean icon button with count badge -->
+          <button type="button" class="os-newchrome-icon-btn" id="notif-btn"
+                  title="Notifications" aria-label="Notifications"
+                  onclick="toggleNotifications(event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="os-newchrome-icon-badge" id="notif-badge"
+                  style="${PHASE1_NOTIF_COUNT > 0 ? '' : 'display:none;'}">${PHASE1_NOTIF_COUNT}</span>
+          </button>
           <button type="button" class="os-newchrome-avatar" id="user-avatar" title="Account" onclick="toggleUserMenu(event)">
             ${avatarContent(user)}
-            <span class="os-newchrome-avatar-dot" id="notif-badge" data-count="${PHASE1_NOTIF_COUNT}"
-                  style="${PHASE1_NOTIF_COUNT > 0 ? '' : 'display:none;'}"
-                  aria-label="${PHASE1_NOTIF_COUNT} unread notifications"></span>
           </button>
-          <!-- Hidden anchor buttons (kept in DOM so quick-create + notif
-               panels can still position themselves and existing
-               keyboard / outside-click handlers don't break). -->
-          <button type="button" id="qc-btn" class="os-newchrome-hidden-anchor" onclick="toggleQuickCreate(event)" aria-hidden="true" tabindex="-1"></button>
-          <button type="button" id="notif-btn" class="os-newchrome-hidden-anchor" onclick="toggleNotifications(event)" aria-hidden="true" tabindex="-1"></button>
         </div>
       </div>
 
