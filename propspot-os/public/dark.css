@@ -606,38 +606,195 @@ html.theme-dark .fc-no-photo { background: var(--d-surface-2); color: var(--d-te
 html.theme-dark .prop-name { color: var(--d-text-strong); }
 html.theme-dark .prop-addr { color: var(--d-text-muted); }
 
-/* ── Underwriting ────────────────────────────────────────────── */
-html.theme-dark .uw-sticky-header { background: var(--d-surface); border-bottom-color: var(--d-border); }
+/* ── Underwriting ─────────────────────────────────────────────
+   Vibrant treatment: each input panel keeps a distinct accent
+   color but glows (radial-tinted bg + matching border + brighter
+   heading), result cards get strategy-colored glow rings, and
+   positive / negative numbers shine. */
+html.theme-dark .uw-sticky-header {
+  background: linear-gradient(180deg, var(--d-surface) 0%, var(--d-bg) 100%);
+  border-bottom-color: var(--d-border);
+}
+
+/* Result cards — bolder backgrounds + accent border + outer glow */
 html.theme-dark .uw-result-card {
   background: var(--d-surface-2);
-  border-color: var(--d-border);
+  border: 1px solid var(--d-border-strong);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 2px 12px rgba(0,0,0,0.25);
 }
-html.theme-dark .uw-result-card.flip-card { background: rgba(251,191,36,0.10); border-color: rgba(251,191,36,0.30); }
-html.theme-dark .uw-result-card.dscr-card { background: rgba(110,208,87,0.10); border-color: rgba(110,208,87,0.30); }
-html.theme-dark .uw-result-card .card-label { color: var(--d-text-muted); }
-html.theme-dark .uw-result-card .card-primary { color: var(--d-text-strong); }
+html.theme-dark .uw-result-card.flip-card {
+  background: linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0.06) 100%);
+  border-color: rgba(251,191,36,0.45);
+  box-shadow: 0 0 0 1px rgba(251,191,36,0.20), 0 4px 18px rgba(251,191,36,0.18);
+}
+html.theme-dark .uw-result-card.dscr-card {
+  background: linear-gradient(135deg, rgba(110,208,87,0.20) 0%, rgba(110,208,87,0.06) 100%);
+  border-color: rgba(110,208,87,0.50);
+  box-shadow: 0 0 0 1px rgba(110,208,87,0.22), 0 4px 18px rgba(110,208,87,0.22);
+}
+html.theme-dark .uw-result-card .card-label {
+  color: var(--d-text-muted);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+html.theme-dark .uw-result-card.flip-card .card-label { color: #fcd34d; }
+html.theme-dark .uw-result-card.dscr-card .card-label { color: #86efac; }
+html.theme-dark .uw-result-card .card-primary {
+  color: var(--d-text-strong);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.3);
+}
 html.theme-dark .uw-result-card .card-secondary { color: var(--d-text-muted); }
-html.theme-dark .val-pos { color: #86efac; }
-html.theme-dark .val-neg { color: #fca5a5; }
-html.theme-dark .uw-panel h3 { color: var(--d-text-muted); }
-html.theme-dark .val-panel  { background: rgba(251,191,36,0.10); }
-html.theme-dark .pml-panel  { background: rgba(248,113,113,0.10); }
-html.theme-dark .dscr-panel { background: rgba(244,114,182,0.10); }
-html.theme-dark .flip-panel { background: rgba(96,165,250,0.10); }
-html.theme-dark .opex-panel { background: rgba(110,208,87,0.10); }
-html.theme-dark .adv-panel  { background: rgba(148,163,184,0.10); }
+
+/* Recommendation badge — pop with brand glow */
+html.theme-dark .badge-rec.rec-dscr {
+  background: linear-gradient(135deg, rgba(110,208,87,0.30), rgba(110,208,87,0.18));
+  color: #86efac;
+  border: 1px solid rgba(110,208,87,0.50);
+  box-shadow: 0 0 16px rgba(110,208,87,0.30);
+}
+html.theme-dark .badge-rec.rec-flip {
+  background: linear-gradient(135deg, rgba(251,191,36,0.30), rgba(251,191,36,0.18));
+  color: #fcd34d;
+  border: 1px solid rgba(251,191,36,0.50);
+  box-shadow: 0 0 16px rgba(251,191,36,0.30);
+}
+html.theme-dark .badge-rec.rec-none {
+  background: linear-gradient(135deg, rgba(248,113,113,0.30), rgba(248,113,113,0.18));
+  color: #fca5a5;
+  border: 1px solid rgba(248,113,113,0.50);
+}
+
+/* Sharper positive/negative numbers */
+html.theme-dark .val-pos,
+html.theme-dark .uw-table td.profit-pos,
+html.theme-dark .out-pos {
+  color: #86efac;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(134,239,172,0.20);
+}
+html.theme-dark .val-neg,
+html.theme-dark .uw-table td.profit-neg,
+html.theme-dark .out-neg {
+  color: #fca5a5;
+  font-weight: 700;
+}
+
+/* Input panels — stronger color washes + colored headers + ring */
+html.theme-dark .uw-panel {
+  border: 1px solid var(--d-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+html.theme-dark .uw-panel h3 {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+html.theme-dark .val-panel {
+  background: linear-gradient(180deg, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0.06) 100%);
+  border-color: rgba(251,191,36,0.28);
+}
+html.theme-dark .val-panel h3 { color: #fcd34d; }
+html.theme-dark .pml-panel {
+  background: linear-gradient(180deg, rgba(248,113,113,0.18) 0%, rgba(248,113,113,0.06) 100%);
+  border-color: rgba(248,113,113,0.28);
+}
+html.theme-dark .pml-panel h3 { color: #fca5a5; }
+html.theme-dark .dscr-panel {
+  background: linear-gradient(180deg, rgba(244,114,182,0.18) 0%, rgba(244,114,182,0.06) 100%);
+  border-color: rgba(244,114,182,0.28);
+}
+html.theme-dark .dscr-panel h3 { color: #f9a8d4; }
+html.theme-dark .flip-panel {
+  background: linear-gradient(180deg, rgba(96,165,250,0.18) 0%, rgba(96,165,250,0.06) 100%);
+  border-color: rgba(96,165,250,0.28);
+}
+html.theme-dark .flip-panel h3 { color: #93c5fd; }
+html.theme-dark .opex-panel {
+  background: linear-gradient(180deg, rgba(110,208,87,0.18) 0%, rgba(110,208,87,0.06) 100%);
+  border-color: rgba(110,208,87,0.28);
+}
+html.theme-dark .opex-panel h3 { color: #86efac; }
+html.theme-dark .adv-panel {
+  background: linear-gradient(180deg, rgba(148,163,184,0.18) 0%, rgba(148,163,184,0.06) 100%);
+  border-color: rgba(148,163,184,0.28);
+}
+html.theme-dark .adv-panel h3 { color: #cbd5e1; }
+
 html.theme-dark .uw-field-row label { color: var(--d-text); }
 html.theme-dark .uw-field-row input,
 html.theme-dark .uw-field-row select {
-  background: var(--d-surface);
+  background: rgba(10,14,20,0.55);
+  border-color: rgba(255,255,255,0.10);
+  color: var(--d-text-strong);
+  font-variant-numeric: tabular-nums;
+}
+html.theme-dark .uw-field-row input:focus,
+html.theme-dark .uw-field-row select:focus {
+  background: rgba(10,14,20,0.85);
+  border-color: var(--d-brand);
+  box-shadow: 0 0 0 2px rgba(110,208,87,0.20);
+}
+
+/* Output section headings — accent color rather than muted gray */
+html.theme-dark .uw-out-section h4 {
+  color: var(--d-brand);
+  border-bottom: 1px solid var(--d-border-strong);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+html.theme-dark .uw-out-table td { color: var(--d-text); }
+html.theme-dark .uw-out-table .sub { color: var(--d-text-muted); }
+html.theme-dark .uw-out-table tr.total-row td {
+  border-top-color: rgba(110,208,87,0.30);
+  color: var(--d-text-strong);
+}
+html.theme-dark .out-bold { color: var(--d-text-strong); }
+
+/* Tabs (Initial Pro Forma / Actual Results / Audit Log) */
+html.theme-dark .uw-tab {
+  background: var(--d-surface-2);
   border-color: var(--d-border);
+  color: var(--d-text-muted);
+}
+html.theme-dark .uw-tab:hover {
+  background: var(--d-surface-3);
+  color: var(--d-text);
+  border-color: var(--d-border-strong);
+}
+html.theme-dark .uw-tab.active {
+  background: linear-gradient(135deg, #7adb64 0%, var(--d-brand) 100%);
+  color: #0a0e14;
+  border-color: var(--d-brand);
+  box-shadow: 0 1px 2px rgba(110,208,87,0.30), 0 0 12px rgba(110,208,87,0.20);
+  font-weight: 700;
+}
+html.theme-dark .uw-audit-btn {
+  background: var(--d-surface-2);
+  color: var(--d-text);
+  border-color: var(--d-border);
+}
+html.theme-dark .uw-audit-btn:hover {
+  background: var(--d-surface-3);
+  border-color: var(--d-brand);
+  color: var(--d-brand);
+}
+html.theme-dark .uw-save-status { color: var(--d-text-muted); }
+html.theme-dark .uw-back { color: var(--d-text-muted); }
+html.theme-dark .uw-back:hover { color: var(--d-brand); }
+html.theme-dark .deal-address { color: var(--d-text-strong); }
+
+/* Mid-column borders */
+html.theme-dark #mid-col { border-left-color: var(--d-border); border-right-color: var(--d-border); }
+html.theme-dark .uw-advanced { border-top-color: var(--d-border); }
+html.theme-dark .uw-advanced summary { color: var(--d-text-muted); }
+html.theme-dark .uw-advanced summary:hover { color: var(--d-brand); }
+html.theme-dark .opex-tbl th { color: var(--d-text-muted); }
+html.theme-dark .opex-tbl td input[type=number] {
+  background: rgba(10,14,20,0.55);
+  border-color: rgba(255,255,255,0.10);
   color: var(--d-text);
 }
-html.theme-dark .uw-out-section h4 { color: var(--d-text-muted); border-bottom-color: var(--d-border); }
-html.theme-dark .uw-out-table tr.total-row td { border-top-color: var(--d-border-strong); }
-html.theme-dark .uw-tab { background: var(--d-surface); border-color: var(--d-border); color: var(--d-text); }
-html.theme-dark .uw-tab.active { background: var(--d-brand); color: #0a0e14; border-color: var(--d-brand); }
-html.theme-dark .uw-audit-btn { background: var(--d-surface-2); color: var(--d-text); border-color: var(--d-border); }
 html.theme-dark .audit-modal { background: var(--d-elevated); }
 html.theme-dark .audit-list { background: var(--d-elevated); }
 html.theme-dark .audit-entry { border-bottom-color: var(--d-border); }
