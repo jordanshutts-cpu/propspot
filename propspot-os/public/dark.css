@@ -1037,4 +1037,69 @@ html.theme-dark .os-panel-title { color: var(--d-text-strong); }
 html.theme-dark .os-panel-link { color: var(--d-brand); }
 
 html.theme-dark .os-status-pill { background: rgba(110,208,87,0.16); color: var(--d-brand); }
+
+/* ── Property page premium chrome ─────────────────────────────── */
+html.theme-dark .prop-hero-photo {
+  background: linear-gradient(135deg, rgba(110,208,87,0.10) 0%, var(--d-bg) 100%);
+  border-color: var(--d-border);
+  box-shadow: 0 6px 20px -10px rgba(0,0,0,.55);
+}
+html.theme-dark .prop-hero-photo.placeholder { color: var(--d-text-dim); }
+html.theme-dark .prop-hero-photo .photo-count-overlay {
+  background: rgba(0,0,0,0.65);
+  color: var(--d-text);
+}
+html.theme-dark .prop-quick-actions .btn-secondary {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark .prop-quick-actions .btn-secondary:hover {
+  background: rgba(110,208,87,0.10);
+  border-color: var(--d-brand);
+  color: var(--d-brand);
+}
+html.theme-dark .prop-fact-label { color: var(--d-text-muted); }
+html.theme-dark .prop-fact-value { color: var(--d-text-strong); }
+html.theme-dark .prop-fact-value.brand { color: var(--d-brand); }
+html.theme-dark .prop-fact-value.muted { color: var(--d-text-dim); }
+html.theme-dark .prop-notes-callout {
+  background: rgba(110,208,87,0.07);
+  border-left-color: var(--d-brand);
+  color: var(--d-text);
+}
+html.theme-dark .prop-status-changer {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+}
+html.theme-dark .prop-status-changer label { color: var(--d-text-muted); }
+html.theme-dark .os-panel .pipe-row {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark .os-panel .pipe-row:hover { border-color: var(--d-brand); }
+html.theme-dark .stage-empty {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+  color: var(--d-text-muted);
+}
+html.theme-dark .stage-empty a { color: var(--d-brand); }
+html.theme-dark .prop-contact-card {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+}
+html.theme-dark .prop-contact-card:hover { border-color: var(--d-brand); }
+html.theme-dark .prop-contact-card .avatar {
+  background: linear-gradient(135deg, var(--d-brand) 0%, var(--brand-dark, #15803d) 100%);
+  color: #0a0e14;
+}
+html.theme-dark .photo-tile-more {
+  background: linear-gradient(135deg, rgba(110,208,87,0.16), var(--d-bg));
+  color: var(--d-brand);
+}
+html.theme-dark .prop-danger-zone {
+  background: rgba(239,68,68,0.05);
+  border-color: rgba(239,68,68,0.30);
+}
 html.theme-dark .os-status-pill::before { background: var(--d-brand); }

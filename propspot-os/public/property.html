@@ -191,6 +191,235 @@
     .pp-confirm-body { padding: 22px 22px 4px; }
     .pp-confirm-body p { font-size: 0.92rem; color: #374151; margin: 0 0 6px; line-height: 1.5; }
     .pp-confirm-body .pp-confirm-sub { font-size: 0.8rem; color: #6b7280; }
+
+    /* ── Premium property page chrome ─────────────────────────────── */
+    /* Hero split: meta on left, featured photo on right */
+    .prop-hero { overflow: visible; padding-bottom: 24px; }
+    .prop-hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 22px;
+      align-items: start;
+      position: relative; z-index: 1;
+    }
+    @media (max-width: 880px) {
+      .prop-hero-grid { grid-template-columns: 1fr; }
+      .prop-hero-photo { order: -1; max-width: 100%; height: 180px; }
+    }
+    .prop-hero-meta { min-width: 0; }
+    .prop-hero-badges {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin: 4px 0 14px;
+    }
+    .prop-hero-badges .status-badge {
+      font-size: 0.78rem;
+      padding: 5px 12px;
+      border-radius: 100px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: 0 1px 2px rgba(0,0,0,.06);
+    }
+    .prop-hero-photo {
+      width: 100%; height: 200px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: linear-gradient(135deg, var(--brand-light) 0%, var(--bg) 100%);
+      border: 1px solid var(--border);
+      box-shadow: 0 6px 20px -10px rgba(15,23,42,0.18);
+      position: relative;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .prop-hero-photo:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px -10px rgba(15,23,42,0.25);
+    }
+    .prop-hero-photo img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+    }
+    .prop-hero-photo .photo-count-overlay {
+      position: absolute; bottom: 10px; right: 10px;
+      background: rgba(15,23,42,0.72);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 100px;
+      backdrop-filter: blur(6px);
+      letter-spacing: 0.04em;
+    }
+    .prop-hero-photo.placeholder {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      font-size: 2.5rem;
+      cursor: default;
+    }
+    .prop-hero-photo.placeholder:hover { transform: none; }
+
+    /* Quick action button row in hero */
+    .prop-quick-actions {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-top: 6px; margin-bottom: 4px;
+    }
+    .prop-quick-actions .btn {
+      padding: 7px 13px;
+      font-size: 0.83rem;
+      font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .prop-quick-actions .btn-secondary {
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border);
+    }
+    .prop-quick-actions .btn-secondary:hover {
+      background: #fff;
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+
+    /* Two-column facts: Property Facts | Financial Details */
+    .prop-2col {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 880px) { .prop-2col { grid-template-columns: 1fr; } }
+
+    /* Facts grid inside a panel */
+    .prop-facts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px 18px;
+      font-size: 0.86rem;
+    }
+    .prop-fact-label {
+      font-size: 0.66rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+    .prop-fact-value {
+      font-weight: 600;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .prop-fact-value.brand { color: var(--brand-dark, #15803d); }
+    .prop-fact-value.muted { color: var(--text-muted); font-weight: 500; }
+
+    /* Notes callout */
+    .prop-notes-callout {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(97,183,70,0.07);
+      border-left: 3px solid var(--brand);
+      font-size: 0.86rem;
+      color: var(--text);
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    /* Status changer block */
+    .prop-status-changer {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 12px 14px; margin-top: 14px;
+      border-radius: 10px;
+      background: var(--bg);
+      border: 1px dashed var(--border);
+    }
+    .prop-status-changer label {
+      font-size: 0.7rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    /* Panel-section pipe row (slightly nicer than default) */
+    .os-panel .pipe-row {
+      background: var(--bg);
+      box-shadow: none;
+      border: 1px solid var(--border);
+      transition: border-color .12s, transform .12s;
+    }
+    .os-panel .pipe-row:hover {
+      border-color: var(--brand);
+      transform: translateX(2px);
+    }
+
+    /* Stage panel empty-state */
+    .stage-empty {
+      text-align: center;
+      padding: 18px 12px;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+    }
+    .stage-empty a { color: var(--brand-dark); font-weight: 600; }
+
+    /* Contact card row */
+    .prop-contact-card {
+      display: flex; gap: 12px; align-items: center;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      margin-bottom: 8px;
+      transition: border-color .12s, transform .12s;
+    }
+    .prop-contact-card:last-child { margin-bottom: 0; }
+    .prop-contact-card:hover { border-color: var(--brand); transform: translateX(2px); }
+    .prop-contact-card .avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+
+    /* Photo grid inside panels — bigger tiles, gallery feel */
+    .os-panel .photo-grid {
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+    }
+    .os-panel .photo-tile {
+      border-radius: 10px;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .os-panel .photo-tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -6px rgba(15,23,42,0.18);
+    }
+
+    /* Featured photo "show more" tile */
+    .photo-tile-more {
+      position: relative;
+      background: linear-gradient(135deg, var(--brand-light), var(--bg));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.95rem;
+      color: var(--brand-dark, #15803d);
+      cursor: pointer;
+      border-radius: 10px;
+      aspect-ratio: 1/1;
+    }
+
+    /* Delete property zone */
+    .prop-danger-zone {
+      margin-top: 32px;
+      padding: 18px 16px;
+      border-radius: 12px;
+      border: 1px dashed rgba(239,68,68,0.35);
+      background: rgba(239,68,68,0.03);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      text-align: center;
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -309,18 +538,77 @@
 
     const heroAddr = `${escHtml(property.address_line1)}${property.unit ? ' #' + escHtml(property.unit) : ''}, ${escHtml(property.city)}, ${escHtml(property.state)} ${escHtml(property.zip)}`;
 
+    // ── Split fields into Property Facts (left) and Financial (right) ───
+    const propertyFacts = [
+      ['Owner',        property.owner],
+      ['County',       property.county],
+      ['TMS',          property.tms],
+      ['Parcel ID',    property.parcel_id],
+      ['Lockbox code', property.lockbox_code],
+      ['Status',       propertyStatusLabel(property.status), 'brand']
+    ];
+    const financialFacts = [
+      ['Purchase Price', property.purchase_price != null ? formatMoney(property.purchase_price) : '—', property.purchase_price != null ? 'brand' : ''],
+      ['Purchase Date',  dateFmt(property.purchase_date)],
+      ['Anticipated',    dateFmt(property.anticipated_close_date)],
+      ['Sold Price',     property.sold_price != null ? formatMoney(property.sold_price) : '—', property.sold_price != null ? 'brand' : ''],
+      ['Sold Date',      dateFmt(property.sold_date)],
+      ['Lender',         property.lender_name || '—'],
+      ['Seller',         property.seller_name || '—']
+    ];
+
+    const renderFacts = (rows) => rows.map(([label, value, cls]) => `
+      <div>
+        <div class="prop-fact-label">${escHtml(label)}</div>
+        <div class="prop-fact-value ${value && value !== '—' ? (cls || '') : 'muted'}">${value && value !== '—' ? escHtml(value) : '—'}</div>
+      </div>
+    `).join('');
+
+    // ── Hero featured photo (first photo or placeholder) ──────────
+    const heroPhoto = property.photos && property.photos.length
+      ? `<div class="prop-hero-photo" onclick="openLightbox(0)" title="Open photo gallery">
+           <img src="${escHtml(property.photos[0].url)}" alt="">
+           ${property.photos.length > 1 ? `<div class="photo-count-overlay">📷 ${property.photos.length} photos</div>` : ''}
+         </div>`
+      : `<div class="prop-hero-photo placeholder" title="No photos yet">🏠</div>`;
+
+    // ── Helper: build a polished panel section ────────────────────
+    const panelSection = ({ title, link, body }) => `
+      <section class="os-panel">
+        <div class="os-panel-head">
+          <h3 class="os-panel-title">${title}</h3>
+          ${link || ''}
+        </div>
+        <div class="os-panel-body">${body}</div>
+      </section>
+    `;
+
+    const emptyState = (text, linkHtml = '') =>
+      `<div class="stage-empty">${text}${linkHtml ? ' ' + linkHtml : ''}</div>`;
+
     let html = `
       <a href="javascript:history.back()" class="text-sm" style="text-decoration:none;color:var(--text-muted);display:inline-block;margin-bottom:10px;">‹ Back</a>
 
-      <section class="os-hero">
-        <div class="os-hero-eyebrow">Property</div>
-        <h1 class="os-hero-title">${escHtml(property.display_name || property.address_line1)}</h1>
-        <div class="os-hero-subtitle">${heroAddr}</div>
-        <div class="os-hero-actions" style="margin: 0 0 16px;">
-          ${propertyStatusBadge(property.status)}
-          <button class="btn btn-secondary" style="padding:6px 12px;font-size:.82rem;" onclick="openEditDetails()">✏️ Edit details</button>
+      <section class="os-hero prop-hero">
+        <div class="prop-hero-grid">
+          <div class="prop-hero-meta">
+            <div class="os-hero-eyebrow">Property</div>
+            <h1 class="os-hero-title">${escHtml(property.display_name || property.address_line1)}</h1>
+            <div class="os-hero-subtitle">${heroAddr}</div>
+            <div class="prop-hero-badges">
+              ${propertyStatusBadge(property.status)}
+              ${property.status === 'purchasing' ? acquisitionStatusBadge(property.acquisition_status || 'under_contract') : ''}
+            </div>
+            <div class="prop-quick-actions">
+              <button class="btn btn-secondary" onclick="openEditDetails()">✏️ Edit details</button>
+              <a class="btn btn-secondary" data-app="inbox" data-app-path="/" href="#">📧 Open Inbox</a>
+              <a class="btn btn-secondary" data-app="holdings" data-app-path="/" href="#">💼 Holdings Desk</a>
+              <a class="btn btn-secondary" data-app="fieldcam" data-app-path="/" href="#">📷 FieldCam</a>
+            </div>
+          </div>
+          ${heroPhoto}
         </div>
-        <div class="os-kpi-row">
+        <div class="os-kpi-row" style="margin-top: 18px;">
           <div class="os-kpi">
             <div class="os-kpi-label">Purchase Price</div>
             <div class="os-kpi-value brand">${purchase}</div>
@@ -346,62 +634,66 @@
 
       <div id="lifecycle-stepper"></div>
 
-      <div class="os-section-head">
-        <div class="os-section-title">Details</div>
-        <div class="os-section-line"></div>
-      </div>
-      <div class="os-panel">
-        <div class="os-panel-body">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 22px;font-size:.85rem;">
-            ${fields.map(([label, value]) => `
-              <div>
-                <div class="text-muted text-xs" style="font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${escHtml(label)}</div>
-                <div style="margin-top:3px;font-weight:500;">${value && value !== '—' ? escHtml(value) : '<span class="text-muted">—</span>'}</div>
-              </div>
-            `).join('')}
-          </div>
-
-          <div style="display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border);">
-            <label class="text-muted text-xs" for="status-select" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Change status</label>
-            <select id="status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeStatus(this.value)">
-              ${PROPERTY_STATUSES.map(([k, label]) => `<option value="${k}"${property.status === k ? ' selected' : ''}>${label}</option>`).join('')}
-            </select>
-          </div>
-
-          ${property.status === 'purchasing' ? `
-          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;">
-            <label class="text-muted text-xs" for="acq-status-select" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Acquisition stage</label>
-            <select id="acq-status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeAcquisitionStatus(this.value)">
-              ${ACQUISITION_STATUSES.map(([k, label]) => `<option value="${k}"${(property.acquisition_status || 'under_contract') === k ? ' selected' : ''}>${label}</option>`).join('')}
-            </select>
-            ${acquisitionStatusBadge(property.acquisition_status || 'under_contract')}
-          </div>
-          ` : ''}
-
-          ${property.notes ? `<div class="property-notes mt-12" style="white-space:pre-wrap;font-size:.85rem;color:var(--text);background:var(--brand-light);padding:10px 12px;border-radius:8px;">${escHtml(property.notes)}</div>` : ''}
-        </div>
+      <!-- Two-column: Property Facts | Financial Details -->
+      <div class="prop-2col">
+        ${panelSection({
+          title: 'Property Facts',
+          body: `<div class="prop-facts">${renderFacts(propertyFacts)}</div>
+                 ${property.notes ? `<div class="prop-notes-callout">${escHtml(property.notes)}</div>` : ''}`
+        })}
+        ${panelSection({
+          title: 'Financial Details',
+          body: `<div class="prop-facts">${renderFacts(financialFacts)}</div>
+                 <div class="prop-status-changer">
+                   <label for="status-select">Change status</label>
+                   <select id="status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeStatus(this.value)">
+                     ${PROPERTY_STATUSES.map(([k, l]) => `<option value="${k}"${property.status === k ? ' selected' : ''}>${l}</option>`).join('')}
+                   </select>
+                   ${property.status === 'purchasing' ? `
+                     <label for="acq-status-select" style="margin-left:8px;">Acq. stage</label>
+                     <select id="acq-status-select" class="form-select" style="width:auto;padding:6px 10px;font-size:.85rem;" onchange="changeAcquisitionStatus(this.value)">
+                       ${ACQUISITION_STATUSES.map(([k, l]) => `<option value="${k}"${(property.acquisition_status || 'under_contract') === k ? ' selected' : ''}>${l}</option>`).join('')}
+                     </select>` : ''}
+                 </div>`
+        })}
       </div>
     `;
 
-    for (const [label, stage, rows] of sections){
-      html += `<div class="stage-section">
-        <div class="os-section-head">
-          <div class="os-section-title">${label} ${rows.length ? `<span style="opacity:.6;margin-left:6px;">(${rows.length})</span>` : ''}</div>
-          <div class="os-section-line"></div>
-          <a href="#" class="os-section-link" onclick="event.preventDefault();addRecord('${stage}')">+ Add</a>
-        </div>
-        ${rows.length ? rows.map(r => pipeRow(stage, r)).join('') : '<div class="text-muted text-xs" style="padding:6px 0 4px;">None yet.</div>'}
-      </div>`;
-    }
+    // ── Pipeline stage panels — pair them up in 2-col grids ────────
+    const pipelinePairs = [
+      ['📥 Prospects',     'prospects',     property.prospects],
+      ['🎯 Leads',         'leads',         property.leads],
+      ['🤝 Opportunities', 'opportunities', property.opportunities],
+      ['📝 Purchases',     'purchases',     property.purchases]
+    ];
 
+    const stagePanel = (label, stage, rows) => panelSection({
+      title: `${label} ${rows.length ? `<span style="opacity:.6;margin-left:4px;font-weight:500;">(${rows.length})</span>` : ''}`,
+      link: `<a href="#" class="os-panel-link" onclick="event.preventDefault();addRecord('${stage}')">+ Add</a>`,
+      body: rows.length ? rows.map(r => pipeRow(stage, r)).join('') : emptyState('Nothing here yet.')
+    });
+
+    // Prospects + Leads side-by-side
+    html += `<div class="prop-2col">
+      ${stagePanel(pipelinePairs[0][0], pipelinePairs[0][1], pipelinePairs[0][2])}
+      ${stagePanel(pipelinePairs[1][0], pipelinePairs[1][1], pipelinePairs[1][2])}
+    </div>`;
+
+    // Opportunities + Purchases side-by-side
+    html += `<div class="prop-2col">
+      ${stagePanel(pipelinePairs[2][0], pipelinePairs[2][1], pipelinePairs[2][2])}
+      ${stagePanel(pipelinePairs[3][0], pipelinePairs[3][1], pipelinePairs[3][2])}
+    </div>`;
+
+    // Projects (full-width — long-form items)
+    html += stagePanel('🔧 Projects', 'projects', property.projects);
+
+    // Holdings (full-width)
     const holdings = property.holdings_items || [];
-    html += `<div class="stage-section">
-      <div class="os-section-head">
-        <div class="os-section-title">💼 Holdings ${holdings.length ? `<span style="opacity:.6;margin-left:6px;">(${holdings.length})</span>` : ''}</div>
-        <div class="os-section-line"></div>
-        <a class="os-section-link" data-app="holdings" data-app-path="/" href="#">Manage ↗</a>
-      </div>
-      ${holdings.length
+    html += panelSection({
+      title: `💼 Holdings ${holdings.length ? `<span style="opacity:.6;margin-left:4px;font-weight:500;">(${holdings.length})</span>` : ''}`,
+      link: `<a class="os-panel-link" data-app="holdings" data-app-path="/" href="#">Manage ↗</a>`,
+      body: holdings.length
         ? holdings.map(h => {
             const badge = holdingDueBadge(h.next_due_date, h.reminder_days_before);
             const amt = h.amount != null ? `${formatMoney(h.amount)} / ${escHtml(holdingFrequencyLabel(h.frequency))}` : escHtml(holdingFrequencyLabel(h.frequency));
@@ -416,66 +708,56 @@
               <span class="status-pill" style="background:${badge.cls === 'badge-danger' ? '#fee2e2' : badge.cls === 'badge-warn' ? '#fef3c7' : 'var(--brand-light)'}; color:${badge.cls === 'badge-danger' ? '#b91c1c' : badge.cls === 'badge-warn' ? '#92400e' : 'var(--brand)'};">${escHtml(badge.label)}</span>
             </a>`;
           }).join('')
-        : '<div class="text-muted text-xs" style="padding:6px 0 4px;">None yet. <a data-app="holdings" data-app-path="/" href="#">Add one in Holdings Desk ↗</a></div>'
-      }
+        : emptyState('No holdings yet.', '<a data-app="holdings" data-app-path="/" href="#">Add one in Holdings Desk ↗</a>')
+    });
+
+    // Email + Contacts side-by-side
+    html += `<div class="prop-2col">
+      ${panelSection({
+        title: `📧 Email <span class="text-muted text-xs" style="font-weight:400;margin-left:4px;" id="email-threads-count"></span>`,
+        link: `<a class="os-panel-link" data-app="inbox" data-app-path="/" href="#">Open Inbox ↗</a>`,
+        body: `<div id="email-threads-list" class="text-muted text-xs">Loading…</div>`
+      })}
+      ${panelSection({
+        title: `📇 Contacts ${property.contacts.length ? `<span style="opacity:.6;margin-left:4px;font-weight:500;">(${property.contacts.length})</span>` : ''}`,
+        link: `<a href="#" class="os-panel-link" onclick="event.preventDefault();addContactLink()">+ Link</a>`,
+        body: property.contacts.length
+          ? property.contacts.map(c => `<div class="prop-contact-card">
+              <div class="avatar">${escHtml(c.full_name.charAt(0).toUpperCase())}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:600;"><a href="/contact.html?id=${c.id}" style="color:inherit;text-decoration:none;">${escHtml(c.full_name)}</a></div>
+                <div class="role-tag">${escHtml(c.role)}${c.is_primary ? ' · primary' : ''}</div>
+              </div>
+              <button class="icon-btn" style="background:rgba(239,68,68,.12);color:var(--danger);" onclick="unlink('${c.id}','${c.role}')" title="Unlink">×</button>
+            </div>`).join('')
+          : emptyState('No contacts linked.')
+      })}
     </div>`;
 
-    html += `<div class="stage-section">
-      <div class="os-section-head">
-        <div class="os-section-title">📧 Email <span class="text-muted text-xs" style="font-weight:400;margin-left:6px;" id="email-threads-count"></span></div>
-        <div class="os-section-line"></div>
-        <a class="os-section-link" data-app="inbox" data-app-path="/" href="#">Open Inbox ↗</a>
-      </div>
-      <div id="email-threads-list" class="text-muted text-xs" style="padding:6px 0 4px;">Loading…</div>
-    </div>`;
-
-    html += `<div class="stage-section">
-      <div class="os-section-head">
-        <div class="os-section-title">📇 Contacts ${property.contacts.length ? `<span style="opacity:.6;margin-left:6px;">(${property.contacts.length})</span>` : ''}</div>
-        <div class="os-section-line"></div>
-        <a href="#" class="os-section-link" onclick="event.preventDefault();addContactLink()">+ Link</a>
-      </div>
-      ${property.contacts.length
-        ? property.contacts.map(c => `<div class="contact-row">
-            <div class="avatar">${escHtml(c.full_name.charAt(0).toUpperCase())}</div>
-            <div style="flex:1;">
-              <div><a href="/contact.html?id=${c.id}">${escHtml(c.full_name)}</a></div>
-              <div class="role-tag">${escHtml(c.role)}${c.is_primary ? ' · primary' : ''}</div>
-            </div>
-            <button class="icon-btn" style="background:rgba(239,68,68,.15);color:var(--danger);" onclick="unlink('${c.id}','${c.role}')" title="Unlink">×</button>
-          </div>`).join('')
-        : '<div class="text-muted text-xs" style="padding:6px 0 4px;">No contacts linked.</div>'}
-    </div>`;
-
-    html += `<div class="stage-section">
-      <div class="os-section-head">
-        <div class="os-section-title">📷 Photos ${property.photos.length ? `<span style="opacity:.6;margin-left:6px;">(${property.photos.length})</span>` : ''}</div>
-        <div class="os-section-line"></div>
-      </div>
-      ${property.photos.length
+    // Photos (full-width gallery)
+    html += panelSection({
+      title: `📷 Photos ${property.photos.length ? `<span style="opacity:.6;margin-left:4px;font-weight:500;">(${property.photos.length})</span>` : ''}`,
+      body: property.photos.length
         ? `<div class="photo-grid">${property.photos.map((ph, i) => `
             <div class="photo-tile" onclick="openLightbox(${i})">
               <img src="${escHtml(ph.url)}" alt="">
               ${ph.uploader_name ? `<div class="photo-meta">${escHtml(ph.uploader_name)}</div>` : ''}
             </div>`).join('')}</div>`
-        : '<div class="text-muted text-xs" style="padding:6px 0 4px;">No photos yet. Upload via the FieldCam app.</div>'}
-    </div>`;
+        : emptyState('No photos yet. Upload via the FieldCam app.')
+    });
 
-    html += `<div class="stage-section">
-      <div class="os-section-head">
-        <div class="os-section-title">📎 Files <span class="text-muted text-xs" style="font-weight:400;margin-left:6px;" id="files-count"></span></div>
-        <div class="os-section-line"></div>
-        <label class="os-section-link" style="cursor:pointer;">
-          + Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)">
-        </label>
-      </div>
-      <div id="files-list" class="text-muted text-xs" style="padding:6px 0 4px;">Loading…</div>
-      <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>
-    </div>`;
+    // Files (full-width)
+    html += panelSection({
+      title: `📎 Files <span class="text-muted text-xs" style="font-weight:400;margin-left:4px;" id="files-count"></span>`,
+      link: `<label class="os-panel-link" style="cursor:pointer;">+ Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)"></label>`,
+      body: `<div id="files-list" class="text-muted text-xs">Loading…</div>
+             <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>`
+    });
 
-    html += `<div class="stage-section" style="margin-top:40px;border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;align-items:center;gap:8px;">
-      <button class="btn btn-danger" style="padding:6px 14px;font-size:.8rem;" onclick="deleteThisProperty()">🗑️ Delete Property</button>
-      <p class="text-muted text-xs" style="text-align:center;margin:0;max-width:560px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
+    // Danger zone
+    html += `<div class="prop-danger-zone">
+      <button class="btn btn-danger" style="padding:8px 18px;font-size:.85rem;" onclick="deleteThisProperty()">🗑️ Delete Property</button>
+      <p class="text-muted text-xs" style="margin:0;max-width:560px;">Owner-only. Permanently removes the property and everything attached to it (prospects, leads, opps, purchases, projects, photos, contact links).</p>
     </div>`;
 
     document.getElementById('page').innerHTML = html;
