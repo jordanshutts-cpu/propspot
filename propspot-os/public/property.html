@@ -18,8 +18,19 @@
     .contact-row:last-child { border-bottom:none; }
     .role-tag { font-size: .7rem; color: var(--text-muted); }
     .photo-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
-    .photo-tile { position:relative; aspect-ratio: 1/1; border-radius: 8px; overflow:hidden; background: var(--surface); cursor:pointer; }
-    .photo-tile img { width:100%; height:100%; object-fit: cover; display:block; }
+    .photo-tile {
+      position:relative; aspect-ratio: 1/1; border-radius: 8px;
+      overflow:hidden; background: var(--surface); cursor:pointer;
+      /* Off-screen tiles aren't laid out / painted — keeps large galleries
+         snappy (51+ photos, 6 MB+ each, would otherwise hammer the GPU). */
+      content-visibility: auto;
+      contain-intrinsic-size: auto 110px;
+    }
+    .photo-tile img {
+      width:100%; height:100%; object-fit: cover; display:block;
+      /* Soft fade-in once the lazy-loaded bytes decode. */
+      background: linear-gradient(135deg, var(--bg) 0%, var(--surface) 100%);
+    }
     .photo-tile .photo-meta { position:absolute; bottom:0; left:0; right:0; padding: 4px 6px; font-size:.65rem; color:#fff; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
     .photo-lightbox { position:fixed; inset:0; background: rgba(0,0,0,.85); z-index: 1000; display:flex; align-items:center; justify-content:center; padding: 20px; }
     .photo-lightbox img { max-width:100%; max-height:90vh; border-radius: 8px; }
@@ -398,16 +409,24 @@
       box-shadow: 0 8px 20px -6px rgba(15,23,42,0.18);
     }
 
-    /* Featured photo "show more" tile */
+    /* "+N more" tile that toggles the gallery open */
     .photo-tile-more {
       position: relative;
       background: linear-gradient(135deg, var(--brand-light), var(--bg));
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 0.95rem;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1.15rem;
       color: var(--brand-dark, #15803d);
       cursor: pointer;
-      border-radius: 10px;
+      border-radius: 8px;
       aspect-ratio: 1/1;
+      border: 1px dashed rgba(97,183,70,0.40);
+      transition: background 0.12s, border-color 0.12s, transform 0.10s;
+    }
+    .photo-tile-more:hover {
+      background: linear-gradient(135deg, rgba(97,183,70,0.20), var(--brand-light));
+      border-color: var(--brand);
+      transform: scale(1.02);
     }
 
     /* Delete property zone */
@@ -734,24 +753,83 @@
       })}
     </div>`;
 
-    // Photos (full-width gallery)
-    html += panelSection({
-      title: `📷 Photos ${property.photos.length ? `<span style="opacity:.6;margin-left:4px;font-weight:500;">(${property.photos.length})</span>` : ''}`,
-      body: property.photos.length
-        ? `<div class="photo-grid">${property.photos.map((ph, i) => `
-            <div class="photo-tile" onclick="openLightbox(${i})">
-              <img src="${escHtml(ph.url)}" alt="">
-              ${ph.uploader_name ? `<div class="photo-meta">${escHtml(ph.uploader_name)}</div>` : ''}
-            </div>`).join('')}</div>`
-        : emptyState('No photos yet. Upload via the FieldCam app.')
-    });
-
-    // Files (full-width)
+    // Files (full-width) — now ABOVE photos
     html += panelSection({
       title: `📎 Files <span class="text-muted text-xs" style="font-weight:400;margin-left:4px;" id="files-count"></span>`,
       link: `<label class="os-panel-link" style="cursor:pointer;">+ Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)"></label>`,
       body: `<div id="files-list" class="text-muted text-xs">Loading…</div>
              <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>`
+    });
+
+    // Photos (full-width gallery) — collapsible, lazy-loaded for performance.
+    // ── Collapse state ──
+    // Auto-collapses by default when there are more than 20 photos to keep
+    // the page light on first render. State persists per-property in
+    // localStorage so the user's choice sticks across reloads. When
+    // collapsed we render PREVIEW_COUNT thumbnails + a "+N more" tile.
+    const photoCount        = property.photos.length;
+    const PHOTO_AUTO_COLLAPSE_THRESHOLD = 20;
+    const PHOTO_PREVIEW_COUNT           = 12;
+    const photoCollapseKey  = `propspot_photos_collapsed_${property.id}`;
+    const defaultCollapsed  = photoCount > PHOTO_AUTO_COLLAPSE_THRESHOLD;
+    let photosCollapsed;
+    try {
+      const stored = localStorage.getItem(photoCollapseKey);
+      photosCollapsed = stored === null ? defaultCollapsed : stored === '1';
+    } catch { photosCollapsed = defaultCollapsed; }
+    // Don't allow collapse when there's nothing to hide.
+    if (photoCount <= PHOTO_PREVIEW_COUNT) photosCollapsed = false;
+
+    const visiblePhotos = photosCollapsed
+      ? property.photos.slice(0, PHOTO_PREVIEW_COUNT)
+      : property.photos;
+    const hiddenCount = photoCount - visiblePhotos.length;
+
+    // Per-image perf hints:
+    //   first 4 → eager + high priority (above-the-fold)
+    //   5–11   → eager but low priority (warm scrolling)
+    //   rest   → lazy + low priority (browser fetches on approach)
+    const photoTileHtml = (ph, i) => {
+      const eager = i < 8;
+      const priority = i < 4 ? 'high' : 'low';
+      return `<div class="photo-tile" onclick="openLightbox(${i})">
+        <img src="${escHtml(ph.url)}" alt=""
+             loading="${eager ? 'eager' : 'lazy'}"
+             decoding="async"
+             fetchpriority="${priority}">
+        ${ph.uploader_name ? `<div class="photo-meta">${escHtml(ph.uploader_name)}</div>` : ''}
+      </div>`;
+    };
+
+    const photosBody = photoCount
+      ? `<div class="photo-grid">
+           ${visiblePhotos.map((ph, i) => photoTileHtml(ph, i)).join('')}
+           ${hiddenCount > 0 ? `
+             <div class="photo-tile photo-tile-more" onclick="window.__togglePhotos && window.__togglePhotos()" title="Show all photos">
+               <div>+${hiddenCount}</div>
+               <div style="font-size:.7rem;font-weight:600;color:var(--text-muted);margin-top:4px;">more</div>
+             </div>` : ''}
+         </div>`
+      : emptyState('No photos yet. Upload via the FieldCam app.');
+
+    const photosToggleLink = photoCount > PHOTO_PREVIEW_COUNT
+      ? `<a href="#" class="os-panel-link" onclick="event.preventDefault();window.__togglePhotos && window.__togglePhotos()">${photosCollapsed ? `▾ Show all ${photoCount}` : '▴ Hide'}</a>`
+      : '';
+
+    // Expose toggle (stable handle — replaces previous on each render).
+    window.__togglePhotos = function() {
+      try {
+        const cur = localStorage.getItem(photoCollapseKey);
+        const isCollapsedNow = cur === null ? defaultCollapsed : cur === '1';
+        localStorage.setItem(photoCollapseKey, isCollapsedNow ? '0' : '1');
+      } catch {}
+      render();
+    };
+
+    html += panelSection({
+      title: `📷 Photos ${photoCount ? `<span style="opacity:.6;margin-left:4px;font-weight:500;">(${photoCount})</span>` : ''}${photosCollapsed && hiddenCount ? `<span class="text-muted text-xs" style="font-weight:500;margin-left:6px;">showing ${visiblePhotos.length}</span>` : ''}`,
+      link: photosToggleLink,
+      body: photosBody
     });
 
     // Danger zone
