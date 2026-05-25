@@ -167,10 +167,16 @@
   };
 
   // ── State helpers ──────────────────────────────────────────
-  function isPremium() {
-    try { return localStorage.getItem('propspot_theme') === 'premium'; }
-    catch (e) { return false; }
+  // 'classic' | 'premium' | 'dark'. 'dark' is a Palantir-style dark
+  // variant of premium — both classes (.theme-premium + .theme-dark)
+  // get applied so premium.css carries through and dark.css layers on
+  // top for surface/color overrides.
+  function getTheme() {
+    try { return localStorage.getItem('propspot_theme') || 'classic'; }
+    catch (e) { return 'classic'; }
   }
+  function isPremium() { var t = getTheme(); return t === 'premium' || t === 'dark'; }
+  function isDark()    { return getTheme() === 'dark'; }
 
   // ── CSS injection ──────────────────────────────────────────
   function ensurePremiumCSS() {
@@ -179,6 +185,14 @@
     link.id   = 'premium-css-link';
     link.rel  = 'stylesheet';
     link.href = '/premium.css';
+    document.head.appendChild(link);
+  }
+  function ensureDarkCSS() {
+    if (document.getElementById('dark-css-link')) return;
+    var link = document.createElement('link');
+    link.id   = 'dark-css-link';
+    link.rel  = 'stylesheet';
+    link.href = '/dark.css';
     document.head.appendChild(link);
   }
 
@@ -199,6 +213,12 @@
       document.documentElement.classList.add('theme-premium');
     } else {
       document.documentElement.classList.remove('theme-premium');
+    }
+    if (isDark()) {
+      ensureDarkCSS();
+      document.documentElement.classList.add('theme-dark');
+    } else {
+      document.documentElement.classList.remove('theme-dark');
     }
     updateToggleButton();
   }
@@ -405,17 +425,24 @@
     }
   }
 
-  // ── Public toggle ──────────────────────────────────────────
+  // ── Public toggle / setter ─────────────────────────────────
+  // toggleTheme keeps the classic↔premium cycle for legacy callers
+  // (e.g. keyboard shortcuts) — dark is reached via setTheme('dark').
   function toggleTheme() {
-    var next = isPremium() ? 'classic' : 'premium';
+    var current = getTheme();
+    var next    = current === 'classic' ? 'premium' : 'classic';
+    setTheme(next);
+  }
+  function setTheme(next) {
+    if (!['classic','premium','dark'].includes(next)) return;
+    var prevWasPremium = isPremium();
     try { localStorage.setItem('propspot_theme', next); } catch (e) {}
-
-    if (next === 'premium') {
-      applyTheme();
-      // Small delay so premium.css is parsed before we inject SVGs
+    applyTheme();
+    var nowPremium = isPremium();
+    if (nowPremium) {
+      // Small delay so any newly-loaded CSS is parsed before we inject SVGs
       setTimeout(function () { replaceEmojisIn(document); }, 60);
-    } else {
-      applyTheme();
+    } else if (prevWasPremium) {
       restoreEmojis();
     }
   }
@@ -443,7 +470,10 @@
 
   // ── Expose public API ──────────────────────────────────────
   window.toggleTheme       = toggleTheme;
+  window.setTheme          = setTheme;
+  window.__getTheme        = getTheme;
   window.__isPremiumTheme  = isPremium;
+  window.__isDarkTheme     = isDark;
   window.__replaceEmojisIn = replaceEmojisIn;
 
   // ── Init ───────────────────────────────────────────────────

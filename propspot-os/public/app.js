@@ -724,7 +724,7 @@ function openSettings() {
   // Tear down any prior instance
   document.getElementById('settings-modal')?.remove();
 
-  const isPremium = !!(window.__isPremiumTheme && window.__isPremiumTheme());
+  const currentTheme = (window.__getTheme && window.__getTheme()) || 'classic';
   const wrap = document.createElement('div');
   wrap.id = 'settings-modal';
   wrap.className = 'settings-backdrop open';
@@ -740,11 +740,12 @@ function openSettings() {
           <div class="settings-row">
             <div class="settings-row-text">
               <div class="settings-row-title">Theme</div>
-              <div class="settings-row-sub">Switch between the classic look and the premium visual style.</div>
+              <div class="settings-row-sub">Classic original look, refined Premium light theme, or a Palantir-style Dark mode.</div>
             </div>
             <div class="settings-segmented" role="group">
-              <button type="button" class="settings-seg-btn ${!isPremium ? 'active' : ''}" data-theme="classic" onclick="setTheme('classic')">Classic</button>
-              <button type="button" class="settings-seg-btn ${ isPremium ? 'active' : ''}" data-theme="premium" onclick="setTheme('premium')">Premium</button>
+              <button type="button" class="settings-seg-btn ${currentTheme==='classic' ? 'active' : ''}" data-theme="classic" onclick="pickTheme('classic')">Classic</button>
+              <button type="button" class="settings-seg-btn ${currentTheme==='premium' ? 'active' : ''}" data-theme="premium" onclick="pickTheme('premium')">Premium</button>
+              <button type="button" class="settings-seg-btn ${currentTheme==='dark'    ? 'active' : ''}" data-theme="dark"    onclick="pickTheme('dark')">Dark</button>
             </div>
           </div>
         </div>
@@ -774,12 +775,16 @@ function openSettings() {
 function closeSettings() {
   document.getElementById('settings-modal')?.remove();
 }
-function setTheme(which) {
-  const isPremium = !!(window.__isPremiumTheme && window.__isPremiumTheme());
-  const wantPremium = which === 'premium';
-  if (isPremium === wantPremium) return; // already matches
-  if (typeof window.toggleTheme === 'function') window.toggleTheme();
-  // Refresh the segmented control in the open modal
+// pickTheme is the settings-modal entry point. theme.js owns the
+// actual class-toggling / CSS-loading via window.setTheme; this just
+// forwards and keeps the segmented control's active state in sync.
+function pickTheme(which) {
+  if (typeof window.setTheme === 'function') {
+    window.setTheme(which);
+  } else if (typeof window.toggleTheme === 'function' && which !== 'classic') {
+    // Fallback for older theme.js — best-effort
+    window.toggleTheme();
+  }
   document.querySelectorAll('#settings-modal .settings-seg-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === which);
   });
