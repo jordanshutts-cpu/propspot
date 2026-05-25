@@ -50,22 +50,30 @@ html.theme-premium .os-newchrome-section-label {
   letter-spacing: 0.1em;
   padding-top: 18px;
 }
-/* Color each section label and tint its row icons to add depth. */
-html.theme-premium .os-newchrome-section-label[data-section="for-you"]  { color: #61B746; }
-html.theme-premium .os-newchrome-section-label[data-section="pipeline"] { color: #3b82f6; }
-html.theme-premium .os-newchrome-section-label[data-section="tools"]    { color: #8b5cf6; }
-html.theme-premium .os-newchrome-section-label[data-section="soon"]     { color: #94a3b8; }
-html.theme-premium .os-newchrome-section-label[data-section="pinned"]   { color: #f59e0b; }
-html.theme-premium .os-newchrome-section-label[data-section="recent"]   { color: #06b6d4; }
-/* Tint the rows immediately following each label. Each block ends at the
-   next section label, so a sibling-combinator chain covers the run. */
-html.theme-premium .os-newchrome-section-label[data-section="for-you"]  ~ .os-newchrome-row .os-newchrome-row-icon { color: #61B746; }
-html.theme-premium .os-newchrome-section-label[data-section="pipeline"] ~ .os-newchrome-row .os-newchrome-row-icon { color: #3b82f6; }
-html.theme-premium .os-newchrome-section-label[data-section="tools"]    ~ .os-newchrome-row .os-newchrome-row-icon { color: #8b5cf6; }
-/* Re-mute icons that follow the next label (sibling chain runs forward
-   indefinitely, so each later label overrides the earlier one). */
-html.theme-premium .os-newchrome-section-label[data-section="pipeline"] ~ .os-newchrome-section-label ~ .os-newchrome-row .os-newchrome-row-icon { color: #8b5cf6; }
-html.theme-premium .os-newchrome-section-label[data-section="tools"]    ~ .os-newchrome-section-label ~ .os-newchrome-row .os-newchrome-row-icon { color: #94a3b8; }
+/* Coordinated section palette — section label + row icons share one accent.
+   Matches the base palette in chrome.css. */
+html.theme-premium .os-newchrome-section-label[data-section="for-you"]   { color: #15803d; }
+html.theme-premium .os-newchrome-section-label[data-section="pipeline"]  { color: #4f46e5; }
+html.theme-premium .os-newchrome-section-label[data-section="workspace"] { color: #d97706; }
+html.theme-premium .os-newchrome-section-label[data-section="tools"]     { color: #9333ea; }
+html.theme-premium .os-newchrome-section-label[data-section="soon"]      { color: #94a3b8; }
+html.theme-premium .os-newchrome-section-label[data-section="pinned"]    { color: #b45309; }
+html.theme-premium .os-newchrome-section-label[data-section="recent"]    { color: #0e7490; }
+
+/* Per-row icon color — driven by row data-section (set in sidebar.js).
+   This replaces the older sibling-combinator chain. */
+html.theme-premium .os-newchrome-row[data-section="for-you"]   .os-newchrome-row-icon { color: #15803d; }
+html.theme-premium .os-newchrome-row[data-section="pipeline"]  .os-newchrome-row-icon { color: #4f46e5; }
+html.theme-premium .os-newchrome-row[data-section="workspace"] .os-newchrome-row-icon { color: #d97706; }
+html.theme-premium .os-newchrome-row[data-section="tools"]     .os-newchrome-row-icon { color: #9333ea; }
+html.theme-premium .os-newchrome-row[data-section="soon"]      .os-newchrome-row-icon { color: #94a3b8; }
+
+/* Hover tints each section's row in its own accent — no more universal gray */
+html.theme-premium .os-newchrome-row[data-section="for-you"]:not(.active):hover   { background: rgba(22,163,74,0.08);  color: #15803d; }
+html.theme-premium .os-newchrome-row[data-section="pipeline"]:not(.active):hover  { background: rgba(79,70,229,0.08);  color: #4f46e5; }
+html.theme-premium .os-newchrome-row[data-section="workspace"]:not(.active):hover { background: rgba(217,119,6,0.10);  color: #b45309; }
+html.theme-premium .os-newchrome-row[data-section="tools"]:not(.active):hover     { background: rgba(147,51,234,0.08); color: #7e22ce; }
+html.theme-premium .os-newchrome-row[data-section="soon"]:not(.active):hover      { background: rgba(148,163,184,0.10); color: #475569; }
 
 html.theme-premium .os-newchrome-row {
   padding: 5px 10px;
@@ -76,7 +84,7 @@ html.theme-premium .os-newchrome-row {
   gap: 8px;
   transition: background 0.1s, color 0.1s;
 }
-html.theme-premium .os-newchrome-row:hover {
+html.theme-premium .os-newchrome-row:not([data-section]):hover {
   background: #f4f4f5;
   color: #111827;
 }
@@ -88,7 +96,9 @@ html.theme-premium .os-newchrome-row {
   border-radius: 7px;
   transition: background 0.12s ease, color 0.12s ease;
 }
-html.theme-premium .os-newchrome-row:not(.active):hover {
+/* Fallback hover for rows without a section (pinned/recent) —
+   sectioned rows get tinted backgrounds via the per-section rules above. */
+html.theme-premium .os-newchrome-row:not([data-section]):not(.active):hover {
   background: rgba(15, 23, 42, 0.04);
   color: #111827;
 }
@@ -114,9 +124,7 @@ html.theme-premium .os-newchrome-row.active::before {
   background: var(--brand);
   border-radius: 0 3px 3px 0;
 }
-html.theme-premium .os-newchrome-row.active .os-newchrome-row-icon {
-  color: var(--brand) !important;
-}
+/* Active icon retains its section accent — see per-section rules above. */
 
 /* ── Nav icons — hide emoji, show SVG ───────────────────────── */
 html.theme-premium .os-newchrome-row-icon {
@@ -134,8 +142,10 @@ html.theme-premium .os-newchrome-row-icon svg {
   height: 14px;
   display: block;
 }
-html.theme-premium .os-newchrome-row.active .os-newchrome-row-icon { color: var(--brand); }
-html.theme-premium .os-newchrome-row:hover .os-newchrome-row-icon  { color: #374151; }
+/* Active & hover icon colors are owned by the per-section rules above —
+   no global override. Pinned/recent rows (sectionless) keep brand-green. */
+html.theme-premium .os-newchrome-row:not([data-section]).active .os-newchrome-row-icon { color: var(--brand); }
+html.theme-premium .os-newchrome-row:not([data-section]):hover .os-newchrome-row-icon  { color: #374151; }
 
 /* ── Sidebar badges ─────────────────────────────────────────── */
 html.theme-premium .os-newchrome-badge {

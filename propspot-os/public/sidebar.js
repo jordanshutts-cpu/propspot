@@ -682,7 +682,7 @@
   // Bumped to v3 — workspace tile is now the Home button (anchor +
   // chevron removed + Home row removed). Old v2 cache would briefly
   // re-show the old structure before fresh render replaces it.
-  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v6';
+  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v7';
 
   function saveSidebarCache(html) {
     try { sessionStorage.setItem(SIDEBAR_CACHE_KEY, html); } catch (e) {}
