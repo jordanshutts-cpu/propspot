@@ -58,13 +58,27 @@ html.theme-dark body {
    render their dark variants. */
 html.theme-dark { color-scheme: dark; }
 
-/* ── Page loader — deep canvas with brand-colored mask glyph ─ */
+/* ── Page loader — deep canvas with PropSpot mark + wordmark ─
+   The logo PNG has a white plate baked in. On dark we paint a tidy
+   white chip around it so the chip itself reads as intentional brand
+   styling, with a soft brand-green glow ring.
+   IMPORTANT: use background-color (NOT 'background' shorthand) or
+   the light-mode background-image:url('/logo.png') gets wiped. */
 html.theme-dark .os-page-loader { background: var(--d-bg); }
 html.theme-dark .os-page-loader-logo {
-  background-color: var(--d-brand);   /* brand fills the mask shape */
-  /* drop-shadow filter on a masked element creates a soft brand glow */
-  filter: drop-shadow(0 0 18px rgba(110,208,87,0.40));
+  mix-blend-mode: normal;
+  background-color: #fff;
+  background-clip: padding-box;
+  border-radius: 16px;
+  padding: 10px;
+  box-sizing: border-box;
+  box-shadow:
+    0 0 0 1px rgba(110,208,87,0.45),
+    0 0 28px rgba(110,208,87,0.28),
+    0 4px 16px rgba(0,0,0,0.50);
 }
+html.theme-dark .os-page-loader-wordmark { color: var(--d-text-strong); }
+html.theme-dark .os-page-loader-wordmark .os-suffix { color: var(--d-brand); }
 html.theme-dark .os-page-loader-dots span { background: rgba(110,208,87,0.35); }
 
 /* ── Top header ──────────────────────────────────────────────── */
@@ -135,9 +149,7 @@ html.theme-dark .os-newchrome-brand-logo img {
     0 1px 3px rgba(0,0,0,0.40);
 }
 
-/* Loader logo is now a CSS mask (see style.css). The brand color
-   override above (background-color: var(--d-brand)) does all the
-   work — no chip, no shadow, no white plate. */
+/* (Loader dark treatment lives near the top of this file.) */
 html.theme-dark .os-newchrome-collapse-btn { color: var(--d-text-dim); }
 html.theme-dark .os-newchrome-collapse-btn:hover { background: rgba(255,255,255,0.05); color: var(--d-text); }
 

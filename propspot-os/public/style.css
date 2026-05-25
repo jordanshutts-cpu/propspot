@@ -88,35 +88,43 @@ html.page-loading .os-page-loader,
 
 .os-page-loader-stack {
   display: flex; flex-direction: column; align-items: center;
-  gap: 20px; position: relative;
+  gap: 18px; position: relative;
 }
 .os-page-loader-logo {
   width: 96px; height: 96px;
   position: relative;
-  /* Clean brand-green house silhouette via CSS mask. No PNG, no
-     white plate, no shadow — the brand color fills only the shape,
-     so it sits naturally on any background (light or dark). */
-  background-color: var(--brand, #61B746);
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='m3 9.5 9-7 9 7V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M9 22V14h6v8'/><circle cx='12' cy='10' r='1.2' fill='black' stroke='none'/></svg>") center/contain no-repeat;
-          mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='m3 9.5 9-7 9 7V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M9 22V14h6v8'/><circle cx='12' cy='10' r='1.2' fill='black' stroke='none'/></svg>") center/contain no-repeat;
+  background-image: url('/logo.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  /* On the light off-white canvas (#fafbfc), multiply blends the
+     PNG's white plate cleanly into the bg so only the glyph remains.
+     Dark mode overrides this with a tidy white chip in dark.css. */
+  mix-blend-mode: multiply;
   animation: os-loader-breathe 1.9s ease-in-out infinite;
 }
-/* Hide the legacy halo/wordmark/progress-bar elements — the new
-   minimalist treatment is just logo + dots on one clean color. */
-.os-page-loader-bar,
-.os-page-loader-wordmark { display: none !important; }
+/* Progress bar / halo aren't part of the new design. */
+.os-page-loader-bar { display: none !important; }
 .os-page-loader-logo::before {
   content: none;
   z-index: -1;
   pointer-events: none;
 }
+/* Wordmark — 'PropSpot' + brand-green '.OS' suffix */
 .os-page-loader-wordmark {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: #9ca3af;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #111827;
   user-select: none;
+  line-height: 1;
+}
+.os-page-loader-wordmark .os-suffix {
+  color: #61B746;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin-left: 1px;
 }
 @keyframes os-loader-breathe {
   0%, 100% { transform: scale(1);    opacity: 0.94; }
