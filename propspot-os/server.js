@@ -113,26 +113,33 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// ── Static Frontend ────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')));
-
 // ── FieldCam custom-domain routing ─────────────────────────────────
-// When accessed via fieldcam.propspot.io (configurable via FIELDCAM_HOSTNAME),
-// serve FieldCam pages directly instead of the main OS shell.
-//   /          → fieldcam dashboard  (fieldcam.html)
-//   /camera    → full-screen camera  (fieldcam-camera.html)
-//   /property  → property detail     (fieldcam-property.html)
-//   /api/*     → pass through to API routes as normal
-// Static assets (.js, .css, images) are served by express.static above.
+// MUST be before express.static — static middleware serves index.html
+// for '/' before the catch-all ever fires, so the hostname check has
+// to intercept at the middleware level instead.
+//
+//   fieldcam.propspot.io/           → fieldcam.html  (dashboard)
+//   fieldcam.propspot.io/camera*    → fieldcam-camera.html
+//   fieldcam.propspot.io/property*  → fieldcam-property.html
+//   fieldcam.propspot.io/api/*      → pass through to API routes
+//   fieldcam.propspot.io/*.js|css…  → pass through to express.static
 const FIELDCAM_HOSTNAME = process.env.FIELDCAM_HOSTNAME || 'fieldcam.propspot.io';
 
+app.use((req, res, next) => {
+  // Support both direct hostname and X-Forwarded-Host (Railway reverse proxy)
+  const host = (req.get('x-forwarded-host') || req.hostname || '').split(':')[0].toLowerCase();
+  if (host !== FIELDCAM_HOSTNAME) return next();
+  if (req.path.startsWith('/api/')) return next();                       // API — normal routing
+  if (/\.(js|css|png|jpg|jpeg|ico|svg|woff2?|map|webp)$/i.test(req.path)) return next(); // static assets
+  const p = req.path;
+  if (p.startsWith('/camera'))   return res.sendFile(path.join(__dirname, 'public', 'fieldcam-camera.html'));
+  if (p.startsWith('/property')) return res.sendFile(path.join(__dirname, 'public', 'fieldcam-property.html'));
+  return res.sendFile(path.join(__dirname, 'public', 'fieldcam.html'));
+});
+
+// ── Static Frontend ────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => {
-  if (req.hostname === FIELDCAM_HOSTNAME) {
-    const p = req.path;
-    if (p.startsWith('/camera'))  return res.sendFile(path.join(__dirname, 'public', 'fieldcam-camera.html'));
-    if (p.startsWith('/property')) return res.sendFile(path.join(__dirname, 'public', 'fieldcam-property.html'));
-    return res.sendFile(path.join(__dirname, 'public', 'fieldcam.html'));
-  }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
