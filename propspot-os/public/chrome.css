@@ -840,35 +840,128 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
 .os-newchrome-scope-chip-close:hover { background: #dbeafe; }
 
 /* ── Lifecycle stepper (property page) ──────────────────────────
-   Clean, legible, premium. Solid filled dots with crisp tabular
-   numbers; subtle outer ring on current step (no pulse, no scale)
-   so the number stays the focal element. Card padding tightened so
-   the bar sits flush with the property data card below. */
+   Premium card matching the .os-hero / .os-panel family — subtle
+   brand-tinted gradient backdrop, gradient progress rail behind the
+   dots, eyebrow + progress badge header, polished "Next" callout. */
 .os-newchrome-stepper {
-  background: #fff;
-  border: 1px solid #e8eaed;
-  border-radius: 12px;
-  padding: 18px 20px 14px;
-  margin-bottom: 14px;
+  --lc-progress: 0%;
+  position: relative;
+  background: linear-gradient(135deg, rgba(97,183,70,0.05) 0%, rgba(59,130,246,0.02) 60%, transparent 100%);
+  border: 1px solid rgba(97,183,70,0.20);
+  border-radius: 14px;
+  padding: 18px 22px 16px;
+  margin-bottom: 18px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  overflow: hidden;
 }
-.os-newchrome-stepper.dropped { background: #fef2f2; border-color: #fecaca; }
+.os-newchrome-stepper::after {
+  content: ''; position: absolute;
+  top: -50%; right: -8%; width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(97,183,70,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.os-newchrome-stepper.dropped {
+  background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, transparent 100%);
+  border-color: rgba(239,68,68,0.25);
+}
+.os-newchrome-stepper.dropped::after {
+  background: radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%);
+}
 .os-newchrome-stepper-dropped {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
   color: #b91c1c;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: rgba(239,68,68,0.10);
+  border-radius: 8px;
+  border: 1px solid rgba(239,68,68,0.20);
+  position: relative;
+  z-index: 1;
+}
+
+/* Header row — eyebrow on left, current-stage + percentage on right */
+.os-newchrome-stepper-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 1;
+}
+.os-newchrome-stepper-eyebrow {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--brand);
+}
+.os-newchrome-stepper-progress {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.os-newchrome-stepper-progress-label {
+  color: var(--text-muted, #6b7280);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.os-newchrome-stepper-progress-pct {
+  color: var(--brand-dark, #15803d);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.os-newchrome-stepper-progress-pct .pct-sign {
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 1px;
+  opacity: 0.7;
+}
+
+/* Track wrapper that holds the rail (background) + rail-fill (progress)
+   + the step dots above. The dots' connectors sit on top so the rail
+   reads as a single continuous bar. */
+.os-newchrome-stepper-track {
+  position: relative;
+  padding: 10px 0 6px;
+  margin-top: 2px;
+}
+/* Background rail — soft slate line behind all the dots. */
+.os-newchrome-stepper-rail {
+  position: absolute;
+  left: 14px; right: 14px;
+  top: 24px;     /* aligns with vertical center of 30px dots + 10px top padding − 1 */
+  height: 3px;
+  background: #e5e7eb;
+  border-radius: 100px;
+  z-index: 0;
+}
+/* Filled progress rail — clipped to --lc-progress, brand-gradient */
+.os-newchrome-stepper-rail-fill {
+  position: absolute;
+  left: 14px;
+  top: 24px;
+  height: 3px;
+  width: calc((100% - 28px) * var(--lc-progress) / 100);
+  background: linear-gradient(90deg, var(--brand-dark, #15803d) 0%, var(--brand) 100%);
+  border-radius: 100px;
+  z-index: 0;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px -1px rgba(97,183,70,0.40);
 }
 .os-newchrome-stepper-steps {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  /* overflow:visible so the current step's halo (5px box-shadow ring)
-     doesn't get clipped by the container. The 8-step bar fits cleanly
-     above ~560px viewport; below that we let it wrap awkwardly rather
-     than clip the halo. */
-  overflow: visible;
-  padding: 10px 0 8px;
+  overflow: visible;     /* keep current-step halo unclipped */
+  position: relative;
+  z-index: 1;
 }
 .os-newchrome-step {
   display: flex;
@@ -887,15 +980,15 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   background: #fff;
-  border: 1.5px solid #e2e8f0;
+  border: 2px solid #e5e7eb;
   color: #94a3b8;
   flex-shrink: 0;
   position: relative;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 .os-newchrome-step-label {
   font-size: 11.5px;
@@ -906,28 +999,37 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   font-weight: 500;
   letter-spacing: 0.01em;
 }
-/* Past — solid brand, crisp white checkmark. font-size + font-weight
-   tuned so the ✓ glyph reads at the same visual weight as the digits
-   in the future dots. */
+/* Past — solid brand gradient with white check icon */
 .os-newchrome-step--past .os-newchrome-step-dot {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #ffffff !important;          /* override theme.js currentColor */
-  font-size: 15px;
-  font-weight: 900;
-  box-shadow: 0 1px 2px rgba(97,183,70,0.20);
-}
-.os-newchrome-step--past .os-newchrome-step-label { color: var(--brand-dark); font-weight: 600; }
-/* Current — solid brand pill with a single soft outer ring. */
-.os-newchrome-step--current .os-newchrome-step-dot {
-  background: var(--brand);
-  border-color: var(--brand);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
+  border-color: var(--brand-dark, #15803d);
   color: #ffffff !important;
-  font-weight: 800;
+  box-shadow: 0 2px 4px -1px rgba(97,183,70,0.35),
+              inset 0 1px 0 rgba(255,255,255,0.20);
+}
+.os-newchrome-step--past .os-newchrome-step-dot svg {
+  stroke: #fff;
+}
+.os-newchrome-step--past .os-newchrome-step-label {
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+/* Current — slightly bigger dot with prominent brand halo */
+.os-newchrome-step--current .os-newchrome-step-dot {
+  width: 34px;
+  height: 34px;
+  font-size: 14px;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
+  border-color: var(--brand-dark, #15803d);
+  color: #ffffff !important;
   box-shadow:
-    0 0 0 3px #fff,                       /* white spacer between dot and ring */
-    0 0 0 5px rgba(97,183,70,0.30),       /* soft brand ring */
-    0 2px 4px rgba(97,183,70,0.20);
+    0 0 0 4px #fff,
+    0 0 0 6px rgba(97,183,70,0.35),
+    0 4px 10px -2px rgba(97,183,70,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.20);
+  /* Slight upward nudge so the bigger dot stays vertically centered
+     on the rail despite its 34px height. */
+  margin-top: -2px;
 }
 .os-newchrome-step--current .os-newchrome-step-label {
   color: var(--brand-dark);
@@ -935,50 +1037,57 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
 }
 /* Future — clean light surface with crisp slate number */
 .os-newchrome-step--future .os-newchrome-step-dot {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-  color: #64748b;
+  background: #fff;
+  border-color: #e5e7eb;
+  color: #94a3b8;
 }
-/* Connectors — flat slate default; past→anything = brand;
-   current→future = gradient fade so progress flows visually. */
+/* Hide the default connectors — the rail/rail-fill bars handle progress
+   visualization continuously now. Keep the elements in DOM (no display:
+   none) so flex spacing math stays consistent with the past structure. */
 .os-newchrome-step-connector {
   height: 2px;
   flex: 1;
-  background: #e2e8f0;
+  background: transparent;
   min-width: 8px;
-  margin-top: 16px;   /* center of 30px dot + 2px top padding − 1px (half line height) */
+  margin-top: 16px;
   border-radius: 1px;
-  transition: background 0.3s ease;
-}
-.os-newchrome-step--past + .os-newchrome-step-connector {
-  background: var(--brand);
-}
-.os-newchrome-step--current + .os-newchrome-step-connector {
-  background: linear-gradient(90deg, var(--brand) 0%, #e2e8f0 100%);
 }
 
+/* "Next" callout — left-bordered card matching the property notes style */
 .os-newchrome-stepper-next {
   margin-top: 16px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, rgba(97,183,70,0.06) 0%, rgba(97,183,70,0) 60%);
+  padding: 11px 14px 11px 12px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(97,183,70,0.06) 0%, transparent 70%);
+  border-left: 3px solid var(--brand);
   font-size: 13px;
-  color: #475569;
+  color: var(--text, #1f2937);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
-  line-height: 1.4;
+  line-height: 1.45;
+  position: relative;
+  z-index: 1;
 }
 .os-newchrome-stepper-next-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-weight: 800;
   color: var(--brand);
-  font-size: 9.5px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   flex-shrink: 0;
-  padding: 2px 7px;
+  padding: 3px 8px 3px 7px;
   background: rgba(97,183,70,0.14);
-  border-radius: 4px;
+  border-radius: 100px;
+}
+.os-newchrome-stepper-next-label svg { display: block; }
+.os-newchrome-stepper-next-text {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text, #1f2937);
 }
 
 /* ── AI Assistant button + panel ─────────────────────────────── */

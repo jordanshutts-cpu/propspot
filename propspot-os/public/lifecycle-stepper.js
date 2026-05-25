@@ -97,7 +97,16 @@
 
     const current    = stageFor(property);
     const isDead     = current === 'dead';
+    const isSold     = current === 'sold';
     const currentIdx = STAGES.findIndex(s => s.key === current);
+
+    // Progress = (completed + current/2) ÷ total. Sold = 100%, Dead = 0%.
+    const pct = isDead ? 0
+              : isSold ? 100
+              : Math.round(((currentIdx + 0.5) / STAGES.length) * 100);
+    const currentStage = STAGES[currentIdx];
+    const stageLabel = isDead ? 'Dead'
+                     : (currentStage ? currentStage.label : 'Unknown');
 
     const stepsHtml = STAGES.map((s, i) => {
       const status =
@@ -105,26 +114,62 @@
         i  <  currentIdx ? 'past'   :
         i === currentIdx ? 'current':
         'future';
+      // Past steps use a clean checkmark SVG (avoids unicode glyph quirks
+      // when the premium emoji scanner runs over the stepper).
+      const inner = status === 'past'
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>`
+        : i + 1;
       return `
         <div class="os-newchrome-step os-newchrome-step--${status}">
-          <div class="os-newchrome-step-dot">${status === 'past' ? '✓' : i + 1}</div>
+          <div class="os-newchrome-step-dot">${inner}</div>
           <div class="os-newchrome-step-label">${s.label}</div>
         </div>`;
     }).join(`<div class="os-newchrome-step-connector"></div>`);
 
     const deadBanner = isDead
-      ? `<div class="os-newchrome-stepper-dropped">💀 This property is marked Dead — won't be acquired.</div>`
+      ? `<div class="os-newchrome-stepper-dropped">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+           This property is marked <strong>Dead</strong> — won't be acquired.
+         </div>`
       : '';
 
     const next = nextLine(property);
+    // Progress bar — colored from 0 to pct% behind the stepper rail.
+    const progressBarStyle = `--lc-progress: ${pct}%;`;
 
     el.innerHTML = `
-      <div class="os-newchrome-stepper${isDead ? ' dropped' : ''}">
+      <div class="os-newchrome-stepper${isDead ? ' dropped' : ''}" style="${progressBarStyle}">
         ${deadBanner}
-        <div class="os-newchrome-stepper-steps">${stepsHtml}</div>
-        ${next ? `<div class="os-newchrome-stepper-next"><span class="os-newchrome-stepper-next-label">Next:</span> ${next}</div>` : ''}
+        <div class="os-newchrome-stepper-header">
+          <div class="os-newchrome-stepper-eyebrow">Property Lifecycle</div>
+          <div class="os-newchrome-stepper-progress">
+            <span class="os-newchrome-stepper-progress-label">${escHtmlLocal(stageLabel)}</span>
+            <span class="os-newchrome-stepper-progress-pct">${pct}<span class="pct-sign">%</span></span>
+          </div>
+        </div>
+        <div class="os-newchrome-stepper-track">
+          <div class="os-newchrome-stepper-rail"></div>
+          <div class="os-newchrome-stepper-rail-fill"></div>
+          <div class="os-newchrome-stepper-steps">${stepsHtml}</div>
+        </div>
+        ${next ? `
+          <div class="os-newchrome-stepper-next">
+            <span class="os-newchrome-stepper-next-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><polyline points="9 18 15 12 9 6"/></svg>
+              Next
+            </span>
+            <span class="os-newchrome-stepper-next-text">${next}</span>
+          </div>` : ''}
       </div>
     `;
+  }
+
+  // Tiny local escape — lifecycle-stepper loads on satellites that may not
+  // expose the host page's escHtml() helper.
+  function escHtmlLocal(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"]/g, c =>
+      ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
   }
 
   window.LifecycleStepper = { mount, stageFor };
