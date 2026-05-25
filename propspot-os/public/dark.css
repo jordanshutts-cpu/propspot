@@ -1231,3 +1231,116 @@ html.theme-dark .prop-danger-zone {
   border-color: rgba(239,68,68,0.30);
 }
 html.theme-dark .os-status-pill::before { background: var(--d-brand); }
+
+/* ── Property Database — Hivemind-style premium grid (dark) ──── */
+html.theme-dark .db-page {
+  background: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, transparent 100%);
+}
+html.theme-dark .db-controls {
+  background: var(--d-surface);
+  border-color: var(--d-border);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.40);
+}
+html.theme-dark .db-search input {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark .db-search input:focus {
+  border-color: var(--d-brand);
+  box-shadow: 0 0 0 3px rgba(110,208,87,0.12);
+}
+html.theme-dark .db-search-icon { color: var(--d-text-dim); }
+html.theme-dark .db-view-toggle {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+}
+html.theme-dark .db-view-toggle button { color: var(--d-text-dim); }
+html.theme-dark .db-view-toggle button.active {
+  background: var(--d-surface-2);
+  color: var(--d-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.40);
+}
+html.theme-dark .db-chip {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+  color: var(--d-text-muted);
+}
+html.theme-dark .db-chip:hover {
+  border-color: var(--d-brand);
+  color: var(--d-brand);
+}
+html.theme-dark .db-chip.active {
+  background: var(--d-brand);
+  color: #0a0e14;
+  border-color: var(--d-brand);
+}
+html.theme-dark .db-col {
+  background: rgba(0,0,0,0.20);
+  border-color: var(--d-border);
+}
+html.theme-dark .db-col-head { border-bottom-color: var(--d-border); }
+html.theme-dark .db-col-title { color: var(--d-text-strong); }
+html.theme-dark .db-col-count {
+  background: var(--d-surface-2);
+  color: var(--d-text-muted);
+}
+html.theme-dark .db-col-stat { color: var(--d-text-muted); }
+html.theme-dark .db-col-empty { color: var(--d-text-dim); }
+html.theme-dark .db-year-band {
+  color: var(--d-text-dim);
+  border-top-color: var(--d-border);
+}
+
+/* Cards in dark mode — slightly translucent surface so the accent
+   border + glow pops the way it does in the Hivemind reference. */
+html.theme-dark .db-card {
+  background: var(--d-surface);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark .db-card:hover {
+  border-color: var(--card-accent);
+  background: var(--d-surface-2);
+}
+html.theme-dark .db-card-title  { color: var(--d-text-strong); }
+html.theme-dark .db-card-sub    { color: var(--d-text-muted); }
+html.theme-dark .db-card-id     { color: var(--d-text-dim); }
+html.theme-dark .db-card-year   { color: var(--d-text-muted); }
+html.theme-dark .db-card-price  { color: var(--d-text-strong); }
+html.theme-dark .db-card-foot   { border-top-color: var(--d-border); }
+
+/* Brighten the status accents on dark so they read like the
+   Hivemind cards (which use saturated highlights against black). */
+html.theme-dark .db-card[data-status="purchasing"],
+html.theme-dark .db-col[data-status="purchasing"]            { --card-accent: #fbbf24; --col-accent: #fbbf24; --card-accent-bg: rgba(251,191,36,0.18); }
+html.theme-dark .db-card[data-status="renovating"],
+html.theme-dark .db-col[data-status="renovating"]            { --card-accent: #60a5fa; --col-accent: #60a5fa; --card-accent-bg: rgba(96,165,250,0.18); }
+html.theme-dark .db-card[data-status="renting"],
+html.theme-dark .db-col[data-status="renting"]               { --card-accent: #38bdf8; --col-accent: #38bdf8; --card-accent-bg: rgba(56,189,248,0.18); }
+html.theme-dark .db-card[data-status="rented"],
+html.theme-dark .db-col[data-status="rented"]                { --card-accent: #4ade80; --col-accent: #4ade80; --card-accent-bg: rgba(74,222,128,0.18); }
+html.theme-dark .db-card[data-status="listed_for_rent"],
+html.theme-dark .db-col[data-status="listed_for_rent"]       { --card-accent: #38bdf8; --col-accent: #38bdf8; --card-accent-bg: rgba(56,189,248,0.18); }
+html.theme-dark .db-card[data-status="selling"],
+html.theme-dark .db-col[data-status="selling"]               { --card-accent: #c084fc; --col-accent: #c084fc; --card-accent-bg: rgba(192,132,252,0.18); }
+html.theme-dark .db-card[data-status="listed_for_sale"],
+html.theme-dark .db-col[data-status="listed_for_sale"]       { --card-accent: #d8b4fe; --col-accent: #d8b4fe; --card-accent-bg: rgba(216,180,254,0.18); }
+html.theme-dark .db-card[data-status="under_contract_buyer"],
+html.theme-dark .db-col[data-status="under_contract_buyer"]  { --card-accent: #f472b6; --col-accent: #f472b6; --card-accent-bg: rgba(244,114,182,0.18); }
+html.theme-dark .db-card[data-status="sold"],
+html.theme-dark .db-col[data-status="sold"]                  { --card-accent: #94a3b8; --col-accent: #94a3b8; --card-accent-bg: rgba(148,163,184,0.18); }
+html.theme-dark .db-card[data-status="assigned"],
+html.theme-dark .db-col[data-status="assigned"]              { --card-accent: #64748b; --col-accent: #64748b; --card-accent-bg: rgba(100,116,139,0.18); }
+html.theme-dark .db-card[data-status="dropped"],
+html.theme-dark .db-col[data-status="dropped"]               { --card-accent: #6b7280; --col-accent: #6b7280; --card-accent-bg: rgba(107,114,128,0.18); }
+
+html.theme-dark .db-year-block {
+  background: var(--d-surface);
+  border-color: var(--d-border);
+}
+html.theme-dark .db-year-block-title { color: var(--d-text-strong); }
+html.theme-dark .db-year-block-meta  { color: var(--d-text-muted); }
+html.theme-dark .db-skel {
+  background: linear-gradient(90deg, var(--d-bg) 0%, var(--d-surface) 50%, var(--d-bg) 100%);
+}

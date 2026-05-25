@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Property Database</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    /* ── Property Database — Hivemind-inspired premium grid ──────── */
+
+    /* Page surface: subtle dark backdrop in light mode too so cards
+       pop the way they do in the reference image. Dark mode darkens
+       further via dark.css. */
+    .db-page {
+      background: linear-gradient(180deg, rgba(15,23,42,0.02) 0%, transparent 100%);
+      margin: -16px;
+      padding: 16px;
+      min-height: calc(100vh - 60px);
+    }
+
+    /* Controls strip — search + view toggle + filter chips */
+    .db-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .db-search {
+      position: relative;
+      flex: 1; min-width: 220px;
+    }
+    .db-search-icon {
+      position: absolute;
+      left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: .85rem;
+    }
+    .db-search input {
+      width: 100%;
+      padding: 8px 12px 8px 34px;
+      font-size: .85rem;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .db-search input:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(97,183,70,0.10);
+    }
+    .db-view-toggle {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .db-view-toggle button {
+      background: transparent;
+      border: none;
+      font-size: .78rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 100px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: background .12s, color .12s;
+    }
+    .db-view-toggle button.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .db-filter-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .db-chip {
+      font-size: .72rem;
+      padding: 4px 10px;
+      border-radius: 100px;
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all .12s;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.01em;
+    }
+    .db-chip:hover { border-color: var(--brand); color: var(--brand-dark); }
+    .db-chip.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+      box-shadow: 0 2px 6px -2px rgba(97,183,70,.40);
+    }
+
+    /* ── Columnar grid — one column per status ───────────────────── */
+    .db-grid-wrap {
+      overflow-x: auto;
+      padding-bottom: 16px;
+      /* Reserve scrollbar space so the page doesn't jump as cards load */
+      scrollbar-gutter: stable;
+    }
+    .db-grid {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(220px, 1fr);
+      gap: 12px;
+      min-width: 100%;
+    }
+    .db-col {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+    }
+    .db-col-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+    .db-col-title {
+      font-size: .78rem;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.01em;
+    }
+    .db-col-title::before {
+      content: '';
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--col-accent, #94a3b8);
+      box-shadow: 0 0 6px -1px var(--col-accent, #94a3b8);
+    }
+    .db-col-count {
+      font-size: .68rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: var(--surface);
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-variant-numeric: tabular-nums;
+    }
+    .db-col-stat {
+      font-size: .68rem;
+      color: var(--text-muted);
+      padding: 0 8px 8px;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .db-col-stat strong { color: var(--col-accent, var(--text)); font-weight: 700; }
+    .db-col-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      /* Off-screen cards skip layout/paint — huge gallery perf win */
+      content-visibility: auto;
+      contain-intrinsic-size: auto 130px;
+    }
+    .db-col-empty {
+      text-align: center;
+      padding: 30px 10px;
+      color: var(--text-muted);
+      font-size: .75rem;
+      font-style: italic;
+      opacity: 0.6;
+    }
+
+    /* Year separator inside a column (when grouping by year) */
+    .db-year-band {
+      font-size: .65rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      padding: 8px 6px 4px;
+      border-top: 1px dashed var(--border);
+      margin-top: 4px;
+    }
+    .db-year-band:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
+
+    /* ── Property card — colored by status ───────────────────────── */
+    .db-card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--card-accent, #94a3b8);
+      border-radius: 8px;
+      padding: 10px 11px 9px;
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .15s ease, border-color .12s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      overflow: hidden;
+    }
+    .db-card::before {
+      /* Tiny subtle glow on the accent edge */
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--card-accent);
+      box-shadow: 0 0 12px -2px var(--card-accent);
+      opacity: 0.55;
+    }
+    .db-card:hover {
+      transform: translateY(-1px);
+      border-color: var(--card-accent);
+      box-shadow: 0 6px 18px -8px var(--card-accent, rgba(0,0,0,.20));
+    }
+    .db-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+    .db-card-id {
+      font-size: .62rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+      text-transform: uppercase;
+    }
+    .db-card-status {
+      font-size: .6rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 100px;
+      background: var(--card-accent-bg, rgba(0,0,0,.04));
+      color: var(--card-accent, var(--text));
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+    .db-card-title {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.25;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .db-card-sub {
+      font-size: .7rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .db-card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .db-card-year {
+      font-size: .62rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .db-card-year strong { color: var(--card-accent); }
+    .db-card-price {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+
+    /* Per-status accent colors — match PROPERTY_STATUSES in app.js */
+    .db-card[data-status="purchasing"]            { --card-accent: #f59e0b; --card-accent-bg: rgba(245,158,11,0.12); }
+    .db-card[data-status="renovating"]            { --card-accent: #2563eb; --card-accent-bg: rgba(37,99,235,0.12); }
+    .db-card[data-status="renting"]               { --card-accent: #0284c7; --card-accent-bg: rgba(2,132,199,0.12); }
+    .db-card[data-status="rented"]                { --card-accent: #16a34a; --card-accent-bg: rgba(22,163,74,0.12); }
+    .db-card[data-status="listed_for_rent"]       { --card-accent: #0284c7; --card-accent-bg: rgba(2,132,199,0.12); }
+    .db-card[data-status="selling"]               { --card-accent: #a855f7; --card-accent-bg: rgba(168,85,247,0.12); }
+    .db-card[data-status="listed_for_sale"]       { --card-accent: #9333ea; --card-accent-bg: rgba(147,51,234,0.12); }
+    .db-card[data-status="under_contract_buyer"]  { --card-accent: #db2777; --card-accent-bg: rgba(219,39,119,0.12); }
+    .db-card[data-status="sold"]                  { --card-accent: #475569; --card-accent-bg: rgba(71,85,105,0.12); }
+    .db-card[data-status="assigned"]              { --card-accent: #334155; --card-accent-bg: rgba(51,65,85,0.12); }
+    .db-card[data-status="dropped"]               { --card-accent: #9ca3af; --card-accent-bg: rgba(156,163,175,0.12); }
+
+    /* Column accent uses the same map */
+    .db-col[data-status="purchasing"]            { --col-accent: #f59e0b; }
+    .db-col[data-status="renovating"]            { --col-accent: #2563eb; }
+    .db-col[data-status="renting"]               { --col-accent: #0284c7; }
+    .db-col[data-status="rented"]                { --col-accent: #16a34a; }
+    .db-col[data-status="listed_for_rent"]       { --col-accent: #0284c7; }
+    .db-col[data-status="selling"]               { --col-accent: #a855f7; }
+    .db-col[data-status="listed_for_sale"]       { --col-accent: #9333ea; }
+    .db-col[data-status="under_contract_buyer"]  { --col-accent: #db2777; }
+    .db-col[data-status="sold"]                  { --col-accent: #475569; }
+    .db-col[data-status="assigned"]              { --col-accent: #334155; }
+    .db-col[data-status="dropped"]               { --col-accent: #9ca3af; }
+
+    /* "By Year" view — rows of year × status columns */
+    .db-year-grid { display: flex; flex-direction: column; gap: 14px; }
+    .db-year-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .db-year-block-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .db-year-block-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .db-year-block-meta {
+      font-size: .72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .db-year-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    /* Loading skeleton */
+    .db-skel {
+      height: 130px;
+      background: linear-gradient(90deg, var(--bg) 0%, var(--surface) 50%, var(--bg) 100%);
+      background-size: 200% 100%;
+      border-radius: 8px;
+      animation: db-skel 1.4s ease-in-out infinite;
+    }
+    @keyframes db-skel {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page db-page">
+  <div id="db-hero"></div>
+  <div id="db-controls"></div>
+  <div id="db-grid">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">
+      <div class="db-skel"></div><div class="db-skel"></div><div class="db-skel"></div>
+      <div class="db-skel"></div><div class="db-skel"></div><div class="db-skel"></div>
+    </div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  window.NAV_CURRENT = 'database';
+
+  // ── State ───────────────────────────────────────────────────────
+  let allProps = [];
+  let viewMode = (() => {
+    try { return localStorage.getItem('propspot_db_view') || 'status'; }
+    catch { return 'status'; }
+  })();
+  let yearFilter   = 'all';
+  let statusFilter = 'all';
+  let searchQuery  = '';
+
+  // Column order mirrors PROPERTY_STATUSES (defined in app.js)
+  const COLUMN_ORDER = PROPERTY_STATUSES.map(([k]) => k);
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function shortId(id) {
+    if (!id) return '';
+    return 'PROP-' + String(id).replace(/-/g, '').slice(0, 6).toUpperCase();
+  }
+  function fmtMoney(n) {
+    if (n == null || n === '') return '—';
+    const v = Number(n);
+    if (!isFinite(v) || v === 0) return '—';
+    if (v >= 1_000_000) return '$' + (v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1) + 'M';
+    if (v >= 1_000)     return '$' + Math.round(v / 1_000) + 'K';
+    return '$' + Math.round(v);
+  }
+  function bestPrice(p) {
+    if (p.sold_price)     return { v: p.sold_price,     label: 'Sold' };
+    if (p.purchase_price) return { v: p.purchase_price, label: 'Bought' };
+    return null;
+  }
+  function pickYear(p) {
+    // Best year for the card: sold_date if sold, else purchase_date, else
+    // anticipated_close_date, else created_at year. Returns null if none.
+    const d = p.sold_date || p.purchase_date || p.anticipated_close_date || p.created_at;
+    if (!d) return null;
+    const y = new Date(d).getUTCFullYear();
+    return isFinite(y) ? y : null;
+  }
+  function search(p, q) {
+    if (!q) return true;
+    const h = [p.address_line1, p.unit, p.city, p.state, p.zip, p.display_name,
+               p.owner, p.owner_name, p.county, p.tms, p.lender_name, p.seller_name]
+              .filter(Boolean).join(' ').toLowerCase();
+    return h.includes(q);
+  }
+
+  // ── Hero ────────────────────────────────────────────────────────
+  function renderHero() {
+    const total = allProps.length;
+    // Status group totals
+    const active = allProps.filter(p =>
+      ['purchasing','renovating','renting','rented','listed_for_rent','selling','listed_for_sale','under_contract_buyer'].includes(p.status)
+    ).length;
+    const closed = allProps.filter(p => p.status === 'sold' || p.status === 'assigned').length;
+    const dead   = allProps.filter(p => p.status === 'dropped').length;
+    const totalBasis = allProps.reduce((s, p) => s + (Number(p.purchase_price) || 0), 0);
+    const totalSold  = allProps.reduce((s, p) => s + (Number(p.sold_price) || 0), 0);
+
+    document.getElementById('db-hero').innerHTML = `
+      <section class="os-hero" style="margin-bottom:14px;">
+        <div class="os-hero-eyebrow">Property Database</div>
+        <h1 class="os-hero-title">Portfolio Vault</h1>
+        <div class="os-hero-subtitle">Every property the business has held — past and present — the agent's complete context store.</div>
+        <div class="os-hero-actions" style="margin: 0 0 16px;">
+          <a href="/import.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">📥 Import spreadsheet</a>
+          <a href="/add-property.html" class="btn btn-secondary" style="padding:8px 14px;font-size:.85rem;">+ Add Property</a>
+        </div>
+        <div class="os-kpi-row">
+          <div class="os-kpi">
+            <div class="os-kpi-label">Total Properties</div>
+            <div class="os-kpi-value">${total}</div>
+            <div class="os-kpi-sub">in the database</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Active</div>
+            <div class="os-kpi-value brand">${active}</div>
+            <div class="os-kpi-sub">currently held / in flight</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Closed</div>
+            <div class="os-kpi-value">${closed}</div>
+            <div class="os-kpi-sub">${dead} dropped</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Cost Basis · Sold</div>
+            <div class="os-kpi-value">${fmtMoney(totalBasis)}<span style="font-size:.85rem;color:var(--text-muted);font-weight:600;margin:0 6px;">·</span>${fmtMoney(totalSold)}</div>
+            <div class="os-kpi-sub">total purchase $ / total sold $</div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  // ── Controls ────────────────────────────────────────────────────
+  function renderControls() {
+    // Year buckets, sorted desc; "Active / no date" bucket for properties
+    // without a useful year so they aren't lost.
+    const years = Array.from(new Set(allProps.map(pickYear).filter(Boolean)))
+                       .sort((a, b) => b - a);
+
+    const yearChips = ['all', ...years].map(y => {
+      const isActive = String(yearFilter) === String(y);
+      const label = y === 'all' ? `All years` : y;
+      const count = y === 'all'
+        ? allProps.length
+        : allProps.filter(p => pickYear(p) === y).length;
+      return `<button class="db-chip ${isActive ? 'active' : ''}"
+                onclick="window.__dbSetYear(${y === 'all' ? `'all'` : y})">${label}
+                <span style="opacity:.7;margin-left:4px;">${count}</span></button>`;
+    }).join('');
+
+    document.getElementById('db-controls').innerHTML = `
+      <div class="db-controls">
+        <div class="db-search">
+          <span class="db-search-icon">🔍</span>
+          <input type="search" placeholder="Search by address, owner, county, TMS…"
+                 value="${escHtml(searchQuery)}"
+                 oninput="window.__dbSearch(this.value)">
+        </div>
+        <div class="db-view-toggle">
+          <button class="${viewMode === 'status' ? 'active' : ''}" onclick="window.__dbSetView('status')">By Status</button>
+          <button class="${viewMode === 'year'   ? 'active' : ''}" onclick="window.__dbSetView('year')">By Year</button>
+        </div>
+        <div class="db-filter-chips">${yearChips}</div>
+      </div>
+    `;
+  }
+
+  // ── Card ────────────────────────────────────────────────────────
+  function card(p) {
+    const year   = pickYear(p);
+    const price  = bestPrice(p);
+    const status = propertyStatusLabel(p.status);
+    const addr   = escHtml(p.display_name || p.address_line1 || 'Property');
+    const sub    = [p.city, p.state, p.zip].filter(Boolean).join(', ');
+
+    return `<a class="db-card" data-status="${escHtml(p.status || '')}"
+                href="/property.html?id=${escHtml(p.id)}">
+      <div class="db-card-head">
+        <span class="db-card-id">${shortId(p.id)}</span>
+        <span class="db-card-status">${escHtml(status)}</span>
+      </div>
+      <div class="db-card-title" title="${addr}">${addr}</div>
+      <div class="db-card-sub" title="${escHtml(sub)}">${escHtml(sub)}</div>
+      <div class="db-card-foot">
+        <span class="db-card-year">${year ? `<strong>${year}</strong>` : '—'}</span>
+        ${price ? `<span class="db-card-price" title="${price.label}">${fmtMoney(price.v)}</span>` : `<span class="db-card-price" style="color:var(--text-muted);font-weight:600;">—</span>`}
+      </div>
+    </a>`;
+  }
+
+  // ── Grid renderers ──────────────────────────────────────────────
+  function applyFilters(list) {
+    return list.filter(p => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+      if (yearFilter !== 'all') {
+        const y = pickYear(p);
+        if (String(y) !== String(yearFilter)) return false;
+      }
+      if (searchQuery && !search(p, searchQuery)) return false;
+      return true;
+    });
+  }
+
+  function renderByStatus(filtered) {
+    const buckets = {};
+    for (const k of COLUMN_ORDER) buckets[k] = [];
+    for (const p of filtered) {
+      if (buckets[p.status]) buckets[p.status].push(p);
+    }
+
+    const cols = PROPERTY_STATUSES.map(([k, label]) => {
+      const items = buckets[k] || [];
+      // Group items within column by year (desc)
+      const byYear = {};
+      for (const p of items) {
+        const y = pickYear(p) || '—';
+        (byYear[y] = byYear[y] || []).push(p);
+      }
+      const yearKeys = Object.keys(byYear).sort((a, b) =>
+        (a === '—' ? -Infinity : Number(a)) > (b === '—' ? -Infinity : Number(b)) ? -1 : 1
+      );
+
+      const totalBasis = items.reduce((s, p) => s + (Number(p.purchase_price) || 0), 0);
+
+      const body = items.length === 0
+        ? `<div class="db-col-empty">No properties here.</div>`
+        : yearKeys.map(y => `
+            <div class="db-year-band">${y === '—' ? 'No year' : y}</div>
+            ${byYear[y].map(card).join('')}
+          `).join('');
+
+      return `<div class="db-col" data-status="${k}">
+        <div class="db-col-head">
+          <div class="db-col-title">${escHtml(label)}</div>
+          <div class="db-col-count">${items.length}</div>
+        </div>
+        ${totalBasis > 0 ? `<div class="db-col-stat"><strong>${fmtMoney(totalBasis)}</strong> · cost basis</div>` : ''}
+        <div class="db-col-body">${body}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="db-grid-wrap"><div class="db-grid">${cols}</div></div>`;
+  }
+
+  function renderByYear(filtered) {
+    const byYear = {};
+    for (const p of filtered) {
+      const y = pickYear(p) || '—';
+      (byYear[y] = byYear[y] || []).push(p);
+    }
+    const yearKeys = Object.keys(byYear).sort((a, b) =>
+      (a === '—' ? -Infinity : Number(a)) > (b === '—' ? -Infinity : Number(b)) ? -1 : 1
+    );
+
+    if (!yearKeys.length) {
+      return `<div class="db-col-empty" style="padding:60px 20px;">No properties match the current filters.</div>`;
+    }
+
+    return `<div class="db-year-grid">${yearKeys.map(y => {
+      const items = byYear[y];
+      // Sort cards within a year by status (using COLUMN_ORDER) so they
+      // visually group by color, then by address for stability.
+      items.sort((a, b) => {
+        const ia = COLUMN_ORDER.indexOf(a.status);
+        const ib = COLUMN_ORDER.indexOf(b.status);
+        if (ia !== ib) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        return (a.address_line1 || '').localeCompare(b.address_line1 || '');
+      });
+      const basis = items.reduce((s, p) => s + (Number(p.purchase_price) || 0), 0);
+      return `<div class="db-year-block">
+        <div class="db-year-block-head">
+          <div class="db-year-block-title">${y === '—' ? 'No date on file' : y}</div>
+          <div class="db-year-block-meta">${items.length} ${items.length === 1 ? 'property' : 'properties'}${basis > 0 ? ` · ${fmtMoney(basis)} basis` : ''}</div>
+        </div>
+        <div class="db-year-cards">${items.map(card).join('')}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function renderGrid() {
+    const filtered = applyFilters(allProps);
+    const html = viewMode === 'year'
+      ? renderByYear(filtered)
+      : renderByStatus(filtered);
+    document.getElementById('db-grid').innerHTML = html;
+  }
+
+  // ── Event handlers (exposed to inline onclick) ──────────────────
+  window.__dbSetView = function(v) {
+    viewMode = v;
+    try { localStorage.setItem('propspot_db_view', v); } catch {}
+    renderControls();
+    renderGrid();
+  };
+  window.__dbSetYear = function(y) {
+    yearFilter = y;
+    renderControls();
+    renderGrid();
+  };
+  window.__dbSetStatus = function(s) {
+    statusFilter = s;
+    renderControls();
+    renderGrid();
+  };
+  // Debounced search so typing in a 500-row grid doesn't thrash render.
+  let _searchTimer = null;
+  window.__dbSearch = function(q) {
+    searchQuery = (q || '').toLowerCase().trim();
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(renderGrid, 150);
+  };
+
+  // ── Init ────────────────────────────────────────────────────────
+  async function init() {
+    if (!await requireAuth()) return;
+    try {
+      allProps = await getProperties();
+      if (!Array.isArray(allProps)) allProps = [];
+      renderHero();
+      renderControls();
+      renderGrid();
+    } catch (err) {
+      document.getElementById('db-grid').innerHTML =
+        `<p class="text-muted text-sm">Error loading properties: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
