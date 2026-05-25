@@ -131,14 +131,17 @@ html.theme-dark .os-newchrome-brand-logo img {
     0 1px 3px rgba(0,0,0,0.40);
 }
 
-/* Same treatment for the loader logo (was using mix-blend-mode:multiply
-   for light mode which paints the glyph as black silhouette on dark —
-   unreadable). Switch to a tidy chip with brand glow. */
+/* Same treatment for the loader logo. NOTE: must use background-color
+   (NOT the 'background' shorthand) because the light-mode rule already
+   sets background-image: url('/logo.png') — the shorthand would wipe
+   that out, leaving an empty white square. */
 html.theme-dark .os-page-loader-logo {
   mix-blend-mode: normal;
-  background: #fff;
-  border-radius: 18px;
-  padding: 12px;
+  background-color: #fff;
+  background-clip: padding-box;     /* white only inside the chip, not under the glow */
+  border-radius: 20px;
+  padding: 14px;
+  box-sizing: border-box;
   box-shadow:
     0 0 0 1px rgba(110,208,87,0.45),
     0 0 28px rgba(110,208,87,0.30),
