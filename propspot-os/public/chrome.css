@@ -69,7 +69,7 @@ body.os-newchrome .search-results {
   border-radius: 10px;
   box-shadow: 0 6px 24px rgba(0,0,0,.14);
   max-height: 460px; overflow-y: auto;
-  z-index: 250;
+  z-index: 1200;            /* above the topbar (40) and the sidebar shadow */
   display: none;
   padding: 4px 0;
 }
@@ -457,7 +457,14 @@ body.os-newchrome .page.page-narrow {
   position: relative;
   max-width: 580px;
   width: 100%;
-  margin: 0 auto;
+  /* Grid layout: this lives in the middle 1fr cell. justify-self:center is
+     the reliable way to center a grid item (margin:auto can fight other
+     rules). */
+  justify-self: center;
+}
+.os-newchrome-actions {
+  /* Pin the action cluster to the right edge of the topbar */
+  justify-self: end;
 }
 .os-newchrome-search {
   display: flex;

@@ -1026,6 +1026,15 @@ function onSearchKey(e) {
   if (e.key === 'Escape') {
     document.getElementById('search-results')?.classList.remove('open');
     e.target.blur();
+    return;
+  }
+  // Belt-and-suspenders Enter handler. The form's onsubmit handles Enter
+  // in normal browsers, but if something prevents the form submit (an
+  // outer form swallows it, etc.) we still navigate here.
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const q = e.target.value.trim();
+    window.location.href = '/properties.html' + (q ? '?q=' + encodeURIComponent(q) : '');
   }
 }
 
