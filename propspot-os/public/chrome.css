@@ -480,7 +480,7 @@ body.os-newchrome .page.page-narrow {
   position: relative;
   /* Always in column 2 — explicit placement keeps search dead-center regardless of hamburger visibility */
   grid-column: 2;
-  width: min(720px, 100%);
+  width: min(900px, 100%);
   justify-self: center;
 }
 .os-newchrome-actions {

@@ -951,6 +951,21 @@ function _navPageIcon(page) {
   return NAV_PAGE_ICONS[key] || NAV_PAGE_ICONS.default;
 }
 
+// ── Inline SVG icon chips for search result rows ──────────────────
+// Replaces emoji glyphs so icons are theme-consistent and never glitch
+// between OS emoji renders and UI icons.
+function _srIcon(svg, bg, color) {
+  return `<span class="search-result-nav-icon" style="background:${bg};color:${color};">${svg}</span>`;
+}
+const _SVG_HOME     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+const _SVG_USER     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+const _SVG_CONTACTS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+const _SVG_SEARCH   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+const SR_ICON_PROP     = _srIcon(_SVG_HOME,     'rgba(97,183,70,0.10)',   'var(--brand-dark,#15803d)');
+const SR_ICON_USER     = _srIcon(_SVG_USER,     'rgba(99,102,241,0.10)',  '#4f46e5');
+const SR_ICON_CONTACT  = _srIcon(_SVG_CONTACTS, 'rgba(147,51,234,0.10)', '#9333ea');
+const SR_ICON_SEARCH   = _srIcon(_SVG_SEARCH,   'rgba(15,23,42,0.06)',   'var(--text-muted)');
+
 // ── Live search across properties / users / contacts ─────────
 let _searchCache = null;
 let _searchInflight = null;
@@ -1036,11 +1051,12 @@ async function onSearchInput(e) {
     html += '<div class="search-section"><div class="search-section-header">Properties</div>';
     html += props.map(p => `
       <a class="search-result" href="/property.html?id=${p.id}">
-        <span class="search-result-icon">🏠</span>
+        ${SR_ICON_PROP}
         <div class="search-result-body">
           <div class="search-result-title">${escHtml(p.display_name || p.address_line1)}${p.unit ? ' #' + escHtml(p.unit) : ''}</div>
           <div class="search-result-subtitle">${escHtml([p.city, p.state, p.zip].filter(Boolean).join(', '))}</div>
         </div>
+        <span class="search-result-nav-arrow">→</span>
       </a>
     `).join('');
     html += '</div>';
@@ -1049,11 +1065,12 @@ async function onSearchInput(e) {
     html += '<div class="search-section"><div class="search-section-header">Team</div>';
     html += users.map(u => `
       <a class="search-result" href="/team.html">
-        <span class="search-result-icon">👤</span>
+        ${SR_ICON_USER}
         <div class="search-result-body">
-          <div class="search-result-title">${escHtml(u.full_name || u.email)}${u.is_owner ? ' · owner' : ''}</div>
+          <div class="search-result-title">${escHtml(u.full_name || u.email)}${u.is_owner ? ' · Owner' : ''}</div>
           <div class="search-result-subtitle">${escHtml(u.email || '')}</div>
         </div>
+        <span class="search-result-nav-arrow">→</span>
       </a>
     `).join('');
     html += '</div>';
@@ -1065,11 +1082,12 @@ async function onSearchInput(e) {
         .filter(Boolean).join(' · ');
       return `
         <a class="search-result" href="/contact.html?id=${c.id}">
-          <span class="search-result-icon">📇</span>
+          ${SR_ICON_CONTACT}
           <div class="search-result-body">
             <div class="search-result-title">${escHtml(c.full_name)}</div>
             <div class="search-result-subtitle">${escHtml(sub)}</div>
           </div>
+          <span class="search-result-nav-arrow">→</span>
         </a>
       `;
     }).join('');
@@ -1080,10 +1098,11 @@ async function onSearchInput(e) {
   } else if (props.length || users.length || contacts.length) {
     html += '<div class="search-section" style="border-top:1px solid var(--border);">' +
       `<a class="search-result" href="/properties.html?q=${encodeURIComponent(q2)}">` +
-        '<span class="search-result-icon">↩</span>' +
+        SR_ICON_SEARCH +
         '<div class="search-result-body">' +
-          `<div class="search-result-title">See all properties matching "${escHtml(q2)}"</div>` +
+          `<div class="search-result-title">See all results for "${escHtml(q2)}"</div>` +
         '</div>' +
+        '<span class="search-result-nav-arrow">→</span>' +
       '</a></div>';
   }
   resultsEl.innerHTML = html;
