@@ -912,6 +912,45 @@ function submitTopSearch(e) {
   window.location.href = '/properties.html' + (q ? '?q=' + encodeURIComponent(q) : '');
 }
 
+// ── Static navigation page list for universal search ─────────
+// Shown as a "Go to" section at the top of results when the query
+// matches a page label, description, or keywords.
+const NAV_PAGES = [
+  { label: 'Dashboard',    description: 'Home · Overview',              href: '/dashboard.html',              keywords: 'home overview summary' },
+  { label: 'Database',     description: 'Workspace · All properties',   href: '/database.html',               keywords: 'properties list all kanban' },
+  { label: 'Activity',     description: 'Workspace · Recent activity',  href: '/activity.html',               keywords: 'log history feed recent' },
+  { label: 'FieldCam',     description: 'Tools · Site photography',     href: '/fieldcam.html',               keywords: 'camera photos field photos upload pictures' },
+  { label: 'Inbox',        description: 'Tools · Email',                app: 'inbox',                         keywords: 'email messages mail compose' },
+  { label: 'Pulse',        description: 'Tools · Team messaging',       app: 'pulse',                         keywords: 'chat messages team slack messaging' },
+  { label: 'Work Orders',  description: 'Tools · Maintenance',          app: 'maintenance',                   keywords: 'maintenance repair tasks work orders' },
+  { label: 'Underwriting', description: 'Tools · Deal analysis',        href: '/underwriting.html',           keywords: 'analysis deals numbers finance underwrite model' },
+  { label: 'Acquisitions', description: 'Pipeline · Active deals',      href: '/acquisitions.html',           keywords: 'pipeline buying purchase deals acquire' },
+  { label: 'Prospects',    description: 'Pipeline · Potential deals',   href: '/acquisitions.html',           keywords: 'prospect potential lead opportunity' },
+  { label: 'Holdings',     description: 'Pipeline · Owned properties',  href: '/holdings.html',               keywords: 'hold own rent renting lease' },
+  { label: 'Dispositions', description: 'Pipeline · Selling',           href: '/dispositions.html',           keywords: 'sell selling sale listing under contract' },
+  { label: 'Sold',         description: 'Pipeline · Closed deals',      href: '/closed.html',                 keywords: 'sold closed done complete' },
+  { label: 'Contacts',     description: 'People · Address book',        href: '/contacts.html',               keywords: 'contacts people address book agents vendors' },
+  { label: 'Team',         description: 'People · Teammates',           href: '/team.html',                   keywords: 'team people users staff members invite' },
+];
+
+const NAV_PAGE_ICONS = {
+  dashboard:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+  database:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  activity:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  fieldcam:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  inbox:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  pulse:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  workorders:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+  underwriting: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  acquisitions: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
+  default:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+};
+
+function _navPageIcon(page) {
+  const key = page.label.toLowerCase().replace(/\s+/g, '');
+  return NAV_PAGE_ICONS[key] || NAV_PAGE_ICONS.default;
+}
+
 // ── Live search across properties / users / contacts ─────────
 let _searchCache = null;
 let _searchInflight = null;
@@ -967,7 +1006,32 @@ async function onSearchInput(e) {
     (c.phone     || '').toLowerCase().includes(q2)
   ).slice(0, 6);
 
+  // ── Pages / navigation matches (shown first, above data results) ──
+  const matchedPages = NAV_PAGES.filter(pg => {
+    const hay = `${pg.label} ${pg.description} ${pg.keywords || ''}`.toLowerCase();
+    return hay.includes(q2);
+  }).slice(0, 4);
+
   let html = '';
+  if (matchedPages.length) {
+    html += '<div class="search-section"><div class="search-section-header">Go to</div>';
+    html += matchedPages.map(pg => {
+      const icon = _navPageIcon(pg);
+      const attrs = pg.app
+        ? `data-app="${escHtml(pg.app)}" data-app-path="/" href="#"`
+        : `href="${escHtml(pg.href)}"`;
+      return `<a class="search-result" ${attrs}>
+        <span class="search-result-nav-icon">${icon}</span>
+        <div class="search-result-body">
+          <div class="search-result-title">${escHtml(pg.label)}</div>
+          <div class="search-result-subtitle">${escHtml(pg.description)}</div>
+        </div>
+        <span class="search-result-nav-arrow">→</span>
+      </a>`;
+    }).join('');
+    html += '</div>';
+  }
+
   if (props.length) {
     html += '<div class="search-section"><div class="search-section-header">Properties</div>';
     html += props.map(p => `
@@ -1011,9 +1075,9 @@ async function onSearchInput(e) {
     }).join('');
     html += '</div>';
   }
-  if (!props.length && !users.length && !contacts.length) {
+  if (!matchedPages.length && !props.length && !users.length && !contacts.length) {
     html = '<div class="search-empty">No matches.</div>';
-  } else {
+  } else if (props.length || users.length || contacts.length) {
     html += '<div class="search-section" style="border-top:1px solid var(--border);">' +
       `<a class="search-result" href="/properties.html?q=${encodeURIComponent(q2)}">` +
         '<span class="search-result-icon">↩</span>' +
@@ -1024,6 +1088,9 @@ async function onSearchInput(e) {
   }
   resultsEl.innerHTML = html;
   resultsEl.classList.add('open');
+  // Wire satellite data-app links that landed in search results
+  if (typeof wireUnifiedNav === 'function') setTimeout(wireUnifiedNav, 0);
+  else if (typeof window.__wireChromeNav === 'function') setTimeout(window.__wireChromeNav, 0);
 }
 
 function onSearchKey(e) {

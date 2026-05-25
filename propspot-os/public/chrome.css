@@ -90,6 +90,23 @@ body.os-newchrome .search-result {
 }
 body.os-newchrome .search-result:hover { background: var(--brand-light); }
 body.os-newchrome .search-result-icon { font-size: 1.1rem; flex-shrink: 0; width: 22px; text-align: center; }
+body.os-newchrome .search-result-nav-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 7px;
+  background: rgba(97,183,70,0.10);
+  color: var(--brand-dark, #15803d);
+  flex-shrink: 0;
+}
+body.os-newchrome .search-result-nav-icon svg { width: 14px; height: 14px; }
+body.os-newchrome .search-result-nav-arrow {
+  font-size: .8rem; color: var(--text-muted);
+  flex-shrink: 0; margin-left: 4px;
+  transition: transform .12s, color .12s;
+}
+body.os-newchrome .search-result:hover .search-result-nav-arrow {
+  color: var(--brand-dark, #15803d);
+  transform: translateX(2px);
+}
 body.os-newchrome .search-result-body { flex: 1; min-width: 0; }
 body.os-newchrome .search-result-title {
   font-weight: 600;
@@ -463,7 +480,7 @@ body.os-newchrome .page.page-narrow {
   position: relative;
   /* Always in column 2 — explicit placement keeps search dead-center regardless of hamburger visibility */
   grid-column: 2;
-  width: min(580px, 100%);
+  width: min(720px, 100%);
   justify-self: center;
 }
 .os-newchrome-actions {
