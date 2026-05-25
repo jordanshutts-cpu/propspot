@@ -30,7 +30,6 @@
             </span>
             <input type="search" id="top-search" placeholder="Search properties, photos, emails, messages, contacts…" autocomplete="off"
                    oninput="onSearchInput(event)" onfocus="onSearchInput(event)" onkeydown="onSearchKey(event)">
-            <span class="os-newchrome-kbd">⌘K</span>
           </div>
           <div class="search-results" id="search-results"></div>
         </form>

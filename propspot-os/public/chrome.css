@@ -440,31 +440,27 @@ body.os-newchrome .page.page-narrow {
 .os-newchrome-all-link:hover { background: var(--brand-light); border-radius: 6px; }
 
 /* Top bar inner layout
-   First col is `auto` so the mobile hamburger (display:none on desktop)
-   collapses to 0 width when hidden. Second col flexes for the search,
-   third col holds actions. */
+   Flexbox is the reliable layout here: search-wrap flex:1 with margin:auto
+   centers the bar between the hamburger and the action cluster. Actions
+   sit at the right edge because of source order + their auto width. */
 .os-newchrome-topbar {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
   height: 100%;
-  width: 100%;          /* fill the flex top-header so actions reach the right edge */
+  width: 100%;
   min-width: 0;
   padding: 0 18px;
   gap: 14px;
 }
 .os-newchrome-search-wrap {
   position: relative;
+  flex: 1 1 auto;
   max-width: 580px;
-  width: 100%;
-  /* Grid layout: this lives in the middle 1fr cell. justify-self:center is
-     the reliable way to center a grid item (margin:auto can fight other
-     rules). */
-  justify-self: center;
+  margin: 0 auto;       /* centers within the leftover flex space */
 }
 .os-newchrome-actions {
-  /* Pin the action cluster to the right edge of the topbar */
-  justify-self: end;
+  flex: 0 0 auto;
+  margin-left: auto;    /* belt-and-suspenders: pin to right edge */
 }
 .os-newchrome-search {
   display: flex;
