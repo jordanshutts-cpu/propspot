@@ -45,11 +45,7 @@
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
-  <div class="section-header">
-    <span class="section-title" id="deals-count">Underwriting</span>
-    <button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;" onclick="openNewDeal()">+ New Deal</button>
-  </div>
-
+  <div id="uw-hero-root"></div>
   <div id="view-root"><p class="text-muted text-sm">Loading…</p></div>
 </main>
 
@@ -337,13 +333,67 @@
   // ── Render table ─────────────────────────────────────────────────────────
   let allDeals = [];
 
+  function renderHero(rowsComputed) {
+    const heroEl = document.getElementById('uw-hero-root');
+    const count = allDeals.length;
+
+    // Roll up portfolio-level KPIs from already-computed rows
+    let flipSum = 0, flipPos = 0, dscrSum = 0, dscrPos = 0;
+    let stratDSCR = 0, stratFlip = 0, stratNone = 0;
+    for (const r of rowsComputed) {
+      if (!isNaN(r.flipProfit)) { flipSum += r.flipProfit; if (r.flipProfit > 0) flipPos++; }
+      if (!isNaN(r.dscrProfit)) { dscrSum += r.dscrProfit; if (r.dscrProfit > 0) dscrPos++; }
+      const s = bestStrategy(r);
+      if (s === 'DSCR') stratDSCR++;
+      else if (s === 'Flip') stratFlip++;
+      else stratNone++;
+    }
+    const avgFlip = count ? flipSum / count : 0;
+    const avgDSCR = count ? dscrSum / count : 0;
+
+    const flipCls = avgFlip >= 0 ? 'brand' : 'danger';
+    const dscrCls = avgDSCR >= 0 ? 'brand' : 'danger';
+
+    heroEl.innerHTML = `
+      <section class="os-hero">
+        <div class="os-hero-eyebrow">Underwriting</div>
+        <h1 class="os-hero-title">Deal Pipeline</h1>
+        <div class="os-hero-subtitle">${count === 1 ? '1 deal' : count + ' deals'} under review · ${stratDSCR} DSCR · ${stratFlip} Flip · ${stratNone} pass</div>
+        <div class="os-hero-actions" style="margin: 0 0 16px;">
+          <button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;" onclick="openNewDeal()">+ New Deal</button>
+        </div>
+        <div class="os-kpi-row">
+          <div class="os-kpi">
+            <div class="os-kpi-label">Deals</div>
+            <div class="os-kpi-value">${count}</div>
+            <div class="os-kpi-sub">${flipPos + dscrPos > 0 ? (flipPos + dscrPos) + ' profitable scenarios' : 'No profitable yet'}</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Avg Flip Profit</div>
+            <div class="os-kpi-value ${flipCls}">${fmtMoney(avgFlip)}</div>
+            <div class="os-kpi-sub">${flipPos}/${count} positive</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Avg DSCR Profit</div>
+            <div class="os-kpi-value ${dscrCls}">${fmtMoney(avgDSCR)}</div>
+            <div class="os-kpi-sub">${dscrPos}/${count} positive</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Best Strategy Mix</div>
+            <div class="os-kpi-value">${stratDSCR + stratFlip}<span style="font-size:.9rem;font-weight:600;color:var(--text-muted);margin-left:6px;">/ ${count}</span></div>
+            <div class="os-kpi-sub">${count ? Math.round(((stratDSCR + stratFlip) / count) * 100) : 0}% pass the screen</div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
   function renderTable() {
     const el = document.getElementById('view-root');
     const count = allDeals.length;
-    document.getElementById('deals-count').textContent =
-      `Underwriting · ${count === 1 ? '1 Deal' : count + ' Deals'}`;
 
     if (!count) {
+      renderHero([]);
       el.innerHTML = `<div class="empty-state">
         <div class="empty-icon">📊</div>
         <p>No underwriting deals yet.</p>
@@ -352,11 +402,16 @@
       return;
     }
 
-    const rows = allDeals.map(deal => {
-      // Use actual_results snapshot if available, else pro forma.
+    // Compute once, reuse for both hero stats + table cells
+    const computedByDeal = allDeals.map(deal => {
       const snapData = deal.actual_results_data || deal.pro_forma_data || {};
       let r = {};
       try { r = compute(snapData); } catch(e) {}
+      return { deal, snapData, r };
+    });
+    renderHero(computedByDeal.map(x => x.r));
+
+    const rows = computedByDeal.map(({ deal, snapData, r }) => {
       const strat = bestStrategy(r);
       const stratBadge = strat === 'DSCR'
         ? `<span class="badge-dscr">DSCR</span>`
@@ -388,21 +443,28 @@
       </tr>`;
     }).join('');
 
-    el.innerHTML = `<div class="uw-table-wrap">
-      <table class="uw-table">
-        <thead>
-          <tr>
-            <th>Address</th><th>City</th><th>State</th>
-            <th class="num">Purchase</th>
-            <th class="num">Bridge ARV</th><th class="num">DSCR ARV</th>
-            <th class="num">Flip Profit</th><th class="num">DSCR Profit</th>
-            <th class="num">Flip IRR</th><th class="num">DSCR IRR</th>
-            <th>Strategy</th><th>Updated</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    el.innerHTML = `
+      <div class="os-section-head">
+        <div class="os-section-title">All Deals</div>
+        <div class="os-section-line"></div>
+      </div>
+      <div class="os-panel">
+        <div class="uw-table-wrap">
+          <table class="uw-table">
+            <thead>
+              <tr>
+                <th>Address</th><th>City</th><th>State</th>
+                <th class="num">Purchase</th>
+                <th class="num">Bridge ARV</th><th class="num">DSCR ARV</th>
+                <th class="num">Flip Profit</th><th class="num">DSCR Profit</th>
+                <th class="num">Flip IRR</th><th class="num">DSCR IRR</th>
+                <th>Strategy</th><th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
   }
 
   // ── Modal ────────────────────────────────────────────────────────────────
