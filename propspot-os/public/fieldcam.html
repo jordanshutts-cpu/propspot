@@ -60,12 +60,15 @@
 
 <main class="page">
 
+  <div id="fc-hero-root"></div>
+
   <!-- Project map — pins every property with GPS + popups linking to the property detail -->
+  <div class="os-section-head" id="fc-map-section-head" style="display:none;">
+    <div class="os-section-title">📍 Project Map</div>
+    <div class="os-section-line"></div>
+    <div class="text-muted text-xs" id="fc-map-count" style="font-weight:600;"></div>
+  </div>
   <div class="fc-map-section" id="fc-map-section" style="display:none;">
-    <div class="fc-map-head">
-      <div class="fc-map-title">📍 Project Map</div>
-      <div class="fc-map-count" id="fc-map-count"></div>
-    </div>
     <div id="fc-project-map"></div>
   </div>
 
@@ -105,11 +108,51 @@
     const me = await requireAuth(); if (!me) return;
     try {
       allProps = await satelliteApiFetch('fieldcam', '/api/properties');
+      renderHero(allProps);
       renderProps(allProps);
       renderProjectMap(allProps);
     } catch(e) {
       document.getElementById('prop-grid').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
     }
+  }
+
+  function renderHero(props) {
+    const total = props.length;
+    const totalPhotos = props.reduce((s, p) => s + (Number(p.photo_count) || 0), 0);
+    const withPhotos = props.filter(p => Number(p.photo_count) > 0).length;
+    const withGps = props.filter(p =>
+      pickCoord(p, ['latitude','lat','gps_lat'], ['longitude','lng','lon','gps_lng'])
+    ).length;
+
+    document.getElementById('fc-hero-root').innerHTML = `
+      <section class="os-hero">
+        <div class="os-hero-eyebrow">FieldCam</div>
+        <h1 class="os-hero-title">Site Documentation</h1>
+        <div class="os-hero-subtitle">${total} ${total === 1 ? 'property' : 'properties'} tracked · ${totalPhotos} ${totalPhotos === 1 ? 'photo' : 'photos'} captured · ${withGps} geo-tagged</div>
+        <div class="os-kpi-row">
+          <div class="os-kpi">
+            <div class="os-kpi-label">Properties</div>
+            <div class="os-kpi-value">${total}</div>
+            <div class="os-kpi-sub">in the field</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Total Photos</div>
+            <div class="os-kpi-value brand">${totalPhotos}</div>
+            <div class="os-kpi-sub">across all sites</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Documented</div>
+            <div class="os-kpi-value">${withPhotos}</div>
+            <div class="os-kpi-sub">${total > 0 ? Math.round((withPhotos / total) * 100) : 0}% have photos</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Mapped</div>
+            <div class="os-kpi-value">${withGps}</div>
+            <div class="os-kpi-sub">GPS-pinned</div>
+          </div>
+        </div>
+      </section>
+    `;
   }
 
   // ── Project map ─────────────────────────────────────────────────
@@ -132,9 +175,11 @@
       if (c) withGps.push({ prop: p, coord: c });
     }
     const section = document.getElementById('fc-map-section');
+    const sectionHead = document.getElementById('fc-map-section-head');
     const count   = document.getElementById('fc-map-count');
-    if (!withGps.length) { section.style.display = 'none'; return; }
+    if (!withGps.length) { section.style.display = 'none'; if (sectionHead) sectionHead.style.display = 'none'; return; }
     section.style.display = '';
+    if (sectionHead) sectionHead.style.display = '';
     count.textContent = withGps.length + ' / ' + props.length + ' properties pinned';
 
     // Init once

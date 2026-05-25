@@ -51,12 +51,14 @@
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
+  <div id="hd-hero-root"></div>
+
   <div class="chip-row" id="cat-chips"></div>
   <div class="chip-row" id="due-chips"></div>
 
-  <div class="section-header">
-    <span class="section-title" id="count-lbl">Holdings</span>
-    <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="openAdd()">+ Add</button>
+  <div class="os-section-head">
+    <div class="os-section-title" id="count-lbl">Holdings</div>
+    <div class="os-section-line"></div>
   </div>
 
   <div id="list"><p class="text-muted text-sm">Loading…</p></div>
@@ -175,9 +177,66 @@
     return dueF==='overdue' ? diff<0 : dueF==='due-7d' ? diff>=0&&diff<=7 : diff>=0&&diff<=30;
   }
 
+  function renderHero() {
+    // Roll up portfolio carry across all items (not just filtered)
+    let monthlyTotal = 0, overdueCount = 0, dueSoonCount = 0, dueAmt = 0;
+    const today = new Date().setHours(0,0,0,0);
+    for (const i of allItems) {
+      const a = Number(i.amount || 0);
+      const f = (i.frequency || '').toLowerCase();
+      if (a) {
+        if      (f === 'monthly')      monthlyTotal += a;
+        else if (f === 'quarterly')    monthlyTotal += a / 3;
+        else if (f === 'semi_annual')  monthlyTotal += a / 6;
+        else if (f === 'annual')       monthlyTotal += a / 12;
+      }
+      if (i.next_due_date) {
+        const diff = Math.round((new Date(i.next_due_date).setHours(0,0,0,0) - today) / 86400000);
+        if (diff < 0)        { overdueCount++; dueAmt += a; }
+        else if (diff <= 7)  { dueSoonCount++; dueAmt += a; }
+      }
+    }
+    const fmtCarry = n => n > 0 ? '$' + Math.round(n).toLocaleString() : '—';
+    const fmtDueAmt = n => n > 0 ? '$' + Math.round(n).toLocaleString() : '—';
+
+    document.getElementById('hd-hero-root').innerHTML = `
+      <section class="os-hero">
+        <div class="os-hero-eyebrow">Holdings Desk</div>
+        <h1 class="os-hero-title">Carry &amp; Recurring Costs</h1>
+        <div class="os-hero-subtitle">${allItems.length} ${allItems.length === 1 ? 'holding' : 'holdings'} tracked across the portfolio · ${overdueCount} overdue · ${dueSoonCount} due in 7 days</div>
+        <div class="os-hero-actions" style="margin: 0 0 16px;">
+          <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="openAdd()">+ Add Holding</button>
+        </div>
+        <div class="os-kpi-row">
+          <div class="os-kpi">
+            <div class="os-kpi-label">Monthly Carry</div>
+            <div class="os-kpi-value brand">${fmtCarry(monthlyTotal)}</div>
+            <div class="os-kpi-sub">all recurring rolled up</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Annual Carry</div>
+            <div class="os-kpi-value">${fmtCarry(monthlyTotal * 12)}</div>
+            <div class="os-kpi-sub">projected 12-month</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Overdue</div>
+            <div class="os-kpi-value ${overdueCount > 0 ? 'danger' : ''}">${overdueCount}</div>
+            <div class="os-kpi-sub">${overdueCount > 0 ? 'need attention' : 'all clear'}</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Due ≤ 7 days</div>
+            <div class="os-kpi-value ${dueSoonCount > 0 ? 'warn' : ''}">${dueSoonCount}</div>
+            <div class="os-kpi-sub">${fmtDueAmt(dueAmt)} owed</div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
   function render() {
+    renderHero();
     const filtered = allItems.filter(i => (catF==='all'||i.category===catF) && passesDue(i));
-    document.getElementById('count-lbl').textContent = `${filtered.length} Holding${filtered.length===1?'':'s'}`;
+    document.getElementById('count-lbl').textContent = `${filtered.length} ${filtered.length === 1 ? 'holding' : 'holdings'} matching filters`;
     const el = document.getElementById('list');
     if (!filtered.length) {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">💼</div><p>No holdings match.</p><button class="btn btn-primary" onclick="openAdd()">+ Add Holding</button></div>`;
