@@ -200,9 +200,105 @@ html.theme-dark .os-newchrome-property-row.active {
 html.theme-dark .os-newchrome-property-row.active::before { background: var(--d-brand); }
 html.theme-dark .os-newchrome-property-sub { color: var(--d-text-muted); }
 html.theme-dark .os-newchrome-pinned-header { color: var(--d-text-dim); }
+html.theme-dark .os-newchrome-pinned-header[data-section="pinned"] { color: #fbbf24; }
+html.theme-dark .os-newchrome-pinned-header[data-section="recent"] { color: #67e8f9; }
 html.theme-dark .os-newchrome-pinned-empty,
 html.theme-dark .os-newchrome-all-link { color: var(--d-text-muted); }
 html.theme-dark .os-newchrome-all-link:hover { color: var(--d-brand); }
+
+/* ── Premium sidebar polish — dark overrides ─────────────────── */
+html.theme-dark .os-newchrome-sidebar { background: var(--d-surface); }
+html.theme-dark .os-newchrome-brand-bar {
+  background: linear-gradient(180deg, rgba(110,208,87,0.05) 0%, transparent 100%);
+}
+html.theme-dark .os-newchrome-workspace {
+  background: linear-gradient(180deg, var(--d-surface) 0%, var(--d-surface-2) 100%);
+}
+html.theme-dark .os-newchrome-workspace:hover {
+  background: linear-gradient(180deg, rgba(110,208,87,0.05) 0%, var(--d-surface-2) 100%);
+}
+html.theme-dark .os-newchrome-workspace-logo {
+  background: linear-gradient(135deg, var(--d-brand) 0%, #15803d 100%);
+  color: #0a0e14;
+  box-shadow: 0 2px 6px -2px rgba(110,208,87,0.55),
+              inset 0 1px 0 rgba(255,255,255,0.10);
+}
+html.theme-dark .os-newchrome-row:hover {
+  background: rgba(110,208,87,0.08);
+  color: var(--d-brand);
+}
+html.theme-dark .os-newchrome-row:hover .os-newchrome-row-icon { color: var(--d-brand); }
+html.theme-dark .os-newchrome-row:hover .os-newchrome-badge.muted { color: var(--d-brand); }
+html.theme-dark .os-newchrome-row.active .os-newchrome-badge.muted { color: var(--d-brand); }
+html.theme-dark .os-newchrome-row-soon-pill {
+  background: rgba(255,255,255,0.04);
+  color: var(--d-text-dim);
+  border-color: var(--d-border);
+}
+html.theme-dark .os-newchrome-badge:not(.muted):not(.amber):not(.warn) {
+  background: #ef4444;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.20);
+}
+html.theme-dark .os-newchrome-properties {
+  border-top-color: var(--d-border);
+}
+html.theme-dark .os-newchrome-properties::before {
+  background: linear-gradient(90deg, transparent, rgba(110,208,87,0.25), transparent);
+}
+html.theme-dark .os-newchrome-pinned-add {
+  background: rgba(110,208,87,0.12);
+  color: var(--d-brand);
+}
+html.theme-dark .os-newchrome-pinned-add:hover {
+  background: var(--d-brand);
+  color: #0a0e14;
+}
+html.theme-dark .os-newchrome-pinned-empty {
+  color: var(--d-text-dim);
+}
+html.theme-dark .os-newchrome-property-row {
+  color: var(--d-text);
+}
+html.theme-dark .os-newchrome-property-row:hover {
+  background: rgba(255,255,255,0.04);
+}
+html.theme-dark .os-newchrome-property-row.active {
+  background: rgba(110,208,87,0.10);
+  box-shadow: inset 0 0 0 1px rgba(110,208,87,0.20);
+}
+html.theme-dark .os-newchrome-status-dot {
+  box-shadow: 0 0 0 2px var(--d-surface),
+              0 0 0 3px rgba(255,255,255,0.06);
+}
+html.theme-dark .os-newchrome-property-row .os-newchrome-status-dot {
+  box-shadow: 0 0 0 2px var(--d-surface),
+              0 0 0 3px rgba(255,255,255,0.06);
+}
+html.theme-dark .os-newchrome-property-name-line { color: var(--d-text-strong); }
+html.theme-dark .os-newchrome-property-sub { color: var(--d-text-muted); }
+html.theme-dark .os-newchrome-all-link {
+  background: linear-gradient(135deg, rgba(110,208,87,0.06) 0%, transparent 100%);
+  border-color: rgba(110,208,87,0.30);
+}
+html.theme-dark .os-newchrome-all-link:hover {
+  background: rgba(110,208,87,0.10);
+  border-color: var(--d-brand);
+}
+html.theme-dark .os-newchrome-sidebar-scroll {
+  scrollbar-color: rgba(110,208,87,0.20) transparent;
+}
+html.theme-dark .os-newchrome-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(110,208,87,0.20);
+}
+html.theme-dark .os-newchrome-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(110,208,87,0.35);
+}
+html.theme-dark .os-newchrome-collapse-btn:hover {
+  background: rgba(110,208,87,0.10);
+  border-color: rgba(110,208,87,0.20);
+  color: var(--d-brand);
+}
 
 /* ── Cards, tiles, panels — generic surfaces ─────────────────── */
 html.theme-dark .card,

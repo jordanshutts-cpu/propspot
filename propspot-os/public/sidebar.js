@@ -540,7 +540,7 @@
   // Bumped to v3 — workspace tile is now the Home button (anchor +
   // chevron removed + Home row removed). Old v2 cache would briefly
   // re-show the old structure before fresh render replaces it.
-  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v3';
+  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v4';
 
   function saveSidebarCache(html) {
     try { sessionStorage.setItem(SIDEBAR_CACHE_KEY, html); } catch (e) {}
@@ -657,7 +657,7 @@
           ${row({ icon: '🔄', label: 'Rentvine sync',    soon: true })}
 
           <div class="os-newchrome-properties">
-            <div class="os-newchrome-pinned-header">
+            <div class="os-newchrome-pinned-header" data-section="pinned">
               <span>Pinned</span>
               <button class="os-newchrome-pinned-add" title="Pin a property" aria-label="Pin a property"
                       onclick="window.__openPinPicker && window.__openPinPicker()">＋</button>
@@ -667,7 +667,7 @@
               : '<div class="os-newchrome-pinned-empty">Click ＋ to pin a property.</div>'}
 
             ${recent.length ? `
-              <div class="os-newchrome-pinned-header" style="margin-top:6px;">
+              <div class="os-newchrome-pinned-header" data-section="recent" style="margin-top:6px;">
                 <span>Recent</span>
               </div>
               ${recent.map(p => propertyRow(p, 'recent')).join('')}

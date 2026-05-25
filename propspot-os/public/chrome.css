@@ -1346,3 +1346,302 @@ html.sidebar-collapsed .os-newchrome-brand-logo {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ============================================================
+   Premium sidebar polish — applied on top of the base
+   .os-newchrome-* rules above. Adds:
+     • Section-label color tints (For You/Pipeline/Tools/etc.)
+     • Gradient workspace avatar + softer hover
+     • Refined active nav-row state with brand-tinted icon
+     • Status-dot glow halos on pinned/recent rows
+     • CTA-pill "All properties" link with arrow
+     • Custom thin scrollbar inside the sidebar
+   ============================================================ */
+
+/* Sidebar surface — slightly warmer than pure white, subtle hairline */
+.os-newchrome-sidebar {
+  background: #fcfcfd;
+}
+.os-newchrome-brand-bar {
+  background: linear-gradient(180deg, rgba(97,183,70,0.05) 0%, transparent 100%);
+}
+
+/* Section labels — color-tinted by data-section, matches dark mode */
+.os-newchrome-section-label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  padding: 16px 14px 6px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.os-newchrome-section-label::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+.os-newchrome-section-label[data-section="for-you"]  { color: #15803d; }
+.os-newchrome-section-label[data-section="pipeline"] { color: #1d4ed8; }
+.os-newchrome-section-label[data-section="tools"]    { color: #7e22ce; }
+.os-newchrome-section-label[data-section="soon"]     { color: #9ca3af; }
+.os-newchrome-section-label[data-section="pinned"]   { color: #b45309; }
+.os-newchrome-section-label[data-section="recent"]   { color: #0e7490; }
+
+/* Workspace tile — gradient avatar + softer separators */
+.os-newchrome-workspace {
+  background: linear-gradient(180deg, #fff 0%, #fafbfc 100%);
+}
+.os-newchrome-workspace-logo {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
+  box-shadow: 0 2px 6px -2px rgba(97,183,70,0.45),
+              inset 0 1px 0 rgba(255,255,255,0.20);
+  width: 30px; height: 30px;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+.os-newchrome-workspace:hover {
+  background: linear-gradient(180deg, rgba(97,183,70,0.04) 0%, #fafbfc 100%);
+}
+
+/* Nav rows — refined hover/active treatment */
+.os-newchrome-row {
+  padding: 7px 12px;
+  margin: 1px 8px;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.10s ease;
+}
+.os-newchrome-row:hover {
+  background: rgba(97,183,70,0.08);
+  color: var(--brand-dark, #15803d);
+}
+.os-newchrome-row.active {
+  background: rgba(97,183,70,0.12);
+  position: relative;
+}
+.os-newchrome-row.active::before {
+  content: '';
+  position: absolute;
+  left: -2px; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 16px;
+  background: var(--brand);
+  border-radius: 0 3px 3px 0;
+}
+.os-newchrome-row.active .os-newchrome-row-icon {
+  color: var(--brand-dark, #15803d);
+}
+
+/* Row icon container — subtle baseline color */
+.os-newchrome-row-icon {
+  color: #6b7280;
+  width: 20px; height: 20px;
+  transition: color 0.12s ease;
+}
+.os-newchrome-row:hover .os-newchrome-row-icon {
+  color: var(--brand-dark, #15803d);
+}
+
+/* Badges — refined inbox red, pill-style muted counts */
+.os-newchrome-badge {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 100px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1.4;
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.10);
+}
+.os-newchrome-badge.muted {
+  background: transparent;
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 0 2px;
+  box-shadow: none;
+  letter-spacing: 0.02em;
+}
+.os-newchrome-row:hover .os-newchrome-badge.muted {
+  color: var(--brand-dark, #15803d);
+}
+.os-newchrome-row.active .os-newchrome-badge.muted {
+  color: var(--brand-dark, #15803d);
+  font-weight: 700;
+}
+.os-newchrome-badge.warn {
+  background: #fef3c7;
+  color: #92400e;
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.08);
+}
+
+/* "soon" pill — subtle gray with light border */
+.os-newchrome-row-soon-pill {
+  font-size: 9.5px;
+  padding: 2px 7px;
+  border-radius: 100px;
+  background: #f3f4f6;
+  color: #9ca3af;
+  border: 1px solid #e5e7eb;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+/* Property zone (pinned/recent) — refined header + soft separator */
+.os-newchrome-properties {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #e8eaed;
+  position: relative;
+}
+.os-newchrome-properties::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 12px; right: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(97,183,70,0.20), transparent);
+}
+.os-newchrome-pinned-header {
+  padding: 8px 14px 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.os-newchrome-pinned-header > span:first-child::before {
+  content: '';
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.os-newchrome-pinned-header[data-section="pinned"] { color: #b45309; }
+.os-newchrome-pinned-header[data-section="recent"] { color: #0e7490; }
+
+/* "+" Add-pin button — proper circular icon button */
+.os-newchrome-pinned-add {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(97,183,70,0.10);
+  color: var(--brand-dark, #15803d);
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, transform 0.12s;
+  margin-left: auto;
+}
+.os-newchrome-pinned-add:hover {
+  background: var(--brand);
+  color: #fff;
+  transform: scale(1.05);
+}
+.os-newchrome-pinned-empty {
+  padding: 10px 14px;
+  font-size: 11.5px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Property rows — softer, more app-like */
+.os-newchrome-property-row {
+  padding: 8px 12px;
+  margin: 2px 8px;
+  border-radius: 8px;
+  transition: background 0.14s ease, transform 0.10s ease;
+}
+.os-newchrome-property-row:hover {
+  background: rgba(15,23,42,0.04);
+  transform: translateX(1px);
+}
+.os-newchrome-property-row.active {
+  background: rgba(97,183,70,0.10);
+  box-shadow: inset 0 0 0 1px rgba(97,183,70,0.20);
+}
+/* Status dot — glow halo for premium feel */
+.os-newchrome-status-dot {
+  width: 9px; height: 9px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.95),
+              0 0 0 3px currentColor;
+  position: relative;
+  z-index: 1;
+}
+.os-newchrome-property-row .os-newchrome-status-dot {
+  /* The dot's own background-color is set inline (status color). The
+     box-shadow ring above uses currentColor — so we tint currentColor
+     to a 22%-alpha version of the inline color via mix-blend technique:
+     simpler approach: just set color the same as background via a CSS
+     custom-prop wrapper isn't possible here, so we use a faint ring. */
+  box-shadow: 0 0 0 2px #fff,
+              0 0 0 3px rgba(0,0,0,0.04);
+}
+.os-newchrome-property-name-line {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: #111827;
+}
+.os-newchrome-property-sub {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  margin-top: 1px;
+  color: #6b7280;
+}
+
+/* "All properties" link — becomes a CTA pill */
+.os-newchrome-all-link {
+  margin: 10px 8px 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(97,183,70,0.06) 0%, transparent 100%);
+  border: 1px dashed rgba(97,183,70,0.30);
+  color: var(--brand-dark, #15803d);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  transition: background 0.12s, border-color 0.12s, transform 0.10s;
+}
+.os-newchrome-all-link:hover {
+  background: rgba(97,183,70,0.10);
+  border-color: var(--brand);
+  border-style: solid;
+  transform: translateY(-1px);
+}
+
+/* Custom scrollbar inside the sidebar — thin, subtle, brand-tinted */
+.os-newchrome-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(97,183,70,0.20) transparent;
+}
+.os-newchrome-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.os-newchrome-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.os-newchrome-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(97,183,70,0.20);
+  border-radius: 100px;
+}
+.os-newchrome-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(97,183,70,0.35);
+}
+
+/* Brand bar — refined collapse button */
+.os-newchrome-collapse-btn {
+  border: 1px solid transparent;
+}
+.os-newchrome-collapse-btn:hover {
+  background: rgba(97,183,70,0.08);
+  border-color: rgba(97,183,70,0.18);
+  color: var(--brand-dark, #15803d);
+}
