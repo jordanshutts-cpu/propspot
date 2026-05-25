@@ -4,6 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const { normalizeAddress } = require('../lib/address');
 const { logActivity } = require('../lib/activity');
 const { touchRecent } = require('./recent');
+const { PATCHABLE_FIELDS } = require('../config/property-database');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -217,17 +218,8 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/properties/:id
 router.patch('/:id', async (req, res) => {
-  const allowed = [
-    'address_line1','unit','city','state','zip','parcel_id','lat','lng','notes','cover_url','display_name','status',
-    'acquisition_status',
-    'owner','owner_contact_id','county','tms','lockbox_code',
-    'purchase_date','purchase_price','anticipated_close_date','sold_date','sold_price',
-    'lender_contact_id','seller_contact_id','acquisition_agent_contact_id',
-    'strategy','property_type','data_source','conversion_method',
-    'bridge_origination_fee','loan_servicing_fee','reno_holdback','total_borrowed',
-    'purchase_loan_amount','lender_arv','interest_rate','reno_budget','reno_spent',
-    'reno_draws_received','uw_arv'
-  ];
+  // Field allowlist lives in config/property-database.js — edit it there
+  const allowed = PATCHABLE_FIELDS;
   const sets = [];
   const vals = [];
   let i = 1;

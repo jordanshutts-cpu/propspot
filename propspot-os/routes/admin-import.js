@@ -11,6 +11,7 @@ const { query, pool } = require('../db');
 const { requireAuth, requireOwner } = require('../middleware/auth');
 const { normalizeAddress, parseFreetextAddress } = require('../lib/address');
 const { logActivity } = require('../lib/activity');
+const { CSV_STATUS_MAP } = require('../config/property-database');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -79,19 +80,9 @@ function clean(v) {
   return s === '' ? null : s;
 }
 
-// CSV "Status" → properties.status
+// CSV "Status" → properties.status  (map lives in config/property-database.js)
 function mapStatus(s) {
-  const v = (s || '').trim().toLowerCase();
-  return ({
-    'assigned':         'assigned',
-    'purchasing':       'purchasing',
-    'renovations':      'renovating',
-    'listed for rent':  'listed_for_rent',
-    'rented':           'rented',
-    'listed on mls':    'listed_for_sale',
-    'uc with buyer':    'under_contract_buyer',
-    'sold':             'sold'
-  })[v] || null;
+  return CSV_STATUS_MAP[(s || '').trim().toLowerCase()] || null;
 }
 
 // "Cash" / "NA" / "" mean no real lender — return null and don't make a contact

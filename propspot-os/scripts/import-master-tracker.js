@@ -23,62 +23,19 @@
 
 require('dotenv').config();
 const fs   = require('fs');
-const path = require('path');
 const XLSX = require('xlsx');
 const { Pool } = require('pg');
 const { normalizeAddress, parseFreetextAddress } = require('../lib/address');
 
-// ── Default path: tracker lives next to propspot-os/ ────────────────────────
-const DEFAULT_XLSX = path.join(
-  __dirname, '..', '..',
-  'RH Master Finance Tracker and Loan Facility (Updated 3-13-26 v1).xlsx'
-);
-
-// ── Column indices (0-based) in "1a. RHI" row-2 headers ─────────────────────
-const COL = {
-  status:           0,   // A  — Sold / Renovations / Purchasing / Rented / …
-  strategy:         1,   // B  — Fix N' Flip / LTR / LTR Fund I / Wholetail / …
-  dataSource:       3,   // D  — Referral / FC / PPL / MLS / PPC / Wholesaler
-  conversion:       4,   // E  — Door Knocking / Cold Calling / Auction / …
-  propType:         5,   // F  — SFH / Mobile / etc.
-  address:          6,   // G  — Full street address (canonical key)
-  purchaseDate:    10,   // K  — Purchase Date
-  purchasePrice:   11,   // L  — Purchase Price on HUD
-  bridgeOrigFee:   28,   // AC — Bridge Origination Fee
-  loanServicing:   29,   // AD — Loan Servicing Fee
-  renoHoldback:    55,   // BD — Reno Holdback
-  totalBorrowed:   57,   // BF — Total Borrowed
-  purchaseLoanAmt: 60,   // BI — Purchase Loan Amount
-  lenderArv:       62,   // BK — Lender ARV
-  interestRate:    64,   // BM — Interest Rate (decimal or %)
-  renoBudget:      71,   // BT — Reno Budget
-  renoSpent:       72,   // BU — Reno Spend (Salesforce actual)
-  renoDraws:       74,   // BW — Reno Draws Received
-  saleDate:       103,   // CZ — Sale Date (actual for Sold/Assigned only)
-  uwArv:          105,   // DB — ARV (flip/sales underwrite)
-  soldPrice:      106,   // DC — Actual Sale Price (Sold only)
-  dscrArv:        144,   // EO — DSCR ARV (LTR / rental deals)
-};
-
-// ── Statuses that represent actual closed/disposed deals ─────────────────────
-// Only these get sold_date / sold_price populated.
-const CLOSED_STATUSES = new Set(['Sold', 'Assigned']);
-
-// ── Status mapping: tracker text → propspot status enum ─────────────────────
-const STATUS_MAP = {
-  'Sold':            'sold',
-  'Assigned':        'assigned',
-  'Rented':          'rented',
-  'Listed for Rent': 'listed_for_rent',
-  'Listed on MLS':   'listed_for_sale',
-  'UC with Buyer':   'under_contract_buyer',
-  'Renovations':     'renovating',
-  'Purchasing':      'purchasing',
-};
-
-// ── Rental strategies / statuses (prefer DSCR ARV over flip ARV) ─────────────
-const RENTAL_STATUSES   = new Set(['Rented', 'Listed for Rent']);
-const RENTAL_STRATEGIES = new Set(['LTR', 'LTR Fund I', 'STR']);
+// ── All schema constants live in one place — edit there, not here ────────────
+const {
+  DEFAULT_TRACKER_XLSX,
+  TRACKER_COL       : COL,
+  TRACKER_STATUS_MAP : STATUS_MAP,
+  CLOSED_STATUSES,
+  RENTAL_STATUSES,
+  RENTAL_STRATEGIES,
+} = require('../config/property-database');
 
 // ── Value cleaners ──────────────────────────────────────────────────────────
 function num(v) {
@@ -159,8 +116,9 @@ function readTracker(xlsxPath) {
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const isClosed  = CLOSED_STATUSES.has(statusText);
-    const isRental  = RENTAL_STATUSES.has(statusText) || RENTAL_STRATEGIES.has(strategyText);
+    const dbStatus  = STATUS_MAP[statusText] || null;
+    const isClosed  = CLOSED_STATUSES.has(dbStatus);
+    const isRental  = RENTAL_STATUSES.has(dbStatus) || RENTAL_STRATEGIES.has(strategyText);
 
     // ARV: rentals prefer DSCR ARV; flips prefer sales section ARV
     const flipArv  = num(row[COL.uwArv]);
@@ -171,7 +129,7 @@ function readTracker(xlsxPath) {
 
     rows.push({
       addrStr,
-      status:               STATUS_MAP[statusText] || null,
+      status:               dbStatus,
       strategy:             strategyText || null,
       property_type:        str(row[COL.propType]),
       data_source:          str(row[COL.dataSource]),
@@ -247,7 +205,7 @@ const UPSERT_SQL = `
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
-  const xlsxPath = process.argv[2] || DEFAULT_XLSX;
+  const xlsxPath = process.argv[2] || DEFAULT_TRACKER_XLSX;
 
   if (!fs.existsSync(xlsxPath)) {
     console.error(`\nFile not found:\n  ${xlsxPath}`);
