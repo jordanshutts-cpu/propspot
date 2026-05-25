@@ -439,10 +439,13 @@ body.os-newchrome .page.page-narrow {
 }
 .os-newchrome-all-link:hover { background: var(--brand-light); border-radius: 6px; }
 
-/* Top bar inner layout */
+/* Top bar inner layout
+   First col is `auto` so the mobile hamburger (display:none on desktop)
+   collapses to 0 width when hidden. Second col flexes for the search,
+   third col holds actions. */
 .os-newchrome-topbar {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   height: 100%;
   width: 100%;          /* fill the flex top-header so actions reach the right edge */
@@ -649,20 +652,165 @@ body.os-newchrome .user-menu {
   right: 14px;
 }
 
+/* ────────────────────────────────────────────────────────────
+   Mobile-first chrome additions
+   - Off-canvas sidebar drawer w/ backdrop on ≤768px
+   - Hamburger button in topbar (hidden on desktop)
+   - Compact topbar (search shrinks, AI pill icon-only, KBD hidden)
+   - Larger tap targets in sidebar rows on touch
+   - FieldCam-specific FAB for mobile camera launch
+   ──────────────────────────────────────────────────────────── */
+
+/* Hamburger is desktop-hidden by default — only revealed at ≤768px */
+.os-newchrome-hamburger {
+  display: none;
+  width: 38px; height: 38px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text, #4b5563);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-right: 6px;
+  flex-shrink: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.os-newchrome-hamburger:hover {
+  background: rgba(97,183,70,0.08);
+  border-color: rgba(97,183,70,0.18);
+  color: var(--brand-dark, #15803d);
+}
+.os-newchrome-hamburger:active { transform: scale(0.94); }
+
+/* Off-canvas drawer backdrop — slides in to dim content + tap to close */
+.mobile-rail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.50);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+.mobile-rail-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Lock body scroll when drawer is open (touch devices) */
+body.mobile-rail-open { overflow: hidden; touch-action: none; }
+
 /* Mobile fold */
 @media (max-width: 768px) {
+  .os-newchrome-hamburger { display: inline-flex; }
+
   body.os-newchrome {
     padding-left: 0;
   }
   body.os-newchrome #apps-rail {
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    transition: transform 0.24s cubic-bezier(.2,.7,.2,1);
+    z-index: 1000;                /* above backdrop */
+    box-shadow: 6px 0 24px rgba(15,23,42,0.18);
+    width: min(86vw, 320px) !important;
   }
   body.os-newchrome #apps-rail.open {
     transform: translateX(0);
   }
   body.os-newchrome #top-header {
     left: 0;
+    padding-left: 8px;
+  }
+
+  /* Tighten topbar — search shrinks, AI pill becomes icon-only, hide kbd */
+  .os-newchrome-search-wrap { min-width: 0; flex: 1; }
+  .os-newchrome-kbd { display: none; }
+  .os-newchrome-search input {
+    font-size: 16px;                        /* prevents iOS zoom-on-focus */
+    text-overflow: ellipsis;
+  }
+  .os-newchrome-ai-pill {
+    padding: 0;
+    width: 36px;
+    justify-content: center;
+    gap: 0;
+  }
+  .os-newchrome-ai-pill-label { display: none; }
+
+  /* Larger tap targets in the sidebar — 44px is the iOS recommended min */
+  .os-newchrome-row { padding-top: 10px; padding-bottom: 10px; }
+  .os-newchrome-property-row { min-height: 44px; }
+
+  /* Hide collapse chevron on mobile — drawer doesn't collapse, it slides */
+  #os-newchrome-collapse-btn { display: none !important; }
+
+  /* Hero KPIs stack 2-col then 1-col below 480px */
+  .os-kpi-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  .os-kpi {
+    padding: 12px 14px !important;
+  }
+  .os-kpi-value { font-size: 1.4rem !important; }
+
+  /* Page container — pull padding in so content gets more room */
+  main.page {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* FieldCam dashboard launch button — bigger + full-width on mobile */
+  .fc-cam-launch {
+    width: 100%;
+    justify-content: center;
+    padding: 13px 18px !important;
+    font-size: 0.96rem !important;
+  }
+
+  /* FieldCam map — shrink height so the property grid is reachable */
+  #fc-project-map { height: 320px !important; }
+}
+
+@media (max-width: 480px) {
+  .os-kpi-row {
+    grid-template-columns: 1fr !important;
+  }
+  .os-hero-title { font-size: 1.4rem !important; }
+  .os-hero-subtitle { font-size: 0.82rem !important; }
+}
+
+/* ── FieldCam camera FAB — sticky bottom-right on mobile for quick access
+   from any FieldCam page. Lives outside the page so it's always visible. */
+.fc-mobile-camera-fab {
+  display: none;
+  position: fixed;
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  right: 16px;
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand, #61B746), #4f9c38);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 28px -4px rgba(97,183,70,0.55), 0 4px 10px rgba(15,23,42,0.20);
+  z-index: 900;
+  align-items: center;
+  justify-content: center;
+  transition: transform .12s, box-shadow .15s;
+  text-decoration: none;
+}
+.fc-mobile-camera-fab:active { transform: scale(0.94); }
+.fc-mobile-camera-fab svg { width: 26px; height: 26px; }
+@media (max-width: 768px) {
+  /* Only show on the FieldCam dashboard + property pages */
+  body[data-page="fieldcam"] .fc-mobile-camera-fab,
+  body[data-page="fieldcam-property"] .fc-mobile-camera-fab {
+    display: inline-flex;
   }
 }
 

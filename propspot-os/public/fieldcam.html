@@ -389,10 +389,15 @@
     .empty-state p { margin: 0; font-size: .88rem; }
   </style>
 </head>
-<body class="os-newlayout">
+<body class="os-newlayout" data-page="fieldcam">
 <aside class="apps-rail" id="apps-rail"></aside>
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
+
+<!-- Mobile-only quick-launch camera FAB (CSS hides it on desktop) -->
+<a class="fc-mobile-camera-fab" href="/fieldcam-camera.html" title="Open camera" aria-label="Open camera">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+</a>
 
 <main class="page">
 

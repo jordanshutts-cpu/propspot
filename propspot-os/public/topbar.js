@@ -19,6 +19,10 @@
 
     headerEl.innerHTML = `
       <div class="os-newchrome-topbar">
+        <button type="button" class="os-newchrome-hamburger" id="mobile-rail-toggle"
+                onclick="toggleMobileRail(event)" aria-label="Open menu" title="Open menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <form class="os-newchrome-search-wrap" onsubmit="submitTopSearch(event)">
           <div class="os-newchrome-search">
             <span class="os-newchrome-search-icon" aria-hidden="true">
@@ -256,6 +260,51 @@
       const input = document.getElementById('top-search');
       if (input) input.focus();
     }
+  });
+
+  // ── Mobile rail drawer ─────────────────────────────────────────
+  // The sidebar is fixed and CSS slides it off-screen on ≤768px. The
+  // hamburger button adds `.open` to reveal it as an overlay drawer.
+  // A backdrop dims content + closes on tap. Sidebar row clicks also
+  // close the drawer so the user goes straight to the destination.
+  function ensureMobileRailBackdrop() {
+    if (document.getElementById('mobile-rail-backdrop')) return;
+    const bd = document.createElement('div');
+    bd.id = 'mobile-rail-backdrop';
+    bd.className = 'mobile-rail-backdrop';
+    bd.addEventListener('click', closeMobileRail);
+    document.body.appendChild(bd);
+  }
+  function openMobileRail() {
+    ensureMobileRailBackdrop();
+    document.getElementById('apps-rail')?.classList.add('open');
+    document.getElementById('mobile-rail-backdrop')?.classList.add('open');
+    document.body.classList.add('mobile-rail-open');
+  }
+  function closeMobileRail() {
+    document.getElementById('apps-rail')?.classList.remove('open');
+    document.getElementById('mobile-rail-backdrop')?.classList.remove('open');
+    document.body.classList.remove('mobile-rail-open');
+  }
+  function toggleMobileRail(e) {
+    e?.stopPropagation();
+    const isOpen = document.getElementById('apps-rail')?.classList.contains('open');
+    if (isOpen) closeMobileRail(); else openMobileRail();
+  }
+  window.toggleMobileRail = toggleMobileRail;
+  window.closeMobileRail  = closeMobileRail;
+
+  // When the user taps a sidebar link on mobile, dismiss the drawer.
+  // Delegated so it survives sidebar re-renders.
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('mobile-rail-open')) return;
+    const a = e.target.closest('.os-newchrome-row, .os-newchrome-property-row, .os-newchrome-workspace, .os-newchrome-brand-logo');
+    if (a && document.getElementById('apps-rail')?.contains(a)) closeMobileRail();
+  });
+
+  // ESC closes the drawer too.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('mobile-rail-open')) closeMobileRail();
   });
 
   if (document.readyState === 'loading') {
