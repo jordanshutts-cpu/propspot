@@ -986,3 +986,49 @@ html.theme-dark .ib-filter-icon[data-icon="archived"] { color: #cbd5e1; }
 html.theme-dark .ib-filter-icon[data-icon="assigned"] { color: #d8b4fe; }
 html.theme-dark .ib-nav-item.active .ib-filter-icon,
 html.theme-dark .ib-nav-item.active .ib-inbox-icon { color: var(--d-brand) !important; }
+
+/* ── Shared premium chrome (hero/KPI/panel/section-head) ────── */
+html.theme-dark .os-hero {
+  background: linear-gradient(135deg, rgba(110,208,87,0.10) 0%, rgba(96,165,250,0.05) 60%, transparent 100%);
+  border-color: var(--d-border-bright);
+}
+html.theme-dark .os-hero::after {
+  background: radial-gradient(circle, rgba(110,208,87,0.16) 0%, transparent 70%);
+}
+html.theme-dark .os-hero-title { color: var(--d-text-strong); }
+html.theme-dark .os-hero-subtitle { color: var(--d-text-muted); }
+html.theme-dark .os-hero-eyebrow { color: var(--d-brand); }
+
+html.theme-dark .os-kpi {
+  background: var(--d-surface-2);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark a.os-kpi:hover {
+  background: var(--d-surface-3);
+  border-color: var(--d-brand);
+  box-shadow: 0 6px 18px -8px rgba(110,208,87,0.45);
+}
+html.theme-dark .os-kpi-label { color: var(--d-text-muted); }
+html.theme-dark .os-kpi-value { color: var(--d-text-strong); }
+html.theme-dark .os-kpi-value.brand   { color: var(--d-brand); }
+html.theme-dark .os-kpi-value.warn    { color: #fbbf24; }
+html.theme-dark .os-kpi-value.danger  { color: #fca5a5; }
+html.theme-dark .os-kpi-sub { color: var(--d-text-muted); }
+
+html.theme-dark .os-section-title { color: var(--d-text-dim); }
+html.theme-dark .os-section-line  { background: var(--d-border); }
+html.theme-dark .os-section-link  { color: var(--d-brand); }
+html.theme-dark .os-section-link:hover { background: rgba(110,208,87,0.12); }
+
+html.theme-dark .os-panel {
+  background: var(--d-surface);
+  border-color: var(--d-border);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.40);
+}
+html.theme-dark .os-panel-head { border-bottom-color: var(--d-border); }
+html.theme-dark .os-panel-title { color: var(--d-text-strong); }
+html.theme-dark .os-panel-link { color: var(--d-brand); }
+
+html.theme-dark .os-status-pill { background: rgba(110,208,87,0.16); color: var(--d-brand); }
+html.theme-dark .os-status-pill::before { background: var(--d-brand); }
