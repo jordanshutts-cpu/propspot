@@ -295,7 +295,7 @@ body.os-newchrome .page.page-narrow {
   cursor: pointer;
   font-size: 13px;
 }
-.os-newchrome-row:hover { background: var(--brand-light); color: var(--brand-dark); }
+.os-newchrome-row:not([data-section]):hover { background: var(--brand-light); color: var(--brand-dark); }
 .os-newchrome-row.active {
   background: var(--brand-light);
   color: var(--brand-dark);
@@ -1598,13 +1598,42 @@ html.sidebar-collapsed .os-newchrome-brand-logo {
   opacity: 0.55;
   flex-shrink: 0;
 }
+/* ── Coordinated section palette ───────────────────────────────
+   Each section has a single accent color that drives:
+     • section label color
+     • row icon color
+     • subtle hover background tint (set on .os-newchrome-row)
+*/
 .os-newchrome-section-label[data-section="for-you"]   { color: #15803d; }
-.os-newchrome-section-label[data-section="pipeline"]  { color: #1d4ed8; }
-.os-newchrome-section-label[data-section="workspace"] { color: #0d9488; }
-.os-newchrome-section-label[data-section="tools"]     { color: #7e22ce; }
-.os-newchrome-section-label[data-section="soon"]      { color: #9ca3af; }
+.os-newchrome-section-label[data-section="pipeline"]  { color: #4f46e5; }
+.os-newchrome-section-label[data-section="workspace"] { color: #d97706; }
+.os-newchrome-section-label[data-section="tools"]     { color: #9333ea; }
+.os-newchrome-section-label[data-section="soon"]      { color: #94a3b8; }
 .os-newchrome-section-label[data-section="pinned"]    { color: #b45309; }
 .os-newchrome-section-label[data-section="recent"]    { color: #0e7490; }
+
+/* Row icons inherit their section's accent color (all icons are SVGs
+   stroked with currentColor — set color on the icon span). */
+.os-newchrome-row[data-section="for-you"]   .os-newchrome-row-icon { color: #15803d; }
+.os-newchrome-row[data-section="pipeline"]  .os-newchrome-row-icon { color: #4f46e5; }
+.os-newchrome-row[data-section="workspace"] .os-newchrome-row-icon { color: #d97706; }
+.os-newchrome-row[data-section="tools"]     .os-newchrome-row-icon { color: #9333ea; }
+.os-newchrome-row[data-section="soon"]      .os-newchrome-row-icon { color: #94a3b8; }
+
+/* Section-scoped hover — replaces the global brand-green tint so each
+   section feels like its own zone */
+.os-newchrome-row[data-section="for-you"]:not(.active):hover   { background: rgba(22,163,74,0.08);  color: #15803d; }
+.os-newchrome-row[data-section="pipeline"]:not(.active):hover  { background: rgba(79,70,229,0.08);  color: #4f46e5; }
+.os-newchrome-row[data-section="workspace"]:not(.active):hover { background: rgba(217,119,6,0.10);  color: #b45309; }
+.os-newchrome-row[data-section="tools"]:not(.active):hover     { background: rgba(147,51,234,0.08); color: #7e22ce; }
+.os-newchrome-row[data-section="soon"]:not(.active):hover      { background: rgba(148,163,184,0.10); color: #475569; }
+
+/* Active row keeps the brand color (consistent "you are here" signal)
+   regardless of section — but the icon takes the section accent. */
+.os-newchrome-row.active[data-section="for-you"]   .os-newchrome-row-icon { color: #15803d; }
+.os-newchrome-row.active[data-section="pipeline"]  .os-newchrome-row-icon { color: #4f46e5; }
+.os-newchrome-row.active[data-section="workspace"] .os-newchrome-row-icon { color: #d97706; }
+.os-newchrome-row.active[data-section="tools"]     .os-newchrome-row-icon { color: #9333ea; }
 
 /* Section-label edit (pencil) button — visible on hover */
 .os-newchrome-section-label-text { flex: 1; }
@@ -1741,7 +1770,9 @@ html.sidebar-collapsed .os-newchrome-brand-logo {
   margin: 1px 8px;
   transition: background 0.12s ease, color 0.12s ease, transform 0.10s ease;
 }
-.os-newchrome-row:hover {
+/* Fallback hover for rows without a section (pinned/recent property rows).
+   Section-scoped hover rules higher up override this for sectioned rows. */
+.os-newchrome-row:not([data-section]):hover {
   background: rgba(97,183,70,0.08);
   color: var(--brand-dark, #15803d);
 }
@@ -1758,19 +1789,18 @@ html.sidebar-collapsed .os-newchrome-brand-logo {
   background: var(--brand);
   border-radius: 0 3px 3px 0;
 }
-.os-newchrome-row.active .os-newchrome-row-icon {
-  color: var(--brand-dark, #15803d);
-}
+/* Active row's icon keeps the section accent (set by per-section rules
+   higher up); no global override here. */
 
-/* Row icon container — subtle baseline color */
+/* Row icon container — section-specific [data-section=...] rules
+   above set the actual color; this is just the box. */
 .os-newchrome-row-icon {
-  color: #6b7280;
   width: 20px; height: 20px;
   transition: color 0.12s ease;
 }
-.os-newchrome-row:hover .os-newchrome-row-icon {
-  color: var(--brand-dark, #15803d);
-}
+/* On hover, brighten the section's icon color slightly (sibling rules
+   above set the section color; .icon inherits and we just nudge opacity) */
+.os-newchrome-row:hover .os-newchrome-row-icon { opacity: 1; }
 
 /* Badges — refined inbox red, pill-style muted counts */
 .os-newchrome-badge {

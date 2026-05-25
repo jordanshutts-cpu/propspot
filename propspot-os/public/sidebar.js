@@ -198,14 +198,17 @@
   // Catalog of items the user can show/hide in the For You section.
   // Order in this array is the rendered order. Visibility persists via
   // localStorage under 'propspot_foryou_visible'.
+  // Note: ICONS is referenced lazily through a getter so it's available
+  // even though declared further down in this file.
+  function _icon(key) { return ICONS[key]; }
   const FOR_YOU_CATALOG = [
-    { id: 'inbox',     icon: '📧', label: 'Inbox',    app: 'inbox',  default: true,  badgeKey: 'inbox' },
-    { id: 'mentions',  icon: '@',  label: 'Mentions', soon: true,    default: true },
-    { id: 'tasks',     icon: '✓',  label: 'My Tasks', soon: true,    default: true },
-    { id: 'pulse',     icon: '💬', label: 'Pulse',    app: 'pulse',  default: false, badgeKey: 'pulse' },
-    { id: 'fieldcam',  icon: '📸', label: 'FieldCam', app: 'fieldcam', default: false, badgeKey: 'photosToday', badgeClass: 'muted' },
-    { id: 'workorders',icon: '🛠️', label: 'Work Orders', app: 'maintenance', default: false, badgeKey: 'workOrders', badgeClass: 'warn' },
-    { id: 'activity',  icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'Activity', osnav: 'activity', href: '/activity.html', default: false },
+    { id: 'inbox',     iconKey: 'inbox',     label: 'Inbox',       app: 'inbox',       default: true,  badgeKey: 'inbox' },
+    { id: 'mentions',  iconKey: 'at',        label: 'Mentions',    soon: true,         default: true },
+    { id: 'tasks',     iconKey: 'check',     label: 'My Tasks',    soon: true,         default: true },
+    { id: 'pulse',     iconKey: 'pulse',     label: 'Pulse',       app: 'pulse',       default: false, badgeKey: 'pulse' },
+    { id: 'fieldcam',  iconKey: 'camera',    label: 'FieldCam',    app: 'fieldcam',    default: false, badgeKey: 'photosToday', badgeClass: 'muted' },
+    { id: 'workorders',iconKey: 'wrench',    label: 'Work Orders', app: 'maintenance', default: false, badgeKey: 'workOrders',  badgeClass: 'warn' },
+    { id: 'activity',  iconKey: 'activity',  label: 'Activity',    osnav: 'activity',  href: '/activity.html', default: false },
   ];
 
   function getForYouVisible() {
@@ -226,14 +229,15 @@
     return FOR_YOU_CATALOG
       .filter(it => visible.has(it.id))
       .map(it => row({
-        icon: it.icon,
+        icon: ICONS[it.iconKey] || '',
         label: it.label,
         app: it.app,
         osnav: it.osnav,
         href: it.href,
         soon: it.soon,
         badge: it.badgeKey ? counts[it.badgeKey] : undefined,
-        badgeClass: it.badgeClass || ''
+        badgeClass: it.badgeClass || '',
+        section: 'for-you'
       }))
       .join('');
   }
@@ -258,7 +262,7 @@
           ${FOR_YOU_CATALOG.map(it => `
             <label class="foryou-modal-row">
               <input type="checkbox" data-id="${it.id}" ${visible.has(it.id) ? 'checked' : ''}/>
-              <span class="foryou-modal-icon">${it.icon}</span>
+              <span class="foryou-modal-icon">${ICONS[it.iconKey] || ''}</span>
               <span class="foryou-modal-label">${escHtml(it.label)}</span>
               ${it.soon ? '<span class="foryou-modal-soon">soon</span>' : ''}
             </label>
@@ -288,7 +292,43 @@
     });
   };
 
-  function row({ icon, label, href = '#', osnav, app, appPath, badge, badgeClass = '', soon = false }) {
+  // ── Coordinated SVG icon library — all use currentColor so they inherit
+  // their section's accent. Lucide-style line icons, viewBox 24x24.
+  const _svg = (path, opts = '') =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"${opts ? ' ' + opts : ''}>${path}</svg>`;
+  const ICONS = {
+    // For you
+    inbox:        _svg('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'),
+    at:           _svg('<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>'),
+    check:        _svg('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'),
+    pulse:        _svg('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'),
+    camera:       _svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>'),
+    wrench:       _svg('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'),
+    activity:     _svg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'),
+    // Pipeline
+    target:       _svg('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'),
+    phone:        _svg('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>'),
+    users:        _svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    clipboard:    _svg('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>'),
+    hammer:       _svg('<path d="M15 12 L9 18 L3 21 L4 18 L9 12 L15 12 z"/><path d="M14 11 L11 14"/><path d="M15 12 L21 6 L18 3 L12 9"/>'),
+    briefcase:    _svg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
+    trendingUp:   _svg('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
+    package:      _svg('<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'),
+    xCircle:      _svg('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'),
+    bookmark:     _svg('<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>'),
+    // Workspace
+    database:     _svg('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>'),
+    // Tools
+    barChart:     _svg('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>'),
+    // Soon
+    globe:        _svg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
+    home:         _svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'),
+    dollar:       _svg('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
+    receipt:      _svg('<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 2V2"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/>'),
+    refresh:      _svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'),
+  };
+
+  function row({ icon, label, href = '#', osnav, app, appPath, badge, badgeClass = '', soon = false, section = '' }) {
     const dataAttr = osnav ? `data-osnav="${osnav}"` :
                      app   ? `data-app="${app}" data-app-path="${appPath || '/'}"` : '';
     const badgeHtml = soon
@@ -297,10 +337,11 @@
           ? `<span class="os-newchrome-badge ${badgeClass}">${badge}</span>`
           : '');
     const klass = `os-newchrome-row${soon ? ' soon' : ''}`;
+    const sectionAttr = section ? ` data-section="${section}"` : '';
     // title attr surfaces the label as a tooltip — useful when the sidebar
     // is collapsed and only the icon is visible.
     return `
-      <a class="${klass}" href="${href}" ${dataAttr} title="${escHtml(label)}">
+      <a class="${klass}" href="${href}" ${dataAttr} title="${escHtml(label)}"${sectionAttr}>
         <span class="os-newchrome-row-icon">${icon}</span>
         <span class="os-newchrome-row-label">${label}</span>
         ${badgeHtml}
@@ -736,32 +777,32 @@
           ${renderForYouRows(counts)}
 
           ${sectionLabel('Pipeline')}
-          ${row({ icon: '🎯', label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html',                    badge: counts.prospects,     badgeClass: 'muted' })}
-          ${row({ icon: '📞', label: 'Leads',         osnav: 'leads',         href: '/acquisitions.html',                    badge: counts.leads,         badgeClass: 'muted' })}
-          ${row({ icon: '🤝', label: 'Opportunities', osnav: 'opportunities', href: '/acquisitions.html',                    badge: counts.opportunities, badgeClass: 'muted' })}
-          ${row({ icon: '📋', label: 'Acquisitions',  osnav: 'acquisitions',  href: '/acquisitions.html',                    badge: counts.acquisitions,  badgeClass: 'muted' })}
-          ${row({ icon: '🔨', label: 'Projects',      osnav: 'projects',      href: '/properties.html?status=renovating',    badge: counts.projects,      badgeClass: 'muted' })}
-          ${row({ icon: '💼', label: 'Holdings',      osnav: 'holdings',      href: '/holdings.html',                        badge: counts.holdings,      badgeClass: 'muted' })}
-          ${row({ icon: '💰', label: 'Dispositions',  osnav: 'dispositions',  href: '/dispositions.html',                    badge: counts.dispositions,  badgeClass: 'muted' })}
-          ${row({ icon: '📦', label: 'Sold',          osnav: 'sold',          href: '/closed.html',                          badge: counts.sold,          badgeClass: 'muted' })}
-          ${row({ icon: '💀', label: 'Dead',          osnav: 'dead',          href: '/properties.html?status=dropped' })}
+          ${row({ section: 'pipeline', icon: ICONS.target,     label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html',                    badge: counts.prospects,     badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.phone,      label: 'Leads',         osnav: 'leads',         href: '/acquisitions.html',                    badge: counts.leads,         badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.users,      label: 'Opportunities', osnav: 'opportunities', href: '/acquisitions.html',                    badge: counts.opportunities, badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.clipboard,  label: 'Acquisitions',  osnav: 'acquisitions',  href: '/acquisitions.html',                    badge: counts.acquisitions,  badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.hammer,     label: 'Projects',      osnav: 'projects',      href: '/properties.html?status=renovating',    badge: counts.projects,      badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.briefcase,  label: 'Holdings',      osnav: 'holdings',      href: '/holdings.html',                        badge: counts.holdings,      badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.trendingUp, label: 'Dispositions',  osnav: 'dispositions',  href: '/dispositions.html',                    badge: counts.dispositions,  badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.package,    label: 'Sold',          osnav: 'sold',          href: '/closed.html',                          badge: counts.sold,          badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.xCircle,    label: 'Dead',          osnav: 'dead',          href: '/properties.html?status=dropped' })}
 
           ${sectionLabel('Workspace')}
-          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>', label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' })}
-          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'Activity', osnav: 'activity', href: '/activity.html' })}
+          ${row({ section: 'workspace', icon: ICONS.database, label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' })}
+          ${row({ section: 'workspace', icon: ICONS.activity, label: 'Activity', osnav: 'activity', href: '/activity.html' })}
 
           ${sectionLabel('Tools')}
-          ${row({ icon: '📸', label: 'FieldCam',     app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
-          ${row({ icon: '🛠️', label: 'Work Orders',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
-          ${row({ icon: '💬', label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
-          ${row({ icon: '📊', label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
+          ${row({ section: 'tools', icon: ICONS.camera,   label: 'FieldCam',     app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
+          ${row({ section: 'tools', icon: ICONS.wrench,   label: 'Work Orders',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
+          ${row({ section: 'tools', icon: ICONS.pulse,    label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
+          ${row({ section: 'tools', icon: ICONS.barChart, label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
 
           ${sectionLabel('Soon')}
-          ${row({ icon: '🌐', label: 'Listings',         soon: true })}
-          ${row({ icon: '🏚️', label: 'Offmarket',        soon: true })}
-          ${row({ icon: '💵', label: 'Expenses',         soon: true })}
-          ${row({ icon: '🧾', label: 'QuickBooks sync',  soon: true })}
-          ${row({ icon: '🔄', label: 'Rentvine sync',    soon: true })}
+          ${row({ section: 'soon', icon: ICONS.globe,   label: 'Listings',         soon: true })}
+          ${row({ section: 'soon', icon: ICONS.home,    label: 'Offmarket',        soon: true })}
+          ${row({ section: 'soon', icon: ICONS.dollar,  label: 'Expenses',         soon: true })}
+          ${row({ section: 'soon', icon: ICONS.receipt, label: 'QuickBooks sync',  soon: true })}
+          ${row({ section: 'soon', icon: ICONS.refresh, label: 'Rentvine sync',    soon: true })}
 
           <div class="os-newchrome-properties">
             <div class="os-newchrome-pinned-header" data-section="pinned">

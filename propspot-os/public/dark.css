@@ -153,13 +153,26 @@ html.theme-dark .os-newchrome-workspace-logo {
 }
 
 html.theme-dark .os-newchrome-section-label { color: var(--d-text-dim); }
+/* ── Coordinated section palette (dark) ─ brighter for contrast ── */
 html.theme-dark .os-newchrome-section-label[data-section="for-you"]   { color: var(--d-brand); }
-html.theme-dark .os-newchrome-section-label[data-section="pipeline"]  { color: #6ea8ff; }
-html.theme-dark .os-newchrome-section-label[data-section="workspace"] { color: #2dd4bf; }
+html.theme-dark .os-newchrome-section-label[data-section="pipeline"]  { color: #818cf8; }
+html.theme-dark .os-newchrome-section-label[data-section="workspace"] { color: #fbbf24; }
 html.theme-dark .os-newchrome-section-label[data-section="tools"]     { color: #c084fc; }
 html.theme-dark .os-newchrome-section-label[data-section="soon"]      { color: var(--d-text-dim); }
 html.theme-dark .os-newchrome-section-label[data-section="pinned"]    { color: #fbbf24; }
 html.theme-dark .os-newchrome-section-label[data-section="recent"]    { color: #67e8f9; }
+
+html.theme-dark .os-newchrome-row[data-section="for-you"]   .os-newchrome-row-icon { color: var(--d-brand); }
+html.theme-dark .os-newchrome-row[data-section="pipeline"]  .os-newchrome-row-icon { color: #818cf8; }
+html.theme-dark .os-newchrome-row[data-section="workspace"] .os-newchrome-row-icon { color: #fbbf24; }
+html.theme-dark .os-newchrome-row[data-section="tools"]     .os-newchrome-row-icon { color: #c084fc; }
+html.theme-dark .os-newchrome-row[data-section="soon"]      .os-newchrome-row-icon { color: #64748b; }
+
+html.theme-dark .os-newchrome-row[data-section="for-you"]:not(.active):hover   { background: rgba(110,208,87,0.10);  color: var(--d-brand); }
+html.theme-dark .os-newchrome-row[data-section="pipeline"]:not(.active):hover  { background: rgba(129,140,248,0.12); color: #a5b4fc; }
+html.theme-dark .os-newchrome-row[data-section="workspace"]:not(.active):hover { background: rgba(251,191,36,0.10);  color: #fbbf24; }
+html.theme-dark .os-newchrome-row[data-section="tools"]:not(.active):hover     { background: rgba(192,132,252,0.12); color: #d8b4fe; }
+html.theme-dark .os-newchrome-row[data-section="soon"]:not(.active):hover      { background: rgba(255,255,255,0.04); color: var(--d-text-muted); }
 
 /* Section edit (pencil) button in dark mode */
 html.theme-dark .os-newchrome-section-edit:hover { background: rgba(255,255,255,0.08); }
@@ -207,8 +220,8 @@ html.theme-dark .os-newchrome-row.active {
   color: var(--d-brand);
 }
 html.theme-dark .os-newchrome-row.active::before { background: var(--d-brand); }
-html.theme-dark .os-newchrome-row-icon { color: var(--d-text-dim); }
-html.theme-dark .os-newchrome-row.active .os-newchrome-row-icon { color: var(--d-brand) !important; }
+/* In dark mode, baseline icon color is set per-section (see palette block).
+   Active state retains the section's accent — no global green override. */
 html.theme-dark .os-newchrome-row.soon,
 html.theme-dark .os-newchrome-row.soon .os-newchrome-row-icon { color: var(--d-text-dim); }
 html.theme-dark .os-newchrome-row-soon-pill {
@@ -260,11 +273,14 @@ html.theme-dark .os-newchrome-workspace-logo {
   box-shadow: 0 2px 6px -2px rgba(110,208,87,0.55),
               inset 0 1px 0 rgba(255,255,255,0.10);
 }
-html.theme-dark .os-newchrome-row:hover {
+/* Section-scoped hover backgrounds defined in the palette block above
+   take precedence for sectioned rows. Rows without a section (e.g.,
+   pinned/recent properties) still need the brand-green hover. */
+html.theme-dark .os-newchrome-row:not([data-section]):hover {
   background: rgba(110,208,87,0.08);
   color: var(--d-brand);
 }
-html.theme-dark .os-newchrome-row:hover .os-newchrome-row-icon { color: var(--d-brand); }
+html.theme-dark .os-newchrome-row:not([data-section]):hover .os-newchrome-row-icon { color: var(--d-brand); }
 html.theme-dark .os-newchrome-row:hover .os-newchrome-badge.muted { color: var(--d-brand); }
 html.theme-dark .os-newchrome-row.active .os-newchrome-badge.muted { color: var(--d-brand); }
 html.theme-dark .os-newchrome-row-soon-pill {
