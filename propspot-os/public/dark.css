@@ -726,6 +726,87 @@ html.theme-dark .fc-tab.active { background: var(--d-brand); color: #0a0e14; bor
 html.theme-dark .fc-no-photo { background: var(--d-surface-2); color: var(--d-text-dim); }
 html.theme-dark .prop-name { color: var(--d-text-strong); }
 html.theme-dark .prop-addr { color: var(--d-text-muted); }
+html.theme-dark .prop-card {
+  background: var(--d-surface);
+  border-color: var(--d-border);
+  box-shadow: 0 1px 2px rgba(0,0,0,.40);
+}
+html.theme-dark .prop-card:hover {
+  border-color: var(--d-brand);
+  box-shadow: 0 8px 20px -6px rgba(0,0,0,.6);
+}
+html.theme-dark .prop-no-photo {
+  background: linear-gradient(135deg, var(--d-bg), var(--d-surface-2));
+  color: var(--d-text-dim);
+}
+html.theme-dark .prop-count { color: var(--d-brand); }
+
+/* FieldCam map — premium overlay chrome */
+html.theme-dark .fc-map-section {
+  background: var(--d-surface);
+  border-color: var(--d-border);
+  box-shadow: 0 1px 2px rgba(0,0,0,.40);
+}
+html.theme-dark .fc-map-stat,
+html.theme-dark .fc-map-actions {
+  background: rgba(10,14,20,0.85);
+  border-color: rgba(255,255,255,0.06);
+  color: var(--d-text);
+}
+html.theme-dark .fc-map-action { color: var(--d-text); }
+html.theme-dark .fc-map-action:hover { background: rgba(110,208,87,0.14); color: var(--d-brand); }
+html.theme-dark .fc-map-action.active {
+  background: var(--d-brand);
+  color: #0a0e14;
+}
+html.theme-dark .fc-map-stat-dot {
+  background: var(--d-brand);
+  box-shadow: 0 0 0 2px rgba(110,208,87,0.25);
+}
+/* Leaflet zoom controls — dark variant */
+html.theme-dark .leaflet-control-zoom a {
+  background: rgba(10,14,20,0.85) !important;
+  color: var(--d-text) !important;
+}
+html.theme-dark .leaflet-control-zoom a:hover {
+  background: var(--d-brand) !important;
+  color: #0a0e14 !important;
+}
+html.theme-dark .leaflet-control-zoom-in { border-bottom-color: rgba(255,255,255,0.08) !important; }
+html.theme-dark .leaflet-control-attribution {
+  background: rgba(10,14,20,0.85) !important;
+  color: var(--d-text-dim) !important;
+}
+html.theme-dark .leaflet-control-attribution a { color: var(--d-text-muted) !important; }
+
+/* Search wrap dark */
+html.theme-dark .search-wrap input {
+  background: var(--d-surface);
+  border-color: var(--d-border);
+  color: var(--d-text);
+}
+html.theme-dark .search-wrap input:focus {
+  border-color: var(--d-brand);
+  box-shadow: 0 0 0 3px rgba(110,208,87,0.12);
+}
+html.theme-dark .search-wrap .search-icon { color: var(--d-text-dim); }
+
+/* Tab bar (pill style) dark */
+html.theme-dark .tab-bar {
+  background: var(--d-bg);
+  border-color: var(--d-border);
+}
+html.theme-dark .tab-btn { color: var(--d-text-dim); }
+html.theme-dark .tab-btn:hover { color: var(--d-text); }
+html.theme-dark .tab-btn.active {
+  background: var(--d-surface-2);
+  color: var(--d-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,.40);
+}
+
+/* Empty state dark */
+html.theme-dark .empty-state { color: var(--d-text-muted); }
+html.theme-dark .empty-state .empty-icon { color: var(--d-text-dim); }
 
 /* ── Underwriting ─────────────────────────────────────────────
    Vibrant treatment: each input panel keeps a distinct accent

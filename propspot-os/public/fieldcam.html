@@ -8,49 +8,359 @@
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
-    /* ── Project map ── */
-    .fc-map-section { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px 16px; margin-bottom:18px; }
-    .fc-map-head    { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-    .fc-map-title   { font-weight:700; font-size:.95rem; color:var(--text); }
-    .fc-map-count   { font-size:.72rem; color:var(--text-muted); font-weight:600; }
-    #fc-project-map { width:100%; height:320px; border-radius:10px; background:var(--bg); }
-    /* Leaflet popup tuned for our brand */
-    .leaflet-popup-content-wrapper { border-radius:10px; box-shadow:0 6px 22px rgba(0,0,0,.18); }
-    .leaflet-popup-content         { margin:10px 12px; font-size:.82rem; line-height:1.4; min-width:180px; }
-    .fc-popup-thumb { width:100%; height:80px; object-fit:cover; border-radius:6px; margin-bottom:6px; background:var(--bg); display:block; }
-    .fc-popup-name  { font-weight:700; color:var(--text); margin-bottom:2px; }
-    .fc-popup-addr  { font-size:.72rem; color:var(--text-muted); }
-    .fc-popup-link  { display:inline-block; margin-top:6px; font-size:.72rem; font-weight:600; color:var(--brand); text-decoration:none; }
-    .fc-popup-link:hover { text-decoration:underline; }
+    /* ── Project map — large, premium, branded ─────────────────── */
+    .fc-map-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      padding: 6px;
+      margin-bottom: 18px;
+      overflow: hidden;
+      position: relative;
+    }
+    #fc-project-map {
+      width: 100%;
+      height: 520px;
+      border-radius: 10px;
+      background: var(--bg);
+      position: relative;
+    }
 
-    /* ── Tab bar ── */
-    .tab-bar { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:20px; }
-    .tab-btn { padding:10px 18px; font-size:.88rem; font-weight:600; cursor:pointer; color:var(--text-muted); border:none; background:none; border-bottom:2px solid transparent; transition:all .12s; }
-    .tab-btn:hover  { color:var(--brand); }
-    .tab-btn.active { color:var(--brand); border-bottom-color:var(--brand); }
-    /* ── Search ── */
+    /* Floating action chips overlaid on the map (top-right) */
+    .fc-map-actions {
+      position: absolute;
+      top: 16px; right: 16px;
+      z-index: 500;
+      display: flex;
+      gap: 6px;
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(10px);
+      padding: 4px;
+      border-radius: 100px;
+      box-shadow: 0 4px 14px -2px rgba(15,23,42,0.18);
+      border: 1px solid rgba(255,255,255,0.6);
+    }
+    .fc-map-action {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 6px 11px;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--text);
+      border-radius: 100px;
+      letter-spacing: 0.02em;
+      transition: background 0.12s, color 0.12s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .fc-map-action:hover { background: rgba(97,183,70,0.12); color: var(--brand-dark); }
+    .fc-map-action.active {
+      background: var(--brand);
+      color: #fff;
+      box-shadow: 0 2px 6px -1px rgba(97,183,70,0.40);
+    }
+    .fc-map-action svg { width: 12px; height: 12px; }
+
+    /* Floating count badge (top-left) */
+    .fc-map-stat {
+      position: absolute;
+      top: 16px; left: 16px;
+      z-index: 500;
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(10px);
+      padding: 7px 12px;
+      border-radius: 100px;
+      box-shadow: 0 4px 14px -2px rgba(15,23,42,0.18);
+      border: 1px solid rgba(255,255,255,0.6);
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .fc-map-stat-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 2px rgba(97,183,70,0.20);
+    }
+
+    /* Cleaner zoom controls — small, rounded, brand on hover */
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 4px 14px -2px rgba(15,23,42,0.18) !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+    }
+    .leaflet-control-zoom a {
+      background: rgba(255,255,255,0.94) !important;
+      backdrop-filter: blur(10px);
+      color: var(--text) !important;
+      border: none !important;
+      width: 32px !important;
+      height: 32px !important;
+      line-height: 32px !important;
+      font-size: 18px !important;
+      font-weight: 600 !important;
+      transition: background 0.12s, color 0.12s !important;
+    }
+    .leaflet-control-zoom a:hover {
+      background: var(--brand) !important;
+      color: #fff !important;
+    }
+    .leaflet-control-zoom-in  { border-bottom: 1px solid rgba(0,0,0,0.08) !important; }
+
+    /* Attribution — smaller, cleaner */
+    .leaflet-control-attribution {
+      font-size: 9.5px !important;
+      background: rgba(255,255,255,0.85) !important;
+      backdrop-filter: blur(6px);
+      padding: 2px 8px !important;
+      border-radius: 6px 0 0 0 !important;
+    }
+    .leaflet-control-attribution a { color: var(--text-muted) !important; }
+
+    /* Custom branded marker — green pin with subtle glow */
+    .fc-marker {
+      width: 28px; height: 36px;
+      position: relative;
+    }
+    .fc-marker-pin {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
+      border: 2px solid #fff;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      position: absolute;
+      top: 0; left: 0;
+      box-shadow: 0 4px 10px -2px rgba(97,183,70,0.55),
+                  0 0 0 1px rgba(0,0,0,0.05);
+    }
+    .fc-marker-pin::after {
+      /* Inner dot */
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 8px; height: 8px;
+      background: #fff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .fc-marker:hover .fc-marker-pin {
+      transform: rotate(-45deg) scale(1.10);
+      box-shadow: 0 6px 14px -2px rgba(97,183,70,0.70),
+                  0 0 0 1px rgba(0,0,0,0.05);
+    }
+
+    /* MarkerCluster — branded green clusters */
+    .marker-cluster {
+      background: rgba(97,183,70,0.15) !important;
+      border-radius: 50%;
+    }
+    .marker-cluster div {
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%) !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+      font-size: 12px !important;
+      box-shadow: 0 4px 10px -2px rgba(97,183,70,0.55);
+      border: 2px solid #fff;
+    }
+
+    /* Leaflet popup — premium chrome */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px !important;
+      box-shadow: 0 12px 32px -8px rgba(15,23,42,0.30) !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+    .leaflet-popup-content {
+      margin: 0 !important;
+      font-size: .82rem;
+      line-height: 1.4;
+      min-width: 200px;
+    }
+    .leaflet-popup-tip { box-shadow: 0 4px 10px rgba(15,23,42,0.12) !important; }
+    .fc-popup-inner { padding: 10px 12px 12px; }
+    .fc-popup-thumb {
+      width: 100%; height: 100px;
+      object-fit: cover;
+      background: var(--bg);
+      display: block;
+    }
+    .fc-popup-name {
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 2px;
+      font-size: .88rem;
+    }
+    .fc-popup-addr {
+      font-size: .72rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .fc-popup-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--brand-dark, #15803d);
+      text-decoration: none;
+      padding: 5px 10px;
+      background: rgba(97,183,70,0.12);
+      border-radius: 100px;
+      transition: background 0.12s;
+    }
+    .fc-popup-link:hover { background: rgba(97,183,70,0.20); }
+
+    /* ── Premium pill tab bar (replaces border-bottom style) ────── */
+    .tab-bar {
+      display: inline-flex;
+      gap: 2px;
+      padding: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      padding: 7px 16px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      border: none;
+      background: none;
+      border-radius: 100px;
+      transition: background 0.12s, color 0.12s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .tab-btn svg { width: 13px; height: 13px; opacity: 0.85; }
+
+    /* ── Search (with SVG icon) ─────────────────────────────────── */
     .search-wrap { position:relative; margin-bottom:16px; }
-    .search-wrap .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); }
-    .search-wrap input { width:100%; padding:10px 12px 10px 36px; border:1.5px solid var(--border); border-radius:10px; font-size:.9rem; background:var(--surface); }
-    .search-wrap input:focus { outline:none; border-color:var(--brand); }
-    /* ── Property grid ── */
+    .search-wrap .search-icon {
+      position: absolute;
+      left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+    }
+    .search-wrap input {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: .9rem;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .search-wrap input:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(97,183,70,0.10);
+    }
+
+    /* ── Property grid (premium card refresh) ───────────────────── */
     .prop-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
-    .prop-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; cursor:pointer; transition:transform .12s,box-shadow .12s; }
-    .prop-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.12); }
+    .prop-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform .12s, box-shadow .15s, border-color .12s;
+    }
+    .prop-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -6px rgba(15,23,42,0.18);
+      border-color: var(--brand);
+    }
     .prop-thumb { width:100%; height:140px; object-fit:cover; background:var(--bg); display:block; }
-    .prop-no-photo { width:100%; height:140px; background:linear-gradient(135deg,var(--bg),var(--border)); display:flex; align-items:center; justify-content:center; font-size:2.5rem; color:var(--border); }
-    .prop-info { padding:12px; }
-    .prop-name { font-weight:700; font-size:.9rem; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .prop-addr { font-size:.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .prop-count { font-size:.72rem; color:var(--brand); font-weight:600; margin-top:6px; }
-    /* ── Recent photos ── */
+    .prop-no-photo {
+      width: 100%; height: 140px;
+      background: linear-gradient(135deg, var(--bg), var(--border));
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      opacity: 0.55;
+    }
+    .prop-no-photo svg { width: 32px; height: 32px; }
+    .prop-info { padding: 12px; }
+    .prop-name {
+      font-weight: 700; font-size: .9rem; margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: var(--text);
+    }
+    .prop-addr {
+      font-size: .75rem; color: var(--text-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .prop-count {
+      font-size: .68rem;
+      color: var(--brand-dark, #15803d);
+      font-weight: 700;
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .prop-count svg { width: 11px; height: 11px; }
+
+    /* ── Recent photos mosaic ───────────────────────────────────── */
     .photo-mosaic { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; }
-    .photo-tile { position:relative; border-radius:10px; overflow:hidden; cursor:pointer; background:var(--bg); aspect-ratio:4/3; }
-    .photo-tile img,.photo-tile video { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s; }
-    .photo-tile:hover img,.photo-tile:hover video { transform:scale(1.05); }
-    .photo-overlay { position:absolute; bottom:0; left:0; right:0; padding:6px 8px; background:linear-gradient(transparent,rgba(0,0,0,.7)); color:#fff; font-size:.7rem; line-height:1.3; }
+    .photo-tile {
+      position: relative; border-radius: 10px;
+      overflow: hidden; cursor: pointer; background: var(--bg);
+      aspect-ratio: 4/3;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 140px;
+    }
+    .photo-tile img, .photo-tile video {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+      transition: transform .2s;
+    }
+    .photo-tile:hover img, .photo-tile:hover video { transform: scale(1.05); }
+    .photo-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 6px 8px;
+      background: linear-gradient(transparent, rgba(0,0,0,.7));
+      color: #fff; font-size: .7rem; line-height: 1.3;
+    }
+
+    /* Empty-state polish — no emoji icons */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .empty-icon {
+      width: 48px; height: 48px;
+      margin: 0 auto 12px;
+      color: var(--text-muted);
+      opacity: 0.5;
+    }
+    .empty-state .empty-icon svg { width: 100%; height: 100%; }
+    .empty-state p { margin: 0; font-size: .88rem; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -62,24 +372,47 @@
 
   <div id="fc-hero-root"></div>
 
-  <!-- Project map — pins every property with GPS + popups linking to the property detail -->
+  <!-- Project map — pins every property with GPS, full-bleed in its own polished card -->
   <div class="os-section-head" id="fc-map-section-head" style="display:none;">
-    <div class="os-section-title">📍 Project Map</div>
+    <div class="os-section-title">Project Map</div>
     <div class="os-section-line"></div>
     <div class="text-muted text-xs" id="fc-map-count" style="font-weight:600;"></div>
   </div>
   <div class="fc-map-section" id="fc-map-section" style="display:none;">
     <div id="fc-project-map"></div>
+    <!-- Overlay controls -->
+    <div class="fc-map-stat" id="fc-map-stat" style="display:none;">
+      <span class="fc-map-stat-dot"></span>
+      <span id="fc-map-stat-text">0 properties</span>
+    </div>
+    <div class="fc-map-actions">
+      <button class="fc-map-action" id="fc-map-fit" title="Fit all properties in view" onclick="window.__fcFitAll && window.__fcFitAll()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+        Fit all
+      </button>
+      <button class="fc-map-action" id="fc-map-tiles" title="Toggle map style" onclick="window.__fcToggleTiles && window.__fcToggleTiles()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        Style
+      </button>
+    </div>
   </div>
 
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="props" onclick="switchTab('props')">🏘️ Properties</button>
-    <button class="tab-btn" data-tab="recent" onclick="switchTab('recent')">🕐 Recent Photos</button>
+    <button class="tab-btn active" data-tab="props" onclick="switchTab('props')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Properties
+    </button>
+    <button class="tab-btn" data-tab="recent" onclick="switchTab('recent')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Recent Photos
+    </button>
   </div>
 
   <div id="tab-props">
     <div class="search-wrap">
-      <span class="search-icon">🔍</span>
+      <span class="search-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
       <input type="search" placeholder="Search properties…" oninput="filterProps(this.value)" id="prop-search">
     </div>
     <div class="prop-grid" id="prop-grid"><p class="text-muted text-sm">Loading…</p></div>
@@ -94,8 +427,35 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 <script>
-  let allProps = [], recentLoaded = false, projectMap = null;
+  // SVG fallbacks for what used to be emoji icons.
+  const ICON_PHOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+  const ICON_HOME  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+
+  let allProps = [], recentLoaded = false;
+  let projectMap = null;
+  let mapTileLayer = null;
+  let mapMarkerCluster = null;
+  let mapBounds = [];
+  // Tile providers — CartoDB Voyager is clean and brand-friendly; Esri
+  // satellite is a polished aerial view. User toggles between them.
+  const TILE_STYLES = {
+    voyager: {
+      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 20, label: 'Map'
+    },
+    satellite: {
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+      maxZoom: 19, label: 'Satellite'
+    }
+  };
+  let currentTileStyle = (() => {
+    try { return localStorage.getItem('propspot_fc_map_style') || 'voyager'; }
+    catch { return 'voyager'; }
+  })();
 
   function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
@@ -167,6 +527,32 @@
     }
     return null;
   }
+  function applyTileLayer() {
+    if (!projectMap) return;
+    if (mapTileLayer) projectMap.removeLayer(mapTileLayer);
+    const cfg = TILE_STYLES[currentTileStyle] || TILE_STYLES.voyager;
+    mapTileLayer = L.tileLayer(cfg.url, {
+      attribution: cfg.attribution,
+      maxZoom: cfg.maxZoom,
+      detectRetina: true
+    }).addTo(projectMap);
+    // Show CURRENT style as the active state on the toggle button so
+    // the user knows what they're looking at.
+    const btn = document.getElementById('fc-map-tiles');
+    if (btn) btn.classList.toggle('active', currentTileStyle === 'satellite');
+  }
+
+  // Custom branded pin marker — green gradient with white stroke + dot.
+  function brandedDivIcon() {
+    return L.divIcon({
+      className: 'fc-marker',
+      html: '<div class="fc-marker-pin"></div>',
+      iconSize: [28, 36],
+      iconAnchor: [14, 32],
+      popupAnchor: [0, -30]
+    });
+  }
+
   function renderProjectMap(props) {
     if (typeof L === 'undefined') return;   // Leaflet failed to load
     const withGps = [];
@@ -174,64 +560,107 @@
       const c = pickCoord(p, ['latitude','lat','gps_lat'], ['longitude','lng','lon','gps_lng']);
       if (c) withGps.push({ prop: p, coord: c });
     }
-    const section = document.getElementById('fc-map-section');
+    const section     = document.getElementById('fc-map-section');
     const sectionHead = document.getElementById('fc-map-section-head');
-    const count   = document.getElementById('fc-map-count');
-    if (!withGps.length) { section.style.display = 'none'; if (sectionHead) sectionHead.style.display = 'none'; return; }
+    const count       = document.getElementById('fc-map-count');
+    const statBadge   = document.getElementById('fc-map-stat');
+    const statText    = document.getElementById('fc-map-stat-text');
+    if (!withGps.length) {
+      section.style.display = 'none';
+      if (sectionHead) sectionHead.style.display = 'none';
+      return;
+    }
     section.style.display = '';
     if (sectionHead) sectionHead.style.display = '';
     count.textContent = withGps.length + ' / ' + props.length + ' properties pinned';
-
-    // Init once
-    if (!projectMap) {
-      projectMap = L.map('fc-project-map', { zoomControl: true, scrollWheelZoom: true })
-        .setView([34.0, -81.0], 7); // sane SC default; we fit bounds below
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-      }).addTo(projectMap);
-    } else {
-      projectMap.eachLayer(l => { if (l instanceof L.Marker) projectMap.removeLayer(l); });
+    if (statBadge) {
+      statBadge.style.display = '';
+      statText.textContent = `${withGps.length} ${withGps.length === 1 ? 'property' : 'properties'} mapped`;
     }
 
-    const bounds = [];
+    // First-time map init
+    if (!projectMap) {
+      projectMap = L.map('fc-project-map', {
+        zoomControl: true,
+        scrollWheelZoom: true,
+        zoomSnap: 0.5,
+        zoomDelta: 0.5
+      }).setView([34.0, -81.0], 7);
+      applyTileLayer();
+    }
+
+    // Wipe existing markers / clusters so a re-render starts fresh.
+    if (mapMarkerCluster) {
+      projectMap.removeLayer(mapMarkerCluster);
+      mapMarkerCluster = null;
+    }
+
+    // Cluster layer — collapses dense areas into a single counter pill.
+    mapMarkerCluster = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 48,
+      spiderfyOnMaxZoom: true,
+      disableClusteringAtZoom: 16
+    });
+
+    mapBounds = [];
     for (const { prop, coord } of withGps) {
-      bounds.push(coord);
+      mapBounds.push(coord);
       const name  = prop.display_name || prop.name || prop.address_line1 || 'Property';
       const addr  = prop.address || [prop.address_line1, prop.city, prop.state].filter(Boolean).join(', ');
       const thumb = prop.latest_photo_url
-        ? `<img class="fc-popup-thumb" src="${escHtml(prop.latest_photo_url)}" alt="">`
+        ? `<img class="fc-popup-thumb" src="${escHtml(prop.latest_photo_url)}" alt="" loading="lazy">`
         : '';
       const html = `
         ${thumb}
-        <div class="fc-popup-name">${escHtml(name)}</div>
-        <div class="fc-popup-addr">${escHtml(addr)}</div>
-        <a class="fc-popup-link" href="/fieldcam-property.html?id=${encodeURIComponent(prop.id)}">Open property →</a>`;
-      L.marker(coord).addTo(projectMap).bindPopup(html, { maxWidth: 240 });
+        <div class="fc-popup-inner">
+          <div class="fc-popup-name">${escHtml(name)}</div>
+          <div class="fc-popup-addr">${escHtml(addr)}</div>
+          <a class="fc-popup-link" href="/fieldcam-property.html?id=${encodeURIComponent(prop.id)}">
+            Open property
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+        </div>`;
+      L.marker(coord, { icon: brandedDivIcon() })
+        .bindPopup(html, { maxWidth: 260, closeButton: false })
+        .addTo(mapMarkerCluster);
     }
-    if (bounds.length) projectMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
-    // Leaflet needs a size refresh once the container is visible
+    projectMap.addLayer(mapMarkerCluster);
+
+    if (mapBounds.length) projectMap.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 13 });
     setTimeout(() => projectMap.invalidateSize(), 100);
   }
+
+  // Map action handlers (exposed for inline onclick)
+  window.__fcFitAll = function() {
+    if (projectMap && mapBounds.length) {
+      projectMap.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 13, animate: true });
+    }
+  };
+  window.__fcToggleTiles = function() {
+    currentTileStyle = currentTileStyle === 'voyager' ? 'satellite' : 'voyager';
+    try { localStorage.setItem('propspot_fc_map_style', currentTileStyle); } catch {}
+    applyTileLayer();
+  };
 
   function renderProps(list) {
     const el = document.getElementById('prop-grid');
     if (!list.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🏘️</div><p>No properties yet.</p></div>`;
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON_HOME}</div><p>No properties yet.</p></div>`;
       return;
     }
     el.innerHTML = list.map(p => {
       const name = p.display_name || p.name || p.address_line1 || 'Property';
       const addr = p.address || [p.address_line1, p.city, p.state].filter(Boolean).join(', ');
       const thumb = p.latest_photo_url
-        ? `<img class="prop-thumb" src="${escHtml(p.latest_photo_url)}" alt="" loading="lazy">`
-        : `<div class="prop-no-photo">📷</div>`;
+        ? `<img class="prop-thumb" src="${escHtml(p.latest_photo_url)}" alt="" loading="lazy" decoding="async">`
+        : `<div class="prop-no-photo">${ICON_PHOTO}</div>`;
       return `<div class="prop-card" onclick="openProp('${p.id}')">
         ${thumb}
         <div class="prop-info">
           <div class="prop-name" title="${escHtml(name)}">${escHtml(name)}</div>
           <div class="prop-addr">${escHtml(addr)}</div>
-          ${p.photo_count!=null?`<div class="prop-count">📷 ${p.photo_count} photo${p.photo_count!==1?'s':''}</div>`:''}
+          ${p.photo_count!=null?`<div class="prop-count">${ICON_PHOTO} ${p.photo_count} ${p.photo_count===1 ? 'photo' : 'photos'}</div>`:''}
         </div>
       </div>`;
     }).join('');
@@ -250,13 +679,16 @@
     const el = document.getElementById('photo-grid');
     try {
       const photos = await satelliteApiFetch('fieldcam', '/api/photos/recent?limit=40');
-      if (!photos.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">📷</div><p>No photos yet.</p></div>`; return; }
+      if (!photos.length) {
+        el.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON_PHOTO}</div><p>No photos yet.</p></div>`;
+        return;
+      }
       el.innerHTML = photos.map(ph => {
         const propLabel = ph.display_name || ph.address_line1 || '';
         const taken = ph.taken_at ? new Date(ph.taken_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
         const media = ph.media_type==='video'
           ? `<video src="${escHtml(ph.url)}" muted playsinline></video>`
-          : `<img src="${escHtml(ph.url)}" alt="" loading="lazy">`;
+          : `<img src="${escHtml(ph.url)}" alt="" loading="lazy" decoding="async">`;
         return `<div class="photo-tile" onclick="openProp('${ph.property_id}')">
           ${media}
           <div class="photo-overlay">${escHtml(propLabel)}${taken?' · '+taken:''}</div>

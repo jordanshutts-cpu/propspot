@@ -465,7 +465,7 @@
         <h1 class="os-hero-title">Portfolio Vault</h1>
         <div class="os-hero-subtitle">Every property the business has held — past and present — the agent's complete context store.</div>
         <div class="os-hero-actions" style="margin: 0 0 16px;">
-          <a href="/import.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">📥 Import spreadsheet</a>
+          <a href="/import.html" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">Import spreadsheet</a>
           <a href="/add-property.html" class="btn btn-secondary" style="padding:8px 14px;font-size:.85rem;">+ Add Property</a>
         </div>
         <div class="os-kpi-row">
@@ -515,7 +515,9 @@
     document.getElementById('db-controls').innerHTML = `
       <div class="db-controls">
         <div class="db-search">
-          <span class="db-search-icon">🔍</span>
+          <span class="db-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
           <input type="search" placeholder="Search by address, owner, county, TMS…"
                  value="${escHtml(searchQuery)}"
                  oninput="window.__dbSearch(this.value)">
