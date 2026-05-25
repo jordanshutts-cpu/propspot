@@ -22,18 +22,16 @@
       margin-bottom: 16px;
       align-items: center;
     }
-    .am-controls select,
     .am-controls input[type="search"] {
       padding: 7px 10px;
       font-size: .82rem;
       border: 1.5px solid var(--border);
-      border-radius: 7px;
+      border-radius: 8px;
       background: var(--bg);
       color: var(--text);
-      min-width: 130px;
+      min-width: 220px;
+      flex: 1;
     }
-    .am-controls input[type="search"] { min-width: 220px; flex: 1; }
-    .am-controls select:focus,
     .am-controls input[type="search"]:focus {
       outline: none;
       border-color: var(--brand);
@@ -47,6 +45,117 @@
       color: var(--text-muted);
       margin-right: 2px;
     }
+
+    /* ── Custom themed select ─────────────────────────────────── */
+    /* Replaces native <select> so the trigger AND the menu both
+       match the rest of the premium UI. Menu is body-anchored so
+       overflow on the controls strip can't clip it. */
+    .am-select {
+      position: relative;
+      display: inline-block;
+      min-width: 140px;
+    }
+    .am-select-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px 7px 12px;
+      font-size: .82rem;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.12s, box-shadow 0.12s;
+      font-family: inherit;
+    }
+    .am-select-trigger:hover { border-color: #cbd5e1; }
+    .am-select.open .am-select-trigger,
+    .am-select-trigger:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(97,183,70,0.10);
+    }
+    .am-select-value {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .am-select-chev {
+      width: 12px;
+      height: 12px;
+      color: var(--text-muted);
+      transition: transform 0.16s, color 0.12s;
+      flex-shrink: 0;
+    }
+    .am-select.open .am-select-chev {
+      transform: rotate(180deg);
+      color: var(--brand);
+    }
+    .am-select-menu {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 12px 32px -8px rgba(15,23,42,0.20),
+                  0 2px 6px rgba(15,23,42,0.06);
+      padding: 4px;
+      z-index: 1200;
+      display: none;
+      max-height: 360px;
+      overflow-y: auto;
+      animation: am-select-in 0.12s ease-out;
+      min-width: 160px;
+    }
+    @keyframes am-select-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .am-select-menu.open { display: block; }
+    .am-select-item {
+      padding: 7px 10px 7px 28px;
+      border-radius: 6px;
+      font-size: .82rem;
+      cursor: pointer;
+      color: var(--text);
+      white-space: nowrap;
+      transition: background 0.08s, color 0.08s;
+      position: relative;
+      font-weight: 500;
+    }
+    .am-select-item:hover {
+      background: rgba(97,183,70,0.08);
+      color: var(--brand-dark, #15803d);
+    }
+    .am-select-item.active {
+      background: rgba(97,183,70,0.12);
+      color: var(--brand-dark, #15803d);
+      font-weight: 700;
+    }
+    .am-select-item.active::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      width: 9px; height: 5px;
+      border-left: 2px solid var(--brand);
+      border-bottom: 2px solid var(--brand);
+      transform: translateY(-72%) rotate(-45deg);
+    }
+    .am-select-section {
+      padding: 8px 10px 4px 10px;
+      font-size: .62rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+    .am-select-section:first-child { padding-top: 4px; }
 
     /* Insights row: 2-column grid of mini-panels with bars/lists */
     .am-insights-grid {
@@ -502,49 +611,131 @@
     `;
   }
 
+  // ── Custom themed dropdown component ─────────────────────────────
+  // Trigger looks like the rest of the UI's inputs; menu is body-
+  // anchored fixed-position so it can't be clipped by ancestor
+  // overflow. One menu open at a time, click-outside closes.
+  let _amOpenSelect = null;
+
+  function buildSelect({ key, value, options, minWidth }) {
+    const current = options.find(o => String(o.v) === String(value)) || options[0];
+    const menuItems = options.map(o => {
+      const isActive = String(o.v) === String(value);
+      return `<div class="am-select-item${isActive ? ' active' : ''}"
+                   data-value="${escHtml(String(o.v))}"
+                   onclick="window.__amSelect('${escHtml(key)}','${escHtml(String(o.v).replace(/'/g, '\\\''))}')">
+                ${escHtml(o.l)}
+              </div>`;
+    }).join('');
+    return `<div class="am-select" data-key="${escHtml(key)}" ${minWidth ? `style="min-width:${minWidth}px;"` : ''}>
+              <button type="button" class="am-select-trigger"
+                      onclick="window.__amToggleSelect(event, '${escHtml(key)}')">
+                <span class="am-select-value">${escHtml(current.l)}</span>
+                <svg class="am-select-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="am-select-menu" data-menu="${escHtml(key)}">${menuItems}</div>
+            </div>`;
+  }
+
+  window.__amToggleSelect = function(event, key) {
+    if (event) event.stopPropagation();
+    const wrap = document.querySelector(`.am-select[data-key="${key}"]`);
+    const menu = document.querySelector(`.am-select-menu[data-menu="${key}"]`);
+    if (!wrap || !menu) return;
+    // Close any other open select
+    if (_amOpenSelect && _amOpenSelect !== key) {
+      const prev     = document.querySelector(`.am-select[data-key="${_amOpenSelect}"]`);
+      const prevMenu = document.querySelector(`.am-select-menu[data-menu="${_amOpenSelect}"]`);
+      if (prev)     prev.classList.remove('open');
+      if (prevMenu) prevMenu.classList.remove('open');
+    }
+    const isOpen = wrap.classList.toggle('open');
+    if (isOpen) {
+      // Position the body-anchored menu relative to the trigger.
+      const r = wrap.getBoundingClientRect();
+      menu.style.top   = (r.bottom + 6) + 'px';
+      menu.style.left  = r.left + 'px';
+      menu.style.minWidth = Math.max(r.width, 160) + 'px';
+      menu.classList.add('open');
+      _amOpenSelect = key;
+    } else {
+      menu.classList.remove('open');
+      _amOpenSelect = null;
+    }
+  };
+
+  function closeAmSelect() {
+    if (!_amOpenSelect) return;
+    const wrap = document.querySelector(`.am-select[data-key="${_amOpenSelect}"]`);
+    const menu = document.querySelector(`.am-select-menu[data-menu="${_amOpenSelect}"]`);
+    if (wrap) wrap.classList.remove('open');
+    if (menu) menu.classList.remove('open');
+    _amOpenSelect = null;
+  }
+  document.addEventListener('click', (e) => {
+    if (!_amOpenSelect) return;
+    const inWrap = e.target.closest('.am-select');
+    const inMenu = e.target.closest('.am-select-menu');
+    if (!inWrap && !inMenu) closeAmSelect();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAmSelect();
+  });
+  window.addEventListener('scroll', closeAmSelect, true);
+  window.addEventListener('resize', closeAmSelect);
+
+  window.__amSelect = function(key, value) {
+    closeAmSelect();
+    window.__amSetFilter(key, value);
+  };
+
   // ── Controls (filters) ───────────────────────────────────────────
   function renderControls() {
-    const userOpts = [`<option value="all">Everyone</option>`,
-      ...allUsers.map(u => `<option value="${escHtml(u.id)}" ${filters.actor === u.id ? 'selected' : ''}>${escHtml(u.full_name || u.email)}</option>`)
-    ].join('');
+    const userOpts = [
+      { v: 'all', l: 'Everyone' },
+      ...allUsers.map(u => ({ v: u.id, l: u.full_name || u.email }))
+    ];
+    const actionOpts = [
+      { v: 'all',            l: 'All actions' },
+      { v: 'created',        l: 'Created' },
+      { v: 'updated',        l: 'Updated' },
+      { v: 'status_changed', l: 'Status changed' },
+      { v: 'deleted',        l: 'Deleted' }
+    ];
+    const entityOpts = [
+      { v: 'all',         l: 'All entities' },
+      { v: 'property',    l: 'Property' },
+      { v: 'prospect',    l: 'Prospect' },
+      { v: 'lead',        l: 'Lead' },
+      { v: 'opportunity', l: 'Opportunity' },
+      { v: 'purchase',    l: 'Purchase' },
+      { v: 'project',     l: 'Project' },
+      { v: 'holding',     l: 'Holding' },
+      { v: 'contact',     l: 'Contact' },
+      { v: 'photo',       l: 'Photo' },
+      { v: 'file',        l: 'File' }
+    ];
+    const windowOpts = [
+      { v: 1,   l: 'Today' },
+      { v: 7,   l: 'Last 7 days' },
+      { v: 30,  l: 'Last 30 days' },
+      { v: 90,  l: 'Last 90 days' },
+      { v: 365, l: 'Last year' }
+    ];
 
     document.getElementById('am-controls').innerHTML = `
       <div class="am-controls">
         <span class="am-control-label">User</span>
-        <select onchange="window.__amSetFilter('actor', this.value)">${userOpts}</select>
+        ${buildSelect({ key: 'actor',  value: filters.actor,  options: userOpts,   minWidth: 160 })}
 
         <span class="am-control-label">Action</span>
-        <select onchange="window.__amSetFilter('action', this.value)">
-          <option value="all">All actions</option>
-          <option value="created"        ${filters.action === 'created' ? 'selected' : ''}>Created</option>
-          <option value="updated"        ${filters.action === 'updated' ? 'selected' : ''}>Updated</option>
-          <option value="status_changed" ${filters.action === 'status_changed' ? 'selected' : ''}>Status changed</option>
-          <option value="deleted"        ${filters.action === 'deleted' ? 'selected' : ''}>Deleted</option>
-        </select>
+        ${buildSelect({ key: 'action', value: filters.action, options: actionOpts, minWidth: 150 })}
 
         <span class="am-control-label">Type</span>
-        <select onchange="window.__amSetFilter('entity', this.value)">
-          <option value="all">All entities</option>
-          <option value="property"    ${filters.entity === 'property' ? 'selected' : ''}>Property</option>
-          <option value="prospect"    ${filters.entity === 'prospect' ? 'selected' : ''}>Prospect</option>
-          <option value="lead"        ${filters.entity === 'lead' ? 'selected' : ''}>Lead</option>
-          <option value="opportunity" ${filters.entity === 'opportunity' ? 'selected' : ''}>Opportunity</option>
-          <option value="purchase"    ${filters.entity === 'purchase' ? 'selected' : ''}>Purchase</option>
-          <option value="project"     ${filters.entity === 'project' ? 'selected' : ''}>Project</option>
-          <option value="holding"     ${filters.entity === 'holding' ? 'selected' : ''}>Holding</option>
-          <option value="contact"     ${filters.entity === 'contact' ? 'selected' : ''}>Contact</option>
-          <option value="photo"       ${filters.entity === 'photo' ? 'selected' : ''}>Photo</option>
-          <option value="file"        ${filters.entity === 'file' ? 'selected' : ''}>File</option>
-        </select>
+        ${buildSelect({ key: 'entity', value: filters.entity, options: entityOpts, minWidth: 140 })}
 
         <span class="am-control-label">Window</span>
-        <select onchange="window.__amSetFilter('days', this.value)">
-          <option value="1"    ${filters.days == 1   ? 'selected' : ''}>Today</option>
-          <option value="7"    ${filters.days == 7   ? 'selected' : ''}>Last 7 days</option>
-          <option value="30"   ${filters.days == 30  ? 'selected' : ''}>Last 30 days</option>
-          <option value="90"   ${filters.days == 90  ? 'selected' : ''}>Last 90 days</option>
-          <option value="365"  ${filters.days == 365 ? 'selected' : ''}>Last year</option>
-        </select>
+        ${buildSelect({ key: 'days',   value: filters.days,   options: windowOpts, minWidth: 140 })}
 
         <input type="search" placeholder="Search descriptions, properties…"
                value="${escHtml(filters.q)}"
