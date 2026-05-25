@@ -455,17 +455,20 @@ body.os-newchrome .page.page-narrow {
   gap: 14px;
 }
 .os-newchrome-hamburger {
-  /* Stays in column 1 (1fr), left-aligned */
+  /* Always in column 1 — explicit placement so display:none doesn't shift siblings */
+  grid-column: 1;
   justify-self: start;
 }
 .os-newchrome-search-wrap {
   position: relative;
-  /* Center column — fixed natural width up to 580px, shrinks on narrow viewports */
+  /* Always in column 2 — explicit placement keeps search dead-center regardless of hamburger visibility */
+  grid-column: 2;
   width: min(580px, 100%);
   justify-self: center;
 }
 .os-newchrome-actions {
-  /* Right column (1fr) — pin to right edge */
+  /* Always in column 3 — pin to right edge */
+  grid-column: 3;
   justify-self: end;
 }
 .os-newchrome-search {

@@ -373,6 +373,41 @@
       color: #fff; font-size: .7rem; line-height: 1.3;
     }
 
+    /* ── Photo filter chip row ──────────────────────────────────── */
+    .fc-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .fc-filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 100px;
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      transition: background .12s, color .12s, border-color .12s;
+      white-space: nowrap;
+    }
+    .fc-filter-chip:hover { color: var(--text); border-color: var(--brand); }
+    .fc-filter-chip.active {
+      background: rgba(97,183,70,0.10);
+      color: var(--brand-dark, #15803d);
+      border-color: rgba(97,183,70,0.35);
+    }
+    .fc-filter-chip svg { width: 11px; height: 11px; flex-shrink: 0; }
+    .fc-filter-count {
+      font-size: .73rem;
+      color: var(--text-muted);
+    }
+
     /* Empty-state polish — no emoji icons */
     .empty-state {
       text-align: center;
@@ -446,6 +481,13 @@
       </span>
       <input type="search" placeholder="Search properties…" oninput="filterProps(this.value)" id="prop-search">
     </div>
+    <div class="fc-filter-row">
+      <button class="fc-filter-chip active" id="fc-photos-toggle" onclick="togglePhotoFilter()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span id="fc-photos-toggle-label">With photos</span>
+      </button>
+      <span class="fc-filter-count" id="fc-filter-count" style="display:none;"></span>
+    </div>
     <div class="prop-grid" id="prop-grid"><p class="text-muted text-sm">Loading…</p></div>
   </div>
 
@@ -464,7 +506,7 @@
   const ICON_PHOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
   const ICON_HOME  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
 
-  let allProps = [], recentLoaded = false;
+  let allProps = [], recentLoaded = false, showWithPhotosOnly = true;
   let projectMap = null;
   let mapTileLayer = null;
   let mapMarkerCluster = null;
@@ -500,7 +542,7 @@
     try {
       allProps = await satelliteApiFetch('fieldcam', '/api/properties');
       renderHero(allProps);
-      renderProps(allProps);
+      filterProps('');
       renderProjectMap(allProps);
     } catch(e) {
       document.getElementById('prop-grid').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(e.message)}</p>`;
@@ -681,9 +723,28 @@
   };
 
   function renderProps(list) {
+    // Sync toggle chip appearance
+    const chip  = document.getElementById('fc-photos-toggle');
+    const lbl   = document.getElementById('fc-photos-toggle-label');
+    const countEl = document.getElementById('fc-filter-count');
+    if (chip)  chip.classList.toggle('active', showWithPhotosOnly);
+    if (lbl)   lbl.textContent = showWithPhotosOnly ? 'With photos' : 'All properties';
+    const hiddenCount = allProps.filter(p => (Number(p.photo_count) || 0) === 0).length;
+    if (countEl) {
+      if (showWithPhotosOnly && hiddenCount > 0) {
+        countEl.textContent = `${hiddenCount} without photos hidden`;
+        countEl.style.display = '';
+      } else {
+        countEl.style.display = 'none';
+      }
+    }
+
     const el = document.getElementById('prop-grid');
     if (!list.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON_HOME}</div><p>No properties yet.</p></div>`;
+      const msg = showWithPhotosOnly && allProps.length
+        ? `No properties have photos yet. <button style="background:none;border:none;color:var(--brand-dark,#15803d);cursor:pointer;font-weight:700;font-size:inherit;padding:0;" onclick="togglePhotoFilter()">Show all properties</button>`
+        : 'No properties yet.';
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON_HOME}</div><p>${msg}</p></div>`;
       return;
     }
     el.innerHTML = list.map(p => {
@@ -705,10 +766,19 @@
 
   function filterProps(q) {
     q = (q||'').toLowerCase();
-    renderProps(q ? allProps.filter(p =>
+    let list = showWithPhotosOnly
+      ? allProps.filter(p => (Number(p.photo_count) || 0) > 0)
+      : allProps;
+    if (q) list = list.filter(p =>
       [p.display_name,p.name,p.address_line1,p.address,p.city,p.state]
         .filter(Boolean).join(' ').toLowerCase().includes(q)
-    ) : allProps);
+    );
+    renderProps(list);
+  }
+
+  function togglePhotoFilter() {
+    showWithPhotosOnly = !showWithPhotosOnly;
+    filterProps((document.getElementById('prop-search') || {}).value || '');
   }
 
   async function loadRecent() {
