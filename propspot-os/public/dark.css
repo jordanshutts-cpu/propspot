@@ -153,12 +153,49 @@ html.theme-dark .os-newchrome-workspace-logo {
 }
 
 html.theme-dark .os-newchrome-section-label { color: var(--d-text-dim); }
-html.theme-dark .os-newchrome-section-label[data-section="for-you"]  { color: var(--d-brand); }
-html.theme-dark .os-newchrome-section-label[data-section="pipeline"] { color: #6ea8ff; }
-html.theme-dark .os-newchrome-section-label[data-section="tools"]    { color: #c084fc; }
-html.theme-dark .os-newchrome-section-label[data-section="soon"]     { color: var(--d-text-dim); }
-html.theme-dark .os-newchrome-section-label[data-section="pinned"]   { color: #fbbf24; }
-html.theme-dark .os-newchrome-section-label[data-section="recent"]   { color: #67e8f9; }
+html.theme-dark .os-newchrome-section-label[data-section="for-you"]   { color: var(--d-brand); }
+html.theme-dark .os-newchrome-section-label[data-section="pipeline"]  { color: #6ea8ff; }
+html.theme-dark .os-newchrome-section-label[data-section="workspace"] { color: #2dd4bf; }
+html.theme-dark .os-newchrome-section-label[data-section="tools"]     { color: #c084fc; }
+html.theme-dark .os-newchrome-section-label[data-section="soon"]      { color: var(--d-text-dim); }
+html.theme-dark .os-newchrome-section-label[data-section="pinned"]    { color: #fbbf24; }
+html.theme-dark .os-newchrome-section-label[data-section="recent"]    { color: #67e8f9; }
+
+/* Section edit (pencil) button in dark mode */
+html.theme-dark .os-newchrome-section-edit:hover { background: rgba(255,255,255,0.08); }
+
+/* For You customize modal in dark mode */
+html.theme-dark .foryou-modal-backdrop { background: rgba(0,0,0,0.55); }
+html.theme-dark .foryou-modal {
+  background: var(--d-surface, #1e1e1e);
+  border-color: var(--d-border, #2a2a2a);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3);
+}
+html.theme-dark .foryou-modal-header { border-bottom-color: var(--d-border, #2a2a2a); }
+html.theme-dark .foryou-modal-title { color: var(--d-text-strong); }
+html.theme-dark .foryou-modal-close { color: var(--d-text-muted); }
+html.theme-dark .foryou-modal-close:hover { background: rgba(255,255,255,0.06); color: var(--d-text); }
+html.theme-dark .foryou-modal-hint { color: var(--d-text-muted); }
+html.theme-dark .foryou-modal-row:hover { background: rgba(255,255,255,0.04); }
+html.theme-dark .foryou-modal-icon { color: var(--d-text-muted); }
+html.theme-dark .foryou-modal-label { color: var(--d-text); }
+html.theme-dark .foryou-modal-soon { background: rgba(255,255,255,0.08); color: var(--d-text-muted); }
+html.theme-dark .foryou-modal-footer { background: rgba(255,255,255,0.02); border-top-color: var(--d-border, #2a2a2a); }
+html.theme-dark .foryou-modal-footer button {
+  background: var(--d-surface-2, #252525);
+  border-color: var(--d-border, #2a2a2a);
+  color: var(--d-text);
+}
+html.theme-dark .foryou-modal-footer button:hover { background: rgba(255,255,255,0.06); }
+html.theme-dark .foryou-modal-footer .foryou-modal-save {
+  background: var(--d-brand, #6ed057);
+  border-color: var(--d-brand, #6ed057);
+  color: #0a0a0a;
+}
+html.theme-dark .foryou-modal-footer .foryou-modal-save:hover {
+  background: #7ee066;
+  border-color: #7ee066;
+}
 
 html.theme-dark .os-newchrome-row { color: var(--d-text); }
 html.theme-dark .os-newchrome-row:not(.active):hover {

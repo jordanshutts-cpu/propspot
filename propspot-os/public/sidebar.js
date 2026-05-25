@@ -183,10 +183,110 @@
   const SCOPABLE_APPS = ['fieldcam', 'maintenance', 'pulse', 'inbox'];
 
   // ── Section/row builders ────────────────────────────────────────
-  function sectionLabel(text) {
+  function sectionLabel(text, opts = {}) {
     var slug = text.toLowerCase().replace(/\s+/g, '-');
-    return `<div class="os-newchrome-section-label" data-section="${slug}">${text}</div>`;
+    const editBtn = opts.editable
+      ? `<button type="button" class="os-newchrome-section-edit" title="Customize ${escHtml(text)}" aria-label="Customize ${escHtml(text)}"
+              onclick="window.__openForYouCustomize && window.__openForYouCustomize()">
+           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
+         </button>`
+      : '';
+    return `<div class="os-newchrome-section-label" data-section="${slug}"><span class="os-newchrome-section-label-text">${text}</span>${editBtn}</div>`;
   }
+
+  // ── "For you" customization ─────────────────────────────────────
+  // Catalog of items the user can show/hide in the For You section.
+  // Order in this array is the rendered order. Visibility persists via
+  // localStorage under 'propspot_foryou_visible'.
+  const FOR_YOU_CATALOG = [
+    { id: 'inbox',     icon: '📧', label: 'Inbox',    app: 'inbox',  default: true,  badgeKey: 'inbox' },
+    { id: 'mentions',  icon: '@',  label: 'Mentions', soon: true,    default: true },
+    { id: 'tasks',     icon: '✓',  label: 'My Tasks', soon: true,    default: true },
+    { id: 'pulse',     icon: '💬', label: 'Pulse',    app: 'pulse',  default: false, badgeKey: 'pulse' },
+    { id: 'fieldcam',  icon: '📸', label: 'FieldCam', app: 'fieldcam', default: false, badgeKey: 'photosToday', badgeClass: 'muted' },
+    { id: 'workorders',icon: '🛠️', label: 'Work Orders', app: 'maintenance', default: false, badgeKey: 'workOrders', badgeClass: 'warn' },
+    { id: 'activity',  icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'Activity', osnav: 'activity', href: '/activity.html', default: false },
+  ];
+
+  function getForYouVisible() {
+    try {
+      const raw = localStorage.getItem('propspot_foryou_visible');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return FOR_YOU_CATALOG.filter(it => it.default).map(it => it.id);
+  }
+
+  function setForYouVisible(ids) {
+    try { localStorage.setItem('propspot_foryou_visible', JSON.stringify(ids)); } catch (e) {}
+  }
+
+  // Build the For You rows from catalog + saved visibility.
+  function renderForYouRows(counts) {
+    const visible = new Set(getForYouVisible());
+    return FOR_YOU_CATALOG
+      .filter(it => visible.has(it.id))
+      .map(it => row({
+        icon: it.icon,
+        label: it.label,
+        app: it.app,
+        osnav: it.osnav,
+        href: it.href,
+        soon: it.soon,
+        badge: it.badgeKey ? counts[it.badgeKey] : undefined,
+        badgeClass: it.badgeClass || ''
+      }))
+      .join('');
+  }
+
+  // Open the customize modal — checkbox list of catalog items.
+  window.__openForYouCustomize = function () {
+    const visible = new Set(getForYouVisible());
+    const existing = document.getElementById('foryou-customize-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'foryou-customize-modal';
+    modal.className = 'foryou-modal-backdrop';
+    modal.innerHTML = `
+      <div class="foryou-modal">
+        <div class="foryou-modal-header">
+          <div class="foryou-modal-title">Customize “For you”</div>
+          <button class="foryou-modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="foryou-modal-body">
+          <div class="foryou-modal-hint">Pick what shows in your For You section.</div>
+          ${FOR_YOU_CATALOG.map(it => `
+            <label class="foryou-modal-row">
+              <input type="checkbox" data-id="${it.id}" ${visible.has(it.id) ? 'checked' : ''}/>
+              <span class="foryou-modal-icon">${it.icon}</span>
+              <span class="foryou-modal-label">${escHtml(it.label)}</span>
+              ${it.soon ? '<span class="foryou-modal-soon">soon</span>' : ''}
+            </label>
+          `).join('')}
+        </div>
+        <div class="foryou-modal-footer">
+          <button class="foryou-modal-cancel">Cancel</button>
+          <button class="foryou-modal-save">Save</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    modal.querySelector('.foryou-modal-close').addEventListener('click', close);
+    modal.querySelector('.foryou-modal-cancel').addEventListener('click', close);
+    modal.querySelector('.foryou-modal-save').addEventListener('click', () => {
+      const checked = Array.from(modal.querySelectorAll('input[type=checkbox]'))
+        .filter(cb => cb.checked).map(cb => cb.dataset.id);
+      // Preserve catalog order
+      const ordered = FOR_YOU_CATALOG.map(it => it.id).filter(id => checked.includes(id));
+      setForYouVisible(ordered);
+      close();
+      // Re-render the sidebar
+      if (typeof window.__rerenderSidebar === 'function') window.__rerenderSidebar();
+      else location.reload();
+    });
+  };
 
   function row({ icon, label, href = '#', osnav, app, appPath, badge, badgeClass = '', soon = false }) {
     const dataAttr = osnav ? `data-osnav="${osnav}"` :
@@ -557,6 +657,10 @@
   }
 
   // ── Render the sidebar ──────────────────────────────────────────
+  // Expose so the customize modal can trigger a re-render without a full reload.
+  window.__rerenderSidebar = function () {
+    try { renderNewSidebar(); } catch (e) { location.reload(); }
+  };
   async function renderNewSidebar() {
     // On satellites these set up the chrome the host page doesn't ship with.
     ensureChromeStylesheet();
@@ -628,10 +732,8 @@
 
         <div class="os-newchrome-sidebar-scroll">
 
-          ${sectionLabel('For you')}
-          ${row({ icon: '📧', label: 'Inbox',    app: 'inbox',    badge: counts.inbox })}
-          ${row({ icon: '@',  label: 'Mentions', soon: true })}
-          ${row({ icon: '✓',  label: 'My Tasks', soon: true })}
+          ${sectionLabel('For you', { editable: true })}
+          ${renderForYouRows(counts)}
 
           ${sectionLabel('Pipeline')}
           ${row({ icon: '🎯', label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html',                    badge: counts.prospects,     badgeClass: 'muted' })}
@@ -644,13 +746,15 @@
           ${row({ icon: '📦', label: 'Sold',          osnav: 'sold',          href: '/closed.html',                          badge: counts.sold,          badgeClass: 'muted' })}
           ${row({ icon: '💀', label: 'Dead',          osnav: 'dead',          href: '/properties.html?status=dropped' })}
 
+          ${sectionLabel('Workspace')}
+          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>', label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' })}
+          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'Activity', osnav: 'activity', href: '/activity.html' })}
+
           ${sectionLabel('Tools')}
           ${row({ icon: '📸', label: 'FieldCam',     app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
           ${row({ icon: '🛠️', label: 'Work Orders',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
           ${row({ icon: '💬', label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
           ${row({ icon: '📊', label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
-          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>', label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' })}
-          ${row({ icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'Activity', osnav: 'activity', href: '/activity.html' })}
 
           ${sectionLabel('Soon')}
           ${row({ icon: '🌐', label: 'Listings',         soon: true })}
