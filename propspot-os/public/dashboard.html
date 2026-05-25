@@ -133,6 +133,17 @@
       inbox:        '/inbox.html',
       underwriting: '/underwriting.html'
     };
+    // Display labels match the sidebar exactly. Overrides whatever the
+    // DB's apps.name column happens to say so the dashboard tiles and
+    // the sidebar rows stay in sync.
+    const APP_LABELS = {
+      holdings:     'Holdings',
+      maintenance:  'Work Orders',
+      fieldcam:     'FieldCam',
+      pulse:        'Pulse',
+      inbox:        'Inbox',
+      underwriting: 'Underwriting'
+    };
     const token = getToken();
     grid.innerHTML = me.grants.map(g => {
       let url = '#';
@@ -143,9 +154,10 @@
         const sep = g.base_url.includes('?') ? '&' : '?';
         url = g.base_url + sep + 'token=' + encodeURIComponent(token);
       }
+      const label = APP_LABELS[g.slug] || g.name;
       return `<a class="app-tile" href="${escHtml(url)}">
         <div class="app-icon">${escHtml(g.icon || '🧩')}</div>
-        <div class="app-name">${escHtml(g.name)}</div>
+        <div class="app-name">${escHtml(label)}</div>
         <div class="app-role">${escHtml(g.role)}</div>
       </a>`;
     }).join('');
