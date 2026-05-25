@@ -146,16 +146,20 @@
 const TOKEN_KEY = 'ros_token';
 const USER_KEY  = 'ros_user';
 
-// ── New-chrome feature flag (Phase 1 of UI redesign) ────────────
-// Enabled by ?newchrome=1 in URL OR localStorage.propspot_newchrome === '1'.
-// When on, sidebar.js + topbar.js render a 260px sidebar + new top bar.
-// The old renderTopHeader/renderAppsRail/renderUnifiedNav skip themselves.
+// ── New-chrome feature flag ─────────────────────────────────────
+// The new chrome (260px sidebar + flex topbar) is now the DEFAULT.
+// Opt-out paths (for emergencies / legacy debugging only):
+//   - ?newchrome=0 in the URL  → force legacy chrome for this load
+//   - localStorage.propspot_newchrome === '0' → force legacy chrome
+// Anything else → new chrome.
 window.__newChromeEnabled = function () {
   try {
-    if (new URLSearchParams(location.search).get('newchrome') === '1') return true;
-    if (localStorage.getItem('propspot_newchrome') === '1') return true;
+    const param = new URLSearchParams(location.search).get('newchrome');
+    if (param === '0') return false;
+    if (param === '1') return true;
+    if (localStorage.getItem('propspot_newchrome') === '0') return false;
   } catch (e) {}
-  return false;
+  return true;
 };
 // Skip chrome loading on unauthenticated pages (login, reset-password,
 // accept-invite) — sidebar.js/topbar.js call ensurePlaceholders() which
