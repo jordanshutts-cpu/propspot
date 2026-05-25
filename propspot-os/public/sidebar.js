@@ -462,6 +462,78 @@
     // Do NOT prevent default — navigation continues.
   }
 
+  // ── Right-click context menu for pinned property rows ───────────
+  // Right-click any pinned row → small floating menu with an
+  // 'Unpin' action. Recent rows aren't pinnable so they don't get
+  // a menu (browser default contextmenu fires through normally).
+  let _ctxMenuEl = null;
+  function ensureCtxMenu() {
+    if (_ctxMenuEl) return _ctxMenuEl;
+    _ctxMenuEl = document.createElement('div');
+    _ctxMenuEl.className = 'os-newchrome-ctx-menu';
+    document.body.appendChild(_ctxMenuEl);
+    document.addEventListener('click',       hideCtxMenu);
+    document.addEventListener('scroll',      hideCtxMenu, true);
+    document.addEventListener('contextmenu', (ev) => {
+      // Hide if right-click happened OUTSIDE a property row.
+      if (!ev.target.closest('.os-newchrome-property-row')) hideCtxMenu();
+    });
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') hideCtxMenu(); });
+    return _ctxMenuEl;
+  }
+  function hideCtxMenu() { if (_ctxMenuEl) _ctxMenuEl.classList.remove('open'); }
+
+  function onPropertyRowContextMenu(e) {
+    const row = e.target.closest('.os-newchrome-property-row');
+    if (!row) return;
+    // Only pinned rows get the unpin menu.
+    if (row.dataset.propertyRow !== 'pinned') return;
+    e.preventDefault();
+
+    const id   = row.dataset.propertyId;
+    const name = row.dataset.propertyName || 'this property';
+    const menu = ensureCtxMenu();
+    menu.innerHTML = `
+      <div class="os-newchrome-ctx-item os-newchrome-ctx-danger" data-action="unpin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" x2="12" y1="17" y2="22"/>
+          <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+        </svg>
+        <span>Remove from pinned</span>
+      </div>
+      <div class="os-newchrome-ctx-sub">${escHtml(name)}</div>
+    `;
+    // Position at cursor, keep within viewport
+    const W = 220, H = 76;
+    const x = Math.min(e.clientX, window.innerWidth  - W - 6);
+    const y = Math.min(e.clientY, window.innerHeight - H - 6);
+    menu.style.left = x + 'px';
+    menu.style.top  = y + 'px';
+    menu.classList.add('open');
+
+    menu.querySelector('[data-action="unpin"]').onclick = async (ev) => {
+      ev.stopPropagation();
+      hideCtxMenu();
+      try {
+        if (IS_SATELLITE) {
+          await osFetch('/api/pinned/' + id, { method: 'DELETE' });
+        } else {
+          await apiFetch('/api/pinned/' + id, { method: 'DELETE' });
+        }
+        // Fade the row out, then re-render the whole sidebar for a clean refresh
+        row.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(-6px)';
+        setTimeout(() => {
+          if (typeof window.renderNewSidebar === 'function') window.renderNewSidebar();
+        }, 160);
+        if (typeof showToast === 'function') showToast('Removed from pinned');
+      } catch (err) {
+        if (typeof showToast === 'function') showToast(err.message || 'Failed to unpin', 'error');
+      }
+    };
+  }
+
   // ── Sidebar HTML cache (sessionStorage) ────────────────────────
   // Stores the last rendered sidebar HTML so it can be shown instantly
   // on the next page load instead of waiting for async data fetches.
@@ -500,6 +572,8 @@
       // Wire events and active state on the cached HTML right away.
       railEl.removeEventListener('click', onPropertyRowClick);
       railEl.addEventListener('click', onPropertyRowClick);
+      railEl.removeEventListener('contextmenu', onPropertyRowContextMenu);
+      railEl.addEventListener('contextmenu', onPropertyRowContextMenu);
       wireChromeNav();
       if (window.NAV_CURRENT) {
         railEl.querySelectorAll('.os-newchrome-row').forEach(a => {
