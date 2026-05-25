@@ -32,10 +32,21 @@
       background: linear-gradient(135deg, var(--bg) 0%, var(--surface) 100%);
     }
     .photo-tile .photo-meta { position:absolute; bottom:0; left:0; right:0; padding: 4px 6px; font-size:.65rem; color:#fff; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
-    .photo-lightbox { position:fixed; inset:0; background: rgba(0,0,0,.85); z-index: 1000; display:flex; align-items:center; justify-content:center; padding: 20px; }
-    .photo-lightbox img { max-width:100%; max-height:90vh; border-radius: 8px; }
-    .photo-lightbox .close-x { position:absolute; top:16px; right:20px; color:#fff; font-size:2rem; cursor:pointer; background:none; border:none; }
-    .photo-lightbox .lb-notes { position:absolute; bottom:20px; left:20px; right:20px; color:#fff; font-size:.85rem; text-align:center; }
+    .photo-lightbox { position:fixed; inset:0; background: rgba(0,0,0,.88); z-index: 1000; display:flex; align-items:center; justify-content:center; padding: 60px 80px; }
+    .photo-lightbox img { max-width:100%; max-height:88vh; border-radius: 10px; box-shadow: 0 24px 64px rgba(0,0,0,.6); }
+    /* Close button */
+    .photo-lightbox .lb-close { position:absolute; top:16px; right:16px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.13); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:1.25rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .12s,transform .1s; }
+    .photo-lightbox .lb-close:hover { background:rgba(255,255,255,.28); transform:scale(1.08); }
+    /* Prev / Next nav buttons */
+    .photo-lightbox .lb-nav { position:absolute; top:50%; transform:translateY(-50%); width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.13); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.22); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .12s, transform .14s; }
+    .photo-lightbox .lb-nav:hover { background:rgba(255,255,255,.28); transform:translateY(-50%) scale(1.1); }
+    .photo-lightbox .lb-nav:disabled { opacity:.25; cursor:default; pointer-events:none; }
+    .photo-lightbox .lb-prev { left:18px; }
+    .photo-lightbox .lb-next { right:18px; }
+    /* Bottom bar: notes + counter */
+    .photo-lightbox .lb-bar { position:absolute; bottom:0; left:0; right:0; padding:14px 20px; display:flex; align-items:center; justify-content:center; gap:12px; background:linear-gradient(transparent, rgba(0,0,0,.55)); border-radius:0 0 4px 4px; pointer-events:none; }
+    .photo-lightbox .lb-notes { color:rgba(255,255,255,.88); font-size:.82rem; text-align:center; }
+    .photo-lightbox .lb-counter { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.2); color:#fff; font-size:.72rem; font-weight:600; letter-spacing:.06em; padding:3px 9px; border-radius:20px; white-space:nowrap; }
 
     /* ── Custom dropdown (replaces native <select>) ─────────────── */
     .pp-select-wrap { position: relative; display: inline-block; vertical-align: middle; }
@@ -1132,18 +1143,51 @@
     }
   }
 
-  function openLightbox(idx){
-    const ph = property.photos[idx];
-    if (!ph) return;
-    const noteText = [ph.notes, ph.taken_at ? formatDate(ph.taken_at) : null].filter(Boolean).join(' · ');
+  function openLightbox(startIdx) {
+    const photos = property.photos;
+    if (!photos || !photos.length) return;
+
+    let idx = Math.max(0, Math.min(startIdx, photos.length - 1));
+    const total = photos.length;
+
+    const chevL = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+    const chevR = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+
     const box = document.createElement('div');
     box.className = 'photo-lightbox';
-    box.innerHTML = `
-      <button class="close-x" onclick="this.parentElement.remove()">×</button>
-      <img src="${escHtml(ph.url)}" alt="">
-      ${noteText ? `<div class="lb-notes">${escHtml(noteText)}</div>` : ''}
-    `;
-    box.addEventListener('click', (e) => { if (e.target === box) box.remove(); });
+
+    function render() {
+      const ph = photos[idx];
+      const noteText = [ph.notes, ph.taken_at ? formatDate(ph.taken_at) : null].filter(Boolean).join(' · ');
+      box.innerHTML = `
+        <button class="lb-close" title="Close (Esc)">✕</button>
+        ${total > 1 ? `<button class="lb-nav lb-prev" title="Previous (←)" ${idx === 0 ? 'disabled' : ''}>${chevL}</button>` : ''}
+        <img src="${escHtml(ph.url)}" alt="">
+        ${total > 1 ? `<button class="lb-nav lb-next" title="Next (→)" ${idx === total - 1 ? 'disabled' : ''}>${chevR}</button>` : ''}
+        <div class="lb-bar">
+          ${noteText ? `<span class="lb-notes">${escHtml(noteText)}</span>` : ''}
+          ${total > 1 ? `<span class="lb-counter">${idx + 1} / ${total}</span>` : ''}
+        </div>
+      `;
+      box.querySelector('.lb-close').addEventListener('click', close);
+      box.querySelector('.lb-prev')?.addEventListener('click', (e) => { e.stopPropagation(); if (idx > 0) { idx--; render(); } });
+      box.querySelector('.lb-next')?.addEventListener('click', (e) => { e.stopPropagation(); if (idx < total - 1) { idx++; render(); } });
+    }
+
+    function close() {
+      document.removeEventListener('keydown', onKey);
+      box.remove();
+    }
+
+    function onKey(e) {
+      if (e.key === 'ArrowLeft'  && idx > 0)           { idx--; render(); }
+      if (e.key === 'ArrowRight' && idx < total - 1)   { idx++; render(); }
+      if (e.key === 'Escape')                           { close(); }
+    }
+
+    box.addEventListener('click', (e) => { if (e.target === box) close(); });
+    document.addEventListener('keydown', onKey);
+    render();
     document.body.appendChild(box);
   }
 
