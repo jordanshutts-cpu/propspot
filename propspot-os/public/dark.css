@@ -58,11 +58,9 @@ html.theme-dark body {
    render their dark variants. */
 html.theme-dark { color-scheme: dark; }
 
-/* ── Page loader — wordmark + dots on the deep canvas ─────── */
-html.theme-dark .os-page-loader { background: var(--d-bg); }
-html.theme-dark .os-page-loader-wordmark { color: var(--d-text-strong); }
-html.theme-dark .os-page-loader-wordmark .os-suffix { color: var(--d-brand); }
-html.theme-dark .os-page-loader-dots span { background: rgba(110,208,87,0.35); }
+/* (Loader dark colors live in style.css so they apply from the
+   first frame — dark.css loads asynchronously and was causing a
+   visible color flash on the wordmark.) */
 
 /* ── Top header ──────────────────────────────────────────────── */
 html.theme-dark #top-header,
