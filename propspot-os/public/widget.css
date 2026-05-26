@@ -79,12 +79,29 @@
   position: absolute;
   bottom: 100%; left: 14px; right: 14px;
   max-height: 200px; overflow-y: auto;
-  background: #fff; border: 1px solid var(--border, #ccc); border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  border: 1px solid var(--border, #ccc); border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   z-index: 10; display: none;
 }
 .pulse-embed-mention-picker.open { display: block; }
-.pulse-embed-mention-item { padding: 8px 12px; cursor: pointer; font-size: .85rem; display: flex; gap: 8px; align-items: center; }
-.pulse-embed-mention-item:hover, .pulse-embed-mention-item.active { background: var(--brand-light, #e6f4dc); }
-.pulse-embed-mention-badge { font-size: .7rem; color: #888; }
-.pulse-embed-error { padding: 10px 14px; color: #b00; font-size: .85rem; }
+.pulse-embed-mention-item {
+  padding: 8px 12px; cursor: pointer; font-size: .85rem;
+  display: flex; gap: 8px; align-items: center;
+  color: var(--text, #111);
+}
+.pulse-embed-mention-item:hover, .pulse-embed-mention-item.active {
+  background: var(--brand-light, #e6f4dc);
+  color: var(--text, #111);
+}
+.pulse-embed-mention-badge { font-size: .7rem; color: var(--text-muted, #888); }
+.pulse-embed-error { padding: 10px 14px; color: var(--danger, #b00); font-size: .85rem; }
+
+/* Dark mode: brighten the focused row so light text on the brand-light
+   tint stays readable. */
+html.theme-dark .pulse-embed-mention-item:hover,
+html.theme-dark .pulse-embed-mention-item.active {
+  background: rgba(110, 208, 87, 0.22);
+  color: #fff;
+}
