@@ -108,6 +108,10 @@
     .drop-zone { border:2px dashed var(--border); border-radius:8px; padding:20px; text-align:center; color:var(--text-muted); font-size:.82rem; cursor:pointer; transition:all .15s; margin-bottom:8px; }
     .drop-zone:hover, .drop-zone.dragover { border-color:var(--brand); color:var(--brand); background:var(--brand-light); }
 
+    .task-section-header { display:flex; align-items:center; gap:8px; margin-top:24px; margin-bottom:10px; }
+    .task-section-header:first-child { margin-top:0; }
+    .task-section-header h3 { font-size:.88rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin:0; }
+    .task-section-header .section-count { font-size:.75rem; background:var(--border); color:var(--text-muted); padding:1px 8px; border-radius:100px; font-weight:600; }
     .empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
     .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:.4; }
     .empty-state p { font-size:.9rem; }
@@ -140,8 +144,6 @@
     <button class="pill" data-f="done">Done</button>
     <button class="pill" data-f="mine">Assigned to Me</button>
     <button class="pill" data-f="created">Created by Me</button>
-    <button class="pill" data-f="team">Team</button>
-    <button class="pill" data-f="private">Private</button>
   </div>
 
   <div id="list"><p class="text-muted text-sm">Loading...</p></div>
@@ -295,15 +297,38 @@ function filterTasks() {
     case 'done': return allTasks.filter(t => t.status === 'done');
     case 'mine': return allTasks.filter(t => t.assigned_to === currentUser.id && t.status !== 'done' && t.status !== 'cancelled');
     case 'created': return allTasks.filter(t => t.created_by === currentUser.id);
-    case 'team': return allTasks.filter(t => t.visibility === 'team' && t.status !== 'done' && t.status !== 'cancelled');
-    case 'private': return allTasks.filter(t => t.visibility === 'private');
     default: return allTasks;
   }
 }
 
+function renderTaskRow(t) {
+  const today = new Date().toISOString().split('T')[0];
+  const isDone = t.status === 'done';
+  const isOverdue = t.due_date && t.due_date < today && !isDone;
+  const priClass = (t.priority === 'urgent' || t.priority === 'high') ? ` pri-${t.priority}` : '';
+  return `
+    <div class="task-row${priClass}" onclick="openDetail('${t.id}')">
+      <div class="task-check ${isDone ? 'done' : ''}" onclick="event.stopPropagation();toggleDone('${t.id}',${isDone})"></div>
+      <div class="task-body">
+        <div class="task-title ${isDone ? 'done' : ''}">${esc(t.title)}</div>
+        <div class="task-sub">${t.description ? esc(t.description.substring(0, 80)) + (t.description.length > 80 ? '...' : '') : ''}</div>
+        <div class="task-tags">
+          <span class="badge-xs bdg-pri-${t.priority}">${PRI_LBL[t.priority]}</span>
+          <span class="badge-xs bdg-st-${t.status}">${STATUS_LBL[t.status]}</span>
+          ${t.due_date ? `<span class="due-badge ${isOverdue ? 'overdue' : ''}">Due ${formatDate(t.due_date)}</span>` : ''}
+          ${t.property_address ? `<span class="assignee-chip" style="color:var(--brand);">${esc(t.property_address)}</span>` : ''}
+          ${t.assigned_to_name ? `<span class="assignee-chip">${t.assigned_to_avatar ? `<img class="avatar-xs" src="${t.assigned_to_avatar}">` : ''} ${esc(t.assigned_to_name)}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderList() {
   const tasks = filterTasks();
-  if (tasks.length === 0) {
+  const teamTasks = tasks.filter(t => (t.visibility || 'team') === 'team');
+  const privateTasks = tasks.filter(t => t.visibility === 'private');
+
+  if (teamTasks.length === 0 && privateTasks.length === 0) {
     document.getElementById('list').innerHTML = `
       <div class="empty-state">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -311,28 +336,26 @@ function renderList() {
       </div>`;
     return;
   }
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('list').innerHTML = `<div class="task-list">${tasks.map(t => {
-    const isDone = t.status === 'done';
-    const isOverdue = t.due_date && t.due_date < today && !isDone;
-    const priClass = (t.priority === 'urgent' || t.priority === 'high') ? ` pri-${t.priority}` : '';
-    return `
-      <div class="task-row${priClass}" onclick="openDetail('${t.id}')">
-        <div class="task-check ${isDone ? 'done' : ''}" onclick="event.stopPropagation();toggleDone('${t.id}',${isDone})"></div>
-        <div class="task-body">
-          <div class="task-title ${isDone ? 'done' : ''}">${esc(t.title)}</div>
-          <div class="task-sub">${t.description ? esc(t.description.substring(0, 80)) + (t.description.length > 80 ? '...' : '') : ''}</div>
-          <div class="task-tags">
-            <span class="badge-xs bdg-vis-${t.visibility || 'team'}">${t.visibility === 'private' ? 'Private' : 'Team'}</span>
-            <span class="badge-xs bdg-pri-${t.priority}">${PRI_LBL[t.priority]}</span>
-            <span class="badge-xs bdg-st-${t.status}">${STATUS_LBL[t.status]}</span>
-            ${t.due_date ? `<span class="due-badge ${isOverdue ? 'overdue' : ''}">Due ${formatDate(t.due_date)}</span>` : ''}
-            ${t.property_address ? `<span class="assignee-chip" style="color:var(--brand);">${esc(t.property_address)}</span>` : ''}
-            ${t.assigned_to_name ? `<span class="assignee-chip">${t.assigned_to_avatar ? `<img class="avatar-xs" src="${t.assigned_to_avatar}">` : ''} ${esc(t.assigned_to_name)}</span>` : ''}
-          </div>
-        </div>
-      </div>`;
-  }).join('')}</div>`;
+
+  let html = '';
+
+  // Team tasks table
+  html += `<div class="task-section-header"><h3>Team Tasks</h3><span class="section-count">${teamTasks.length}</span></div>`;
+  if (teamTasks.length > 0) {
+    html += `<div class="task-list">${teamTasks.map(renderTaskRow).join('')}</div>`;
+  } else {
+    html += `<div class="task-list" style="padding:20px;text-align:center;color:var(--text-muted);font-size:.85rem;">No team tasks</div>`;
+  }
+
+  // Private tasks table
+  html += `<div class="task-section-header" style="margin-top:28px;"><h3>Private Tasks</h3><span class="section-count">${privateTasks.length}</span></div>`;
+  if (privateTasks.length > 0) {
+    html += `<div class="task-list">${privateTasks.map(renderTaskRow).join('')}</div>`;
+  } else {
+    html += `<div class="task-list" style="padding:20px;text-align:center;color:var(--text-muted);font-size:.85rem;">No private tasks</div>`;
+  }
+
+  document.getElementById('list').innerHTML = html;
 }
 
 // ── Filter pills
