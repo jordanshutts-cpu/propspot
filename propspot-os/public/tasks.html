@@ -315,7 +315,21 @@ function openCreate() {
   document.getElementById('c-save').textContent = 'Create Task';
   document.getElementById('modal-create').classList.add('open');
 }
-function closeCreate() { document.getElementById('modal-create').classList.remove('open'); }
+function formHasData() {
+  return document.getElementById('c-title').value.trim() ||
+    document.getElementById('c-desc').value.trim() ||
+    document.getElementById('c-due').value ||
+    document.getElementById('c-assign').value ||
+    document.getElementById('c-property').value ||
+    document.getElementById('c-priority').value !== 'normal' ||
+    document.querySelectorAll('#c-items input').length > 0;
+}
+function closeCreate(force) {
+  if (!force && formHasData()) {
+    if (!confirm('You have unsaved work. Discard this task?')) return;
+  }
+  document.getElementById('modal-create').classList.remove('open');
+}
 document.getElementById('modal-create').addEventListener('click', e => { if (e.target === e.currentTarget) closeCreate(); });
 
 function addCreateItem() {
@@ -346,7 +360,7 @@ async function submitCreate(e) {
   try {
     document.getElementById('c-save').disabled = true;
     await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify(body) });
-    closeCreate();
+    closeCreate(true);
     await loadTasks();
   } catch (err) {
     document.getElementById('c-err').textContent = err.message;
