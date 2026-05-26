@@ -498,7 +498,7 @@
     const personalTag = isPersonal ? '<span class="si-personal-tag">Personal</span>' : '';
     const actions = isPersonal ? '' : `
       <div class="am-actions">
-        <button class="btn btn-secondary" onclick='openSiModal(${JSON.stringify(i)})'>Edit</button>
+        <button class="btn btn-secondary" onclick="openSiModalById('${i.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteSharedInbox('${i.id}', '${escAttr(i.name)}', this)">Delete</button>
       </div>`;
     const membersBlock = isPersonal ? '' : `
@@ -587,6 +587,15 @@
   }
 
   // ───── Shared inbox create/edit modal ────────────────────────────
+  // Wrapper used by the row's Edit button. Looking the row up by id at
+  // click time avoids embedding a JSON-stringified inbox object inside
+  // an inline onclick='…' (an apostrophe in any field would break the
+  // attribute — e.g. an inbox with a description containing a quote
+  // was rendering "…created_at:…})'>Edit" as visible text).
+  function openSiModalById(id) {
+    const inbox = STATE.sharedInboxes.find(x => x.id === id);
+    if (inbox) openSiModal(inbox);
+  }
   function openSiModal(existing) {
     STATE.editingInboxId = existing?.id || null;
     document.getElementById('si-modal-title').textContent = existing ? 'Edit shared inbox' : 'New shared inbox';
