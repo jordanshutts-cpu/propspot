@@ -8,6 +8,12 @@ router.use(requireInboxGrant);
 
 // GET /api/alias-routes — list every discovered alias across every mailbox,
 // plus whether it's already routed.
+//
+// A mailbox is "personal" if it has any existing route pointing at a shared
+// inbox with owner_user_id IS NOT NULL (set up automatically at connect time
+// by the personal-inbox OAuth flow). We hide those mailboxes entirely from
+// the admin alias view — their mail belongs to one user and must never be
+// routed into a team inbox.
 router.get('/', requireOwner, async (req, res) => {
   const { rows: routed } = await query(`
     SELECT r.id, r.mailbox_id, r.alias_email, r.shared_inbox_id, r.detected_at,
@@ -18,6 +24,13 @@ router.get('/', requireOwner, async (req, res) => {
       FROM inbox_alias_routes r
       JOIN inbox_mailboxes m ON m.id = r.mailbox_id
       JOIN inbox_shared i    ON i.id = r.shared_inbox_id
+     WHERE i.owner_user_id IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM inbox_alias_routes pr
+           JOIN inbox_shared ps ON ps.id = pr.shared_inbox_id
+          WHERE pr.mailbox_id     = r.mailbox_id
+            AND ps.owner_user_id IS NOT NULL
+       )
   ORDER BY m.email, r.alias_email
   `);
   // Unrouted alias candidates. We trust the Delivered-To / X-Original-To
@@ -25,7 +38,9 @@ router.get('/', requireOwner, async (req, res) => {
   // address mail was accepted for — same-domain OR cross-domain aliases
   // (e.g. hoa@sellrh.com forwarded to a restorationhomes.com mailbox).
   // Defense-in-depth: only inbound messages, since outbound message
-  // recipients are never aliases on the mailbox.
+  // recipients are never aliases on the mailbox. Personal mailboxes are
+  // excluded so a user's personal aliases never get suggested for team
+  // routing.
   const { rows: unrouted } = await query(`
     SELECT DISTINCT msg.delivered_to_alias AS alias_email,
                     t.mailbox_id,
@@ -40,6 +55,12 @@ router.get('/', requireOwner, async (req, res) => {
           WHERE r.mailbox_id = t.mailbox_id
             AND LOWER(r.alias_email) = LOWER(msg.delivered_to_alias)
        )
+       AND NOT EXISTS (
+         SELECT 1 FROM inbox_alias_routes pr
+           JOIN inbox_shared ps ON ps.id = pr.shared_inbox_id
+          WHERE pr.mailbox_id     = t.mailbox_id
+            AND ps.owner_user_id IS NOT NULL
+       )
   ORDER BY m.email, msg.delivered_to_alias
   `);
   res.json({ routed, unrouted });
@@ -50,6 +71,27 @@ router.post('/', requireOwner, async (req, res) => {
   const { mailbox_id, alias_email, shared_inbox_id } = req.body;
   if (!mailbox_id || !alias_email?.trim() || !shared_inbox_id) {
     return res.status(400).json({ error: 'mailbox_id, alias_email, shared_inbox_id required' });
+  }
+  // Refuse to mix personal and team scopes. Personal mailboxes' mail must
+  // never land in a team inbox; team aliases must never land in someone's
+  // personal inbox.
+  const { rows: targetRows } = await query(
+    `SELECT owner_user_id FROM inbox_shared WHERE id = $1`, [shared_inbox_id]
+  );
+  if (!targetRows[0]) return res.status(404).json({ error: 'Shared inbox not found' });
+  if (targetRows[0].owner_user_id) {
+    return res.status(400).json({ error: "Can't route an alias into a personal inbox." });
+  }
+  const { rows: srcRows } = await query(
+    `SELECT 1 FROM inbox_alias_routes r
+       JOIN inbox_shared s ON s.id = r.shared_inbox_id
+      WHERE r.mailbox_id     = $1
+        AND s.owner_user_id IS NOT NULL
+      LIMIT 1`,
+    [mailbox_id]
+  );
+  if (srcRows.length) {
+    return res.status(400).json({ error: "This mailbox is a personal mailbox. Its aliases can't be routed to shared inboxes." });
   }
   try {
     const { rows } = await query(
