@@ -109,6 +109,7 @@
   <div class="section-header">
     <span class="section-title">Lawn maintenance</span>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="openAddPropertyModal()" title="Add a property to the mowing schedule (e.g. a rented home where we still mow)">+ Add Property</button>
       <button class="btn btn-secondary btn-sm" onclick="optimizeRoute()" title="Optimize stop order to minimize driving distance">🔄 Optimize Route</button>
       <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open today's route in Google Maps">🗺️ Open Route in Maps</button>
     </div>
@@ -121,6 +122,26 @@
 </main>
 
 <div class="pin-menu" id="pin-menu"></div>
+
+<!-- Add property to mowing schedule -->
+<div class="modal-backdrop" id="modal-add-prop">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title">Add property to mowing schedule</div>
+    <p class="text-muted text-sm" style="margin-top:-4px;margin-bottom:12px;">
+      Use this for properties we mow even though they aren't in an active acquisition/holding status — e.g. a rented home where we still maintain the lawn.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Property</label>
+      <input class="form-input" id="add-prop-search" placeholder="Search address…" oninput="filterAddPropOptions(this.value)">
+      <select class="form-input" id="add-prop-select" size="8" style="height:auto;padding:4px 0;margin-top:8px;"></select>
+    </div>
+    <p id="add-prop-err" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeAddPropModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" id="add-prop-save" onclick="confirmAddProp()">Add to mowing</button>
+    </div>
+  </div>
+</div>
 
 <!-- Mowing log modal -->
 <div class="modal-backdrop" id="modal-mow">
@@ -790,6 +811,68 @@
             Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
             Math.sin(dLon/2) * Math.sin(dLon/2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // ── Add property to mowing schedule ─────────────────────────
+  // Loads the full property list (minus prospects/dropped + ones already on
+  // the lawn list) into a searchable select, then PATCHes the chosen row
+  // with enabled_mode='force_on' so it shows up in the lawn list.
+  let addPropCache = [];
+  async function openAddPropertyModal() {
+    document.getElementById('add-prop-err').style.display = 'none';
+    document.getElementById('add-prop-search').value = '';
+    const sel = document.getElementById('add-prop-select');
+    sel.innerHTML = `<option disabled>Loading…</option>`;
+    document.getElementById('modal-add-prop').classList.add('open');
+    try {
+      const all = await apiFetch('/api/properties');
+      const onLawn = new Set(rows.map(r => r.id));
+      const SKIP = { prospect: 1, dropped: 1 };
+      addPropCache = all
+        .filter(p => !SKIP[p.status] && !onLawn.has(p.id))
+        .map(p => ({
+          id: p.id,
+          label: (p.address_line1 || '(no address)') + (p.unit ? ' #' + p.unit : '')
+                 + (p.city ? ', ' + p.city : '')
+                 + (p.state ? ', ' + p.state : ''),
+          status: (p.status || '').replace(/_/g, ' ')
+        }));
+      renderAddPropOptions(addPropCache);
+    } catch (e) {
+      sel.innerHTML = `<option disabled>Error: ${escHtml(e.message)}</option>`;
+    }
+  }
+  function renderAddPropOptions(list) {
+    const sel = document.getElementById('add-prop-select');
+    if (!list.length) { sel.innerHTML = `<option disabled>No properties match.</option>`; return; }
+    sel.innerHTML = list.map(p => `<option value="${escHtml(p.id)}">${escHtml(p.label)} — ${escHtml(p.status)}</option>`).join('');
+  }
+  function filterAddPropOptions(q) {
+    q = (q || '').toLowerCase().trim();
+    if (!q) { renderAddPropOptions(addPropCache); return; }
+    renderAddPropOptions(addPropCache.filter(p => p.label.toLowerCase().includes(q) || p.status.toLowerCase().includes(q)));
+  }
+  function closeAddPropModal() { document.getElementById('modal-add-prop').classList.remove('open'); }
+  document.getElementById('modal-add-prop')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeAddPropModal(); });
+
+  async function confirmAddProp() {
+    const sel = document.getElementById('add-prop-select');
+    const id = sel.value;
+    const err = document.getElementById('add-prop-err');
+    err.style.display = 'none';
+    if (!id) { err.textContent = 'Pick a property first.'; err.style.display = 'block'; return; }
+    const btn = document.getElementById('add-prop-save');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      await patchLawn(id, { enabled_mode: 'force_on' });
+      closeAddPropModal();
+      showToast('Added to mowing schedule');
+      await loadData();
+    } catch (e) {
+      err.textContent = e.message || 'Could not add property'; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Add to mowing';
+    }
   }
 
   async function optimizeRoute() {
