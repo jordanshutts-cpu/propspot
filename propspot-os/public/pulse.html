@@ -651,6 +651,7 @@
       <button class="ps-msg-action-btn" title="More reactions" onclick="openEmojiPicker('${mid}',event,this)">${svgMore}</button>
       <div class="ps-toolbar-sep"></div>
       <button class="ps-msg-action-btn" title="Reply" onclick="startReply('${mid}','${esc1(senderName)}')">${svgReply}</button>
+      <button class="ps-msg-action-btn" title="Create Task" onclick="createTaskFromMsg('${mid}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>
       ${isOwn ? `<button class="ps-msg-action-btn" title="Edit message" onclick="editMsg('${mid}')">${svgEdit}</button>
         <button class="ps-msg-action-btn danger" title="Delete message" onclick="deleteMsg('${mid}')">${svgDel}</button>` : ''}
     </div>`;
@@ -889,6 +890,23 @@
         const el = document.getElementById('ps-messages');
         if (el) el.innerHTML = `<div class="ps-empty" style="height:100%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="40" height="40"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>No messages yet — say hello!</p></div>`;
       }
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Create Task from message ──────────────────────────────────
+  async function createTaskFromMsg(msgId) {
+    const m = messages.find(msg => msg.id === msgId);
+    if (!m) return;
+    const body = (m.body || m.content || '').replace(/<[^>]+>/g, '').substring(0, 300);
+    const channel = activeScope?.name || 'Pulse';
+    const sender = m.sender_name || m.sender_email || 'Unknown';
+    try {
+      await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify({
+        title: `${channel}: ${body.substring(0, 60)}${body.length > 60 ? '...' : ''}`,
+        description: `From ${sender} in ${channel}:\n\n${body}`,
+        visibility: 'team'
+      })});
+      showToast('Task created');
     } catch (e) { showToast(e.message, 'error'); }
   }
 

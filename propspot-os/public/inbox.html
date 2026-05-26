@@ -1273,6 +1273,7 @@ function renderThreadDetail() {
         <button class="btn btn-secondary btn-sm" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore' : '🗑 Trash'}</button>
         <button class="btn btn-secondary btn-sm" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Spam'}</button>
         <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
+        <button class="btn btn-secondary btn-sm" onclick="createTaskFromThread()" style="border-color:var(--brand);color:var(--brand);">✓ Create Task</button>
       </div>
     </div>
     <div class="messages-scroll" id="messages-scroll">${messagesHtml}</div>
@@ -1439,6 +1440,25 @@ async function markUnread() {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+// ── Create Task from email ────────────────────────────────────────
+async function createTaskFromThread() {
+  const t = STATE.activeThread;
+  if (!t) return;
+  const lastMsg = [...(t.messages || [])].reverse().find(m => !m.is_outbound) || t.messages?.[0];
+  const snippet = lastMsg?.body_text ? lastMsg.body_text.substring(0, 300) : '';
+  const desc = `From email: ${t.subject || '(no subject)'}\n\n${snippet}`.trim();
+  try {
+    const task = await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify({
+      title: t.subject || '(no subject)',
+      description: desc,
+      property_id: t.property_id || null,
+      visibility: 'team'
+    })});
+    showToast('Task created');
+    window.open('/tasks.html', '_blank');
+  } catch (err) { showToast(err.message, 'error'); }
 }
 
 // ── Property linking ──────────────────────────────────────────────
