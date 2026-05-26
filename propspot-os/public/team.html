@@ -9,11 +9,6 @@
   <link rel="stylesheet" href="style.css">
   <script>try{if(localStorage.sidebar_collapsed==='1')document.documentElement.classList.add('sidebar-collapsed')}catch(e){}</script>
   <style>
-    .grant-pill { font-size:.7rem; padding:2px 8px; border-radius:100px; background:var(--brand-light); color:var(--brand); margin-right:4px; margin-top:4px; display:inline-block; }
-    .grants-line { margin-top:4px; }
-    .team-row { cursor: pointer; transition: background .12s; }
-    .team-row:hover { background: var(--brand-light); }
-
     .app-toggle {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; margin-bottom: 6px;
@@ -30,6 +25,44 @@
     .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px; }
     .modal-backdrop.open { display: flex; }
     .modal-card { background:#fff; border-radius:14px; max-width:480px; width:100%; padding:20px; max-height:90vh; overflow-y:auto; }
+
+    /* Member access table */
+    .team-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .team-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; }
+    .team-table th, .team-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+    .team-table thead th {
+      position: sticky; top: 0; background: var(--surface);
+      font-size: .72rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .03em; color: var(--text-muted);
+      border-bottom: 2px solid var(--border); z-index: 2;
+    }
+    .team-table .col-app { text-align: center; min-width: 96px; }
+    .team-table .col-app .app-head { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .team-table .col-app .app-head .app-icon { font-size: 1.1rem; }
+    .team-table .col-member { min-width: 220px; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+    .team-table tbody tr:hover .col-member { background: var(--brand-light); }
+    .team-table tbody tr:hover td { background: var(--brand-light); }
+    .team-table .member-cell { display: flex; align-items: center; gap: 10px; }
+    .team-table .member-cell .avatar { width: 32px; height: 32px; font-size: .85rem; flex-shrink: 0; }
+    .team-table .member-cell .team-name { font-weight: 600; font-size: .88rem; line-height: 1.2; }
+    .team-table .member-cell .team-email { font-size: .72rem; color: var(--text-muted); line-height: 1.2; }
+    .team-table .col-status { text-align: center; min-width: 110px; }
+    .team-table .col-actions { text-align: right; min-width: 90px; }
+
+    .access-cell {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 8px;
+      cursor: pointer; user-select: none;
+      border: 1.5px solid transparent;
+      transition: background .12s, border-color .12s, transform .08s;
+    }
+    .access-cell.granted { background: var(--brand-light); color: var(--brand); border-color: var(--brand); font-weight: 700; }
+    .access-cell.empty { background: transparent; color: var(--text-muted); border-color: var(--border); }
+    .access-cell:hover { transform: scale(1.08); }
+    .access-cell.granted:hover { background: #fee2e2; color: #b91c1c; border-color: #b91c1c; }
+    .access-cell.empty:hover { background: var(--brand-light); color: var(--brand); border-color: var(--brand); }
+    .access-cell.loading { opacity: .5; cursor: wait; pointer-events: none; }
+    .access-cell.locked { opacity: .5; cursor: not-allowed; pointer-events: none; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -43,7 +76,7 @@
     <span class="section-title" id="count">Members</span>
     <button class="btn btn-primary btn-sm" onclick="openInvite()">+ Invite</button>
   </div>
-  <p class="text-xs text-muted mb-16">Tap a member to manage their app access.</p>
+  <p class="text-xs text-muted mb-16">Click a cell to grant or revoke that member's access to an app.</p>
   <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
 </main>
 
@@ -79,21 +112,6 @@
   </div>
 </div>
 
-<!-- Manage grants modal -->
-<div id="grants-modal" class="modal-backdrop">
-  <div class="modal-card">
-    <div class="section-header">
-      <span class="section-title">Manage Access</span>
-      <button class="icon-btn" style="background:#eee;color:#000;" onclick="closeModal('grants-modal')">×</button>
-    </div>
-    <div id="g-user" class="text-sm mb-12"></div>
-    <p class="text-xs text-muted mb-8">Check the apps this user should be able to use. Changes save instantly.</p>
-    <div id="g-apps"></div>
-    <p id="g-err" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
-    <p id="g-status" class="text-xs text-muted mt-12"></p>
-  </div>
-</div>
-
 <script>window.NAV_CURRENT = 'team';</script>
 
 <script src="config.js"></script>
@@ -105,19 +123,17 @@
 
   async function init(){
     me = await requireAuth(); if (!me) return;
-    await Promise.all([loadUsers(), loadApps()]);
-  }
-
-  async function loadApps() {
     try {
-      allApps = await getApps();
-    } catch (e) {
-      console.error(e);
-      allApps = [];
+      [allUsers, allApps] = await Promise.all([getUsers(), getApps()]);
+      document.getElementById('count').textContent =
+        `${allUsers.length} ${allUsers.length === 1 ? 'Member' : 'Members'}`;
+      renderUsers();
+    } catch (err) {
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
 
-  async function loadUsers() {
+  async function reloadUsers() {
     try {
       allUsers = await getUsers();
       document.getElementById('count').textContent =
@@ -128,36 +144,107 @@
     }
   }
 
+  function userGrantedAppIds(u) {
+    const ids = new Set();
+    (u.grants || []).forEach(g => {
+      if (g.app_id) ids.add(g.app_id);
+      if (g.slug) {
+        const a = allApps.find(x => x.slug === g.slug);
+        if (a) ids.add(a.id);
+      }
+    });
+    return ids;
+  }
+
   function renderUsers() {
     const el = document.getElementById('list');
     if (!allUsers.length) { el.innerHTML = '<p class="text-muted text-sm">No team members yet.</p>'; return; }
-    el.innerHTML = allUsers.map(u => {
+    if (!allApps.length) { el.innerHTML = '<p class="text-muted text-sm">No apps registered.</p>'; return; }
+
+    const head = `
+      <thead>
+        <tr>
+          <th class="col-member">Member</th>
+          ${allApps.map(a => `
+            <th class="col-app" title="${escHtml(a.description || a.slug)}">
+              <div class="app-head">
+                <span class="app-icon">${escHtml(a.icon || '🧩')}</span>
+                <span>${escHtml(a.name)}</span>
+              </div>
+            </th>
+          `).join('')}
+          <th class="col-status">Status</th>
+          <th class="col-actions"></th>
+        </tr>
+      </thead>`;
+
+    const body = `<tbody>${allUsers.map(u => {
       const name = u.full_name || u.email;
       const isYou = u.id === me.id;
-      const grantPills = (u.grants || []).map(g => {
-        const scopeText = g.scope?.all ? '' : (g.scope?.project_ids ? ` (${g.scope.project_ids.length})` : '');
-        return `<span class="grant-pill">${escHtml(g.app_name)} · ${escHtml(g.role)}${escHtml(scopeText)}</span>`;
-      }).join('');
+      const granted = userGrantedAppIds(u);
       const canUninvite = me.is_owner && !u.is_active && !u.is_owner && !isYou;
+
+      const cells = allApps.map(a => {
+        const has = granted.has(a.id);
+        const lockedSelfOwner = isYou && u.is_owner;
+        const cls = `access-cell ${has ? 'granted' : 'empty'}${lockedSelfOwner ? ' locked' : ''}`;
+        const label = has ? `Revoke ${a.name} access` : `Grant ${a.name} access`;
+        const onclick = lockedSelfOwner ? '' : `onclick="toggleAccessCell(this,'${u.id}','${a.id}')"`;
+        return `<td class="col-app"><span class="${cls}" ${onclick} title="${escHtml(label)}" data-has="${has ? '1' : '0'}">${has ? '✓' : ''}</span></td>`;
+      }).join('');
+
       return `
-        <div class="team-row" onclick="openGrants('${u.id}')">
-          <div class="avatar">${escHtml(name.charAt(0).toUpperCase())}</div>
-          <div class="team-info">
-            <div class="team-name">
-              ${escHtml(name)}
-              ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}
-              ${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}
+        <tr data-user-id="${u.id}">
+          <td class="col-member">
+            <div class="member-cell">
+              <div class="avatar">${escHtml(name.charAt(0).toUpperCase())}</div>
+              <div>
+                <div class="team-name">
+                  ${escHtml(name)}
+                  ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}
+                  ${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}
+                </div>
+                <div class="team-email">${escHtml(u.email)}</div>
+              </div>
             </div>
-            <div class="team-email">${escHtml(u.email)}</div>
-            <div class="grants-line">${grantPills || '<span class="text-xs text-muted">No app access — click to grant</span>'}</div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-            <span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span>
-            ${canUninvite ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;" onclick="event.stopPropagation();uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation">× Uninvite</button>` : ''}
-          </div>
-        </div>
+          </td>
+          ${cells}
+          <td class="col-status"><span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span></td>
+          <td class="col-actions">
+            ${canUninvite ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;" onclick="uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation">× Uninvite</button>` : ''}
+          </td>
+        </tr>
       `;
-    }).join('');
+    }).join('')}</tbody>`;
+
+    el.innerHTML = `<div class="team-table-wrap"><table class="team-table">${head}${body}</table></div>`;
+  }
+
+  async function toggleAccessCell(cellEl, userId, appId) {
+    if (cellEl.classList.contains('loading')) return;
+    const hadAccess = cellEl.dataset.has === '1';
+    cellEl.classList.add('loading');
+    try {
+      if (hadAccess) {
+        await revokeAppAccess(appId, userId);
+        cellEl.classList.remove('granted');
+        cellEl.classList.add('empty');
+        cellEl.textContent = '';
+        cellEl.dataset.has = '0';
+      } else {
+        await grantAppAccess(appId, userId, { role: 'member', scope: { all: true } });
+        cellEl.classList.remove('empty');
+        cellEl.classList.add('granted');
+        cellEl.textContent = '✓';
+        cellEl.dataset.has = '1';
+      }
+      // Refresh in-memory user data without re-rendering the table
+      try { allUsers = await getUsers(); } catch (_) {}
+    } catch (e) {
+      alert('Could not update access: ' + e.message);
+    } finally {
+      cellEl.classList.remove('loading');
+    }
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -167,7 +254,7 @@
     if (!confirm(`Cancel the invitation for ${displayName}?`)) return;
     try {
       await apiFetch(`/api/users/${userId}`, { method: 'DELETE' });
-      await loadUsers();
+      await reloadUsers();
     } catch (err) {
       alert('Could not uninvite: ' + err.message);
     }
@@ -216,88 +303,12 @@
         document.getElementById('i-link-text').textContent = res.inviteLink;
       } else {
         showToast(res.message || 'Invite sent');
-        setTimeout(() => { closeModal('invite-modal'); loadUsers(); }, 1200);
+        setTimeout(() => { closeModal('invite-modal'); reloadUsers(); }, 1200);
       }
       hideSpinner(btn);
     } catch (e) {
       err.textContent = e.message; err.style.display = 'block';
       hideSpinner(btn);
-    }
-  }
-
-  // ── Grants modal ────────────────────────────────────────────
-  let currentGrantsUserId = null;
-
-  function openGrants(userId) {
-    const u = allUsers.find(x => x.id === userId);
-    if (!u) return;
-    currentGrantsUserId = userId;
-    const name = u.full_name || u.email;
-    const isYou = u.id === me.id;
-
-    document.getElementById('g-user').innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:8px;">
-        <div class="avatar" style="width:40px;height:40px;font-size:1rem;">${escHtml(name.charAt(0).toUpperCase())}</div>
-        <div style="flex:1;">
-          <div class="team-name">${escHtml(name)} ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}</div>
-          <div class="team-email">${escHtml(u.email)}</div>
-        </div>
-      </div>`;
-
-    const grantedAppIds = new Set();
-    const grantBySlug = {};
-    (u.grants || []).forEach(g => {
-      if (g.app_id) grantedAppIds.add(g.app_id);
-      if (g.slug)   grantBySlug[g.slug] = g;
-    });
-
-    document.getElementById('g-apps').innerHTML = allApps.length ? allApps.map(a => {
-      const has = grantedAppIds.has(a.id) || !!grantBySlug[a.slug];
-      const lockedSelfOwner = isYou && u.is_owner;
-      return `
-        <label class="app-toggle ${has ? 'checked' : ''}" data-app-id="${a.id}">
-          <input type="checkbox" data-app-id="${a.id}" ${has ? 'checked' : ''} ${lockedSelfOwner ? 'disabled' : ''}
-                 onchange="toggleGrant(this)">
-          <span class="app-icon">${escHtml(a.icon || '🧩')}</span>
-          <div style="flex:1;">
-            <div class="app-name">${escHtml(a.name)}</div>
-            <div class="app-desc">${escHtml(a.description || a.slug)}</div>
-          </div>
-        </label>
-      `;
-    }).join('') : '<p class="text-xs text-muted">No apps registered.</p>';
-
-    document.getElementById('g-err').style.display = 'none';
-    document.getElementById('g-status').textContent = '';
-    document.getElementById('grants-modal').classList.add('open');
-  }
-
-  async function toggleGrant(cb) {
-    const appId  = cb.dataset.appId;
-    const userId = currentGrantsUserId;
-    const wrap   = cb.closest('.app-toggle');
-    const status = document.getElementById('g-status');
-    const err    = document.getElementById('g-err');
-    err.style.display = 'none';
-    cb.disabled = true;
-    status.textContent = cb.checked ? 'Granting…' : 'Revoking…';
-    try {
-      if (cb.checked) {
-        await grantAppAccess(appId, userId, { role: 'member', scope: { all: true } });
-        wrap.classList.add('checked');
-      } else {
-        await revokeAppAccess(appId, userId);
-        wrap.classList.remove('checked');
-      }
-      status.textContent = 'Saved ✓';
-      await loadUsers();
-    } catch (e) {
-      err.textContent = e.message; err.style.display = 'block';
-      status.textContent = '';
-      cb.checked = !cb.checked;
-      wrap.classList.toggle('checked', cb.checked);
-    } finally {
-      cb.disabled = false;
     }
   }
 
