@@ -282,11 +282,44 @@ router.get('/personal/status', async (req, res) => {
 
 // GET /api/mailboxes/health — owner-only diagnostic. Probes every stored
 // refresh token via decrypt() to surface mailboxes whose ciphertext can no
-// longer be opened (most often after an INBOX_TOKEN_KEY rotation, e.g.
-// when a separate inbox satellite service was deleted and its key lost).
-// Broken mailboxes must be reconnected to mint a fresh token under the
-// current key.
+// longer be opened, plus a process/key fingerprint so the owner can detect
+// whether multiple service instances are reading different INBOX_TOKEN_KEY
+// values (a common cause of "decrypts at write, fails at read" symptoms).
 router.get('/health', requireOwner, async (req, res) => {
+  const crypto = require('crypto');
+
+  // ── Process diagnostics ─────────────────────────────────────────────
+  const keyRaw = process.env.INBOX_TOKEN_KEY || '';
+  const keyBuf = keyRaw ? Buffer.from(keyRaw, 'base64') : Buffer.alloc(0);
+  const keyFingerprint = keyBuf.length
+    ? crypto.createHash('sha256').update(keyBuf).digest('hex').slice(0, 16)
+    : null;
+  const keyHasWhitespace = keyRaw !== keyRaw.trim();
+  // Round-trip a freshly-generated string to verify encrypt+decrypt agree
+  // *in this process*. If this fails, KEY itself is broken. If it succeeds
+  // but stored tokens fail, another process wrote them with a different key.
+  let roundtripOk = false;
+  let roundtripError = null;
+  try {
+    const probe = 'roundtrip-' + crypto.randomBytes(8).toString('hex');
+    const back  = decrypt(encrypt(probe));
+    roundtripOk = (back === probe);
+    if (!roundtripOk) roundtripError = 'decrypt returned different value';
+  } catch (err) {
+    roundtripError = err.message;
+  }
+  const process_info = {
+    pid: process.pid,
+    started_at: new Date(Date.now() - Math.round(process.uptime() * 1000)).toISOString(),
+    uptime_seconds: Math.round(process.uptime()),
+    key_fingerprint: keyFingerprint,
+    key_byte_length: keyBuf.length,
+    key_has_whitespace: keyHasWhitespace,
+    roundtrip_ok: roundtripOk,
+    roundtrip_error: roundtripError
+  };
+
+  // ── Mailbox token probe ─────────────────────────────────────────────
   const { rows } = await query(
     `SELECT m.id, m.email, m.display_name, m.connected_at, m.last_sync_at,
             m.refresh_token_encrypted, m.status, m.status_reason,
@@ -309,6 +342,7 @@ router.get('/health', requireOwner, async (req, res) => {
     return { ...rest, token_ok, probe_error };
   });
   res.json({
+    process: process_info,
     total: mailboxes.length,
     healthy: mailboxes.filter(m => m.token_ok).length,
     broken: mailboxes.filter(m => !m.token_ok).length,
