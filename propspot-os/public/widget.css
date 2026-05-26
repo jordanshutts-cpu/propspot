@@ -112,3 +112,36 @@ html.theme-dark .pulse-embed-mention-item.active {
   background: rgba(110, 208, 87, 0.22);
   color: #fff;
 }
+
+/* ── Reactions ─────────────────────────────────────────────────── */
+.pulse-embed-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.pulse-embed-reactions:empty { display: none; }
+.pulse-embed-rx {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--bg, #f3f4f6);
+  border: 1px solid var(--border, #e5e7eb);
+  font-size: .78rem; cursor: pointer;
+  color: var(--text, #111);
+  transition: border-color .12s, background .12s;
+}
+.pulse-embed-rx:hover { border-color: var(--brand, #61b746); }
+.pulse-embed-rx.by-me { background: var(--brand-light, #e6f4dc); border-color: var(--brand, #61b746); color: var(--brand-dark, #3f7a2a); font-weight: 600; }
+.pulse-embed-rx-emoji { font-size: .9rem; line-height: 1; }
+.pulse-embed-rx-count { font-variant-numeric: tabular-nums; }
+
+.pulse-embed-react-picker {
+  display: flex; gap: 2px; margin-top: 4px;
+  padding: 4px; border-radius: 8px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  width: fit-content;
+}
+.pulse-embed-react-picker[hidden] { display: none; }
+.pulse-embed-react-picker button {
+  width: 32px; height: 32px; border: none; background: none;
+  font-size: 1.15rem; cursor: pointer; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pulse-embed-react-picker button:hover { background: var(--bg, #f3f4f6); }

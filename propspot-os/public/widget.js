@@ -166,15 +166,36 @@
       }
     }
 
+    // Quick-pick palette for the + reaction button. Keep it tiny so the
+    // popover stays one row on mobile.
+    const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '✅', '👀'];
+
+    function reactionsHtml(reactions) {
+      if (!reactions || !reactions.length) return '';
+      return reactions.map(r => {
+        const byMe = CALLER_ID && r.users?.some(u => u.user_id === CALLER_ID);
+        const names = (r.users || []).map(u => u.name).join(', ');
+        return `<button type="button" class="pulse-embed-rx${byMe ? ' by-me' : ''}"
+                 data-action="toggle-reaction" data-emoji="${escapeHtml(r.emoji)}"
+                 title="${escapeHtml(names)}">
+          <span class="pulse-embed-rx-emoji">${escapeHtml(r.emoji)}</span>
+          <span class="pulse-embed-rx-count">${r.count}</span>
+        </button>`;
+      }).join('');
+    }
+
     // Build the inner head + body markup for a message row. Own messages
     // get edit/delete buttons; everyone else's are read-only.
     function messageInnerHtml(m) {
       const isMine = CALLER_ID && m.sender_id && m.sender_id.toLowerCase() === CALLER_ID.toLowerCase();
-      const actions = isMine ? `
-        <div class="pulse-embed-msg-actions">
+      const reactBtn = `<button type="button" data-action="open-react" title="Add reaction">😊</button>`;
+      const ownBtns = isMine ? `
           <button type="button" data-action="edit" title="Edit">✏️</button>
-          <button type="button" class="danger" data-action="delete" title="Delete">🗑</button>
-        </div>` : '';
+          <button type="button" class="danger" data-action="delete" title="Delete">🗑</button>` : '';
+      const actions = `
+        <div class="pulse-embed-msg-actions">
+          ${reactBtn}${ownBtns}
+        </div>`;
       return `
         <div class="pulse-embed-msg-head">
           <span class="pulse-embed-msg-author">${escapeHtml(m.sender_name || 'Unknown')}</span>
@@ -183,6 +204,10 @@
           ${actions}
         </div>
         <div class="pulse-embed-msg-body">${renderBody(m.body, USERS_BY_ID)}</div>
+        <div class="pulse-embed-reactions" data-role="reactions">${reactionsHtml(m.reactions)}</div>
+        <div class="pulse-embed-react-picker" data-role="react-picker" hidden>
+          ${QUICK_REACTIONS.map(e => `<button type="button" data-action="pick-reaction" data-emoji="${escapeHtml(e)}">${escapeHtml(e)}</button>`).join('')}
+        </div>
         <div class="pulse-embed-msg-edit">
           <textarea data-role="edit-textarea"></textarea>
           <div class="pulse-embed-msg-edit-actions">
@@ -266,7 +291,35 @@
         } catch (err) {
           alert('Could not delete: ' + err.message);
         }
+      } else if (action === 'open-react') {
+        // Toggle the quick-pick popover. Close any other open ones first.
+        msgEl.querySelectorAll('[data-role="react-picker"]:not([hidden])').forEach(el => {
+          if (!card.contains(el)) el.hidden = true;
+        });
+        const picker = card.querySelector('[data-role="react-picker"]');
+        if (picker) picker.hidden = !picker.hidden;
+      } else if (action === 'pick-reaction' || action === 'toggle-reaction') {
+        const emoji = btn.dataset.emoji;
+        if (!emoji) return;
+        // Close picker immediately so the UI feels snappy.
+        const picker = card.querySelector('[data-role="react-picker"]');
+        if (picker) picker.hidden = true;
+        try {
+          const { reactions } = await api(
+            `/api/pulse/entity-threads/messages/${encodeURIComponent(msgId)}/react`,
+            { method: 'POST', body: JSON.stringify({ emoji }) }
+          );
+          const rxEl = card.querySelector('[data-role="reactions"]');
+          if (rxEl) rxEl.innerHTML = reactionsHtml(reactions);
+        } catch (err) {
+          alert('Could not react: ' + err.message);
+        }
       }
+    });
+    // Click outside any open react picker → close it.
+    document.addEventListener('click', e => {
+      if (e.target.closest('[data-role="react-picker"]') || e.target.closest('[data-action="open-react"]')) return;
+      msgEl.querySelectorAll('[data-role="react-picker"]:not([hidden])').forEach(el => el.hidden = true);
     });
 
     function uuid() {
@@ -405,6 +458,10 @@
             card.classList.remove('editing');
             card.innerHTML = messageInnerHtml(payload.message);
           }
+        } else if (payload.type === 'entity_thread.reaction_update' && payload.message_id) {
+          const card = msgEl.querySelector(`.pulse-embed-msg[data-id="${payload.message_id}"]`);
+          const rxEl = card?.querySelector('[data-role="reactions"]');
+          if (rxEl) rxEl.innerHTML = reactionsHtml(payload.reactions || []);
         }
       });
     }
