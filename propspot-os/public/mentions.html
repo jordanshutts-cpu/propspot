@@ -148,7 +148,9 @@ function renderList() {
 function getLinkForMention(m) {
   if (m.source === 'task' && m.task_id) return `window.location.href='/tasks.html'`;
   if (m.source === 'inbox' && m.inbox_thread_id) return `window.location.href='/inbox.html?thread=${m.inbox_thread_id}'`;
-  if (m.source === 'pulse' && m.context_id) return `window.location.href='/pulse.html'`;
+  if (m.source === 'pulse' && m.channel_id) return `window.location.href='/pulse.html?channel=${m.channel_id}'`;
+  if (m.source === 'pulse' && m.dm_id) return `window.location.href='/pulse.html?dm=${m.dm_id}'`;
+  if (m.source === 'pulse') return `window.location.href='/pulse.html'`;
   if (m.source === 'fieldcam' && m.photo_id) return `window.location.href='/fieldcam.html'`;
   return '';
 }

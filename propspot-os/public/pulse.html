@@ -527,6 +527,24 @@
 
     await loadSidebar();
 
+    // Deep-link from /pulse.html?channel=<id> or ?dm=<id> (e.g. clicked from Mentions).
+    const params = new URLSearchParams(location.search);
+    const wantChannel = params.get('channel');
+    const wantDm      = params.get('dm');
+    if (wantChannel) {
+      const ch = allChannels.find(c => c.id === wantChannel);
+      if (ch) { openCh(ch.id, ch.name || ch.slug, ch.my_role || 'member'); return; }
+    }
+    if (wantDm) {
+      const dm = allDms.find(d => d.id === wantDm);
+      if (dm) {
+        const others = (dm.members || []).filter(m => m.user_id !== myId);
+        const name = dm.title || others.map(m => m.full_name || m.email || '?').join(', ') || 'Group DM';
+        openDm(dm.id, name);
+        return;
+      }
+    }
+
     const general = allChannels.find(c => c.slug === 'general' && c.is_member)
                  || allChannels.find(c => c.is_member);
     if (general) openCh(general.id, general.name || general.slug, general.my_role || 'member');
