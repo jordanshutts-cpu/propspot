@@ -939,6 +939,33 @@ async function saveAttachmentToProperty(attId, body) {
   return apiFetch('/api/inbox/attachments/' + attId + '/save-to-property', { method:'POST', body: JSON.stringify(body) });
 }
 function attachmentUrl(attId)             { return '/api/inbox/attachments/' + attId; }
+// Fetch an attachment with the auth header, then open it via a blob URL.
+// Plain <a href="/api/…"> navigation can't send the Bearer token, so the
+// server returns 401. This helper does the authenticated fetch first.
+async function openAttachment(attId, filename) {
+  try {
+    const token = getToken();
+    const res = await fetch('/api/inbox/attachments/' + attId, {
+      headers: token ? { Authorization: 'Bearer ' + token } : {}
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to load attachment (${res.status})`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const newWin = window.open(url, '_blank', 'noopener');
+    if (!newWin) {
+      // Popup blocked — fall back to a download.
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || 'attachment';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    showToast(e.message || 'Could not open attachment', 'error');
+  }
+}
 async function searchProperties(q)        { return apiFetch('/api/inbox/properties?q=' + encodeURIComponent(q || '')); }
 
 // ── Utility helpers ───────────────────────────────────────────────
@@ -1339,13 +1366,16 @@ function messageHtml(m, isExpanded) {
   const body = m.body_html
     ? `<iframe srcdoc="${escapeHtml(m.body_html)}" sandbox="allow-same-origin"></iframe>`
     : `<pre>${escapeHtml(m.body_text || m.snippet || '(empty)')}</pre>`;
-  const atts = (m.attachments || []).map(a => `
+  const atts = (m.attachments || []).map(a => {
+    const safeName = escapeHtml(a.filename).replace(/'/g, '&#39;');
+    return `
     <span class="att-chip">
-      <a href="${attachmentUrl(a.id)}" target="_blank" rel="noopener">📎 ${escapeHtml(a.filename)}</a>
-      <span class="att-save" onclick="openSaveAtt('${escapeHtml(a.id)}', '${escapeHtml(a.filename).replace(/'/g, '&#39;')}')">↓ Save to property</span>
+      <a href="#" onclick="event.preventDefault();openAttachment('${escapeHtml(a.id)}','${safeName}')">📎 ${escapeHtml(a.filename)}</a>
+      <span class="att-save" onclick="openSaveAtt('${escapeHtml(a.id)}', '${safeName}')">↓ Save to property</span>
       ${a.saved ? '<span class="badge badge-green">Saved</span>' : ''}
     </span>
-  `).join('');
+  `;
+  }).join('');
   const snippet = (m.snippet || m.body_text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
   const stateClass = isExpanded ? 'expanded' : 'collapsed';
   const toggleIcon = isExpanded ? '▾' : '▸';
