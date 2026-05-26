@@ -229,6 +229,18 @@ body.os-newchrome .page.page-narrow {
   align-self: center;
 }
 
+/* Collapsed sidebar: stack logo over chevron so neither gets squeezed
+   into the narrow rail. */
+html.sidebar-collapsed .os-newchrome-workspace-row {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+}
+html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
+  margin: 0;
+}
+
 /* Workspace row doubles as the Home button — clicking it navigates
    to /dashboard.html. The chevron is rendered alongside it (sibling). */
 .os-newchrome-workspace {
