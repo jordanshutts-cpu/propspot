@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Company Settings</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    .cs-page { max-width: 720px; }
+    .cs-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+    .cs-row  { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+    .cs-logo {
+      width: 96px; height: 96px; border-radius: 14px;
+      background: var(--bg); border: 2px dashed var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; color: var(--text-muted); overflow: hidden; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .cs-logo:hover { border-color: var(--brand); }
+    .cs-logo-hint { font-size: .72rem; color: var(--text-muted); margin-top: 6px; text-align: center; }
+    .cs-form { flex: 1; min-width: 240px; }
+    .cs-save-row { display: flex; gap: 8px; }
+    .cs-not-owner {
+      padding: 24px; text-align: center; color: var(--text-muted);
+      border: 1px dashed var(--border); border-radius: var(--radius);
+    }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page cs-page">
+  <div class="section-header" style="margin-bottom:14px;">
+    <span class="section-title">Company Settings</span>
+  </div>
+
+  <div id="cs-content">
+    <p class="text-muted text-sm">Loading…</p>
+  </div>
+</main>
+
+<script>window.NAV_CURRENT = 'company-settings';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+    const wrap = document.getElementById('cs-content');
+    if (!me.is_owner) {
+      wrap.innerHTML = `
+        <div class="cs-not-owner">
+          Only an owner can edit company settings. Ask an owner if you need to change the name or logo.
+        </div>`;
+      return;
+    }
+    try {
+      const org = await apiFetch('/api/org');
+      wrap.innerHTML = renderForm(org);
+      wire();
+    } catch (err) {
+      wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderForm(org) {
+    const initial = (org.company_name || 'C')[0];
+    const logoInner = org.company_logo_url
+      ? `<img src="${escHtml(org.company_logo_url)}" style="width:100%;height:100%;object-fit:cover;">`
+      : escHtml(initial);
+    return `
+      <div class="cs-card">
+        <div class="cs-row">
+          <div>
+            <div class="cs-logo" id="cs-logo" onclick="document.getElementById('cs-logo-input').click()">${logoInner}</div>
+            <input type="file" id="cs-logo-input" accept="image/*" style="display:none">
+            <div class="cs-logo-hint">Click to upload logo</div>
+          </div>
+          <div class="cs-form">
+            <div class="form-group">
+              <label class="form-label">Company name</label>
+              <div class="cs-save-row">
+                <input class="form-input" id="cs-name" value="${escHtml(org.company_name || '')}" placeholder="Your company name" style="flex:1;">
+                <button class="btn btn-primary" id="cs-save">Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function wire() {
+    document.getElementById('cs-save').addEventListener('click', async () => {
+      const name = document.getElementById('cs-name').value.trim();
+      if (!name) return;
+      const btn = document.getElementById('cs-save');
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
+      try {
+        await apiFetch('/api/org', { method: 'PATCH', body: JSON.stringify({ company_name: name }) });
+        showToast('Company name saved');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+
+    document.getElementById('cs-logo-input').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append('logo', file);
+      try {
+        const org = await apiFetch('/api/org/logo', { method: 'POST', body: form });
+        const logoEl = document.getElementById('cs-logo');
+        logoEl.innerHTML = `<img src="${escHtml(org.company_logo_url)}" style="width:100%;height:100%;object-fit:cover;">`;
+        showToast('Logo uploaded');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        e.target.value = '';
+      }
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
