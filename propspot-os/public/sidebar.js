@@ -204,7 +204,7 @@
   const FOR_YOU_CATALOG = [
     { id: 'inbox',     iconKey: 'inbox',     label: 'Inbox',       app: 'inbox',       default: true,  badgeKey: 'inbox' },
     { id: 'mentions',  iconKey: 'at',        label: 'Mentions',    soon: true,         default: true },
-    { id: 'tasks',     iconKey: 'check',     label: 'My Tasks',    soon: true,         default: true },
+    { id: 'tasks',     iconKey: 'check',     label: 'My Tasks',    osnav: 'tasks',     href: '/tasks.html', default: true, badgeKey: 'myTasks' },
     { id: 'pulse',     iconKey: 'pulse',     label: 'Pulse',       app: 'pulse',       default: false, badgeKey: 'pulse' },
     { id: 'fieldcam',  iconKey: 'camera',    label: 'FieldCam',    app: 'fieldcam',    default: false, badgeKey: 'photosToday', badgeClass: 'muted' },
     { id: 'workorders',iconKey: 'wrench',    label: 'Work Orders', app: 'maintenance', default: false, badgeKey: 'workOrders',  badgeClass: 'warn' },
