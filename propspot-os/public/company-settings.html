@@ -27,6 +27,27 @@
       padding: 24px; text-align: center; color: var(--text-muted);
       border: 1px dashed var(--border); border-radius: var(--radius);
     }
+    .cs-section-title { font-weight: 600; margin: 24px 0 10px; font-size: .95rem; }
+    .cs-section-sub   { color: var(--text-muted); font-size: .8rem; margin-bottom: 10px; }
+    .mh-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-top: 1px solid var(--border);
+      font-size: .85rem;
+    }
+    .mh-row:first-child { border-top: none; }
+    .mh-email { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mh-meta  { color: var(--text-muted); font-size: .75rem; }
+    .mh-badge {
+      padding: 2px 8px; border-radius: 999px; font-size: .7rem; font-weight: 600;
+      white-space: nowrap;
+    }
+    .mh-badge.ok    { background: #dcfce7; color: #166534; }
+    .mh-badge.bad   { background: #fee2e2; color: #991b1b; }
+    .mh-summary {
+      padding: 12px; border-radius: 8px; margin-bottom: 12px;
+      background: var(--bg); border: 1px solid var(--border); font-size: .85rem;
+    }
+    .mh-summary.warn { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -61,11 +82,76 @@
     }
     try {
       const org = await apiFetch('/api/org');
-      wrap.innerHTML = renderForm(org);
+      wrap.innerHTML = renderForm(org) + renderMailboxHealth();
       wire();
+      wireMailboxHealth();
     } catch (err) {
       wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
+  }
+
+  function renderMailboxHealth() {
+    return `
+      <div class="cs-section-title">Mailbox health</div>
+      <div class="cs-section-sub">
+        Probes every connected Gmail mailbox to confirm its stored token can still
+        be decrypted. Mailboxes that fail must be reconnected.
+      </div>
+      <div class="cs-card">
+        <button class="btn btn-secondary" id="mh-check">Check now</button>
+        <div id="mh-results" style="margin-top:14px;"></div>
+      </div>`;
+  }
+
+  function wireMailboxHealth() {
+    document.getElementById('mh-check').addEventListener('click', runHealthCheck);
+  }
+
+  async function runHealthCheck() {
+    const btn = document.getElementById('mh-check');
+    const out = document.getElementById('mh-results');
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Checking…';
+    out.innerHTML = '<p class="text-muted text-sm">Probing tokens…</p>';
+    try {
+      const data = await apiFetch('/api/inbox/mailboxes/health');
+      out.innerHTML = renderHealthResults(data);
+    } catch (err) {
+      out.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
+  function renderHealthResults(data) {
+    if (!data.total) {
+      return '<p class="text-muted text-sm">No mailboxes connected.</p>';
+    }
+    const summary = data.broken
+      ? `<div class="mh-summary warn">
+           <strong>${data.broken} of ${data.total} mailbox${data.total === 1 ? '' : 'es'} can't be decrypted.</strong>
+           Each affected user needs to reconnect their Gmail (Personal section → Connect Gmail)
+           or, for shared mailboxes, an owner needs to reconnect from the inbox admin flow.
+         </div>`
+      : `<div class="mh-summary">
+           All ${data.total} mailbox${data.total === 1 ? '' : 'es'} healthy.
+         </div>`;
+    const rows = data.mailboxes.map(m => {
+      const badge = m.token_ok
+        ? '<span class="mh-badge ok">OK</span>'
+        : '<span class="mh-badge bad">Broken</span>';
+      const sub = m.token_ok
+        ? `connected by ${escHtml(m.connected_by_name || m.connected_by_email || 'unknown')}`
+        : escHtml(m.probe_error || 'decrypt failed');
+      return `
+        <div class="mh-row">
+          <div class="mh-email">
+            <div>${escHtml(m.email)}</div>
+            <div class="mh-meta">${sub}</div>
+          </div>
+          ${badge}
+        </div>`;
+    }).join('');
+    return summary + `<div class="cs-card" style="padding:0;margin-top:8px;">${rows}</div>`;
   }
 
   function renderForm(org) {

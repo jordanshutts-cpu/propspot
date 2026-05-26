@@ -5,7 +5,7 @@ const { query } = require('../../db');
 const { requireAuth, requireInboxGrant, requireOwner } = require('../../middleware/auth');
 const gmail = require('../../lib/gmail');
 const gcal  = require('../../lib/google-calendar');
-const { encrypt } = require('../../lib/inbox-crypto');
+const { encrypt, decrypt } = require('../../lib/inbox-crypto');
 
 const router = express.Router();
 
@@ -228,6 +228,42 @@ router.get('/personal/status', async (req, res) => {
     [req.userId]
   );
   res.json(rows);
+});
+
+// GET /api/mailboxes/health — owner-only diagnostic. Probes every stored
+// refresh token via decrypt() to surface mailboxes whose ciphertext can no
+// longer be opened (most often after an INBOX_TOKEN_KEY rotation, e.g.
+// when a separate inbox satellite service was deleted and its key lost).
+// Broken mailboxes must be reconnected to mint a fresh token under the
+// current key.
+router.get('/health', requireOwner, async (req, res) => {
+  const { rows } = await query(
+    `SELECT m.id, m.email, m.display_name, m.connected_at, m.last_sync_at,
+            m.refresh_token_encrypted, m.status, m.status_reason,
+            u.full_name AS connected_by_name,
+            u.email     AS connected_by_email
+       FROM inbox_mailboxes m
+  LEFT JOIN users u ON u.id = m.connected_by
+   ORDER BY m.connected_at DESC`
+  );
+  const mailboxes = rows.map(r => {
+    let token_ok = false;
+    let probe_error = null;
+    try {
+      decrypt(r.refresh_token_encrypted);
+      token_ok = true;
+    } catch (err) {
+      probe_error = err.message;
+    }
+    const { refresh_token_encrypted, ...rest } = r;
+    return { ...rest, token_ok, probe_error };
+  });
+  res.json({
+    total: mailboxes.length,
+    healthy: mailboxes.filter(m => m.token_ok).length,
+    broken: mailboxes.filter(m => !m.token_ok).length,
+    mailboxes
+  });
 });
 
 // DELETE /api/mailboxes/:id — disconnect a mailbox (cascades threads/messages).
