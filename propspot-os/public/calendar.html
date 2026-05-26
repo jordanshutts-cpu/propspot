@@ -20,7 +20,8 @@
 
     .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); border:1px solid var(--border); overflow:hidden; }
     .cal-day-header { padding:8px; text-align:center; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); background:var(--bg); border-bottom:1px solid var(--border); }
-    .cal-day { min-height:100px; padding:4px 6px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); cursor:pointer; transition:background .1s; position:relative; }
+    /* min-width:0 is required so a long event title can't stretch the column past the 1fr track. */
+    .cal-day { min-height:100px; min-width:0; padding:4px 6px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); cursor:pointer; transition:background .1s; position:relative; overflow:hidden; }
     .cal-day:nth-child(7n) { border-right:none; }
     .cal-day:hover { background:var(--brand-light); }
     .cal-day.other-month { background:var(--bg); opacity:.5; }
