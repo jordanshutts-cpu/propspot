@@ -82,6 +82,12 @@
     }
     .route-empty.drop-target { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
     .route-empty .route-empty-icon { font-size: 1rem; margin-right: 6px; }
+
+    .pin-menu { position:fixed; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.15); z-index:600; min-width:160px; padding:4px 0; display:none; }
+    .pin-menu.open { display:block; }
+    .pin-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; font-size:.85rem; font-weight:500; color:var(--text); text-align:left; transition:background .1s; }
+    .pin-menu button:hover { background:var(--brand-light); }
+    .pin-menu button .pin-icon { width:18px; text-align:center; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -109,6 +115,8 @@
   <div id="list"><p class="text-muted text-sm">Loading…</p></div>
 
 </main>
+
+<div class="pin-menu" id="pin-menu"></div>
 
 <!-- Mowing log modal -->
 <div class="modal-backdrop" id="modal-mow">
@@ -418,7 +426,7 @@
         if (act === 'checkin')  await onCheckIn(id);
         if (act === 'mowed')    openMowLog(id);
         if (act === 'settings') openSettings(id);
-        if (act === 'pin')      await onTogglePin(id, btn.dataset.pin);
+        if (act === 'pin')      onTogglePin(id, btn.dataset.pin, e);
       });
     });
     document.querySelectorAll('.assignee-select').forEach(sel => {
@@ -740,24 +748,29 @@
   }
 
   // ── Pin to first / last ──────────────────────────────────────
-  async function onTogglePin(id, currentPin) {
-    var options = [];
-    if (currentPin !== 'first') options.push('Pin to first');
-    if (currentPin !== 'last') options.push('Pin to last');
-    if (currentPin) options.push('Remove pin');
-    var choice = prompt(options.join('\n') + '\n\nType: first, last, or remove');
-    if (!choice) return;
-    choice = choice.trim().toLowerCase();
-    var pin = null;
-    if (choice === 'first' || choice === 'pin to first') pin = 'first';
-    else if (choice === 'last' || choice === 'pin to last') pin = 'last';
-    else if (choice === 'remove' || choice === 'remove pin') pin = null;
-    else return;
+  function onTogglePin(id, currentPin, e) {
+    var menu = document.getElementById('pin-menu');
+    var html = '';
+    if (currentPin !== 'first') html += '<button onclick="applyPin(\'' + id + '\',\'first\')"><span class="pin-icon">1st</span> Pin to first</button>';
+    if (currentPin !== 'last') html += '<button onclick="applyPin(\'' + id + '\',\'last\')"><span class="pin-icon">Last</span> Pin to last</button>';
+    if (currentPin) html += '<button onclick="applyPin(\'' + id + '\',null)"><span class="pin-icon">-</span> Remove pin</button>';
+    menu.innerHTML = html;
+    var rect = e.target.getBoundingClientRect();
+    menu.style.top = Math.min(rect.bottom + 4, window.innerHeight - 140) + 'px';
+    menu.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+    menu.classList.add('open');
+    e.stopPropagation();
+  }
+
+  function hidePinMenu() { document.getElementById('pin-menu').classList.remove('open'); }
+  document.addEventListener('click', hidePinMenu);
+
+  async function applyPin(id, pin) {
+    hidePinMenu();
     try {
       await apiFetch(LAWN + '/' + id + '/pin', { method: 'PATCH', body: JSON.stringify({ pin: pin }) });
       var r = rows.find(function(x) { return x.id === id; });
       if (r) r.route_pin = pin;
-      // Clear other rows with same pin
       if (pin) rows.forEach(function(x) { if (x.id !== id && x.route_pin === pin) x.route_pin = null; });
       showToast(pin ? 'Pinned to ' + pin : 'Pin removed');
       render();
