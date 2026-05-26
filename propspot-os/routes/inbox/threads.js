@@ -9,7 +9,7 @@ router.use(requireInboxGrant);
 
 // Helper: confirm the caller can see the given thread (by its shared_inbox_id).
 async function assertThreadAccess(req, threadId) {
-  const allowed = await scopedInboxIds(req.inboxGrant.scope);
+  const allowed = await scopedInboxIds(req.inboxGrant.scope, req.userId);
   const { rows } = await query(
     `SELECT id, shared_inbox_id FROM inbox_threads WHERE id = $1`,
     [threadId]
@@ -24,7 +24,7 @@ async function assertThreadAccess(req, threadId) {
 // GET /api/threads?inbox=<slug>&status=open&limit=50
 router.get('/', async (req, res) => {
   try {
-    const allowed = await scopedInboxIds(req.inboxGrant.scope);
+    const allowed = await scopedInboxIds(req.inboxGrant.scope, req.userId);
     const where = [];
     const params = [];
     let i = 1;

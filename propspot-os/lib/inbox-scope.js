@@ -7,14 +7,39 @@
 
 const { query } = require('../db');
 
-async function scopedInboxIds(scope) {
-  if (!scope || scope.all) return null; // null = unrestricted
-  const ids = Array.isArray(scope.inbox_ids) ? scope.inbox_ids : [];
-  if (!ids.length) return [];
-  // Optional: validate that the inboxes still exist.
+async function scopedInboxIds(scope, ownerUserId = null) {
+  // Personal inboxes (owner_user_id set) are only visible to their owner.
+  // The "shared" scope (app_grants.scope) controls access to team inboxes;
+  // personal access is owner-only and bypasses grants entirely.
+  let ownedIds = [];
+  if (ownerUserId) {
+    const { rows } = await query(
+      `SELECT id FROM inbox_shared WHERE owner_user_id = $1`,
+      [ownerUserId]
+    );
+    ownedIds = rows.map(r => r.id);
+  }
+
+  // Unrestricted shared access — return every non-personal inbox plus the
+  // caller's own personals. Owners' "all" grant still excludes others'
+  // personal inboxes.
+  if (!scope || scope.all) {
+    if (!ownerUserId) return null; // legacy callers — preserve old semantics
+    const { rows } = await query(
+      `SELECT id FROM inbox_shared
+        WHERE owner_user_id IS NULL OR owner_user_id = $1`,
+      [ownerUserId]
+    );
+    return rows.map(r => r.id);
+  }
+
+  // Explicit list from scope + owned personals.
+  const explicit = Array.isArray(scope.inbox_ids) ? scope.inbox_ids : [];
+  const merged = [...new Set([...explicit, ...ownedIds])];
+  if (!merged.length) return [];
   const { rows } = await query(
     `SELECT id FROM inbox_shared WHERE id = ANY($1::uuid[])`,
-    [ids]
+    [merged]
   );
   return rows.map(r => r.id);
 }

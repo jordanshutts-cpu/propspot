@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
   if (q.length < 2) return res.json([]);  // require at least 2 chars to keep the query light
   const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 20, 50));
 
-  const allowed = await scopedInboxIds(req.inboxGrant.scope);
+  const allowed = await scopedInboxIds(req.inboxGrant.scope, req.userId);
   // null = owner / unrestricted; [] = no access; otherwise the allowed shared_inbox ids
   if (Array.isArray(allowed) && !allowed.length) return res.json([]);
 

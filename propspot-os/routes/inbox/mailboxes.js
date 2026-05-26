@@ -10,7 +10,7 @@ const router = express.Router();
 
 // OAuth callback is hit unauthenticated by the browser after the user
 // completes Google's consent screen. We protect it with a signed state
-// token we minted in /connect (carries userId + nonce + iat).
+// token we minted in /connect (carries userId + nonce + iat + kind).
 router.get('/oauth/callback', async (req, res) => {
   const { code, state, error } = req.query;
   if (error) return res.status(400).send(`OAuth error: ${error}`);
@@ -21,10 +21,27 @@ router.get('/oauth/callback', async (req, res) => {
   } catch {
     return res.status(400).send('Invalid or expired state');
   }
+  const isPersonal = claims.kind === 'personal-inbox';
   try {
     const { refreshToken, email, displayName, scopes } = await gmail.exchangeCodeForTokens(code);
+
+    // For personal mailboxes: lock to the caller's own Workspace email.
+    // Without this anyone could connect a coworker's mailbox to themselves.
+    if (isPersonal) {
+      const { rows: u } = await query(
+        `SELECT email, google_email FROM users WHERE id = $1`, [claims.userId]
+      );
+      const ownEmails = [u[0]?.email, u[0]?.google_email].filter(Boolean).map(s => s.toLowerCase());
+      if (!ownEmails.includes(email.toLowerCase())) {
+        return res.status(403).send(
+          `Connect only your own Workspace email. You signed in as ${email}, ` +
+          `but your Prop Spot account is ${u[0]?.email}.`
+        );
+      }
+    }
+
     const encrypted = encrypt(refreshToken);
-    const { rows } = await query(
+    const { rows: mboxRows } = await query(
       `INSERT INTO inbox_mailboxes (provider, email, display_name,
                                     refresh_token_encrypted, oauth_scopes,
                                     connected_by)
@@ -38,11 +55,39 @@ router.get('/oauth/callback', async (req, res) => {
        RETURNING id`,
       [email, displayName, encrypted, scopes, claims.userId]
     );
+    const mailboxId = mboxRows[0].id;
     // Reset sync_state so the worker performs a fresh history bootstrap.
     await query(
       `UPDATE inbox_mailboxes SET sync_state = '{}'::jsonb WHERE id = $1`,
-      [rows[0].id]
+      [mailboxId]
     );
+
+    if (isPersonal) {
+      // Find-or-create the user's personal inbox_shared row, then route
+      // their own email to it so the sync worker delivers messages there.
+      const slug = 'personal-' + claims.userId.replace(/-/g, '').slice(0, 12);
+      const displayLabel = displayName ? `${displayName} (Personal)` : 'Personal';
+      const { rows: inboxRows } = await query(
+        `INSERT INTO inbox_shared (name, slug, description, icon, created_by, owner_user_id)
+         VALUES ($1, $2, $3, '📥', $4, $4)
+         ON CONFLICT (slug) DO UPDATE
+           SET name = EXCLUDED.name,
+               icon = EXCLUDED.icon,
+               owner_user_id = EXCLUDED.owner_user_id
+         RETURNING id`,
+        [displayLabel, slug, `Personal mailbox for ${email}`, claims.userId]
+      );
+      const inboxId = inboxRows[0].id;
+      await query(
+        `INSERT INTO inbox_alias_routes (mailbox_id, alias_email, shared_inbox_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (mailbox_id, alias_email) DO UPDATE
+           SET shared_inbox_id = EXCLUDED.shared_inbox_id`,
+        [mailboxId, email.toLowerCase(), inboxId]
+      );
+      return res.redirect(`/inbox.html?personal_connected=${encodeURIComponent(email)}`);
+    }
+
     res.redirect(`/admin-mailboxes.html?connected=${encodeURIComponent(email)}`);
   } catch (err) {
     console.error('OAuth callback error:', err);
@@ -50,12 +95,26 @@ router.get('/oauth/callback', async (req, res) => {
   }
 });
 
-// Everything below requires an authenticated owner.
+// POST /api/mailboxes/personal/connect — start OAuth flow for the caller's
+// own personal mailbox. Reachable by any signed-in user, even those without
+// an inbox grant (the whole point is to give them one).
+router.post('/personal/connect', requireAuth, async (req, res) => {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const state = jwt.sign(
+    { userId: req.userId, nonce, kind: 'personal-inbox' },
+    process.env.JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+  const url = gmail.buildConsentUrl(state);
+  res.json({ url });
+});
+
+// Everything below requires an authenticated user with inbox grant.
 router.use(requireAuth);
 router.use(requireInboxGrant);
 
-// POST /api/mailboxes/connect — start OAuth flow. Returns the consent URL
-// the frontend redirects to.
+// POST /api/mailboxes/connect — start OAuth flow for a shared/team mailbox.
+// Owner-only. Returns the consent URL the frontend redirects to.
 router.post('/connect', requireOwner, async (req, res) => {
   const nonce = crypto.randomBytes(16).toString('hex');
   const state = jwt.sign(

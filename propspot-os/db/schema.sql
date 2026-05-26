@@ -878,6 +878,8 @@ CREATE TABLE IF NOT EXISTS inbox_mailboxes (
 );
 
 -- Shared inboxes (team-owned, the unit users get access to).
+-- An inbox is "personal" when owner_user_id is set — visible only to that
+-- user, no app-grants needed. NULL owner_user_id = traditional team inbox.
 CREATE TABLE IF NOT EXISTS inbox_shared (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name         TEXT NOT NULL,
@@ -887,6 +889,8 @@ CREATE TABLE IF NOT EXISTS inbox_shared (
   created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE inbox_shared ADD COLUMN IF NOT EXISTS owner_user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS inbox_shared_owner_idx ON inbox_shared(owner_user_id) WHERE owner_user_id IS NOT NULL;
 
 -- Alias → shared inbox routing (one alias delivers to exactly one shared inbox).
 CREATE TABLE IF NOT EXISTS inbox_alias_routes (

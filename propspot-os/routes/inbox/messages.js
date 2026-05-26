@@ -11,7 +11,7 @@ router.use(requireAuth);
 router.use(requireInboxGrant);
 
 async function loadThreadForReply(req, threadId) {
-  const allowed = await scopedInboxIds(req.inboxGrant.scope);
+  const allowed = await scopedInboxIds(req.inboxGrant.scope, req.userId);
   const { rows } = await query(`
     SELECT t.*, m.email AS mailbox_email, m.id AS mailbox_id,
            (SELECT raw_headers FROM inbox_messages
@@ -112,7 +112,7 @@ router.post('/compose', async (req, res) => {
   }
   // Owner-or-mailbox-routed-to-an-allowed-shared-inbox check.
   // Simplest model: require alias to be already routed to one of the caller's allowed inboxes.
-  const allowed = await scopedInboxIds(req.inboxGrant.scope);
+  const allowed = await scopedInboxIds(req.inboxGrant.scope, req.userId);
   const { rows: routeRows } = await query(
     `SELECT shared_inbox_id FROM inbox_alias_routes
       WHERE mailbox_id = $1 AND LOWER(alias_email) = LOWER($2)`,
