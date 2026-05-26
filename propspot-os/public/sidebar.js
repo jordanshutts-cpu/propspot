@@ -885,4 +885,49 @@
   } else {
     renderNewSidebar();
   }
+
+  // ── Auto-poll sidebar counts for real-time notifications ────────
+  // Every 15s, re-fetch counts and update badges in place. Plays
+  // notification sounds when new mentions or inbox items appear.
+  const POLL_INTERVAL = 15000;
+  async function pollCounts() {
+    try {
+      const counts = IS_SATELLITE ? await osFetch('/api/sidebar-counts') : await apiFetch('/api/sidebar-counts');
+      if (typeof window.__playNotifSound === 'function' && window.__prevSidebarCounts) {
+        const prev = window.__prevSidebarCounts;
+        if ((counts.mentions || 0) > (prev.mentions || 0)) window.__playNotifSound('mention');
+        else if ((counts.inbox || 0) > (prev.inbox || 0)) window.__playNotifSound('message');
+        else if ((counts.myTasks || 0) > (prev.myTasks || 0)) window.__playNotifSound('message');
+      }
+      window.__prevSidebarCounts = { ...counts };
+
+      // Update badge numbers in place without full re-render
+      const badgeMap = [
+        { selector: '[data-app="inbox"]',       key: 'inbox' },
+        { selector: '[data-osnav="mentions"]',  key: 'mentions' },
+        { selector: '[data-osnav="tasks"]',     key: 'myTasks' },
+        { selector: '[data-app="pulse"]',       key: 'pulse' },
+        { selector: '[data-app="fieldcam"]',    key: 'photosToday' },
+        { selector: '[data-app="maintenance"]', key: 'workOrders' },
+      ];
+      badgeMap.forEach(({ selector, key }) => {
+        const row = document.querySelector('.os-newchrome-row' + selector);
+        if (!row) return;
+        let badge = row.querySelector('.os-newchrome-badge');
+        const val = counts[key] || 0;
+        if (val > 0) {
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'os-newchrome-badge';
+            row.appendChild(badge);
+          }
+          badge.textContent = val;
+          badge.style.display = '';
+        } else if (badge) {
+          badge.style.display = 'none';
+        }
+      });
+    } catch (e) {}
+  }
+  setInterval(pollCounts, POLL_INTERVAL);
 })();
