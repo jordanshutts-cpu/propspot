@@ -80,7 +80,10 @@
 <main class="page">
   <div class="section-header">
     <span class="section-title" id="count">Members</span>
-    <button class="btn btn-primary btn-sm" onclick="openInvite()">+ Invite</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-secondary btn-sm" id="resend-all-btn" onclick="resendAll()" style="display:none;">↻ Resend all pending</button>
+      <button class="btn btn-primary btn-sm" onclick="openInvite()">+ Invite</button>
+    </div>
   </div>
   <p class="text-xs text-muted mb-16">Click a cell to grant or revoke that member's access to an app.</p>
   <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
@@ -166,6 +169,17 @@
     const el = document.getElementById('list');
     if (!allUsers.length) { el.innerHTML = '<p class="text-muted text-sm">No team members yet.</p>'; return; }
     if (!allApps.length) { el.innerHTML = '<p class="text-muted text-sm">No apps registered.</p>'; return; }
+
+    const pendingCount = allUsers.filter(u => !u.is_active && !u.is_owner).length;
+    const bulkBtn = document.getElementById('resend-all-btn');
+    if (bulkBtn) {
+      if (me.is_owner && pendingCount > 0) {
+        bulkBtn.style.display = '';
+        bulkBtn.textContent = `↻ Resend all pending (${pendingCount})`;
+      } else {
+        bulkBtn.style.display = 'none';
+      }
+    }
 
     const head = `
       <thead>
@@ -256,6 +270,26 @@
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  // ── Resend all pending invites in one click ──────────────────
+  async function resendAll() {
+    const pending = allUsers.filter(u => !u.is_active && !u.is_owner);
+    if (!pending.length) return;
+    if (!confirm(`Resend invite emails to ${pending.length} pending team members?`)) return;
+    try {
+      const res = await resendAllPending();
+      let msg = `Sent ${res.sent} of ${res.attempted} invites`;
+      if (res.failed && res.failed.length) {
+        msg += ` — failed: ${res.failed.map(f => f.email).join(', ')}`;
+        showToast(msg, 'error');
+      } else {
+        showToast(msg);
+      }
+      await reloadUsers();
+    } catch (err) {
+      showToast('Bulk resend failed: ' + err.message, 'error');
+    }
+  }
 
   // ── Resend a single pending invite ───────────────────────────
   async function resendOne(userId, email) {
