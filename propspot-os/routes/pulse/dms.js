@@ -34,6 +34,13 @@ router.get('/', async (req, res) => {
         FROM chat_dms d
         JOIN chat_dm_members dm_me
           ON dm_me.dm_id = d.id AND dm_me.user_id = $1
+       WHERE dm_me.hidden_at IS NULL
+          OR EXISTS (
+               SELECT 1 FROM chat_messages
+                WHERE dm_id = d.id
+                  AND deleted_at IS NULL
+                  AND created_at > dm_me.hidden_at
+             )
        ORDER BY last_message_at DESC NULLS LAST, d.created_at DESC
     `, [req.userId]);
 
@@ -170,6 +177,26 @@ router.post('/:id/read', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update read' });
+  }
+});
+
+// ── POST /api/pulse/dms/:id/hide — soft hide from caller's sidebar ──────
+// Sets hidden_at = NOW() for the caller's row. The DM reappears in the
+// caller's list as soon as a newer message arrives.
+router.post('/:id/hide', async (req, res) => {
+  try {
+    const upd = await query(
+      `UPDATE chat_dm_members SET hidden_at = NOW()
+        WHERE dm_id = $1 AND user_id = $2`,
+      [req.params.id, req.userId]
+    );
+    if (upd.rowCount === 0) {
+      return res.status(403).json({ error: 'Not a member of this DM' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to hide DM' });
   }
 });
 

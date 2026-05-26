@@ -35,6 +35,10 @@
     .ps-join-btn { font-size:.68rem; font-weight:700; color:var(--brand-dark,#15803d); border:1px solid rgba(97,183,70,.35); background:rgba(97,183,70,.08); border-radius:100px; padding:2px 8px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
     .ps-join-btn:hover { background:rgba(97,183,70,.15); }
     .ps-dm-avatar { width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.62rem; font-weight:700; flex-shrink:0; }
+    .ps-row-hide { background:none; border:none; color:var(--text-muted); font-size:1rem; line-height:1; padding:2px 6px; border-radius:6px; cursor:pointer; opacity:0; transition:opacity .12s, background .12s, color .12s; flex-shrink:0; }
+    .ps-row:hover .ps-row-hide { opacity:.7; }
+    .ps-row-hide:hover { opacity:1 !important; background:rgba(239,68,68,.15); color:#ef4444; }
+    @media (max-width:768px) { .ps-row-hide { opacity:.55; } }
     .ps-row.dimmed { opacity:.6; }
 
     /* ── Main area ──────────────────────────────────────────────── */
@@ -603,6 +607,7 @@
         return `<div class="ps-row${active}" data-dm-id="${dm.id}" data-dm-name="${escHtml(name)}" onclick="handleDmClick(this)">
           <div class="ps-dm-avatar" style="background:${avatarColor(dm.id)}">${escHtml(initial)}</div>
           <span class="ps-row-name">${escHtml(name)}</span>${unread}
+          <button class="ps-row-hide" onclick="hideDm('${dm.id}', event)" title="Hide from sidebar" aria-label="Hide">×</button>
         </div>`;
       }).join('');
     } else {
@@ -619,6 +624,28 @@
   function handleDmClick(el) {
     const id = el.dataset.dmId, name = el.dataset.dmName;
     if (id) openDm(id, name);
+  }
+
+  // Soft-hide a DM from this user's sidebar. Reversible: any new message
+  // from the other party brings it back automatically (see GET /dms).
+  async function hideDm(dmId, e) {
+    e?.stopPropagation();
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/dms/${dmId}/hide`, { method: 'POST' });
+      allDms = allDms.filter(d => d.id !== dmId);
+      if (activeScope?.type === 'dm' && activeScope.id === dmId) {
+        activeScope = null;
+        document.getElementById('ps-main').innerHTML = `
+          <div class="ps-empty" style="height:100%;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <p>Select a channel to start</p>
+          </div>`;
+      }
+      renderSidebar();
+      showToast('Hidden from sidebar');
+    } catch (err) {
+      showToast(err.message || 'Could not hide DM', 'error');
+    }
   }
 
   async function joinChannel(id, e) {
