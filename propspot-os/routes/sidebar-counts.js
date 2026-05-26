@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
   const [
     inbox, mentions, myTasks,
     prospects, leads, opportunities, acquisitions, projects, holdings, dispositions, sold,
-    photosToday, workOrders, pulse
+    photosToday, workOrders, pulse, totalProperties
   ] = await Promise.all([
     // ── For You ───────────────────────────────────────────────
     safeCount(`
@@ -86,13 +86,16 @@ router.get('/', async (req, res) => {
         ) lm ON lm.channel_id = ccm.channel_id
        WHERE ccm.user_id = $1
          AND lm.latest > COALESCE(ccm.last_read_at, 'epoch'::timestamptz)
-    `, [me])
+    `, [me]),
+
+    // Total property count for the dashboard KPI card.
+    safeCount(`SELECT COUNT(*)::int AS count FROM properties WHERE status != 'dropped'`)
   ]);
 
   res.json({
     inbox, mentions, myTasks,
     prospects, leads, opportunities, acquisitions, projects, holdings, dispositions, sold,
-    photosToday, workOrders, pulse
+    photosToday, workOrders, pulse, totalProperties
   });
 });
 

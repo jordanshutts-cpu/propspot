@@ -450,7 +450,10 @@
   async function init(){
     const me = await requireAuth(); if (!me) return;
     renderGreeting(me);
-    await Promise.all([loadPipeline(), loadHoldings(), loadApps(me), loadActivity(), loadKpis(me)]);
+    // Fetch sidebar-counts once — used by both loadPipeline and loadKpis
+    // so we never need to hit the heavy /api/properties endpoint on load.
+    const counts = await apiFetch('/api/sidebar-counts').catch(() => null);
+    await Promise.all([loadPipeline(counts), loadHoldings(), loadApps(me), loadActivity(), loadKpis(me, counts)]);
   }
 
   function renderGreeting(me) {
@@ -464,21 +467,17 @@
       `${date} · Here's your portfolio at a glance.`;
   }
 
-  async function loadKpis(me) {
-    // Total properties — try /api/properties count first
-    try {
-      const props = await getProperties();
-      document.getElementById('kpi-total').textContent = (props.length || 0).toLocaleString();
-      // Active deals: properties in pipeline statuses
-      const active = props.filter(p => ['purchasing','renovating','renting','rented','listed_for_rent','selling','listed_for_sale','under_contract_buyer'].includes(p.status)).length;
-      document.getElementById('kpi-deals').textContent = active.toLocaleString();
-    } catch(e) {}
-    // Open inbox count from sidebar-counts API
-    try {
-      const counts = await apiFetch('/api/sidebar-counts');
-      const inboxN = counts.inbox ?? 0;
-      document.getElementById('kpi-inbox').textContent = inboxN.toLocaleString();
-    } catch(e) { document.getElementById('kpi-inbox').textContent = '0'; }
+  async function loadKpis(me, counts) {
+    if (!counts) return;
+    // Total active properties (excludes dropped)
+    const total = counts.totalProperties ?? 0;
+    document.getElementById('kpi-total').textContent = total.toLocaleString();
+    // Active deals: sum of all in-flight pipeline stages
+    const active = (counts.acquisitions || 0) + (counts.projects || 0)
+                 + (counts.holdings || 0) + (counts.dispositions || 0);
+    document.getElementById('kpi-deals').textContent = active.toLocaleString();
+    // Open inbox
+    document.getElementById('kpi-inbox').textContent = (counts.inbox ?? 0).toLocaleString();
   }
 
   async function loadHoldings(){
@@ -493,27 +492,16 @@
     }catch(e){ console.error(e); }
   }
 
-  async function loadPipeline(){
-    try{
-      const props = await getProperties();
-      let pros=0, leads=0, opps=0, pur=0, ren=0, listed=0;
-      for (const p of props){
-        pros   += p.prospect_count    || 0;
-        leads  += p.lead_count        || 0;
-        opps   += p.opportunity_count || 0;
-        pur    += p.purchase_count    || 0;
-      }
-      // Count from properties.status (authoritative top-level state) rather than
-      // projects.status, so the dashboard matches the lifecycle pages exactly.
-      ren    = props.filter(p => p.status === 'renovating').length;
-      listed = props.filter(p => ['listed_for_sale','listed_for_rent','rented','renting'].includes(p.status)).length;
-      document.getElementById('c-prospects').textContent  = pros.toLocaleString();
-      document.getElementById('c-leads').textContent      = leads.toLocaleString();
-      document.getElementById('c-opps').textContent       = opps.toLocaleString();
-      document.getElementById('c-purchases').textContent  = pur.toLocaleString();
-      document.getElementById('c-renovating').textContent = ren.toLocaleString();
-      document.getElementById('c-listed').textContent     = listed.toLocaleString();
-    }catch(e){ console.error(e); }
+  function loadPipeline(counts){
+    if (!counts) return;
+    // sidebar-counts already has all these totals — no extra fetch needed.
+    document.getElementById('c-prospects').textContent  = (counts.prospects    || 0).toLocaleString();
+    document.getElementById('c-leads').textContent      = (counts.leads        || 0).toLocaleString();
+    document.getElementById('c-opps').textContent       = (counts.opportunities|| 0).toLocaleString();
+    document.getElementById('c-purchases').textContent  = (counts.acquisitions || 0).toLocaleString();
+    document.getElementById('c-renovating').textContent = (counts.projects     || 0).toLocaleString();
+    // Listed / Rented = holdings (renting/rented/listed_for_rent) + dispositions (selling/listed/UC-buyer)
+    document.getElementById('c-listed').textContent     = ((counts.holdings || 0) + (counts.dispositions || 0)).toLocaleString();
   }
 
   function loadApps(me){
