@@ -275,6 +275,55 @@ if (window.__newChromeEnabled() && localStorage.getItem(TOKEN_KEY)) {
   });
 })();
 
+// ── Notification Sounds ────────────────────────────────────────────────
+// Slack-style notification chime using Web Audio API — no external files.
+// Plays a short two-tone chime. Respects a localStorage mute toggle.
+window.__notifSoundEnabled = function () {
+  try { return localStorage.getItem('propspot_sound_muted') !== '1'; } catch { return true; }
+};
+window.__playNotifSound = (function () {
+  let ctx = null;
+  return function (type) {
+    if (!window.__notifSoundEnabled()) return;
+    try {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+
+      if (type === 'mention') {
+        // Three-tone ascending chime for mentions
+        [660, 880, 1100].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          osc.connect(gain);
+          osc.start(now + i * 0.1);
+          osc.stop(now + i * 0.1 + 0.12);
+        });
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      } else {
+        // Two-tone knock for regular messages
+        [880, 660].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          osc.connect(gain);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.1);
+        });
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      }
+    } catch (e) {}
+  };
+})();
+
+// Track previous sidebar counts so we can detect new mentions/inbox
+window.__prevSidebarCounts = null;
+
 // ── Auth Storage ────────────────────────────────────────────────────────
 function getToken()       { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t)      { localStorage.setItem(TOKEN_KEY, t); }

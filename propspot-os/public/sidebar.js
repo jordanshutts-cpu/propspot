@@ -745,6 +745,14 @@
       fetchCounts(), fetchPinned(), fetchRecent(), fetchTotal()
     ]);
 
+    // Play notification sound when new mentions or inbox items arrive
+    if (typeof window.__playNotifSound === 'function' && window.__prevSidebarCounts) {
+      const prev = window.__prevSidebarCounts;
+      if (counts.mentions > (prev.mentions || 0)) window.__playNotifSound('mention');
+      else if (counts.inbox > (prev.inbox || 0)) window.__playNotifSound('message');
+    }
+    window.__prevSidebarCounts = { ...counts };
+
     const active = window.NAV_CURRENT;
 
     const sidebarHTML = `

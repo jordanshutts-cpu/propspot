@@ -814,6 +814,11 @@
           const msg = data.message || data;
           messages.push(msg);
           appendMsg(msg);
+          if (msg.sender_id !== currentUser?.id) {
+            const myName = currentUser?.full_name;
+            const isMention = myName && (msg.body || '').includes('@' + myName);
+            if (typeof __playNotifSound === 'function') __playNotifSound(isMention ? 'mention' : 'message');
+          }
         } else if (data.type === 'message_updated') {
           const msg = data.message;
           if (!msg) return;
