@@ -758,6 +758,10 @@ CREATE TABLE IF NOT EXISTS chat_dm_members (
   PRIMARY KEY (dm_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS chat_dm_members_user_idx ON chat_dm_members(user_id);
+-- Per-user "hide from sidebar" — soft delete. A DM stays gone from this
+-- user's list until a newer message arrives, at which point hidden_at <
+-- last_message_at and the GET /dms query lets it back in.
+ALTER TABLE chat_dm_members ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ;
 
 -- Now that chat_dms exists, retroactively add the FK on chat_messages.dm_id.
 DO $$ BEGIN
