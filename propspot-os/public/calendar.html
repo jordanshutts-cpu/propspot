@@ -46,7 +46,12 @@
     .modal-close { background:var(--bg); border:none; border-radius:8px; width:32px; height:32px; cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center; color:var(--text-muted); }
     .modal-close:hover { color:var(--text); background:var(--border); }
     .form-row { display:flex; gap:12px; }
-    .form-row .form-group { flex:1; }
+    .form-row .form-group { flex:1; min-width:0; }
+    /* datetime-local inputs need ~280px to render "MM/DD/YYYY, HH:MM AM"
+       without truncation — stack them always so the modal never has to
+       horizontally scroll. */
+    .form-row.form-row-dates { flex-direction: column; gap: 10px; }
+    .form-row .form-input { width: 100%; min-width: 0; }
     .modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
 
     .event-detail { padding:16px; background:var(--bg); border-radius:8px; margin-bottom:12px; }
@@ -135,7 +140,7 @@
         </select>
       </div>
     </div>
-    <div class="form-row">
+    <div class="form-row form-row-dates">
       <div class="form-group">
         <label class="form-label">Start *</label>
         <input class="form-input" id="e-start" type="datetime-local" required>

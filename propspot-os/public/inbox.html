@@ -708,6 +708,8 @@
     .modal-title { font-size:1.05rem; font-weight:700; margin-bottom:16px; color: var(--text); }
     .modal .form-label { color: var(--text); }
     .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .form-row.form-row-dates { grid-template-columns: 1fr; gap: 10px; }
+    .form-row .form-input { min-width: 0; width: 100%; }
     @media (max-width:560px) { .form-row { grid-template-columns:1fr; } }
     .btn-sm { padding:5px 10px; font-size:.78rem; }
     .btn-danger { background:#dc2626; color:#fff; border:none; }
@@ -1106,7 +1108,7 @@
           </select>
         </div>
       </div>
-      <div class="form-row">
+      <div class="form-row form-row-dates">
         <div class="form-group">
           <label class="form-label">Start *</label>
           <input class="form-input" id="cl-start" type="datetime-local" required>
