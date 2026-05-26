@@ -280,6 +280,28 @@
   </div>
 </div>
 
+<!-- Invite external worker modal -->
+<div id="invite-external-modal" class="picker-popup" hidden>
+  <div class="picker-overlay" onclick="closeInviteExternalModal()"></div>
+  <div class="picker-panel" style="width:380px;">
+    <h3 style="margin:14px 16px 4px;font-size:1rem;">Invite external worker</h3>
+    <p class="text-muted text-sm" style="margin:0 16px 12px;">
+      They'll get an email and only see work orders assigned to them.
+    </p>
+    <input id="invite-ext-name" type="text" placeholder="Full name">
+    <input id="invite-ext-email" type="email" placeholder="email@example.com">
+    <div id="invite-ext-error" class="text-sm" style="color:#dc2626;margin:0 16px;display:none;"></div>
+    <div style="display:flex;gap:8px;margin:12px 16px 16px;">
+      <button type="button" class="btn btn-secondary"
+              style="flex:1;padding:10px;font-size:.85rem;"
+              onclick="closeInviteExternalModal()">Cancel</button>
+      <button type="button" id="invite-ext-submit" class="btn btn-primary"
+              style="flex:1;padding:10px;font-size:.85rem;"
+              onclick="submitInviteExternal()">Send invite</button>
+    </div>
+  </div>
+</div>
+
 <!-- Assignee picker popup -->
 <div id="assignee-picker" class="picker-popup" hidden>
   <div class="picker-overlay" onclick="closeAssigneePicker()"></div>
@@ -519,8 +541,61 @@
   }
 
   function openInviteExternalModal() {
-    // Wired up in Stage 3.
-    showToast('Invite external worker — coming in the next deploy');
+    // Inviting auto-assigns the new user to the WO, which requires an
+    // existing WO id. If we're in the Create modal (no WO yet), tell the
+    // user to save first.
+    if (pickerTarget === 'c' || !editingWoId) {
+      closeAssigneePicker();
+      showToast('Save the work order first, then invite from Edit.', 'error');
+      return;
+    }
+    closeAssigneePicker();
+    document.getElementById('invite-external-modal').hidden = false;
+    document.getElementById('invite-ext-name').value = '';
+    document.getElementById('invite-ext-email').value = '';
+    document.getElementById('invite-ext-error').style.display = 'none';
+    setTimeout(() => document.getElementById('invite-ext-name').focus(), 0);
+  }
+  function closeInviteExternalModal() {
+    document.getElementById('invite-external-modal').hidden = true;
+  }
+
+  async function submitInviteExternal() {
+    const name  = document.getElementById('invite-ext-name').value.trim();
+    const email = document.getElementById('invite-ext-email').value.trim();
+    const errEl = document.getElementById('invite-ext-error');
+    errEl.style.display = 'none';
+    if (!name || !email) {
+      errEl.textContent = 'Name and email required.';
+      errEl.style.display = 'block'; return;
+    }
+    if (!editingWoId) {
+      errEl.textContent = 'Save the work order first.';
+      errEl.style.display = 'block'; return;
+    }
+    const btn = document.getElementById('invite-ext-submit');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const r = await apiFetch(
+        `/api/maintenance/work-orders/${editingWoId}/invite-external-worker`,
+        { method: 'POST', body: JSON.stringify({ full_name: name, email }) }
+      );
+      closeInviteExternalModal();
+      await loadAssignableUsers();
+      setAssigneeDisplay('e', r.user.id);
+      await loadOrders();
+      showToast('Invite sent to ' + email);
+    } catch (e) {
+      const msg = (e.message || '').toLowerCase();
+      if (msg.includes('team_member_exists') || msg.includes('team member')) {
+        errEl.textContent = 'This email already belongs to a team member.';
+      } else {
+        errEl.textContent = e.message || 'Failed to send invite.';
+      }
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send invite';
+    }
   }
 
   function openCreate() {
