@@ -101,7 +101,8 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const {
     property_id, title, description, category, priority,
-    status, assigned_contact_id, scheduled_for, cost_cents, notes
+    status, assigned_contact_id, assigned_user_id,
+    scheduled_for, cost_cents, notes
   } = req.body;
   if (!property_id) return res.status(400).json({ error: 'property_id required' });
   if (!title?.trim()) return res.status(400).json({ error: 'title required' });
@@ -110,8 +111,9 @@ router.post('/', async (req, res) => {
     const { rows } = await query(`
       INSERT INTO work_orders
         (property_id, title, description, category, priority, status,
-         assigned_contact_id, reported_by, scheduled_for, cost_cents, notes, created_by)
-      VALUES ($1,$2,$3,$4,COALESCE($5,'normal'),COALESCE($6,'open'),$7,$8,$9,$10,$11,$12)
+         assigned_contact_id, assigned_user_id, reported_by,
+         scheduled_for, cost_cents, notes, created_by)
+      VALUES ($1,$2,$3,$4,COALESCE($5,'normal'),COALESCE($6,'open'),$7,$8,$9,$10,$11,$12,$13)
       RETURNING *
     `, [
       property_id, title.trim(),
@@ -120,6 +122,7 @@ router.post('/', async (req, res) => {
       priority || null,
       status || null,
       assigned_contact_id || null,
+      assigned_user_id || null,
       req.userId,
       scheduled_for || null,
       cost_cents != null && cost_cents !== '' ? parseInt(cost_cents, 10) : null,
@@ -136,7 +139,8 @@ router.post('/', async (req, res) => {
 // PATCH /api/work-orders/:id
 router.patch('/:id', async (req, res) => {
   const allowed = ['title','description','category','priority','status',
-                   'assigned_contact_id','scheduled_for','cost_cents','notes'];
+                   'assigned_contact_id','assigned_user_id',
+                   'scheduled_for','cost_cents','notes'];
   const sets = [];
   const vals = [];
   let i = 1;

@@ -1505,3 +1505,25 @@ CREATE TABLE IF NOT EXISTS user_mention_reads (
   PRIMARY KEY (user_id, source, source_id)
 );
 CREATE INDEX IF NOT EXISTS user_mention_reads_user_idx ON user_mention_reads(user_id);
+
+-- ── External-worker support (2026-05-26) ────────────────────────────────────
+-- Assignee on a work order. Either a team member (users.user_type='team') or
+-- an invited external worker (users.user_type='external_worker'). Replaces
+-- the never-surfaced assigned_contact_id column going forward; that column
+-- stays in place but is no longer read or written.
+ALTER TABLE work_orders
+  ADD COLUMN IF NOT EXISTS assigned_user_id UUID REFERENCES users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS work_orders_assigned_user_idx
+  ON work_orders(assigned_user_id);
+
+-- users.user_type — distinguishes regular team members from external workers
+-- (vendors / contractors) invited to a stripped-down portal. Existing rows
+-- default to 'team' via the column DEFAULT.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type TEXT NOT NULL DEFAULT 'team';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_user_type_check') THEN
+    ALTER TABLE users ADD CONSTRAINT users_user_type_check
+      CHECK (user_type IN ('team','external_worker'));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS users_user_type_idx ON users(user_type);
