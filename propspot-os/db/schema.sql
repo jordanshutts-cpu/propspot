@@ -201,6 +201,18 @@ CREATE INDEX IF NOT EXISTS properties_status_idx ON properties(status);
 -- Under Contract / Assigning lanes without inventing top-level statuses.
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS acquisition_status TEXT NOT NULL DEFAULT 'under_contract';
 
+-- Sub-status for properties in the 'renovating' lifecycle — drives the
+-- Projects kanban. Mirrors acquisition_status pattern.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS project_status TEXT NOT NULL DEFAULT 'planning';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'properties_project_status_check') THEN
+    ALTER TABLE properties DROP CONSTRAINT properties_project_status_check;
+  END IF;
+  ALTER TABLE properties ADD CONSTRAINT properties_project_status_check
+    CHECK (project_status IN ('planning','in_progress','punch_list','ready_to_list'));
+END $$;
+CREATE INDEX IF NOT EXISTS properties_project_status_idx ON properties(project_status) WHERE status = 'renovating';
+
 -- Drop the old CHECK BEFORE migrating values. The first release of this
 -- column shipped a CHECK that only allowed 'purchasing','due_diligence',
 -- 'approved_to_close'; if we leave that in place, the rename UPDATE
@@ -1479,3 +1491,17 @@ BEGIN
     INSERT INTO inbox_one_time_ops (op_id) VALUES ('archive_acquisitions_after_backfill_2026_05_23');
   END IF;
 END $$;
+
+-- ── Mention read receipts ─────────────────────────────────────────
+-- One row per (user, source, source_id) when a user has acknowledged
+-- seeing a mention. Absence = unread. Source identifies which table
+-- the source_id refers to (pulse=chat_messages.id, task=task_comments.id,
+-- fieldcam=comments.id). source_id is UUID for all three.
+CREATE TABLE IF NOT EXISTS user_mention_reads (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source     TEXT NOT NULL CHECK (source IN ('pulse','task','fieldcam')),
+  source_id  UUID NOT NULL,
+  read_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, source, source_id)
+);
+CREATE INDEX IF NOT EXISTS user_mention_reads_user_idx ON user_mention_reads(user_id);
