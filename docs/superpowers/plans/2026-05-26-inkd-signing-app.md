@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS inkd_templates (
   source_pdf_url  TEXT NOT NULL,
   source_pdf_id   TEXT NOT NULL,
   page_count      INT NOT NULL,
-  created_by      INT REFERENCES users(id),
+  created_by      UUID REFERENCES users(id),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   archived_at     TIMESTAMPTZ
@@ -139,9 +139,9 @@ CREATE TABLE IF NOT EXISTS inkd_envelopes (
   source_pdf_id            TEXT NOT NULL,
   page_count               INT NOT NULL,
   name                     TEXT NOT NULL,
-  property_id              INT REFERENCES properties(id),
-  opportunity_id           INT REFERENCES opportunities(id),
-  contact_id               INT REFERENCES contacts(id),
+  property_id              UUID REFERENCES properties(id),
+  opportunity_id           UUID REFERENCES opportunities(id),
+  contact_id               UUID REFERENCES contacts(id),
   status                   TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','sent','partial','completed','voided','expired')),
   reminders_enabled        BOOLEAN NOT NULL DEFAULT TRUE,
   reminder_schedule        JSONB NOT NULL DEFAULT '[3,7]'::jsonb,
@@ -149,11 +149,11 @@ CREATE TABLE IF NOT EXISTS inkd_envelopes (
   sent_at                  TIMESTAMPTZ,
   completed_at             TIMESTAMPTZ,
   filed_at                 TIMESTAMPTZ,
-  filed_property_file_id   INT REFERENCES property_files(id),
+  filed_property_file_id   UUID REFERENCES property_files(id),
   final_pdf_url            TEXT,
   final_pdf_id             TEXT,
   final_pdf_hash           TEXT,
-  created_by               INT NOT NULL REFERENCES users(id),
+  created_by               UUID NOT NULL REFERENCES users(id),
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_inkd_envelopes_status ON inkd_envelopes(status, created_at DESC);
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS inkd_recipients (
   full_name              TEXT NOT NULL,
   email                  TEXT NOT NULL,
   phone                  TEXT,
-  contact_id             INT REFERENCES contacts(id),
+  contact_id             UUID REFERENCES contacts(id),
   signing_order          INT NOT NULL DEFAULT 1,
   status                 TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','notified','viewed','signed','declined','expired')),
   sign_token_hash        TEXT NOT NULL UNIQUE,
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS inkd_field_values (
   recipient_id        UUID REFERENCES inkd_recipients(id) ON DELETE CASCADE,
   value               TEXT,
   value_filled_at     TIMESTAMPTZ,
-  value_filled_by     INT REFERENCES users(id),
+  value_filled_by     UUID REFERENCES users(id),
   autofilled          BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE INDEX IF NOT EXISTS idx_inkd_field_values_envelope ON inkd_field_values(envelope_id, page_number);
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS inkd_audit_events (
   event_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   ip            INET,
   user_agent    TEXT,
-  user_id       INT REFERENCES users(id),
+  user_id       UUID REFERENCES users(id),
   details       JSONB
 );
 CREATE INDEX IF NOT EXISTS idx_inkd_audit_envelope ON inkd_audit_events(envelope_id, event_at);

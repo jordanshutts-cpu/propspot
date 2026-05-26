@@ -99,7 +99,7 @@ All tables in `propspot-os/db/schema.sql` with `CREATE TABLE IF NOT EXISTS` guar
 | source_pdf_url | TEXT NOT NULL | Cloudinary URL of the blank PDF |
 | source_pdf_id | TEXT NOT NULL | Cloudinary public_id |
 | page_count | INT NOT NULL | snapshot at upload |
-| created_by | INT FK users(id) | |
+| created_by | UUID FK users(id) | |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
 | archived_at | TIMESTAMPTZ | soft delete |
@@ -130,9 +130,9 @@ All tables in `propspot-os/db/schema.sql` with `CREATE TABLE IF NOT EXISTS` guar
 | source_pdf_id | TEXT NOT NULL | |
 | page_count | INT NOT NULL | |
 | name | TEXT NOT NULL | defaults to template name + property address |
-| property_id | INT FK properties(id) | nullable |
-| opportunity_id | INT FK opportunities(id) | nullable |
-| contact_id | INT FK contacts(id) | nullable |
+| property_id | UUID FK properties(id) | nullable |
+| opportunity_id | UUID FK opportunities(id) | nullable |
+| contact_id | UUID FK contacts(id) | nullable |
 | status | TEXT NOT NULL | 'draft', 'sent', 'partial', 'completed', 'voided', 'expired' |
 | reminders_enabled | BOOLEAN DEFAULT TRUE | per-envelope toggle, set at send time |
 | reminder_schedule | JSONB DEFAULT '[3,7]' | days after send to remind |
@@ -140,11 +140,11 @@ All tables in `propspot-os/db/schema.sql` with `CREATE TABLE IF NOT EXISTS` guar
 | sent_at | TIMESTAMPTZ | |
 | completed_at | TIMESTAMPTZ | all signers done |
 | filed_at | TIMESTAMPTZ | when user clicked "Save to Files" |
-| filed_property_file_id | INT FK property_files(id) | the resulting Files entry |
+| filed_property_file_id | UUID FK property_files(id) | the resulting Files entry |
 | final_pdf_url | TEXT | Cloudinary URL of signed-and-stamped PDF (set when status → 'completed') |
 | final_pdf_id | TEXT | Cloudinary public_id |
 | final_pdf_hash | TEXT | SHA-256 hex of final_pdf bytes |
-| created_by | INT FK users(id) | |
+| created_by | UUID FK users(id) | |
 | created_at | TIMESTAMPTZ | |
 
 ### `inkd_recipients`
@@ -156,7 +156,7 @@ All tables in `propspot-os/db/schema.sql` with `CREATE TABLE IF NOT EXISTS` guar
 | full_name | TEXT NOT NULL | |
 | email | TEXT NOT NULL | |
 | phone | TEXT | SMS-ready column, unused in v1 |
-| contact_id | INT FK contacts(id) | nullable — populated when recipient maps to a PropSpot contact |
+| contact_id | UUID FK contacts(id) | nullable — populated when recipient maps to a PropSpot contact |
 | signing_order | INT NOT NULL | same number = parallel; ascending = sequential |
 | status | TEXT NOT NULL | 'pending', 'notified', 'viewed', 'signed', 'declined', 'expired' |
 | sign_token | TEXT NOT NULL UNIQUE | magic-link token (cryptographically random, hashed in db) |
@@ -183,7 +183,7 @@ Stores the actual filled-in values per envelope per field. Populated at draft cr
 | recipient_id | UUID FK inkd_recipients(id) | which recipient owns this field (NULL for sender-filled) |
 | value | TEXT | text content, ISO date, 'true'/'false', or signature image URL |
 | value_filled_at | TIMESTAMPTZ | |
-| value_filled_by | INT FK users(id) | NULL when filled by a recipient (signer) |
+| value_filled_by | UUID FK users(id) | NULL when filled by a recipient (signer) |
 | autofilled | BOOLEAN DEFAULT FALSE | true if pulled from autofill_source at draft creation |
 
 Signature/initial fields store the canvas drawing as a transparent PNG in Cloudinary; `value` holds the URL.
@@ -198,7 +198,7 @@ Signature/initial fields store the canvas drawing as a transparent PNG in Cloudi
 | event_at | TIMESTAMPTZ DEFAULT now() | |
 | ip | INET | |
 | user_agent | TEXT | |
-| user_id | INT FK users(id) | sender / admin user, when applicable |
+| user_id | UUID FK users(id) | sender / admin user, when applicable |
 | details | JSONB | event-specific payload (e.g. {field_id, label} for field_filled) |
 
 Indexes: `(envelope_id, event_at)` for the audit timeline query.
