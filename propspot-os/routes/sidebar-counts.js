@@ -42,14 +42,32 @@ router.get('/', async (req, res) => {
          AND (assigned_to_user_id = $1 OR assigned_to_user_id IS NULL)
     `, [me]),
 
+    // Unread mentions across pulse/inbox-thread + task + fieldcam.
+    // "Read" = a row in user_mention_reads. We dedupe by (source, source_id).
     safeCount(`
+      WITH all_mentions AS (
+        SELECT 'pulse'::text AS source, m.id AS source_id
+          FROM chat_mentions cm
+          JOIN chat_messages m ON m.id = cm.message_id
+         WHERE cm.mentioned_user_id = $1
+        UNION
+        SELECT 'task'::text, tc.id
+          FROM task_mentions tm
+          JOIN task_comments tc ON tc.id = tm.comment_id
+         WHERE tm.mentioned_user_id = $1
+        UNION
+        SELECT 'fieldcam'::text, c.id
+          FROM comments c
+          JOIN users u ON u.id = $1
+         WHERE u.full_name IS NOT NULL
+           AND c.body ILIKE '%@' || u.full_name || '%'
+           AND c.user_id <> $1
+      )
       SELECT COUNT(*)::int AS count
-        FROM chat_mentions cm
-        JOIN chat_messages m ON m.id = cm.message_id
-        LEFT JOIN chat_channel_members ccm
-          ON ccm.channel_id = m.channel_id AND ccm.user_id = $1
-       WHERE cm.mentioned_user_id = $1
-         AND m.created_at > COALESCE(ccm.last_read_at, 'epoch'::timestamptz)
+        FROM all_mentions a
+        LEFT JOIN user_mention_reads r
+          ON r.user_id = $1 AND r.source = a.source AND r.source_id = a.source_id
+       WHERE r.user_id IS NULL
     `, [me]),
 
     safeCount(`

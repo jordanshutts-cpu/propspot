@@ -10,9 +10,18 @@
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
     .mention-list { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
-    .mention-item { display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .mention-item { display:flex; gap:12px; padding:14px 16px 14px 22px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; position:relative; }
     .mention-item:last-child { border-bottom:none; }
     .mention-item:hover { background:var(--brand-light); }
+    .mention-item.unread { background:rgba(97,183,70,.06); }
+    .mention-item.unread .mention-author { color:var(--text); }
+    .mention-item.unread::before {
+      content:''; position:absolute; left:6px; top:50%; transform:translateY(-50%);
+      width:6px; height:6px; border-radius:50%; background:var(--brand);
+    }
+    .mention-item.read .mention-author,
+    .mention-item.read .mention-context,
+    .mention-item.read .mention-text { color:var(--text-muted); }
     .mention-avatar { width:36px; height:36px; border-radius:50%; object-fit:cover; background:var(--border); flex-shrink:0; }
     .mention-body { flex:1; min-width:0; }
     .mention-header { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
@@ -45,6 +54,7 @@
 <main class="page">
   <div class="section-header" style="margin-bottom:16px;">
     <span class="section-title">Mentions</span>
+    <button class="btn btn-secondary btn-sm" id="mark-all-read-btn" onclick="markAllRead()" style="display:none;">✓ Mark all read</button>
   </div>
 
   <div class="pill-row" id="pills">
@@ -129,8 +139,9 @@ function renderList() {
   document.getElementById('list').innerHTML = `<div class="mention-list">${mentions.map(m => {
     const bodyText = stripHtml(m.body || '').substring(0, 200);
     const link = getLinkForMention(m);
+    const readCls = m.is_read ? 'read' : 'unread';
     return `
-      <div class="mention-item" onclick="${link}">
+      <div class="mention-item ${readCls}" data-source="${esc(m.source)}" data-source-id="${esc(m.source_id || '')}" onclick="onMentionClick(this, ${link ? `event => { ${link.replace(/'/g, '&#39;')} }` : 'null'})">
         ${m.author_avatar ? `<img class="mention-avatar" src="${m.author_avatar}">` : `<div class="mention-avatar"></div>`}
         <div class="mention-body">
           <div class="mention-header">
@@ -143,6 +154,39 @@ function renderList() {
         </div>
       </div>`;
   }).join('')}</div>`;
+
+  // Show "Mark all read" only if there are unreads visible.
+  const hasUnread = mentions.some(m => !m.is_read);
+  document.getElementById('mark-all-read-btn').style.display = hasUnread ? '' : 'none';
+}
+
+// Mark a single mention read (silent best-effort), then follow the link.
+async function onMentionClick(itemEl, navigate) {
+  const source = itemEl.dataset.source;
+  const sourceId = itemEl.dataset.sourceId;
+  if (source && sourceId && itemEl.classList.contains('unread')) {
+    itemEl.classList.remove('unread');
+    itemEl.classList.add('read');
+    apiFetch(`/api/mentions/${encodeURIComponent(source)}/${encodeURIComponent(sourceId)}/read`, { method: 'POST' })
+      .catch(() => { /* swallow — UI already updated optimistically */ });
+    // Update local state so toggling filters doesn't undo the change.
+    const m = allMentions.find(x => x.source === source && x.source_id === sourceId);
+    if (m) m.is_read = true;
+  }
+  if (typeof navigate === 'function') navigate();
+}
+
+async function markAllRead() {
+  const btn = document.getElementById('mark-all-read-btn');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Marking…';
+  try {
+    await apiFetch('/api/mentions/read-all', { method: 'POST' });
+    for (const m of allMentions) m.is_read = true;
+    renderList();
+  } catch (e) {
+    alert('Could not mark all read: ' + e.message);
+    btn.disabled = false; btn.textContent = orig;
+  }
 }
 
 function getLinkForMention(m) {

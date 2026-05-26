@@ -205,7 +205,7 @@
     { id: 'inbox',     iconKey: 'inbox',     label: 'Inbox',       app: 'inbox',       default: true,  badgeKey: 'inbox' },
     { id: 'mentions',  iconKey: 'at',        label: 'Mentions',    osnav: 'mentions',  href: '/mentions.html', default: true, badgeKey: 'mentions' },
     { id: 'calendar',  iconKey: 'calendar',  label: 'Calendar',    osnav: 'calendar',  href: '/calendar.html', default: true },
-    { id: 'tasks',     iconKey: 'check',     label: 'My Tasks',    osnav: 'tasks',     href: '/tasks.html', default: true, badgeKey: 'myTasks' },
+    { id: 'tasks',     iconKey: 'check',     label: 'Tasks',       osnav: 'tasks',     href: '/tasks.html', default: true, badgeKey: 'myTasks' },
     { id: 'pulse',     iconKey: 'pulse',     label: 'Pulse',       app: 'pulse',       default: false, badgeKey: 'pulse' },
     { id: 'fieldcam',  iconKey: 'camera',    label: 'FieldCam',    app: 'fieldcam',    default: false, badgeKey: 'photosToday', badgeClass: 'muted' },
     { id: 'workorders',iconKey: 'wrench',    label: 'Maintenance', app: 'maintenance', default: false, badgeKey: 'workOrders',  badgeClass: 'warn' },
