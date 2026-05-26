@@ -75,12 +75,13 @@
 
     /* Empty route placeholder — clear call to action with drop zone */
     .route-empty {
-      padding: 28px 16px; text-align:center; color:var(--text-muted);
-      border: 2px dashed var(--border); border-radius: var(--radius);
-      background: var(--surface); font-size:.9rem; transition: all .12s;
+      padding: 14px 16px; text-align:center; color:var(--text-muted);
+      border: 1.5px dashed var(--border); border-radius: var(--radius);
+      background: var(--surface); font-size:.85rem; line-height:1.3;
+      transition: all .12s;
     }
     .route-empty.drop-target { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
-    .route-empty .empty-icon { font-size: 1.8rem; margin-bottom: 6px; display:block; }
+    .route-empty .route-empty-icon { font-size: 1rem; margin-right: 6px; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -300,8 +301,7 @@
     const routeBody = route.length
       ? tableHtml('route', route)
       : `<div class="route-empty" data-bucket="route">
-           <span class="empty-icon">📋</span>
-           Drag properties here to build today's mowing route.
+           <span class="route-empty-icon">📋</span>Drag properties here to build today's mowing route.
          </div>`;
 
     const attentionBody = attention.length
