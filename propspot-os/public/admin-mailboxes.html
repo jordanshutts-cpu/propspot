@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Mailbox Settings</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    .am-page { max-width: 960px; }
+    .am-head-actions { display: flex; gap: 8px; align-items: center; }
+    .am-empty {
+      padding: 40px 24px; text-align: center; color: var(--text-muted);
+      border: 1px dashed var(--border); border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .am-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .am-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+      gap: 14px; align-items: center;
+      padding: 14px 16px; border-top: 1px solid var(--border);
+    }
+    .am-row:first-child { border-top: none; }
+    .am-email { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .am-sub { color: var(--text-muted); font-size: .76rem; }
+    .am-meta { color: var(--text-muted); font-size: .8rem; }
+    .am-actions { display: flex; gap: 6px; }
+    .am-actions .btn { padding: 6px 12px; font-size: .8rem; }
+    .am-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: .7rem; font-weight: 600; margin-left: 6px; vertical-align: middle;
+    }
+    .am-badge.ok      { background: #dcfce7; color: #166534; }
+    .am-badge.error   { background: #fee2e2; color: #991b1b; }
+    .am-badge.disabled{ background: #e5e7eb; color: #374151; }
+    .am-banner {
+      padding: 12px 14px; border-radius: 8px; margin-bottom: 14px;
+      background: #dcfce7; color: #166534; border: 1px solid #86efac;
+      font-size: .88rem;
+    }
+    .am-not-owner {
+      padding: 24px; text-align: center; color: var(--text-muted);
+      border: 1px dashed var(--border); border-radius: var(--radius);
+    }
+    @media (max-width: 640px) {
+      .am-row {
+        grid-template-columns: 1fr auto;
+        grid-template-areas: "email actions" "stats actions" "meta meta";
+      }
+      .am-row > :nth-child(1) { grid-area: email; }
+      .am-row > :nth-child(2) { grid-area: stats; }
+      .am-row > :nth-child(3) { grid-area: meta; }
+      .am-row > :nth-child(4) { grid-area: actions; }
+    }
+  </style>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page am-page">
+  <div class="section-header" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+    <div>
+      <span class="section-title">Mailbox Settings</span>
+      <div class="text-muted text-sm" style="margin-top:4px;">Connect and manage shared/team Gmail mailboxes.</div>
+    </div>
+    <div class="am-head-actions">
+      <a class="btn btn-secondary" href="/inbox.html">Back to Inbox</a>
+      <button class="btn btn-primary" id="am-connect-btn">+ Connect Mailbox</button>
+    </div>
+  </div>
+
+  <div id="am-banner-slot"></div>
+  <div id="am-content">
+    <p class="text-muted text-sm">Loading…</p>
+  </div>
+</main>
+
+<script>window.NAV_CURRENT = 'inbox';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  async function init() {
+    const me = await requireAuth(); if (!me) return;
+    const wrap = document.getElementById('am-content');
+
+    if (!me.is_owner) {
+      document.getElementById('am-connect-btn').style.display = 'none';
+      wrap.innerHTML = `
+        <div class="am-not-owner">
+          Only an owner can manage shared mailboxes. Personal Gmail can still
+          be connected from the <a href="/inbox.html">Inbox</a> page.
+        </div>`;
+      return;
+    }
+
+    // Success bounce from OAuth callback: ?connected=email@domain.com
+    const params = new URLSearchParams(location.search);
+    const justConnected = params.get('connected');
+    if (justConnected) {
+      document.getElementById('am-banner-slot').innerHTML =
+        `<div class="am-banner">Connected <strong>${escHtml(justConnected)}</strong>. It'll start receiving mail within a minute.</div>`;
+      history.replaceState({}, '', location.pathname);
+    }
+
+    document.getElementById('am-connect-btn').addEventListener('click', startConnect);
+    await loadMailboxes();
+  }
+
+  async function startConnect() {
+    const btn = document.getElementById('am-connect-btn');
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Redirecting…';
+    try {
+      const { url } = await apiFetch('/api/inbox/mailboxes/connect', { method: 'POST' });
+      location.href = url;
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
+  async function loadMailboxes() {
+    const wrap = document.getElementById('am-content');
+    try {
+      const rows = await apiFetch('/api/inbox/mailboxes');
+      // Show only the shared/team mailboxes here — personal mailboxes are
+      // managed by each user from the Inbox page, not by the org owner.
+      const shared = rows.filter(r => r.connected_by_name && !isPersonal(r));
+      wrap.innerHTML = renderList(rows);
+    } catch (err) {
+      wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function isPersonal() { return false; } // currently surface all; alias=0 mailboxes are clearly admin's own
+
+  function renderList(rows) {
+    if (!rows.length) {
+      return `
+        <div class="am-empty">
+          <div style="font-size:2rem;margin-bottom:8px;">📬</div>
+          <div style="font-weight:600;margin-bottom:4px;">No mailboxes connected yet</div>
+          <div class="text-sm">Click <strong>+ Connect Mailbox</strong> above to connect a shared/team Gmail account.</div>
+        </div>`;
+    }
+    return `<div class="am-card">${rows.map(rowHtml).join('')}</div>`;
+  }
+
+  function rowHtml(r) {
+    const statusBadge = badgeFor(r.status);
+    const lastSync = r.last_sync_at
+      ? `Last sync ${timeAgo(r.last_sync_at)}`
+      : 'Never synced';
+    const connected = r.connected_at ? `Connected ${formatDate(r.connected_at)}` : '';
+    const by = r.connected_by_name ? ` by ${escHtml(r.connected_by_name)}` : '';
+    const stats = `${r.message_count.toLocaleString()} message${r.message_count === 1 ? '' : 's'} · ${r.alias_count} alias${r.alias_count === 1 ? '' : 'es'}`;
+    const reason = r.status_reason
+      ? `<div class="am-sub" style="color:#991b1b;margin-top:4px;">${escHtml(r.status_reason)}</div>`
+      : '';
+    return `
+      <div class="am-row" data-id="${r.id}">
+        <div>
+          <div class="am-email">${escHtml(r.email)}${statusBadge}</div>
+          <div class="am-sub">${escHtml(r.display_name || '')}</div>
+          ${reason}
+        </div>
+        <div class="am-meta">${stats}</div>
+        <div class="am-meta">${lastSync}<br>${connected}${by}</div>
+        <div class="am-actions">
+          <button class="btn btn-secondary" onclick="resyncMailbox('${r.id}', this)">Resync</button>
+          <button class="btn btn-danger" onclick="disconnectMailbox('${r.id}', '${escAttr(r.email)}', this)">Disconnect</button>
+        </div>
+      </div>`;
+  }
+
+  function badgeFor(status) {
+    if (status === 'active' || !status) return '<span class="am-badge ok">Active</span>';
+    if (status === 'error')              return '<span class="am-badge error">Error</span>';
+    return `<span class="am-badge disabled">${escHtml(status)}</span>`;
+  }
+
+  function timeAgo(iso) {
+    const ms = Date.now() - new Date(iso).getTime();
+    if (ms < 60_000) return 'just now';
+    const m = Math.floor(ms / 60_000);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  function formatDate(iso) {
+    try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
+  }
+
+  function escAttr(s) { return String(s || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;'); }
+
+  async function resyncMailbox(id, btn) {
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+    try {
+      await apiFetch(`/api/inbox/mailboxes/${id}/resync`, { method: 'POST' });
+      showToast('Resync queued');
+      await loadMailboxes();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
+  async function disconnectMailbox(id, email, btn) {
+    if (!confirm(`Disconnect ${email}? This removes the mailbox and all its synced threads and messages.`)) return;
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+    try {
+      await apiFetch(`/api/inbox/mailboxes/${id}`, { method: 'DELETE' });
+      showToast('Mailbox disconnected');
+      await loadMailboxes();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

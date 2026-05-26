@@ -858,6 +858,7 @@
             <div class="brand-eyebrow">Communications</div>
             <div class="brand-title">Inbox</div>
           </div>
+          <a id="ib-settings-link" class="ib-compose-icon" href="/admin-mailboxes.html" title="Mailbox settings" aria-label="Mailbox settings" style="display:none;text-decoration:none;font-size:1rem;">⚙</a>
           <button class="ib-compose-icon" onclick="openCompose()" title="Compose new email" aria-label="Compose">+</button>
         </div>
       </div>
@@ -1284,6 +1285,10 @@ const STATE = {
 async function init() {
   STATE.user = await requireAuth();
   if (!STATE.user) return;
+  if (STATE.user.is_owner) {
+    const gear = document.getElementById('ib-settings-link');
+    if (gear) gear.style.display = '';
+  }
   restoreColumnWidths();
   setupResizers();
   attachLeftNavHandlers();
