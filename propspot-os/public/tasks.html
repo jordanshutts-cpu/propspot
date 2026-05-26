@@ -112,6 +112,9 @@
     .task-section-header:first-child { margin-top:0; }
     .task-section-header h3 { font-size:.88rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin:0; }
     .task-section-header .section-count { font-size:.75rem; background:var(--border); color:var(--text-muted); padding:1px 8px; border-radius:100px; font-weight:600; }
+    .task-section-header .spacer { flex:1; }
+    .task-section-header .section-add { font-size:.75rem; padding:4px 12px; border-radius:100px; cursor:pointer; font-weight:600; border:1.5px solid var(--border); background:var(--surface); color:var(--text-muted); transition:all .12s; }
+    .task-section-header .section-add:hover { border-color:var(--brand); color:var(--brand); }
     .empty-state { text-align:center; padding:40px 20px; color:var(--text-muted); }
     .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:.4; }
     .empty-state p { font-size:.9rem; }
@@ -340,7 +343,7 @@ function renderList() {
   let html = '';
 
   // Team tasks table
-  html += `<div class="task-section-header"><h3>Team Tasks</h3><span class="section-count">${teamTasks.length}</span></div>`;
+  html += `<div class="task-section-header"><h3>Team Tasks</h3><span class="section-count">${teamTasks.length}</span><div class="spacer"></div><button class="section-add" onclick="openCreateWithVisibility('team')">+ New Team Task</button></div>`;
   if (teamTasks.length > 0) {
     html += `<div class="task-list">${teamTasks.map(renderTaskRow).join('')}</div>`;
   } else {
@@ -348,7 +351,7 @@ function renderList() {
   }
 
   // Private tasks table
-  html += `<div class="task-section-header" style="margin-top:28px;"><h3>Private Tasks</h3><span class="section-count">${privateTasks.length}</span></div>`;
+  html += `<div class="task-section-header" style="margin-top:28px;"><h3>Private Tasks</h3><span class="section-count">${privateTasks.length}</span><div class="spacer"></div><button class="section-add" onclick="openCreateWithVisibility('private')">+ New Private Task</button></div>`;
   if (privateTasks.length > 0) {
     html += `<div class="task-list">${privateTasks.map(renderTaskRow).join('')}</div>`;
   } else {
@@ -371,6 +374,11 @@ document.getElementById('pills').addEventListener('click', e => {
 // ── Create / Edit task
 let editingTaskId = null;
 let queuedFiles = [];
+function openCreateWithVisibility(vis) {
+  openCreate();
+  document.getElementById('c-visibility').value = vis;
+}
+
 function openCreate() {
   editingTaskId = null;
   queuedFiles = [];
