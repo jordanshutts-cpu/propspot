@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Mentions</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    .mention-list { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .mention-item { display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .mention-item:last-child { border-bottom:none; }
+    .mention-item:hover { background:var(--brand-light); }
+    .mention-avatar { width:36px; height:36px; border-radius:50%; object-fit:cover; background:var(--border); flex-shrink:0; }
+    .mention-body { flex:1; min-width:0; }
+    .mention-header { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+    .mention-author { font-weight:700; font-size:.88rem; }
+    .mention-source { font-size:.68rem; padding:1px 8px; border-radius:100px; font-weight:600; }
+    .mention-source.pulse { background:#dbeafe; color:#1e40af; }
+    .mention-source.task { background:#dcfce7; color:#15803d; }
+    .mention-source.fieldcam { background:#fef3c7; color:#92400e; }
+    .mention-time { font-size:.72rem; color:var(--text-muted); margin-left:auto; }
+    .mention-context { font-size:.78rem; color:var(--text-muted); margin-bottom:4px; }
+    .mention-text { font-size:.85rem; line-height:1.4; color:var(--text); }
+    .mention-text mark { background:#fef08a; border-radius:2px; padding:0 2px; }
+
+    .pill-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+    .pill { padding:6px 14px; border-radius:100px; border:1.5px solid var(--border); background:var(--surface); font-size:.82rem; font-weight:500; cursor:pointer; color:var(--text-muted); transition:all .12s; }
+    .pill:hover { border-color:var(--brand); color:var(--brand); }
+    .pill.active { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
+
+    .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+    .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:.4; }
+    .empty-state p { font-size:.9rem; }
+  </style>
+</head>
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="section-header" style="margin-bottom:16px;">
+    <span class="section-title">Mentions</span>
+  </div>
+
+  <div class="pill-row" id="pills">
+    <button class="pill active" data-f="all">All</button>
+    <button class="pill" data-f="pulse">Pulse</button>
+    <button class="pill" data-f="task">Tasks</button>
+    <button class="pill" data-f="fieldcam">FieldCam</button>
+  </div>
+
+  <div id="list"><p class="text-muted text-sm">Loading...</p></div>
+</main>
+
+<script>window.NAV_CURRENT = 'mentions';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let allMentions = [], currentFilter = 'all', currentUser = null;
+
+const SOURCE_LABELS = { pulse: 'Pulse', task: 'Task', fieldcam: 'FieldCam' };
+
+async function init() {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+  await loadMentions();
+}
+
+async function loadMentions() {
+  try {
+    allMentions = await apiFetch('/api/mentions');
+    renderList();
+  } catch (err) {
+    document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${esc(err.message)}</p>`;
+  }
+}
+
+function filterMentions() {
+  if (currentFilter === 'all') return allMentions;
+  return allMentions.filter(m => m.source === currentFilter);
+}
+
+function highlightMention(text) {
+  if (!currentUser || !currentUser.full_name) return esc(text);
+  const name = currentUser.full_name;
+  const escaped = esc(text);
+  const regex = new RegExp('@' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  return escaped.replace(regex, `<mark>@${esc(name)}</mark>`);
+}
+
+function stripHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+  return tmp.textContent || '';
+}
+
+function renderList() {
+  const mentions = filterMentions();
+  if (mentions.length === 0) {
+    document.getElementById('list').innerHTML = `
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>
+        <p>${currentFilter === 'all' ? 'No mentions yet. When someone @mentions you, it will show up here.' : 'No ' + SOURCE_LABELS[currentFilter] + ' mentions.'}</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('list').innerHTML = `<div class="mention-list">${mentions.map(m => {
+    const bodyText = stripHtml(m.body || '').substring(0, 200);
+    const link = getLinkForMention(m);
+    return `
+      <div class="mention-item" onclick="${link}">
+        ${m.author_avatar ? `<img class="mention-avatar" src="${m.author_avatar}">` : `<div class="mention-avatar"></div>`}
+        <div class="mention-body">
+          <div class="mention-header">
+            <span class="mention-author">${esc(m.author_name || 'Unknown')}</span>
+            <span class="mention-source ${m.source}">${SOURCE_LABELS[m.source] || m.source}</span>
+            <span class="mention-time">${relativeTime(m.created_at)}</span>
+          </div>
+          <div class="mention-context">in ${esc(m.context_name || '')}</div>
+          <div class="mention-text">${highlightMention(bodyText)}</div>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+function getLinkForMention(m) {
+  if (m.source === 'task' && m.task_id) return `window.location.href='/tasks.html'`;
+  if (m.source === 'pulse' && m.context_id) return `window.location.href='/pulse.html'`;
+  if (m.source === 'fieldcam' && m.photo_id) return `window.location.href='/fieldcam.html'`;
+  return '';
+}
+
+// Filter pills
+document.getElementById('pills').addEventListener('click', e => {
+  const pill = e.target.closest('.pill');
+  if (!pill) return;
+  document.querySelectorAll('#pills .pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  currentFilter = pill.dataset.f;
+  renderList();
+});
+
+function esc(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function relativeTime(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + 'd ago';
+  return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+}
+
+init();
+</script>
+</body>
+</html>

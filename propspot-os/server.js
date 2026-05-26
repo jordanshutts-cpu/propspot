@@ -49,6 +49,7 @@ app.use('/api/recent',            require('./routes/recent'));
 app.use('/api/sidebar-counts',    require('./routes/sidebar-counts'));
 app.use('/api/tasks',             require('./routes/tasks'));
 app.use('/api/drive',             require('./routes/drive'));
+app.use('/api/mentions',          require('./routes/mentions'));
 
 // ── Holdings (full CRUD — replaces stub) ──────────────────────────
 app.use('/api/holdings', require('./routes/holdings'));
