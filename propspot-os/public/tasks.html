@@ -85,8 +85,14 @@
     .comment-body { flex:1; }
     .comment-meta { font-size:.72rem; color:var(--text-muted); margin-bottom:2px; }
     .comment-text { font-size:.88rem; line-height:1.4; }
-    .comment-form { display:flex; gap:8px; margin-top:10px; }
+    .comment-form { display:flex; gap:8px; margin-top:10px; position:relative; }
     .comment-form input { flex:1; }
+    .mention-dropdown { position:absolute; bottom:100%; left:0; right:60px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.15); max-height:160px; overflow-y:auto; display:none; z-index:10; }
+    .mention-dropdown.open { display:block; }
+    .mention-option { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:.85rem; }
+    .mention-option:hover, .mention-option.active { background:var(--brand-light); }
+    .mention-option img { width:24px; height:24px; border-radius:50%; object-fit:cover; }
+    .mention-option .mention-avatar-placeholder { width:24px; height:24px; border-radius:50%; background:var(--border); }
 
     .drop-zone { border:2px dashed var(--border); border-radius:8px; padding:20px; text-align:center; color:var(--text-muted); font-size:.82rem; cursor:pointer; transition:all .15s; margin-bottom:8px; }
     .drop-zone:hover, .drop-zone.dragover { border-color:var(--brand); color:var(--brand); background:var(--brand-light); }
@@ -601,7 +607,10 @@ function renderDetail(task) {
         `).join('')}
       </div>
       <div class="comment-form">
-        <input class="form-input" style="padding:8px 10px;font-size:.85rem;" placeholder="Add a comment..." id="comment-input" onkeydown="if(event.key==='Enter'){event.preventDefault();addComment('${task.id}')}">
+        <div class="mention-dropdown" id="mention-dropdown"></div>
+        <input class="form-input" style="padding:8px 10px;font-size:.85rem;" placeholder="Add a comment... (type @ to mention)" id="comment-input"
+          oninput="handleMentionInput(this)"
+          onkeydown="handleMentionKeydown(event,'${task.id}')">
         <button class="btn btn-primary" style="padding:8px 14px;font-size:.82rem;" onclick="addComment('${task.id}')">Post</button>
       </div>
     </div>
@@ -683,6 +692,77 @@ async function deleteAtt(taskId, attId) {
     await apiFetch(`/api/tasks/${taskId}/attachments/${attId}`, { method: 'DELETE' });
     await openDetail(taskId);
   } catch {}
+}
+
+// ── @Mention autocomplete
+let mentionActive = false, mentionStart = -1, mentionIdx = 0, mentionMatches = [];
+
+function handleMentionInput(input) {
+  const val = input.value;
+  const cursor = input.selectionStart;
+  const before = val.substring(0, cursor);
+  const atPos = before.lastIndexOf('@');
+  if (atPos === -1 || (atPos > 0 && before[atPos - 1] !== ' ' && before[atPos - 1] !== '\n')) {
+    closeMentionDropdown();
+    return;
+  }
+  const query = before.substring(atPos + 1).toLowerCase();
+  mentionStart = atPos;
+  mentionMatches = usersCache.filter(u => {
+    const name = (u.full_name || u.email || '').toLowerCase();
+    const first = name.split(' ')[0];
+    return name.includes(query) || first.startsWith(query);
+  }).slice(0, 6);
+  if (mentionMatches.length === 0) { closeMentionDropdown(); return; }
+  mentionIdx = 0;
+  mentionActive = true;
+  renderMentionDropdown();
+}
+
+function renderMentionDropdown() {
+  const dd = document.getElementById('mention-dropdown');
+  dd.innerHTML = mentionMatches.map((u, i) => `
+    <div class="mention-option ${i === mentionIdx ? 'active' : ''}" onmousedown="event.preventDefault();selectMention(${i})">
+      ${u.avatar_url ? `<img src="${u.avatar_url}">` : `<div class="mention-avatar-placeholder"></div>`}
+      <span>${esc(u.full_name || u.email)}</span>
+    </div>
+  `).join('');
+  dd.classList.add('open');
+}
+
+function closeMentionDropdown() {
+  mentionActive = false;
+  mentionMatches = [];
+  const dd = document.getElementById('mention-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+function selectMention(idx) {
+  const user = mentionMatches[idx];
+  if (!user) return;
+  const input = document.getElementById('comment-input');
+  const val = input.value;
+  const cursor = input.selectionStart;
+  const before = val.substring(0, mentionStart);
+  const after = val.substring(cursor);
+  const name = user.full_name || user.email;
+  input.value = before + '@' + name + ' ' + after;
+  const newPos = before.length + 1 + name.length + 1;
+  input.setSelectionRange(newPos, newPos);
+  input.focus();
+  closeMentionDropdown();
+}
+
+function handleMentionKeydown(e, taskId) {
+  if (mentionActive) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); mentionIdx = Math.min(mentionIdx + 1, mentionMatches.length - 1); renderMentionDropdown(); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); mentionIdx = Math.max(mentionIdx - 1, 0); renderMentionDropdown(); return; }
+    if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); selectMention(mentionIdx); return; }
+    if (e.key === 'Escape') { e.preventDefault(); closeMentionDropdown(); return; }
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    addComment(taskId);
+  }
 }
 
 // ── Comments
