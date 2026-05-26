@@ -213,19 +213,34 @@ body.os-newchrome .page.page-narrow {
   font-size: 13px;
   color: #1f2937;
 }
+/* Workspace row container — anchors the workspace link on the left and
+   the sidebar-collapse chevron on the right. Border-bottom lives here
+   now so the collapse button sits on the same baseline. */
+.os-newchrome-workspace-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  flex-shrink: 0;
+}
+.os-newchrome-workspace-row .os-newchrome-collapse-btn {
+  flex-shrink: 0;
+  margin-right: 8px;
+  align-self: center;
+}
+
 /* Workspace row doubles as the Home button — clicking it navigates
-   to /dashboard.html. The chevron is no longer rendered. */
+   to /dashboard.html. The chevron is rendered alongside it (sibling). */
 .os-newchrome-workspace {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 14px;
   height: 56px;
-  border-bottom: 1px solid #e5e7eb;
   cursor: pointer;
   user-select: none;
-  background: #fff;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   text-decoration: none;
   color: inherit;
   position: relative;
