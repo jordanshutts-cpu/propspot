@@ -61,12 +61,17 @@
 <script src="app.js"></script>
 <script>
 let allMentions = [], currentFilter = 'all', currentUser = null;
+let usersById = {};
 
 const SOURCE_LABELS = { pulse: 'Pulse', task: 'Task', fieldcam: 'FieldCam' };
 
 async function init() {
   currentUser = await requireAuth();
   if (!currentUser) return;
+  try {
+    const users = await getUsers();
+    usersById = Object.fromEntries(users.map(u => [u.id, u]));
+  } catch (_) { usersById = {}; }
   await loadMentions();
 }
 
@@ -84,10 +89,20 @@ function filterMentions() {
   return allMentions.filter(m => m.source === currentFilter);
 }
 
+// Resolve any <@uuid> placeholders to "@FullName" using the user map.
+function resolveMentionTokens(text) {
+  if (!text) return '';
+  return String(text).replace(/<@([0-9a-f-]{36})>/gi, (raw, uid) => {
+    const u = usersById[uid];
+    return u ? '@' + (u.full_name || u.email || 'user') : raw;
+  });
+}
+
 function highlightMention(text) {
-  if (!currentUser || !currentUser.full_name) return esc(text);
+  const resolved = resolveMentionTokens(text);
+  if (!currentUser || !currentUser.full_name) return esc(resolved);
   const name = currentUser.full_name;
-  const escaped = esc(text);
+  const escaped = esc(resolved);
   const regex = new RegExp('@' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   return escaped.replace(regex, `<mark>@${esc(name)}</mark>`);
 }
@@ -121,7 +136,7 @@ function renderList() {
             <span class="mention-source ${m.source}">${SOURCE_LABELS[m.source] || m.source}</span>
             <span class="mention-time">${relativeTime(m.created_at)}</span>
           </div>
-          <div class="mention-context">in ${esc(m.context_name || '')}</div>
+          <div class="mention-context">in ${esc(resolveMentionTokens(m.context_name || ''))}</div>
           <div class="mention-text">${highlightMention(bodyText)}</div>
         </div>
       </div>`;
