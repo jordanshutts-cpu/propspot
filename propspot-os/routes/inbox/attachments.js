@@ -51,24 +51,27 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/attachments/:id/save-to-property
-//   body: { property_id, folder, filename }
-router.post('/:id/save-to-property', async (req, res) => {
-  const { property_id, folder, filename } = req.body;
-  if (!property_id || !filename?.trim()) {
-    return res.status(400).json({ error: 'property_id and filename required' });
-  }
+// POST /api/inbox/attachments/:id/save-to-files
+//   body: { filename, property_id (optional) }
+// Saves the attachment as a drive_files row so it shows up in the Files
+// app. property_id is optional — when set, the row is also tagged to the
+// property so it appears in that property's Files section.
+router.post('/:id/save-to-files', async (req, res) => {
+  const { filename, property_id } = req.body;
+  if (!filename?.trim()) return res.status(400).json({ error: 'filename required' });
+
   const loaded = await loadAttachment(req, req.params.id);
   if (loaded.error) return res.status(loaded.status).json({ error: loaded.error });
 
   try {
-    // 1) Confirm the property exists.
-    const { rows: propRows } = await query(
-      `SELECT id, address_line1 FROM properties WHERE id = $1`, [property_id]
-    );
-    if (!propRows[0]) return res.status(404).json({ error: 'Property not found' });
+    if (property_id) {
+      const { rows: propRows } = await query(
+        `SELECT id FROM properties WHERE id = $1`, [property_id]
+      );
+      if (!propRows[0]) return res.status(404).json({ error: 'Property not found' });
+    }
 
-    // 2) Pull the raw bytes from Gmail.
+    // Pull the raw bytes from Gmail.
     const { rows: mboxRows } = await query(
       `SELECT * FROM inbox_mailboxes WHERE id = $1`, [loaded.att.mailbox_id]
     );
@@ -76,25 +79,12 @@ router.post('/:id/save-to-property', async (req, res) => {
       mboxRows[0], loaded.att.provider_message_id, loaded.att.provider_attachment_id
     );
 
-    // 3) Resolve or create the folder.
-    const folderName = (folder || 'Email attachments').trim();
-    let folderId = null;
-    const { rows: existing } = await query(
-      `SELECT id FROM folders WHERE property_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1`,
-      [property_id, folderName]
-    );
-    if (existing[0]) {
-      folderId = existing[0].id;
-    } else {
-      const { rows: created } = await query(
-        `INSERT INTO folders (property_id, name, created_by) VALUES ($1, $2, $3) RETURNING id`,
-        [property_id, folderName, req.userId]
-      );
-      folderId = created[0].id;
-    }
-
-    // 4) Upload to Cloudinary, scoped under propspot/inbox/<property>.
-    const cloudinaryFolder = `propspot/properties/${property_id}/inbox`;
+    // Upload to Cloudinary. Scope path mirrors the destination so files
+    // saved to a property cluster together in Cloudinary, while general
+    // saves go under propspot/drive/inbox/.
+    const cloudinaryFolder = property_id
+      ? `propspot/properties/${property_id}/inbox`
+      : `propspot/drive/inbox`;
     const baseName = filename.trim().replace(/\.[^/.]+$/, '');
     const upload = await uploadBuffer(buf, {
       folder: cloudinaryFolder,
@@ -102,37 +92,47 @@ router.post('/:id/save-to-property', async (req, res) => {
       mimeType: loaded.att.mime_type
     });
 
-    // 5) Write a `photos` row so it shows up in FieldCam under the property.
-    const { rows: photoRows } = await query(
-      `INSERT INTO photos (property_id, uploaded_by, url, cloudinary_id, folder_id,
-                           media_type, notes)
-       VALUES ($1, $2, $3, $4, $5,
-               CASE WHEN $6::text LIKE 'image/%' THEN 'image' ELSE 'file' END,
-               $7)
-       RETURNING id`,
+    // Write to drive_files. folder_id is null (top-level Files); property_id
+    // is set if the caller picked a property. team_visible defaults to true
+    // so it appears in everyone's Files app.
+    const { rows: fileRows } = await query(
+      `INSERT INTO drive_files
+         (folder_id, property_id, filename, url, cloudinary_id,
+          mime_type, size_bytes, uploaded_by, drive_type)
+       VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, 'shared')
+       RETURNING id, url`,
       [
-        property_id, req.userId, upload.url, upload.cloudinary_id, folderId,
+        property_id || null,
+        filename.trim(),
+        upload.url,
+        upload.cloudinary_id,
         loaded.att.mime_type,
-        `Saved from email attachment "${loaded.att.filename}"`
+        loaded.att.size_bytes || null,
+        req.userId
       ]
     );
 
-    // 6) Record the save so we don't re-save the same attachment twice.
-    await query(
-      `INSERT INTO inbox_attachment_saves
-         (attachment_id, property_id, photo_id, saved_filename, saved_folder, saved_by)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [loaded.att.id, property_id, photoRows[0].id, filename.trim(), folderName, req.userId]
-    );
+    // Record the save for dedup. inbox_attachment_saves has a non-null
+    // property_id column today, so we only insert when a property was set.
+    if (property_id) {
+      try {
+        await query(
+          `INSERT INTO inbox_attachment_saves
+             (attachment_id, property_id, photo_id, saved_filename, saved_folder, saved_by)
+           VALUES ($1, $2, NULL, $3, 'Email attachments', $4)`,
+          [loaded.att.id, property_id, filename.trim(), req.userId]
+        );
+      } catch (e) { console.warn('inbox_attachment_saves insert failed (non-fatal):', e.message); }
+    }
 
     res.status(201).json({
       success: true,
-      photo_id: photoRows[0].id,
-      url: upload.url,
-      folder: folderName
+      file_id: fileRows[0].id,
+      url: fileRows[0].url,
+      property_id: property_id || null
     });
   } catch (err) {
-    console.error('Save-to-property failed:', err);
+    console.error('Save-to-files failed:', err);
     res.status(500).json({ error: 'Failed to save attachment: ' + err.message });
   }
 });

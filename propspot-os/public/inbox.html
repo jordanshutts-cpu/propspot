@@ -1156,25 +1156,32 @@
   </div>
 </div>
 
-<!-- Save attachment to property modal -->
+<!-- Save attachment modal -->
 <div class="modal-backdrop" id="modal-save-att">
   <div class="modal">
-    <div class="modal-title">Save attachment to property</div>
+    <div class="modal-title">Save attachment</div>
     <input type="hidden" id="sa-att-id">
     <div class="form-group">
+      <label class="form-label">Save to</label>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:.88rem;">
+          <input type="radio" name="sa-destination" value="files" checked onchange="updateSaDestUI()">
+          <span>Files (general)</span>
+        </label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:.88rem;">
+          <input type="radio" name="sa-destination" value="property" onchange="updateSaDestUI()">
+          <span>Property files</span>
+        </label>
+      </div>
+    </div>
+    <div class="form-group" id="sa-property-group" style="display:none;">
       <label class="form-label">Property</label>
       <input class="form-input" id="sa-search" placeholder="search…" oninput="saSearchDebounced(this.value)">
       <select class="form-select" id="sa-results" size="6" style="margin-top:8px;"></select>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Folder</label>
-        <input class="form-input" id="sa-folder" value="Email attachments">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Filename</label>
-        <input class="form-input" id="sa-filename" required>
-      </div>
+    <div class="form-group">
+      <label class="form-label">Filename</label>
+      <input class="form-input" id="sa-filename" required>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button class="btn btn-secondary" onclick="closeSaveAtt()">Cancel</button>
@@ -1213,8 +1220,8 @@ async function getThread(id)              { return apiFetch('/api/inbox/threads/
 async function patchThread(id, body)      { return apiFetch('/api/inbox/threads/' + id, { method:'PATCH', body: JSON.stringify(body) }); }
 async function sendReply(threadId, body)  { return apiFetch('/api/inbox/messages/threads/' + threadId + '/reply', { method:'POST', body: JSON.stringify(body) }); }
 async function composeMessage(body)       { return apiFetch('/api/inbox/messages/compose', { method:'POST', body: JSON.stringify(body) }); }
-async function saveAttachmentToProperty(attId, body) {
-  return apiFetch('/api/inbox/attachments/' + attId + '/save-to-property', { method:'POST', body: JSON.stringify(body) });
+async function saveAttachmentToFiles(attId, body) {
+  return apiFetch('/api/inbox/attachments/' + attId + '/save-to-files', { method:'POST', body: JSON.stringify(body) });
 }
 function attachmentUrl(attId)             { return '/api/inbox/attachments/' + attId; }
 // Fetch an attachment with the auth header, then open it via a blob URL.
@@ -1788,7 +1795,7 @@ function messageHtml(m, isExpanded) {
     return `
     <span class="att-chip">
       <a href="#" onclick="event.preventDefault();openAttachment('${escapeHtml(a.id)}','${safeName}')">📎 ${escapeHtml(a.filename)}</a>
-      <span class="att-save" onclick="openSaveAtt('${escapeHtml(a.id)}', '${safeName}')">↓ Save to property</span>
+      <span class="att-save" onclick="openSaveAtt('${escapeHtml(a.id)}', '${safeName}')">↓ Save</span>
       ${a.saved ? '<span class="badge badge-green">Saved</span>' : ''}
     </span>
   `;
@@ -2109,20 +2116,34 @@ async function doSaSearch(q) {
 function openSaveAtt(attId, filename) {
   document.getElementById('sa-att-id').value = attId;
   document.getElementById('sa-filename').value = filename;
+  // Reset to "Files (general)" each open.
+  const filesRadio = document.querySelector('input[name="sa-destination"][value="files"]');
+  if (filesRadio) filesRadio.checked = true;
+  updateSaDestUI();
   document.getElementById('modal-save-att').classList.add('open');
   doSaSearch('');
 }
 function closeSaveAtt() { document.getElementById('modal-save-att').classList.remove('open'); }
+
+function updateSaDestUI() {
+  const dest = document.querySelector('input[name="sa-destination"]:checked')?.value || 'files';
+  document.getElementById('sa-property-group').style.display = dest === 'property' ? '' : 'none';
+}
+
 async function confirmSaveAtt() {
   const attId = document.getElementById('sa-att-id').value;
-  const property_id = document.getElementById('sa-results').value;
   const filename = document.getElementById('sa-filename').value.trim();
-  const folder = document.getElementById('sa-folder').value.trim() || 'Email attachments';
-  if (!property_id) return showToast('Pick a property', 'error');
+  const dest = document.querySelector('input[name="sa-destination"]:checked')?.value || 'files';
   if (!filename) return showToast('Filename required', 'error');
+  const body = { filename };
+  if (dest === 'property') {
+    const property_id = document.getElementById('sa-results').value;
+    if (!property_id) return showToast('Pick a property', 'error');
+    body.property_id = property_id;
+  }
   try {
-    await saveAttachmentToProperty(attId, { property_id, folder, filename });
-    showToast('Saved to property');
+    await saveAttachmentToFiles(attId, body);
+    showToast(dest === 'property' ? 'Saved to property files' : 'Saved to Files');
     closeSaveAtt();
     selectThread(STATE.activeThreadId);
   } catch (err) { showToast(err.message, 'error'); }

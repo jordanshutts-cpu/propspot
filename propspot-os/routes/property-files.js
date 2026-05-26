@@ -14,15 +14,31 @@ const upload = multer({
   limits:  { fileSize: 20 * 1024 * 1024 }   // 20 MB per file
 });
 
-// GET /api/property-files/:propertyId  — list all files for a property
+// GET /api/property-files/:propertyId  — list all files for a property.
+// Unions two sources so anything tagged to a property shows up here:
+//   1. property_files (legacy: uploads via this page's Upload button)
+//   2. drive_files where property_id matches (new: Files app + email
+//      attachments "Save to property files")
+// Newer drive_files appear at the top because we sort by created_at.
 router.get('/:propertyId', async (req, res) => {
   try {
     const { rows } = await query(`
-      SELECT pf.*, u.full_name AS uploaded_by_name
+      SELECT pf.id, pf.property_id, pf.filename, pf.url, pf.cloudinary_id,
+             pf.mime_type, pf.size_bytes, pf.uploaded_by, pf.created_at,
+             u.full_name AS uploaded_by_name,
+             'property_files' AS source
         FROM property_files pf
         LEFT JOIN users u ON u.id = pf.uploaded_by
        WHERE pf.property_id = $1
-       ORDER BY pf.created_at DESC
+       UNION ALL
+      SELECT df.id, df.property_id, df.filename, df.url, df.cloudinary_id,
+             df.mime_type, df.size_bytes, df.uploaded_by, df.created_at,
+             u.full_name AS uploaded_by_name,
+             'drive_files' AS source
+        FROM drive_files df
+        LEFT JOIN users u ON u.id = df.uploaded_by
+       WHERE df.property_id = $1
+       ORDER BY created_at DESC
     `, [req.params.propertyId]);
     res.json(rows);
   } catch (err) {
@@ -76,30 +92,54 @@ router.post('/:propertyId', upload.single('file'), async (req, res) => {
 });
 
 // DELETE /api/property-files/:fileId  — remove a file
+// The id can be from either property_files (legacy) or drive_files (new
+// canonical Files app). Try property_files first; if not found, fall
+// through to drive_files.
 router.delete('/file/:fileId', async (req, res) => {
   try {
-    const { rows } = await query(
+    // 1) property_files row?
+    const { rows: pf } = await query(
       `SELECT property_id, cloudinary_id FROM property_files WHERE id = $1`,
       [req.params.fileId]
     );
-    const f = rows[0];
-    if (!f) return res.status(404).json({ error: 'File not found' });
-
-    if (f.cloudinary_id) {
-      try {
-        await cloudinary.uploader.destroy(f.cloudinary_id, { resource_type: 'raw' });
-      } catch {
-        // Best-effort: also try image type if 'raw' fails.
-        try { await cloudinary.uploader.destroy(f.cloudinary_id); } catch {}
+    if (pf[0]) {
+      if (pf[0].cloudinary_id) {
+        try {
+          await cloudinary.uploader.destroy(pf[0].cloudinary_id, { resource_type: 'raw' });
+        } catch {
+          try { await cloudinary.uploader.destroy(pf[0].cloudinary_id); } catch {}
+        }
       }
+      await query(`DELETE FROM property_files WHERE id = $1`, [req.params.fileId]);
+      await logActivity({
+        actorUserId: req.userId, entityType: 'property', entityId: pf[0].property_id,
+        action: 'file_deleted', payload: { file_id: req.params.fileId, source: 'property_files' }
+      });
+      return res.json({ success: true });
     }
-    await query(`DELETE FROM property_files WHERE id = $1`, [req.params.fileId]);
 
-    await logActivity({
-      actorUserId: req.userId, entityType: 'property', entityId: f.property_id,
-      action: 'file_deleted', payload: { file_id: req.params.fileId }
-    });
-    res.json({ success: true });
+    // 2) drive_files row?
+    const { rows: df } = await query(
+      `SELECT property_id, cloudinary_id FROM drive_files WHERE id = $1`,
+      [req.params.fileId]
+    );
+    if (df[0]) {
+      if (df[0].cloudinary_id) {
+        try {
+          await cloudinary.uploader.destroy(df[0].cloudinary_id, { resource_type: 'raw' });
+        } catch {
+          try { await cloudinary.uploader.destroy(df[0].cloudinary_id); } catch {}
+        }
+      }
+      await query(`DELETE FROM drive_files WHERE id = $1`, [req.params.fileId]);
+      await logActivity({
+        actorUserId: req.userId, entityType: 'property', entityId: df[0].property_id,
+        action: 'file_deleted', payload: { file_id: req.params.fileId, source: 'drive_files' }
+      });
+      return res.json({ success: true });
+    }
+
+    return res.status(404).json({ error: 'File not found' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to delete file' });
