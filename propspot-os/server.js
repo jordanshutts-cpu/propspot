@@ -73,6 +73,7 @@ app.use('/api/maintenance/lawn',        require('./routes/maintenance/lawn'));
 app.use('/api/maintenance/updates',     require('./routes/maintenance/updates'));
 app.use('/api/maintenance/properties',  require('./routes/maintenance/properties'));
 app.use('/api/maintenance/users',       require('./routes/maintenance/users'));
+app.use('/api/maintenance/assignable-users', require('./routes/maintenance/assignable-users'));
 
 // ── Pulse (SSE stream must not be compressed) ─────────────────────
 app.use('/api/pulse/stream',         require('./routes/pulse/stream'));
