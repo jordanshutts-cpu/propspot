@@ -1,24 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Ink'd</title>
-<link rel="stylesheet" href="/chrome.css">
-<link rel="stylesheet" href="/inkd.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Ink'd</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/inkd.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
 </head>
-<body class="inkd-dash">
-<header class="inkd-dash-header">
-  <h1>Ink'd</h1>
-  <a class="primary" href="/inkd-template-editor.html">+ New template</a>
-  <a class="secondary" href="/inkd-templates.html">Templates</a>
-</header>
-<main class="lanes">
-  <section class="lane" data-lane="draft">       <h2>Drafts</h2>            <div class="cards"></div></section>
-  <section class="lane" data-lane="out">         <h2>Out for Signature</h2> <div class="cards"></div></section>
-  <section class="lane" data-lane="action">      <h2>Action Needed</h2>     <div class="cards"></div></section>
-  <section class="lane" data-lane="review">      <h2>Completed (review)</h2><div class="cards"></div></section>
-  <section class="lane" data-lane="filed">       <h2>Filed</h2>             <div class="cards"></div></section>
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="inkd-page">
+    <div class="inkd-dash-header">
+      <h1>Ink'd</h1>
+      <a class="primary" href="/inkd-template-editor.html">+ New template</a>
+      <a class="secondary" href="/inkd-templates.html">Templates</a>
+    </div>
+    <div class="lanes">
+      <section class="lane" data-lane="draft">  <h2>Drafts</h2>             <div class="cards"></div></section>
+      <section class="lane" data-lane="out">    <h2>Out for Signature</h2>  <div class="cards"></div></section>
+      <section class="lane" data-lane="action"> <h2>Action Needed</h2>      <div class="cards"></div></section>
+      <section class="lane" data-lane="review"> <h2>Completed (review)</h2> <div class="cards"></div></section>
+      <section class="lane" data-lane="filed">  <h2>Filed</h2>              <div class="cards"></div></section>
+    </div>
+  </div>
 </main>
+
+<script>window.NAV_CURRENT = 'inkd';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
 <script src="/inkd.js"></script>
 </body>
 </html>
