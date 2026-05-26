@@ -696,14 +696,21 @@
       .ib-mobile-only { display: inline-flex !important; align-items: center; justify-content: center; }
       .ib-desktop-only { display: none !important; }
 
-      /* Let the inbox page fill the viewport — hide the global bottom nav
-         so the inbox UX (list ↔ reader ↔ drawer) fills the screen. */
+      /* Let the inbox page fill the viewport — hide global navs and
+         drop the body bottom padding so the layout doesn't reserve
+         64px behind an empty apps-rail. */
       body.os-newlayout main.page.page-inbox-fullscreen,
       body.os-newchrome main.page.page-inbox-fullscreen {
         padding: 0 !important;
         max-width: none !important;
       }
-      body:has(main.page.page-inbox-fullscreen) .mobile-bottom-nav { display: none !important; }
+      body:has(main.page.page-inbox-fullscreen) .mobile-bottom-nav,
+      body:has(main.page.page-inbox-fullscreen) .apps-rail {
+        display: none !important;
+      }
+      body.os-newlayout:has(main.page.page-inbox-fullscreen) {
+        padding-bottom: 0 !important;
+      }
 
       /* Inbox container: position:relative so panes can stack as overlays. */
       .inbox-3col {

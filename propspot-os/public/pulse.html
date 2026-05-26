@@ -324,14 +324,21 @@
       .ps-mobile-only { display:inline-flex !important; align-items:center; justify-content:center; }
       .ps-desktop-only { display:none !important; }
 
-      /* Let pulse take the whole viewport on mobile — hide the global
-         bottom nav so the chat fills the screen like a native app. */
+      /* Let pulse take the whole viewport on mobile — hide global navs
+         and remove the body bottom padding (otherwise the composer
+         renders 64px below the visible area, behind the apps-rail). */
       body.os-newlayout main.page.page-pulse-fullscreen,
       body.os-newchrome main.page.page-pulse-fullscreen {
         padding:0 !important;
         max-width:none !important;
       }
-      body:has(main.page.page-pulse-fullscreen) .mobile-bottom-nav { display:none !important; }
+      body:has(main.page.page-pulse-fullscreen) .mobile-bottom-nav,
+      body:has(main.page.page-pulse-fullscreen) .apps-rail {
+        display:none !important;
+      }
+      body.os-newlayout:has(main.page.page-pulse-fullscreen) {
+        padding-bottom: 0 !important;
+      }
 
       .pulse-wrap {
         position:relative;
