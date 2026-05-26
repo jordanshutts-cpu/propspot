@@ -189,6 +189,7 @@
       const isYou = u.id === me.id;
       const granted = userGrantedAppIds(u);
       const canUninvite = me.is_owner && !u.is_active && !u.is_owner && !isYou;
+      const canResend   = canUninvite;
 
       const cells = allApps.map(a => {
         const has = granted.has(a.id);
@@ -217,6 +218,7 @@
           ${cells}
           <td class="col-status"><span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span></td>
           <td class="col-actions">
+            ${canResend ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;margin-right:4px;" onclick="resendOne('${u.id}','${escHtml(u.email).replace(/'/g, "\\'")}')" title="Resend the invitation email">↻ Resend</button>` : ''}
             ${canUninvite ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;" onclick="uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation">× Uninvite</button>` : ''}
           </td>
         </tr>
@@ -254,6 +256,21 @@
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  // ── Resend a single pending invite ───────────────────────────
+  async function resendOne(userId, email) {
+    try {
+      const res = await resendInvite(userId);
+      if (res.email_sent) {
+        showToast(`Invite resent to ${email}`);
+      } else {
+        showToast(res.message || 'No email server configured', 'error');
+        if (res.invite_link) prompt('Manual invite link:', res.invite_link);
+      }
+    } catch (err) {
+      showToast('Could not resend: ' + err.message, 'error');
+    }
+  }
 
   // ── Uninvite (cancel a pending invitation) ───────────────────
   async function uninvite(userId, displayName) {
