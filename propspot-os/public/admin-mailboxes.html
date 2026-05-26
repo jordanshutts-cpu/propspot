@@ -210,10 +210,15 @@
 
     // Success bounce from OAuth callback
     const params = new URLSearchParams(location.search);
-    const justConnected = params.get('connected');
+    const justConnected   = params.get('connected');
+    const justReconnected = params.get('reconnected');
     if (justConnected) {
       document.getElementById('am-banner-slot').innerHTML =
         `<div class="am-banner">Connected <strong>${escHtml(justConnected)}</strong>. It'll start receiving mail within a minute.</div>`;
+      history.replaceState({}, '', location.pathname + location.hash);
+    } else if (justReconnected) {
+      document.getElementById('am-banner-slot').innerHTML =
+        `<div class="am-banner">Reconnected <strong>${escHtml(justReconnected)}</strong>. The mailbox is back online and will resume syncing within a minute.</div>`;
       history.replaceState({}, '', location.pathname + location.hash);
     }
   }
@@ -282,6 +287,10 @@
     const reason = r.status_reason
       ? `<div class="am-sub" style="color:#991b1b;margin-top:4px;">${escHtml(r.status_reason)}</div>`
       : '';
+    const isError = r.status === 'error';
+    const primaryAction = isError
+      ? `<button class="btn btn-primary" onclick="reconnectMailbox('${r.id}', this)">Reconnect</button>`
+      : `<button class="btn btn-secondary" onclick="resyncMailbox('${r.id}', this)">Resync</button>`;
     return `
       <div class="am-row" data-id="${r.id}">
         <div>
@@ -292,10 +301,21 @@
         <div class="am-meta">${stats}</div>
         <div class="am-meta">${lastSync}<br>${connected}${by}</div>
         <div class="am-actions">
-          <button class="btn btn-secondary" onclick="resyncMailbox('${r.id}', this)">Resync</button>
+          ${primaryAction}
           <button class="btn btn-danger" onclick="disconnectMailbox('${r.id}', '${escAttr(r.email)}', this)">Disconnect</button>
         </div>
       </div>`;
+  }
+
+  async function reconnectMailbox(id, btn) {
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+    try {
+      const { url } = await apiFetch(`/api/inbox/mailboxes/${id}/reconnect`, { method: 'POST' });
+      location.href = url;
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false; btn.textContent = orig;
+    }
   }
 
   async function resyncMailbox(id, btn) {
