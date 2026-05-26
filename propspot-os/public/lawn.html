@@ -737,39 +737,37 @@
 
   // ── Google Maps directions URL ──────────────────────────────
   function formatAddress(r) {
-    const parts = [r.address_line1];
-    if (r.unit) parts[0] += ‘ #’ + r.unit;
+    var parts = [r.address_line1];
+    if (r.unit) parts[0] += ' #' + r.unit;
     if (r.city) parts.push(r.city);
     if (r.state) parts.push(r.state);
-    return parts.join(‘, ‘);
+    return parts.join(', ');
   }
 
   function openInMaps() {
-    const route = bucketRows().route;
+    var route = bucketRows().route;
     if (!route.length) {
-      showToast(‘Add properties to today\’s route first’, ‘error’);
+      showToast("Add properties to today's route first", 'error');
       return;
     }
-    const hint = document.getElementById(‘route-hint’);
-    hint.style.display = ‘none’;
+    var hint = document.getElementById('route-hint');
+    hint.style.display = 'none';
 
-    // Use addresses for all stops; fall back to lat/lng if no address
-    const stops = route.map(r => {
-      const addr = formatAddress(r);
+    var stops = route.map(function(r) {
+      var addr = formatAddress(r);
       if (addr && addr.trim()) return encodeURIComponent(addr);
-      if (r.lat != null && r.lng != null) return `${r.lat},${r.lng}`;
+      if (r.lat != null && r.lng != null) return r.lat + ',' + r.lng;
       return null;
     }).filter(Boolean);
 
-    if (!stops.length) { showToast(‘No properties with addresses in today\’s route’, ‘error’); return; }
+    if (!stops.length) { showToast("No properties with addresses in today's route", 'error'); return; }
 
-    // Origin = current location, waypoints = all stops, destination = current location (round trip home)
-    const waypoints = stops.join(‘|’);
-    const url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`
-              + `&origin=My+Location`
-              + `&destination=My+Location`
-              + `&waypoints=${waypoints}`;
-    window.open(url, ‘_blank’, ‘noopener’);
+    var waypoints = stops.join('|');
+    var url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving'
+              + '&origin=My+Location'
+              + '&destination=My+Location'
+              + '&waypoints=' + waypoints;
+    window.open(url, '_blank', 'noopener');
   }
 
   init();
