@@ -6,6 +6,34 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- ── Org Settings (singleton row — one per workspace) ──────────────────
+CREATE TABLE IF NOT EXISTS org_settings (
+  id                    INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  company_name          TEXT NOT NULL DEFAULT 'My Company',
+  company_logo_url      TEXT,
+  company_logo_cloud_id TEXT,
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO org_settings (id, company_name) VALUES (1, 'My Company') ON CONFLICT DO NOTHING;
+
+-- ── Calendar Events ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        TEXT NOT NULL,
+  description  TEXT,
+  event_type   TEXT NOT NULL DEFAULT 'general' CHECK (event_type IN ('closing','purchase','inspection','meeting','deadline','general')),
+  visibility   TEXT NOT NULL DEFAULT 'company' CHECK (visibility IN ('company','personal')),
+  start_at     TIMESTAMPTZ NOT NULL,
+  end_at       TIMESTAMPTZ,
+  all_day      BOOLEAN NOT NULL DEFAULT FALSE,
+  property_id  UUID REFERENCES properties(id) ON DELETE SET NULL,
+  created_by   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS calendar_events_start_idx ON calendar_events(start_at);
+CREATE INDEX IF NOT EXISTS calendar_events_creator_idx ON calendar_events(created_by);
+CREATE INDEX IF NOT EXISTS calendar_events_property_idx ON calendar_events(property_id);
+
 -- ── Users ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
