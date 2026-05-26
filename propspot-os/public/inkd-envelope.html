@@ -1,34 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Envelope detail</title>
-<link rel="stylesheet" href="/chrome.css"><link rel="stylesheet" href="/inkd.css">
-<style>
-  .detail { display: grid; grid-template-columns: 1fr 360px; gap: 16px; padding: 16px; }
-  .pdf-frame { background: white; border: 1px solid #e3e3e3; height: calc(100vh - 120px); }
-  .pdf-frame iframe { width: 100%; height: 100%; border: 0; }
-  .meta { background: white; padding: 16px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
-  .recipient-row { padding: 8px; border-bottom: 1px solid #eee; }
-  .recipient-row .status { font-size: 11px; color: #666; }
-  .recipient-row .status.signed { color: #16a34a; }
-  .audit { font-size: 11px; max-height: 240px; overflow-y: auto; background: #f9fafb; padding: 8px; border-radius: 4px; }
-  .audit div { padding: 2px 0; border-bottom: 1px solid #f3f4f6; }
-</style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Envelope</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/inkd.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    .detail { display: grid; grid-template-columns: 1fr 360px; gap: 16px; height: calc(100vh - 120px); }
+    .pdf-frame { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 8px); overflow: hidden; }
+    .pdf-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .meta { background: var(--surface); padding: 16px; border-radius: var(--radius, 8px); box-shadow: var(--shadow, 0 1px 2px rgba(0,0,0,.06)); border: 1px solid var(--border); }
+    .meta h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 700; margin: 16px 0 8px; }
+    .meta h3:first-child { margin-top: 0; }
+    .recipient-row { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
+    .recipient-row:last-child { border-bottom: 0; }
+    .recipient-row .status { font-size: .72rem; color: var(--text-muted); font-weight: 500; }
+    .recipient-row .status.signed { color: var(--brand); }
+    .recipient-row .status.declined { color: #ef4444; }
+    .audit { font-size: .72rem; max-height: 240px; overflow-y: auto; background: var(--surface-muted, #f9fafb); padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
+    .audit div { padding: 3px 0; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+    .audit div:last-child { border-bottom: 0; }
+  </style>
 </head>
-<body class="inkd-dash">
-<header class="inkd-dash-header"><a href="/inkd.html">← Ink'd</a><h1 id="env-title">Loading…</h1></header>
-<main class="detail">
-  <div class="pdf-frame"><iframe id="pdf-iframe" src=""></iframe></div>
-  <aside>
-    <div class="meta">
-      <h3>Status</h3>
-      <p id="env-status"></p>
-      <h3>Recipients</h3>
-      <div id="recipients"></div>
-      <h3>Audit trail</h3>
-      <div class="audit" id="audit"></div>
-    </div>
-  </aside>
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div class="inkd-dash-header">
+    <h1 id="env-title">Loading…</h1>
+    <a class="secondary" href="/inkd.html">← Back to Ink'd</a>
+  </div>
+
+  <div class="detail">
+    <div class="pdf-frame"><iframe id="pdf-iframe" src=""></iframe></div>
+    <aside>
+      <div class="meta">
+        <h3>Status</h3>
+        <p id="env-status"></p>
+        <h3>Recipients</h3>
+        <div id="recipients"></div>
+        <h3>Audit trail</h3>
+        <div class="audit" id="audit"></div>
+      </div>
+    </aside>
+  </div>
 </main>
+
+<script>window.NAV_CURRENT = 'inkd';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
 <script src="/inkd-envelope.js"></script>
 </body>
 </html>
