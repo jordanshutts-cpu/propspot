@@ -26,9 +26,9 @@ router.get('/', async (req, res) => {
         LEFT JOIN users u_creator ON u_creator.id = t.created_by
         LEFT JOIN users u_assignee ON u_assignee.id = t.assigned_to
         LEFT JOIN properties p ON p.id = t.property_id
-       WHERE 1=1
+       WHERE (t.visibility = 'team' OR t.created_by = $1 OR t.assigned_to = $1)
     `;
-    const params = [];
+    const params = [req.userId];
     if (status && status !== 'all') {
       params.push(status);
       sql += ` AND t.status = $${params.length}`;
@@ -40,6 +40,10 @@ router.get('/', async (req, res) => {
     if (created_by) {
       params.push(created_by);
       sql += ` AND t.created_by = $${params.length}`;
+    }
+    if (req.query.visibility) {
+      params.push(req.query.visibility);
+      sql += ` AND t.visibility = $${params.length}`;
     }
     sql += ` ORDER BY
       CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
@@ -102,14 +106,14 @@ router.get('/:id', async (req, res) => {
 // POST /api/tasks — create a task
 router.post('/', async (req, res) => {
   try {
-    const { title, description, priority, due_date, assigned_to, property_id, items } = req.body;
+    const { title, description, priority, due_date, assigned_to, property_id, items, visibility } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: 'Title is required' });
 
     const { rows: [task] } = await query(`
-      INSERT INTO tasks (title, description, priority, due_date, assigned_to, property_id, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO tasks (title, description, priority, due_date, assigned_to, property_id, created_by, visibility)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
-    `, [title.trim(), description || null, priority || 'normal', due_date || null, assigned_to || null, property_id || null, req.userId]);
+    `, [title.trim(), description || null, priority || 'normal', due_date || null, assigned_to || null, property_id || null, req.userId, visibility || 'team']);
 
     if (items && items.length > 0) {
       for (let i = 0; i < items.length; i++) {
@@ -137,11 +141,9 @@ router.post('/', async (req, res) => {
 // PATCH /api/tasks/:id — update a task
 router.patch('/:id', async (req, res) => {
   try {
-    const { title, description, status, priority, due_date, assigned_to, property_id } = req.body;
+    const { title, description, status, priority, due_date, assigned_to, property_id, visibility } = req.body;
     const { rows: [existing] } = await query(`SELECT * FROM tasks WHERE id = $1`, [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Task not found' });
-
-    const completed_at = (status === 'done' && existing.status !== 'done') ? 'NOW()' : (status && status !== 'done' ? 'NULL' : 'completed_at');
 
     const { rows: [task] } = await query(`
       UPDATE tasks SET
@@ -152,6 +154,7 @@ router.patch('/:id', async (req, res) => {
         due_date = $6,
         assigned_to = $7,
         property_id = $8,
+        visibility = COALESCE($9, visibility),
         completed_at = CASE
           WHEN $4 = 'done' AND status != 'done' THEN NOW()
           WHEN $4 IS NOT NULL AND $4 != 'done' THEN NULL
@@ -160,7 +163,7 @@ router.patch('/:id', async (req, res) => {
         updated_at = NOW()
       WHERE id = $1
       RETURNING *
-    `, [req.params.id, title || null, description !== undefined ? description : null, status || null, priority || null, due_date !== undefined ? due_date : existing.due_date, assigned_to !== undefined ? assigned_to : existing.assigned_to, property_id !== undefined ? property_id : existing.property_id]);
+    `, [req.params.id, title || null, description !== undefined ? description : null, status || null, priority || null, due_date !== undefined ? due_date : existing.due_date, assigned_to !== undefined ? assigned_to : existing.assigned_to, property_id !== undefined ? property_id : existing.property_id, visibility || null]);
 
     await logActivity({
       actorUserId: req.userId, entityType: 'task', entityId: task.id,
