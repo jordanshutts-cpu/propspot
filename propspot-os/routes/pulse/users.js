@@ -11,11 +11,14 @@ router.use(requirePulseGrant);
 // the picker doesn't let you start a DM with yourself.
 router.get('/', async (req, res) => {
   try {
+    // A user counts as "in the org" if they've authenticated by any means —
+    // password OR Google SSO. Filtering on password_hash alone hides
+    // Workspace teammates who only ever sign in with Google.
     const { rows } = await query(`
       SELECT id, full_name, email, avatar_url
         FROM users
        WHERE id <> $1
-         AND password_hash IS NOT NULL
+         AND (password_hash IS NOT NULL OR google_sub IS NOT NULL)
        ORDER BY full_name ASC NULLS LAST, email ASC
     `, [req.userId]);
     res.json(rows);
