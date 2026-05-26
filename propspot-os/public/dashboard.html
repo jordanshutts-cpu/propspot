@@ -615,9 +615,6 @@
     'property_id', 'id', 'created_at', 'updated_at',
     'created_by', 'updated_by'
   ]);
-  const TASK_STATUS_LABELS   = { open:'Open', in_progress:'In Progress', done:'Done', cancelled:'Cancelled' };
-  const TASK_PRIORITY_LABELS = { low:'Low', medium:'Medium', high:'High', urgent:'Urgent' };
-
   function fmtPayloadValue(key, value) {
     if (value == null || value === '') return '—';
     if (key === 'status')             return propertyStatusLabel(value) || value;
