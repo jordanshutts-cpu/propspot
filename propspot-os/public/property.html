@@ -741,6 +741,36 @@
         : emptyState('No holdings yet.', '<a data-app="holdings" data-app-path="/" href="#">Add one in Holdings Desk ↗</a>')
     });
 
+    // Maintenance (full-width) — work orders attached to this property
+    const workOrders = property.work_orders || [];
+    const WO_CAT_ICONS = { plumbing:'🚿', electrical:'💡', hvac:'❄️', roofing:'🏠',
+      landscaping:'🌳', cleaning:'🧹', appliance:'🔌', pest:'🐜', general:'🛠️', other:'📋' };
+    const WO_STATUS_LBL = { open:'Open', scheduled:'Scheduled', in_progress:'In Progress',
+      completed:'Completed', cancelled:'Cancelled' };
+    const WO_PRI_CLASS = { urgent:'#b91c1c', high:'#92400e', normal:'#15803d', low:'#64748b' };
+    html += panelSection({
+      title: `🛠️ Maintenance ${workOrders.length ? `<span style="opacity:.6;margin-left:4px;font-weight:500;">(${workOrders.length})</span>` : ''}`,
+      link: `<a class="os-panel-link" href="/maintenance.html">Manage ↗</a>`,
+      body: workOrders.length
+        ? workOrders.map(w => {
+            const date = w.scheduled_for
+              ? new Date(w.scheduled_for).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+              : new Date(w.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+            const assigneeChip = w.assigned_user_id ? `<span class="meta">· 👤 ${escHtml((w.assigned_user_name || '').split(' ')[0])}</span>` : '';
+            return `<div class="pipe-row" style="text-decoration:none;color:inherit;">
+              <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                <div style="font-size:1.2rem;">${escHtml(WO_CAT_ICONS[w.category] || '🛠️')}</div>
+                <div style="flex:1;min-width:0;">
+                  <div>${escHtml(w.title)}</div>
+                  <div class="meta">${escHtml(WO_STATUS_LBL[w.status] || w.status)} · ${date}${assigneeChip ? ' ' + assigneeChip : ''}</div>
+                </div>
+              </div>
+              <span class="status-pill" style="background:${WO_PRI_CLASS[w.priority]}22; color:${WO_PRI_CLASS[w.priority]};">${escHtml(w.priority)}</span>
+            </div>`;
+          }).join('')
+        : emptyState('No work orders yet.', '<a href="/maintenance.html">Open Maintenance ↗</a>')
+    });
+
     // Email + Contacts side-by-side
     html += `<div class="prop-2col">
       ${panelSection({
