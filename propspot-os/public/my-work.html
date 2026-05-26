@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — My Work</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { margin:0; font-family:-apple-system,Inter,sans-serif; background:var(--bg); color:var(--text); }
+    .mw-header { display:flex; align-items:center; justify-content:space-between;
+                 padding:12px 20px; background:var(--surface);
+                 border-bottom:1px solid var(--border); }
+    .mw-logo { font-weight:700; font-size:1.05rem; color:var(--brand); }
+    .mw-user { font-size:.85rem; color:var(--text-muted); }
+    .mw-user a { color:var(--text-muted); margin-left:14px; text-decoration:underline; }
+    .mw-layout { display:flex; height:calc(100vh - 56px); }
+    .mw-list { width:40%; max-width:480px; border-right:1px solid var(--border);
+               overflow-y:auto; background:var(--surface); }
+    .mw-detail { flex:1; overflow-y:auto; padding:20px; }
+    .mw-row { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; }
+    .mw-row:hover { background:var(--brand-light); }
+    .mw-row.active { background:var(--brand-light); border-left:3px solid var(--brand); }
+    .mw-row-title { font-weight:600; font-size:.92rem; margin-bottom:3px; }
+    .mw-row-addr { font-size:.78rem; color:var(--text-muted); }
+    .mw-row-pills { margin-top:6px; display:flex; gap:4px; flex-wrap:wrap; }
+    .mw-pill { font-size:.66rem; padding:2px 8px; border-radius:100px; font-weight:600; }
+    .mw-pill.open { background:#dbeafe; color:#1e40af; }
+    .mw-pill.in_progress { background:#fef3c7; color:#92400e; }
+    .mw-pill.completed { background:#dcfce7; color:#15803d; }
+    .mw-pill.scheduled { background:#ede9fe; color:#6d28d9; }
+    .mw-pill.urgent { background:#fee2e2; color:#991b1b; }
+    .mw-pill.high { background:#ffedd5; color:#9a3412; }
+    .mw-empty { padding:60px 20px; text-align:center; color:var(--text-muted); }
+    .mw-section { margin-bottom:24px; }
+    .mw-section h3 { font-size:.78rem; text-transform:uppercase; color:var(--text-muted);
+                     letter-spacing:.05em; margin:0 0 8px; }
+    .mw-photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+                     gap:8px; }
+    .mw-photo { aspect-ratio:1; background:var(--border); border-radius:6px;
+                background-size:cover; background-position:center; cursor:pointer; }
+    .mw-upload-btn { display:inline-block; padding:10px 18px; background:var(--brand);
+                     color:#fff; border:none; border-radius:6px; font-weight:600;
+                     cursor:pointer; }
+    .mw-status-select { padding:6px 10px; border:1px solid var(--border);
+                        border-radius:6px; background:var(--surface); font-size:.85rem; }
+    .mw-update { padding:10px 0; border-bottom:1px solid var(--border); font-size:.88rem; }
+    .mw-update:last-child { border-bottom:none; }
+    .mw-update-meta { font-size:.72rem; color:var(--text-muted); margin-bottom:3px; }
+    @media (max-width:768px) {
+      .mw-layout { flex-direction:column; height:auto; }
+      .mw-list { width:100%; max-width:none; max-height:50vh; }
+      .mw-detail { padding:14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="mw-header">
+  <div class="mw-logo">Prop Spot</div>
+  <div class="mw-user">
+    <span id="mw-user-name"></span>
+    <a href="#" onclick="signOut(); return false;">Sign out</a>
+  </div>
+</header>
+
+<div class="mw-layout">
+  <aside class="mw-list" id="mw-list">
+    <p class="text-muted text-sm" style="padding:14px;">Loading…</p>
+  </aside>
+  <main class="mw-detail" id="mw-detail">
+    <div class="mw-empty">Select a work order on the left.</div>
+  </main>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+let myWorkOrders = [], activeWo = null, currentUser = null;
+
+async function init() {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+  document.getElementById('mw-user-name').textContent = currentUser.full_name || currentUser.email;
+  // Defense-in-depth: if a team user lands here, send them to dashboard.
+  if (currentUser.user_type === 'team') { location.href = '/dashboard.html'; return; }
+  await loadList();
+}
+
+async function loadList() {
+  try {
+    myWorkOrders = await apiFetch('/api/my-work-orders');
+    renderList();
+    if (myWorkOrders[0]) openWo(myWorkOrders[0].id);
+  } catch (e) {
+    document.getElementById('mw-list').innerHTML =
+      `<p class="text-muted text-sm" style="padding:14px;">Error: ${esc(e.message)}</p>`;
+  }
+}
+
+function renderList() {
+  if (!myWorkOrders.length) {
+    document.getElementById('mw-list').innerHTML =
+      `<div class="mw-empty">Nothing assigned to you yet.<br>Your team will let you know when there's work.</div>`;
+    document.getElementById('mw-detail').innerHTML = '';
+    return;
+  }
+  document.getElementById('mw-list').innerHTML = myWorkOrders.map(wo => {
+    const addr = [wo.address_line1, wo.unit].filter(Boolean).join(', ');
+    const active = activeWo?.id === wo.id ? ' active' : '';
+    return `<div class="mw-row${active}" onclick="openWo('${wo.id}')">
+      <div class="mw-row-title">${esc(wo.title)}</div>
+      <div class="mw-row-addr">${esc(addr)} · ${esc(wo.city || '')} ${esc(wo.state || '')}</div>
+      <div class="mw-row-pills">
+        <span class="mw-pill ${wo.status}">${esc(wo.status.replace('_',' '))}</span>
+        ${wo.priority === 'urgent' || wo.priority === 'high'
+          ? `<span class="mw-pill ${wo.priority}">${wo.priority}</span>` : ''}
+        ${wo.scheduled_for ? `<span class="text-muted" style="font-size:.7rem;">${wo.scheduled_for}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openWo(id) {
+  try {
+    activeWo = await apiFetch('/api/my-work-orders/' + id);
+    renderList();
+    await renderDetail();
+  } catch (e) {
+    document.getElementById('mw-detail').innerHTML =
+      `<p class="text-muted text-sm">Error: ${esc(e.message)}</p>`;
+  }
+}
+
+async function renderDetail() {
+  const wo = activeWo;
+  const addr = [wo.address_line1, wo.unit].filter(Boolean).join(', ');
+  // Photos for the property. Endpoint is /api/photos/:propertyId.
+  let photos = [];
+  try { photos = await apiFetch('/api/photos/' + wo.property_id); }
+  catch (_) { photos = []; }
+
+  document.getElementById('mw-detail').innerHTML = `
+    <h1 style="margin:0 0 4px;font-size:1.3rem;">${esc(wo.title)}</h1>
+    <p class="text-muted" style="margin:0 0 16px;">${esc(addr)} · ${esc(wo.city || '')} ${esc(wo.state || '')}</p>
+
+    <div class="mw-section">
+      <h3>Status</h3>
+      <select class="mw-status-select" onchange="changeStatus(this.value)">
+        ${['open','in_progress','completed'].map(s =>
+          `<option value="${s}"${s === wo.status ? ' selected' : ''}>${s.replace('_',' ')}</option>`
+        ).join('')}
+      </select>
+    </div>
+
+    ${wo.description ? `<div class="mw-section">
+      <h3>Description</h3>
+      <p style="font-size:.92rem;white-space:pre-wrap;">${esc(wo.description)}</p>
+    </div>` : ''}
+
+    <div class="mw-section">
+      <h3>Photos</h3>
+      <div class="mw-photo-grid">
+        ${photos.slice(0, 60).map(ph =>
+          `<div class="mw-photo" style="background-image:url('${esc(ph.thumb_url || ph.url)}')"
+                onclick="window.open('${esc(ph.url)}','_blank')"></div>`
+        ).join('')}
+      </div>
+      <button class="mw-upload-btn" style="margin-top:12px;" onclick="uploadPhotos()">
+        + Upload photos
+      </button>
+    </div>
+
+    <div class="mw-section">
+      <h3>Updates</h3>
+      <div id="mw-updates">${(wo.updates || []).map(u =>
+        `<div class="mw-update">
+          <div class="mw-update-meta">${esc(u.author_name || 'Anonymous')} · ${relTime(u.created_at)}</div>
+          <div>${esc(u.body)}</div>
+        </div>`
+      ).join('') || '<p class="text-muted text-sm">No updates yet.</p>'}</div>
+      <textarea id="mw-update-input" rows="2" style="width:100%;margin-top:8px;padding:8px;
+                border:1px solid var(--border);border-radius:6px;" placeholder="Post an update…"></textarea>
+      <button class="mw-upload-btn" style="margin-top:6px;" onclick="postUpdate()">Post update</button>
+    </div>
+  `;
+}
+
+async function changeStatus(status) {
+  try {
+    await apiFetch('/api/my-work-orders/' + activeWo.id, {
+      method: 'PATCH', body: JSON.stringify({ status })
+    });
+    activeWo.status = status;
+    showToast('Status updated');
+    await loadList();
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+async function postUpdate() {
+  const body = document.getElementById('mw-update-input').value.trim();
+  if (!body) return;
+  try {
+    await apiFetch('/api/my-work-orders/' + activeWo.id + '/updates', {
+      method: 'POST', body: JSON.stringify({ body })
+    });
+    document.getElementById('mw-update-input').value = '';
+    await openWo(activeWo.id);
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
+function uploadPhotos() {
+  // Reuse the existing FieldCam upload page, pre-scoped to this property.
+  window.location.href = '/fieldcam.html?property_id=' + activeWo.property_id;
+}
+
+function signOut() {
+  try { localStorage.removeItem('ros_token'); localStorage.removeItem('ros_user'); } catch(_){}
+  document.cookie = 'ros_token=; Max-Age=0; path=/';
+  location.href = '/login.html';
+}
+
+function esc(s) { return String(s || '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function relTime(iso) {
+  if (!iso) return '';
+  const d = (Date.now() - new Date(iso).getTime()) / 60000;
+  if (d < 1) return 'just now';
+  if (d < 60) return Math.floor(d) + 'm ago';
+  if (d < 1440) return Math.floor(d/60) + 'h ago';
+  return Math.floor(d/1440) + 'd ago';
+}
+function showToast(msg, kind) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+                     background:${kind==='error'?'#dc2626':'#111'};color:#fff;
+                     padding:10px 20px;border-radius:6px;z-index:9999;font-size:.88rem;`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+init();
+</script>
+</body>
+</html>

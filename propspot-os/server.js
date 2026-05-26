@@ -1,9 +1,11 @@
 require('dotenv').config();
-const express    = require('express');
-const cors       = require('cors');
-const path       = require('path');
-const cloudinary = require('cloudinary').v2;
-const { initDb } = require('./db');
+const express      = require('express');
+const cors         = require('cors');
+const path         = require('path');
+const cookieParser = require('cookie-parser');
+const cloudinary   = require('cloudinary').v2;
+const { initDb }   = require('./db');
+const { redirectExternalToPortal } = require('./middleware/auth');
 
 // ── Cloudinary config (used by /api/photos) ─────────────────────────
 cloudinary.config({
@@ -22,6 +24,7 @@ app.use(cors({ origin: true, credentials: true }));
 // We mount the larger limit only on inbox routes below.
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // ── API Routes ────────────────────────────────────────────────────
 
@@ -53,6 +56,7 @@ app.use('/api/drive',             require('./routes/drive'));
 app.use('/api/mentions',          require('./routes/mentions'));
 app.use('/api/org',               require('./routes/org'));
 app.use('/api/calendar',          require('./routes/calendar'));
+app.use('/api/my-work-orders',    require('./routes/my-work-orders'));
 
 // ── Holdings (full CRUD — replaces stub) ──────────────────────────
 app.use('/api/holdings', require('./routes/holdings'));
@@ -143,6 +147,21 @@ app.use((req, res, next) => {
   if (p.startsWith('/camera'))   return res.sendFile(path.join(__dirname, 'public', 'fieldcam-camera.html'));
   if (p.startsWith('/property')) return res.sendFile(path.join(__dirname, 'public', 'fieldcam-property.html'));
   return res.sendFile(path.join(__dirname, 'public', 'fieldcam.html'));
+});
+
+// ── External-worker routing guard ─────────────────────────────────
+// Soft UX guard: if an external_worker user navigates to any HTML page
+// other than the allowed list, redirect them to /my-work.html. API
+// authorization is handled separately on each route. Must run BEFORE
+// express.static so it can intercept HTML requests before they're served.
+app.use((req, res, next) => {
+  // Only gate HTML navigations. Assets (.js, .css), API (/api/*), and
+  // websocket upgrades fall straight through.
+  if (!req.path.endsWith('.html') && req.path !== '/') return next();
+  return redirectExternalToPortal([
+    '/my-work.html', '/accept-invite.html', '/forgot-password.html',
+    '/reset-password.html', '/login.html', '/index.html', '/'
+  ])(req, res, next);
 });
 
 // ── Static Frontend ────────────────────────────────────────────────
