@@ -4,13 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#61B746">
-  <title>Prop Spot — Mailbox Settings</title>
+  <title>Prop Spot — Inbox Settings</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
-    .am-page { max-width: 960px; }
-    .am-head-actions { display: flex; gap: 8px; align-items: center; }
+    .am-page { max-width: 1040px; }
+    .am-tabs {
+      display: flex; gap: 4px; border-bottom: 1px solid var(--border);
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .am-tab {
+      padding: 10px 16px; font-size: .88rem; font-weight: 500;
+      border: none; background: transparent; color: var(--text-muted);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .am-tab:hover { color: var(--text); }
+    .am-tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
+    .am-head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .am-empty {
       padding: 40px 24px; text-align: center; color: var(--text-muted);
       border: 1px dashed var(--border); border-radius: var(--radius);
@@ -27,7 +40,7 @@
     .am-email { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .am-sub { color: var(--text-muted); font-size: .76rem; }
     .am-meta { color: var(--text-muted); font-size: .8rem; }
-    .am-actions { display: flex; gap: 6px; }
+    .am-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .am-actions .btn { padding: 6px 12px; font-size: .8rem; }
     .am-badge {
       display: inline-block; padding: 2px 8px; border-radius: 999px;
@@ -45,6 +58,46 @@
       padding: 24px; text-align: center; color: var(--text-muted);
       border: 1px dashed var(--border); border-radius: var(--radius);
     }
+
+    /* Alias rows */
+    .alias-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.4fr) auto;
+      gap: 12px; align-items: center;
+      padding: 12px 16px; border-top: 1px solid var(--border);
+    }
+    .alias-row:first-child { border-top: none; }
+    .alias-row .alias-email { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .alias-row select.form-input { padding: 6px 10px; font-size: .85rem; }
+    .alias-section-label {
+      font-size: .8rem; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 14px 16px 6px;
+    }
+
+    /* Shared inbox rows */
+    .si-row {
+      padding: 14px 16px; border-top: 1px solid var(--border);
+    }
+    .si-row:first-child { border-top: none; }
+    .si-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .si-icon { font-size: 1.4rem; }
+    .si-name { font-weight: 600; flex: 1; min-width: 0; }
+    .si-slug { color: var(--text-muted); font-size: .76rem; }
+    .si-members {
+      margin-top: 10px; padding: 10px 12px;
+      background: var(--bg); border-radius: 8px; border: 1px solid var(--border);
+    }
+    .si-member {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 0; font-size: .85rem;
+    }
+    .si-member .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .si-member .owner-tag { font-size: .68rem; padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 600; }
+    .si-add-row { display: flex; gap: 8px; margin-top: 10px; }
+    .si-add-row select { flex: 1; }
+    .si-personal-tag { font-size: .68rem; padding: 1px 8px; border-radius: 999px; background: #dbeafe; color: #1e40af; font-weight: 600; margin-left: 6px; }
+
     @media (max-width: 640px) {
       .am-row {
         grid-template-columns: 1fr auto;
@@ -54,7 +107,25 @@
       .am-row > :nth-child(2) { grid-area: stats; }
       .am-row > :nth-child(3) { grid-area: meta; }
       .am-row > :nth-child(4) { grid-area: actions; }
+      .alias-row {
+        grid-template-columns: 1fr;
+      }
     }
+
+    /* Simple modal */
+    .am-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: none; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .am-modal-backdrop.open { display: flex; }
+    .am-modal {
+      background: var(--surface); border-radius: var(--radius);
+      max-width: 440px; width: calc(100% - 32px); padding: 22px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.2);
+    }
+    .am-modal h3 { margin: 0 0 12px; font-size: 1.05rem; }
+    .am-modal .form-group { margin-bottom: 12px; }
+    .am-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -66,13 +137,16 @@
 <main class="page am-page">
   <div class="section-header" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
     <div>
-      <span class="section-title">Mailbox Settings</span>
-      <div class="text-muted text-sm" style="margin-top:4px;">Connect and manage shared/team Gmail mailboxes.</div>
+      <span class="section-title">Inbox Settings</span>
+      <div class="text-muted text-sm" style="margin-top:4px;">Manage shared mailboxes, alias routing, and user access.</div>
     </div>
-    <div class="am-head-actions">
-      <a class="btn btn-secondary" href="/inbox.html">Back to Inbox</a>
-      <button class="btn btn-primary" id="am-connect-btn">+ Connect Mailbox</button>
-    </div>
+    <a class="btn btn-secondary" href="/inbox.html">Back to Inbox</a>
+  </div>
+
+  <div class="am-tabs" id="am-tabs">
+    <button class="am-tab active" data-tab="mailboxes">Mailboxes</button>
+    <button class="am-tab" data-tab="aliases">Aliases</button>
+    <button class="am-tab" data-tab="shared">Shared Inboxes</button>
   </div>
 
   <div id="am-banner-slot"></div>
@@ -81,33 +155,86 @@
   </div>
 </main>
 
+<!-- Modal: create / rename shared inbox -->
+<div class="am-modal-backdrop" id="si-modal">
+  <div class="am-modal">
+    <h3 id="si-modal-title">New shared inbox</h3>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="si-name" placeholder="e.g. Acquisitions">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Slug</label>
+      <input class="form-input" id="si-slug" placeholder="e.g. acquisitions">
+      <div class="text-muted text-xs" style="margin-top:4px;">Lowercase letters, numbers, and hyphens only.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Icon (emoji)</label>
+      <input class="form-input" id="si-icon" placeholder="📨" maxlength="4">
+    </div>
+    <div class="am-modal-actions">
+      <button class="btn btn-secondary" onclick="closeSiModal()">Cancel</button>
+      <button class="btn btn-primary" id="si-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>window.NAV_CURRENT = 'inbox';</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
+  const STATE = { me: null, mailboxes: [], sharedInboxes: [], aliases: null, users: [], activeTab: 'mailboxes', editingInboxId: null };
+
   async function init() {
-    const me = await requireAuth(); if (!me) return;
+    STATE.me = await requireAuth(); if (!STATE.me) return;
     const wrap = document.getElementById('am-content');
 
-    if (!me.is_owner) {
-      document.getElementById('am-connect-btn').style.display = 'none';
+    if (!STATE.me.is_owner) {
+      document.getElementById('am-tabs').style.display = 'none';
       wrap.innerHTML = `
         <div class="am-not-owner">
-          Only an owner can manage shared mailboxes. Personal Gmail can still
+          Only an owner can manage inbox settings. Personal Gmail can still
           be connected from the <a href="/inbox.html">Inbox</a> page.
         </div>`;
       return;
     }
 
-    // Success bounce from OAuth callback: ?connected=email@domain.com
+    // Tab wiring
+    document.querySelectorAll('.am-tab').forEach(btn => {
+      btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+    });
+
+    // Initial tab from URL hash
+    const initialTab = location.hash.replace('#', '') || 'mailboxes';
+    activateTab(initialTab);
+
+    // Success bounce from OAuth callback
     const params = new URLSearchParams(location.search);
     const justConnected = params.get('connected');
     if (justConnected) {
       document.getElementById('am-banner-slot').innerHTML =
         `<div class="am-banner">Connected <strong>${escHtml(justConnected)}</strong>. It'll start receiving mail within a minute.</div>`;
-      history.replaceState({}, '', location.pathname);
+      history.replaceState({}, '', location.pathname + location.hash);
     }
+  }
 
+  function activateTab(tab) {
+    STATE.activeTab = tab;
+    document.querySelectorAll('.am-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    location.hash = tab;
+    if      (tab === 'mailboxes') renderMailboxesTab();
+    else if (tab === 'aliases')   renderAliasesTab();
+    else if (tab === 'shared')    renderSharedTab();
+  }
+
+  // ───── Mailboxes tab ─────────────────────────────────────────────
+  async function renderMailboxesTab() {
+    const wrap = document.getElementById('am-content');
+    wrap.innerHTML = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn btn-primary" id="am-connect-btn">+ Connect Mailbox</button>
+      </div>
+      <div id="mailboxes-list"><p class="text-muted text-sm">Loading…</p></div>`;
     document.getElementById('am-connect-btn').addEventListener('click', startConnect);
     await loadMailboxes();
   }
@@ -125,21 +252,16 @@
   }
 
   async function loadMailboxes() {
-    const wrap = document.getElementById('am-content');
+    const wrap = document.getElementById('mailboxes-list');
     try {
-      const rows = await apiFetch('/api/inbox/mailboxes');
-      // Show only the shared/team mailboxes here — personal mailboxes are
-      // managed by each user from the Inbox page, not by the org owner.
-      const shared = rows.filter(r => r.connected_by_name && !isPersonal(r));
-      wrap.innerHTML = renderList(rows);
+      STATE.mailboxes = await apiFetch('/api/inbox/mailboxes');
+      wrap.innerHTML = renderMailboxList(STATE.mailboxes);
     } catch (err) {
       wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
 
-  function isPersonal() { return false; } // currently surface all; alias=0 mailboxes are clearly admin's own
-
-  function renderList(rows) {
+  function renderMailboxList(rows) {
     if (!rows.length) {
       return `
         <div class="am-empty">
@@ -148,14 +270,12 @@
           <div class="text-sm">Click <strong>+ Connect Mailbox</strong> above to connect a shared/team Gmail account.</div>
         </div>`;
     }
-    return `<div class="am-card">${rows.map(rowHtml).join('')}</div>`;
+    return `<div class="am-card">${rows.map(mailboxRowHtml).join('')}</div>`;
   }
 
-  function rowHtml(r) {
+  function mailboxRowHtml(r) {
     const statusBadge = badgeFor(r.status);
-    const lastSync = r.last_sync_at
-      ? `Last sync ${timeAgo(r.last_sync_at)}`
-      : 'Never synced';
+    const lastSync = r.last_sync_at ? `Last sync ${timeAgo(r.last_sync_at)}` : 'Never synced';
     const connected = r.connected_at ? `Connected ${formatDate(r.connected_at)}` : '';
     const by = r.connected_by_name ? ` by ${escHtml(r.connected_by_name)}` : '';
     const stats = `${r.message_count.toLocaleString()} message${r.message_count === 1 ? '' : 's'} · ${r.alias_count} alias${r.alias_count === 1 ? '' : 'es'}`;
@@ -177,28 +297,6 @@
         </div>
       </div>`;
   }
-
-  function badgeFor(status) {
-    if (status === 'active' || !status) return '<span class="am-badge ok">Active</span>';
-    if (status === 'error')              return '<span class="am-badge error">Error</span>';
-    return `<span class="am-badge disabled">${escHtml(status)}</span>`;
-  }
-
-  function timeAgo(iso) {
-    const ms = Date.now() - new Date(iso).getTime();
-    if (ms < 60_000) return 'just now';
-    const m = Math.floor(ms / 60_000);
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
-    return `${Math.floor(h / 24)}d ago`;
-  }
-
-  function formatDate(iso) {
-    try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
-  }
-
-  function escAttr(s) { return String(s || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;'); }
 
   async function resyncMailbox(id, btn) {
     btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
@@ -224,6 +322,332 @@
       btn.disabled = false; btn.textContent = orig;
     }
   }
+
+  // ───── Aliases tab ───────────────────────────────────────────────
+  async function renderAliasesTab() {
+    const wrap = document.getElementById('am-content');
+    wrap.innerHTML = `
+      <div class="text-muted text-sm" style="margin-bottom:10px;">
+        Aliases are extra email addresses that deliver into one of your connected mailboxes
+        (e.g. <code>hoa@example.com</code> forwarded to your support account).
+        Route each alias to a shared inbox so messages land in the right place.
+      </div>
+      <div id="aliases-list"><p class="text-muted text-sm">Loading…</p></div>`;
+    await loadAliases();
+  }
+
+  async function loadAliases() {
+    const wrap = document.getElementById('aliases-list');
+    try {
+      const [data, shared] = await Promise.all([
+        apiFetch('/api/inbox/alias-routes'),
+        apiFetch('/api/inbox/shared-inboxes')
+      ]);
+      STATE.aliases = data;
+      STATE.sharedInboxes = shared;
+      wrap.innerHTML = renderAliases(data, shared);
+    } catch (err) {
+      wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderAliases(data, shared) {
+    const teamInboxes = shared.filter(s => !s.owner_user_id);
+    if (!teamInboxes.length) {
+      return `
+        <div class="am-empty">
+          <div style="font-weight:600;margin-bottom:4px;">No shared inboxes yet</div>
+          <div class="text-sm">Create a shared inbox first under the <a href="#shared" onclick="activateTab('shared')">Shared Inboxes</a> tab, then come back here to route aliases.</div>
+        </div>`;
+    }
+    const unroutedHtml = data.unrouted.length
+      ? `
+        <div class="am-card" style="margin-bottom:14px;">
+          <div class="alias-section-label">Unrouted (${data.unrouted.length})</div>
+          ${data.unrouted.map(u => aliasRowHtml(u, null, teamInboxes)).join('')}
+        </div>`
+      : '';
+    const routedHtml = data.routed.length
+      ? `
+        <div class="am-card">
+          <div class="alias-section-label">Routed (${data.routed.length})</div>
+          ${data.routed.map(r => aliasRowHtml(r, r, teamInboxes)).join('')}
+        </div>`
+      : '<div class="am-empty"><div class="text-sm">No aliases routed yet. Mail received at any alias on your mailboxes will appear in the Unrouted list above.</div></div>';
+    return unroutedHtml + routedHtml;
+  }
+
+  function aliasRowHtml(item, routed, teamInboxes) {
+    const selected = routed?.shared_inbox_id || '';
+    const opts = ['<option value="">Choose shared inbox…</option>']
+      .concat(teamInboxes.map(t =>
+        `<option value="${t.id}" ${t.id === selected ? 'selected' : ''}>${escHtml(t.icon || '📨')} ${escHtml(t.name)}</option>`))
+      .join('');
+    const idAttr = routed ? `data-route-id="${routed.id}"` : '';
+    const actionBtn = routed
+      ? `<button class="btn btn-danger" style="padding:6px 12px;font-size:.8rem;" onclick="unrouteAlias('${routed.id}', this)">Unroute</button>`
+      : '';
+    return `
+      <div class="alias-row" ${idAttr}>
+        <div>
+          <div class="alias-email">${escHtml(item.alias_email)}</div>
+          <div class="am-sub">in ${escHtml(item.mailbox_email)}</div>
+        </div>
+        <div class="am-meta">${routed ? 'Routed' : '<span style="color:#b45309;font-weight:500;">Needs routing</span>'}</div>
+        <select class="form-input" onchange="onAliasInboxChange(this, '${item.mailbox_id}', '${escAttr(item.alias_email)}')">
+          ${opts}
+        </select>
+        <div>${actionBtn}</div>
+      </div>`;
+  }
+
+  async function onAliasInboxChange(sel, mailboxId, aliasEmail) {
+    const inboxId = sel.value;
+    if (!inboxId) return; // user picked the placeholder
+    sel.disabled = true;
+    try {
+      await apiFetch('/api/inbox/alias-routes', {
+        method: 'POST',
+        body: JSON.stringify({ mailbox_id: mailboxId, alias_email: aliasEmail, shared_inbox_id: inboxId })
+      });
+      showToast('Alias routed');
+      await loadAliases();
+    } catch (err) {
+      showToast(err.message, 'error');
+      sel.disabled = false;
+    }
+  }
+
+  async function unrouteAlias(routeId, btn) {
+    if (!confirm('Stop routing this alias? Existing threads stay where they are.')) return;
+    btn.disabled = true;
+    try {
+      await apiFetch(`/api/inbox/alias-routes/${routeId}`, { method: 'DELETE' });
+      showToast('Alias unrouted');
+      await loadAliases();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false;
+    }
+  }
+
+  // ───── Shared inboxes tab ────────────────────────────────────────
+  async function renderSharedTab() {
+    const wrap = document.getElementById('am-content');
+    wrap.innerHTML = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn btn-primary" onclick="openSiModal()">+ New Shared Inbox</button>
+      </div>
+      <div id="shared-list"><p class="text-muted text-sm">Loading…</p></div>`;
+    await loadShared();
+  }
+
+  async function loadShared() {
+    const wrap = document.getElementById('shared-list');
+    try {
+      const [shared, users] = await Promise.all([
+        apiFetch('/api/inbox/shared-inboxes'),
+        apiFetch('/api/users')
+      ]);
+      STATE.sharedInboxes = shared;
+      STATE.users = users.filter(u => u.is_active !== false);
+      const teamInboxes = shared.filter(s => !s.owner_user_id);
+      const personalInboxes = shared.filter(s => s.owner_user_id);
+      wrap.innerHTML = renderSharedList(teamInboxes, personalInboxes);
+      teamInboxes.forEach(i => loadMembersFor(i.id));
+    } catch (err) {
+      wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderSharedList(team, personal) {
+    if (!team.length && !personal.length) {
+      return `
+        <div class="am-empty">
+          <div style="font-size:2rem;margin-bottom:8px;">📨</div>
+          <div style="font-weight:600;margin-bottom:4px;">No shared inboxes yet</div>
+          <div class="text-sm">Click <strong>+ New Shared Inbox</strong> to create one (e.g. Acquisitions, Support).</div>
+        </div>`;
+    }
+    const teamHtml = team.length ? `
+      <div class="am-card" style="margin-bottom:14px;">
+        ${team.map(siRowHtml).join('')}
+      </div>` : '';
+    const personalHtml = personal.length ? `
+      <div class="alias-section-label">Personal inboxes</div>
+      <div class="am-card">
+        ${personal.map(siRowHtml).join('')}
+      </div>` : '';
+    return teamHtml + personalHtml;
+  }
+
+  function siRowHtml(i) {
+    const isPersonal = !!i.owner_user_id;
+    const personalTag = isPersonal ? '<span class="si-personal-tag">Personal</span>' : '';
+    const actions = isPersonal ? '' : `
+      <div class="am-actions">
+        <button class="btn btn-secondary" onclick='openSiModal(${JSON.stringify(i)})'>Edit</button>
+        <button class="btn btn-danger" onclick="deleteSharedInbox('${i.id}', '${escAttr(i.name)}', this)">Delete</button>
+      </div>`;
+    const membersBlock = isPersonal ? '' : `
+      <div class="si-members" id="members-${i.id}">
+        <p class="text-muted text-xs">Loading members…</p>
+      </div>`;
+    return `
+      <div class="si-row" data-id="${i.id}">
+        <div class="si-head">
+          <div class="si-icon">${escHtml(i.icon || '📨')}</div>
+          <div class="si-name">${escHtml(i.name)} ${personalTag}<div class="si-slug">/${escHtml(i.slug)}</div></div>
+          ${actions}
+        </div>
+        ${membersBlock}
+      </div>`;
+  }
+
+  async function loadMembersFor(inboxId) {
+    const target = document.getElementById(`members-${inboxId}`);
+    if (!target) return;
+    try {
+      const members = await apiFetch(`/api/inbox/shared-inboxes/${inboxId}/members`);
+      target.innerHTML = renderMembers(inboxId, members);
+    } catch (err) {
+      target.innerHTML = `<p class="text-muted text-xs">Couldn't load members: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderMembers(inboxId, members) {
+    const memberIds = new Set(members.map(m => m.id));
+    const candidates = STATE.users.filter(u => !memberIds.has(u.id) && !u.is_owner);
+    const list = members.length
+      ? members.map(m => `
+        <div class="si-member">
+          <div class="grow">
+            ${escHtml(m.full_name || m.email)}
+            ${m.source === 'owner' ? '<span class="owner-tag">Owner</span>' : ''}
+          </div>
+          ${m.source === 'owner'
+            ? '<span class="text-muted text-xs">Always has access</span>'
+            : `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.78rem;" onclick="revokeMember('${inboxId}', '${m.id}', this)">Remove</button>`}
+        </div>`).join('')
+      : '<p class="text-muted text-xs">No members yet.</p>';
+    const addRow = candidates.length ? `
+      <div class="si-add-row">
+        <select class="form-input" id="add-${inboxId}">
+          <option value="">Add a user…</option>
+          ${candidates.map(u => `<option value="${u.id}">${escHtml(u.full_name || u.email)}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" style="padding:6px 14px;font-size:.85rem;" onclick="addMember('${inboxId}')">Add</button>
+      </div>` : '';
+    return list + addRow;
+  }
+
+  async function addMember(inboxId) {
+    const sel = document.getElementById(`add-${inboxId}`);
+    const userId = sel.value;
+    if (!userId) { showToast('Pick a user first', 'error'); return; }
+    sel.disabled = true;
+    try {
+      await apiFetch(`/api/inbox/shared-inboxes/${inboxId}/members`, {
+        method: 'PATCH',
+        body: JSON.stringify({ user_id: userId, action: 'grant' })
+      });
+      showToast('Access granted');
+      await loadMembersFor(inboxId);
+    } catch (err) {
+      showToast(err.message, 'error');
+      sel.disabled = false;
+    }
+  }
+
+  async function revokeMember(inboxId, userId, btn) {
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+    try {
+      await apiFetch(`/api/inbox/shared-inboxes/${inboxId}/members`, {
+        method: 'PATCH',
+        body: JSON.stringify({ user_id: userId, action: 'revoke' })
+      });
+      showToast('Access revoked');
+      await loadMembersFor(inboxId);
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
+  // ───── Shared inbox create/edit modal ────────────────────────────
+  function openSiModal(existing) {
+    STATE.editingInboxId = existing?.id || null;
+    document.getElementById('si-modal-title').textContent = existing ? 'Edit shared inbox' : 'New shared inbox';
+    document.getElementById('si-name').value  = existing?.name  || '';
+    document.getElementById('si-slug').value  = existing?.slug  || '';
+    document.getElementById('si-icon').value  = existing?.icon  || '📨';
+    document.getElementById('si-slug').disabled = !!existing; // slug is immutable after create
+    document.getElementById('si-modal').classList.add('open');
+  }
+  function closeSiModal() {
+    document.getElementById('si-modal').classList.remove('open');
+  }
+  document.getElementById('si-save-btn').addEventListener('click', async () => {
+    const name = document.getElementById('si-name').value.trim();
+    const slug = document.getElementById('si-slug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const icon = document.getElementById('si-icon').value.trim() || '📨';
+    if (!name) { showToast('Name is required', 'error'); return; }
+    if (!STATE.editingInboxId && !slug) { showToast('Slug is required', 'error'); return; }
+    const btn = document.getElementById('si-save-btn');
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
+    try {
+      if (STATE.editingInboxId) {
+        await apiFetch(`/api/inbox/shared-inboxes/${STATE.editingInboxId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name, icon })
+        });
+        showToast('Shared inbox updated');
+      } else {
+        await apiFetch('/api/inbox/shared-inboxes', {
+          method: 'POST',
+          body: JSON.stringify({ name, slug, icon })
+        });
+        showToast('Shared inbox created');
+      }
+      closeSiModal();
+      await loadShared();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
+
+  async function deleteSharedInbox(id, name, btn) {
+    if (!confirm(`Delete "${name}"? Threads currently routed here will be orphaned.`)) return;
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = '…';
+    try {
+      await apiFetch(`/api/inbox/shared-inboxes/${id}`, { method: 'DELETE' });
+      showToast('Shared inbox deleted');
+      await loadShared();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+
+  // ───── Helpers ───────────────────────────────────────────────────
+  function badgeFor(status) {
+    if (status === 'active' || !status) return '<span class="am-badge ok">Active</span>';
+    if (status === 'error')              return '<span class="am-badge error">Error</span>';
+    return `<span class="am-badge disabled">${escHtml(status)}</span>`;
+  }
+  function timeAgo(iso) {
+    const ms = Date.now() - new Date(iso).getTime();
+    if (ms < 60_000) return 'just now';
+    const m = Math.floor(ms / 60_000);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+  function formatDate(iso) { try { return new Date(iso).toLocaleDateString(); } catch { return ''; } }
+  function escAttr(s) { return String(s || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;'); }
 
   init();
 </script>
