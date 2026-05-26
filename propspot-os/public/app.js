@@ -403,7 +403,7 @@ const ACTIVITY_ENTITY_NOUN = {
   property: 'property', prospect: 'prospect', lead: 'lead',
   opportunity: 'opportunity', purchase: 'purchase', project: 'project',
   holding: 'holding', contact: 'contact', photo: 'photo',
-  file: 'file', email: 'email', note: 'note'
+  file: 'file', email: 'email', note: 'note', task: 'task'
 };
 const ACTIVITY_FIELD_LABELS = {
   status: 'status', acquisition_status: 'acquisition stage',
@@ -445,10 +445,35 @@ function fmtActivityValue(key, value) {
   return s;
 }
 
+// Task status labels
+const TASK_STATUS_LABELS = {
+  open: 'Open', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled'
+};
+const TASK_PRIORITY_LABELS = {
+  low: 'Low', normal: 'Normal', high: 'High', urgent: 'Urgent'
+};
+
 function describeActivity(r) {
   const action  = r.action || 'changed';
   const ent     = ACTIVITY_ENTITY_NOUN[r.entity_type] || r.entity_type || 'item';
   const payload = (r.payload && typeof r.payload === 'object') ? r.payload : {};
+
+  // ── Task compound actions ──────────────────────────────────────
+  if (action === 'task_created') {
+    const title = payload.title ? ` "<strong>${escHtml(payload.title)}</strong>"` : '';
+    return `<span class="act-verb act-create">created</span> task${title}`;
+  }
+  if (action === 'task_deleted') {
+    const title = payload.title ? ` "<strong>${escHtml(payload.title)}</strong>"` : '';
+    return `<span class="act-verb act-delete">deleted</span> task${title}`;
+  }
+  if (action === 'task_updated') {
+    const parts = [];
+    if (payload.status   != null) parts.push(`status → <strong class="act-value">${escHtml(TASK_STATUS_LABELS[payload.status]   || payload.status)}</strong>`);
+    if (payload.priority != null) parts.push(`priority → <strong class="act-value">${escHtml(TASK_PRIORITY_LABELS[payload.priority] || payload.priority)}</strong>`);
+    if (!parts.length) return `<span class="act-verb">updated</span> a task`;
+    return `<span class="act-verb">updated</span> task · ${parts.join(', ')}`;
+  }
 
   if (action === 'created')          return `<span class="act-verb act-create">created</span> a ${ent}`;
   if (action === 'deleted')          return `<span class="act-verb act-delete">deleted</span> a ${ent}`;
