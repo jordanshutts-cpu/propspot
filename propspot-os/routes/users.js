@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
   try {
     const { rows } = await query(`
       SELECT u.id, u.email, u.full_name, u.is_owner, u.created_at,
-             (u.password_hash IS NOT NULL) AS is_active,
+             (u.password_hash IS NOT NULL OR u.google_sub IS NOT NULL) AS is_active,
              COALESCE(json_agg(
                json_build_object(
                  'app_id', a.id, 'app_slug', a.slug, 'slug', a.slug,
@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { rows } = await query(`
       SELECT u.id, u.email, u.full_name, u.is_owner, u.created_at,
-             (u.password_hash IS NOT NULL) AS is_active
+             (u.password_hash IS NOT NULL OR u.google_sub IS NOT NULL) AS is_active
         FROM users u WHERE u.id = $1
     `, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
@@ -55,7 +55,9 @@ router.delete('/:id', requireOwner, async (req, res) => {
   }
   try {
     const { rows } = await query(
-      `SELECT id, email, full_name, password_hash IS NOT NULL AS is_active, is_owner
+      `SELECT id, email, full_name,
+              (password_hash IS NOT NULL OR google_sub IS NOT NULL) AS is_active,
+              is_owner
          FROM users WHERE id = $1`,
       [req.params.id]
     );

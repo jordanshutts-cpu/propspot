@@ -59,7 +59,8 @@ router.get('/:id', async (req, res) => {
     let userInfo = null;
     if (cRows[0].user_id) {
       const { rows: u } = await query(
-        `SELECT id, email, full_name, (password_hash IS NOT NULL) AS is_active
+        `SELECT id, email, full_name,
+                (password_hash IS NOT NULL OR google_sub IS NOT NULL) AS is_active
            FROM users WHERE id = $1`, [cRows[0].user_id]
       );
       userInfo = u[0] || null;
