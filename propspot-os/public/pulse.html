@@ -308,12 +308,75 @@
     .ps-upick-email { font-size:.7rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ps-upick-empty { padding:12px; text-align:center; font-size:.8rem; color:var(--text-muted); }
 
-    @media(max-width:640px) {
-      .ps-sidebar { width:190px; flex:0 0 190px; }
-      .ps-ch-desc { display:none; }
+    /* Mobile-only / desktop-only show helpers (used in pulse markup only) */
+    .ps-mobile-only { display:none; }
+
+    /* Mobile hamburger button — bigger tap target than .ps-settings-btn */
+    .ps-hamburger {
+      width:36px; height:36px; border-radius:10px; border:1px solid var(--border);
+      background:var(--surface); display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:background .12s; flex-shrink:0; padding:0; color:var(--text);
     }
-    @media(max-width:480px) {
-      .ps-sidebar { display:none; }
+    .ps-hamburger:hover { background:var(--brand-light); }
+    .ps-hamburger svg { width:20px; height:20px; }
+
+    @media(max-width:768px) {
+      .ps-mobile-only { display:inline-flex !important; align-items:center; justify-content:center; }
+      .ps-desktop-only { display:none !important; }
+
+      /* Let pulse take the whole viewport on mobile — hide the global
+         bottom nav so the chat fills the screen like a native app. */
+      body.os-newlayout main.page.page-pulse-fullscreen,
+      body.os-newchrome main.page.page-pulse-fullscreen {
+        padding:0 !important;
+        max-width:none !important;
+      }
+      body:has(main.page.page-pulse-fullscreen) .mobile-bottom-nav { display:none !important; }
+
+      .pulse-wrap {
+        position:relative;
+        height:calc(100dvh - 56px);
+        height:calc(100vh - 56px);
+        overflow:hidden;
+      }
+
+      /* Sidebar becomes a slide-in drawer from the left. */
+      .ps-sidebar {
+        display:flex !important;
+        position:absolute; inset:0;
+        width:86% !important; max-width:320px !important;
+        flex:none;
+        transform:translateX(-100%);
+        transition:transform .22s ease;
+        z-index:4;
+        box-shadow:2px 0 24px rgba(0,0,0,.22);
+      }
+      .pulse-wrap[data-mobile-view="drawer"] .ps-sidebar { transform:none; }
+
+      /* Main fills the available space; sits beneath the drawer. */
+      .ps-main {
+        position:absolute; inset:0;
+        z-index:1;
+      }
+
+      /* Backdrop behind the drawer. */
+      .ps-mobile-scrim {
+        position:absolute; inset:0;
+        background:rgba(0,0,0,.5);
+        z-index:3;
+        opacity:0; pointer-events:none;
+        transition:opacity .18s ease;
+      }
+      .pulse-wrap[data-mobile-view="drawer"] .ps-mobile-scrim {
+        opacity:1; pointer-events:auto;
+      }
+
+      .ps-ch-desc { display:none; }
+      .ps-main-head { padding:0 12px; gap:8px; }
+    }
+
+    @media(min-width:769px) {
+      .ps-mobile-only { display:none !important; }
     }
   </style>
 </head>
@@ -322,8 +385,9 @@
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
 
-<main class="page">
-  <div class="pulse-wrap">
+<main class="page page-pulse-fullscreen">
+  <div class="pulse-wrap" id="pulse-wrap">
+    <div class="ps-mobile-scrim" onclick="closePulseDrawer()"></div>
 
     <!-- ── Channel sidebar ──────────────────────────────────── -->
     <div class="ps-sidebar">
@@ -338,6 +402,12 @@
 
     <!-- ── Main message area ─────────────────────────────────── -->
     <div class="ps-main" id="ps-main">
+      <div class="ps-main-head ps-mobile-only">
+        <button class="ps-hamburger" onclick="openPulseDrawer()" title="Channels" aria-label="Channels">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="ps-ch-name">Pulse</span>
+      </div>
       <div class="ps-empty" style="height:100%;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <p>Select a channel to start</p>
@@ -560,6 +630,7 @@
     closeSettings(); renderSidebar();
     loadMessages({ channel_id: id });
     satelliteApiFetch('pulse', `/api/pulse/channels/${id}/read`, { method: 'POST' }).catch(() => {});
+    closePulseDrawer();
   }
 
   function openDm(id, name) {
@@ -567,7 +638,21 @@
     closeSettings(); renderSidebar();
     loadMessages({ dm_id: id });
     satelliteApiFetch('pulse', `/api/pulse/dms/${id}/read`, { method: 'POST' }).catch(() => {});
+    closePulseDrawer();
   }
+
+  // ── Mobile drawer (≤768px) ─────────────────────────────────────
+  function setPulseMobileView(state) {
+    const el = document.getElementById('pulse-wrap');
+    if (!el) return;
+    if (state) el.setAttribute('data-mobile-view', state);
+    else el.removeAttribute('data-mobile-view');
+  }
+  function openPulseDrawer()  { setPulseMobileView('drawer'); }
+  function closePulseDrawer() { setPulseMobileView(null); }
+  window.addEventListener('popstate', () => {
+    if (window.matchMedia('(max-width: 768px)').matches) closePulseDrawer();
+  });
 
   // ── Messages ───────────────────────────────────────────────────
   async function loadMessages(scope) {
@@ -578,6 +663,9 @@
 
     document.getElementById('ps-main').innerHTML = `
       <div class="ps-main-head">
+        <button class="ps-hamburger ps-mobile-only" onclick="openPulseDrawer()" title="Channels" aria-label="Channels">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <span class="ps-ch-name">${escHtml(activeScope.name)}</span>
         ${ch?.description ? `<span class="ps-ch-desc">${escHtml(ch.description)}</span>` : ''}
         <span style="flex:1"></span>
