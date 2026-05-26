@@ -1,7 +1,8 @@
 const express = require('express');
-const { query } = require('../db');
+const { query, pool } = require('../db');
 const { requireAuth, requireOwner } = require('../middleware/auth');
 const { logActivity } = require('../lib/activity');
+const { sendInviteToUser } = require('../lib/invites');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -80,6 +81,112 @@ router.delete('/:id', requireOwner, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to uninvite user' });
+  }
+});
+
+// POST /api/users/:id/resend-invite  (owner only)
+// Regenerates the invite token (fresh 48h) and resends the email. Only valid
+// for pending users — accepted users and owners are rejected.
+router.post('/:id/resend-invite', requireOwner, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `SELECT id, email,
+              (password_hash IS NOT NULL OR google_sub IS NOT NULL) AS is_active,
+              is_owner
+         FROM users WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (rows[0].is_active) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'User has already accepted' });
+    }
+    if (rows[0].is_owner) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Cannot resend to an owner' });
+    }
+
+    const { emailSent, inviteLink, email } = await sendInviteToUser({
+      client, userId: req.params.id, inviterUserId: req.userId
+    });
+
+    await client.query('COMMIT');
+
+    await logActivity({
+      actorUserId: req.userId, entityType: 'user', entityId: req.params.id,
+      action: 'invite_resent', payload: { email, email_sent: emailSent }
+    });
+
+    res.json({
+      ok: true,
+      email_sent: emailSent,
+      message: emailSent
+        ? `Invite resent to ${email}`
+        : `No email configured — share this link manually`,
+      invite_link: emailSent ? undefined : inviteLink
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Resend invite error:', err);
+    res.status(500).json({ error: 'Failed to resend invite' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/users/resend-all-pending  (owner only)
+// Resends invites to every pending non-owner user. Continues on per-user failure
+// and reports both successes and failures.
+router.post('/resend-all-pending', requireOwner, async (req, res) => {
+  try {
+    const { rows: pending } = await query(
+      `SELECT id, email FROM users
+        WHERE password_hash IS NULL
+          AND google_sub IS NULL
+          AND is_owner = FALSE
+        ORDER BY created_at`
+    );
+
+    const failed = [];
+    let sent = 0;
+
+    for (const u of pending) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await sendInviteToUser({
+          client, userId: u.id, inviterUserId: req.userId
+        });
+        await client.query('COMMIT');
+
+        if (result.emailSent) {
+          sent += 1;
+          await logActivity({
+            actorUserId: req.userId, entityType: 'user', entityId: u.id,
+            action: 'invite_resent', payload: { email: u.email, email_sent: true }
+          });
+        } else {
+          failed.push({ email: u.email, reason: 'no email server configured' });
+        }
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error(`Resend failed for ${u.email}:`, err.message);
+        failed.push({ email: u.email, reason: err.message });
+      } finally {
+        client.release();
+      }
+    }
+
+    res.json({ attempted: pending.length, sent, failed });
+  } catch (err) {
+    console.error('Bulk resend error:', err);
+    res.status(500).json({ error: 'Failed to bulk resend invites' });
   }
 });
 

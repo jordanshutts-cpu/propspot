@@ -259,22 +259,13 @@ html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
   transition: background 0.12s ease;
 }
 .os-newchrome-workspace:hover { background: #f9fafb; }
-/* Active state when on the dashboard — slim brand accent on the left
-   edge, subtle brand-tinted background. Matches the pill treatment
-   used by nav rows but adapted for the larger workspace tile. */
-.os-newchrome-workspace.active {
-  background: linear-gradient(90deg, rgba(97,183,70,0.08), transparent 80%);
-}
-.os-newchrome-workspace.active::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 28px;
-  background: var(--brand);
-  border-radius: 0 3px 3px 0;
-}
+/* Workspace tile no longer renders a separate "active on dashboard"
+   accent — the logo + workspace name already make it obvious where
+   the dashboard lives, and the green slash visually clashed with the
+   logo in collapsed mode. Kept as no-op rules in case anything else
+   on the page relies on the selectors existing. */
+.os-newchrome-workspace.active { background: transparent; }
+.os-newchrome-workspace.active::before { display: none; }
 .os-newchrome-workspace-logo {
   width: 28px;
   height: 28px;

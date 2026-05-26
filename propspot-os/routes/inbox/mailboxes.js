@@ -175,17 +175,59 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/mailboxes/:id/resync — force a sync cycle for this mailbox.
-router.post('/:id/resync', requireOwner, async (req, res) => {
+// Owners can resync any mailbox; non-owners can resync the mailboxes
+// they themselves connected (their personal mailbox).
+router.post('/:id/resync', async (req, res) => {
+  // Check ownership: org owner OR the user who connected this mailbox.
+  const { rows: meRows } = await query(`SELECT is_owner FROM users WHERE id = $1`, [req.userId]);
+  const isOwner = !!meRows[0]?.is_owner;
+  if (!isOwner) {
+    const { rows: own } = await query(
+      `SELECT 1 FROM inbox_mailboxes WHERE id = $1 AND connected_by = $2`,
+      [req.params.id, req.userId]
+    );
+    if (!own[0]) return res.status(403).json({ error: 'Not your mailbox' });
+  }
   const { rows } = await query(
     `UPDATE inbox_mailboxes
         SET sync_state = '{}'::jsonb, status = 'active', status_reason = NULL
       WHERE id = $1
-      RETURNING id`,
+      RETURNING id, email, last_sync_at, status, status_reason`,
     [req.params.id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Mailbox not found' });
-  // Kick the worker to pick it up on its next tick.
-  res.json({ success: true, queued: true });
+  res.json({ success: true, queued: true, mailbox: rows[0] });
+});
+
+// POST /api/mailboxes/personal/resync — kick a fresh sync on EVERY
+// mailbox this user connected. Convenience for the "Refresh inbox"
+// button in the personal section.
+router.post('/personal/resync', async (req, res) => {
+  const { rows } = await query(
+    `UPDATE inbox_mailboxes
+        SET sync_state = '{}'::jsonb, status = 'active', status_reason = NULL
+      WHERE connected_by = $1
+      RETURNING id, email, status, last_sync_at`,
+    [req.userId]
+  );
+  res.json({ success: true, count: rows.length, mailboxes: rows });
+});
+
+// GET /api/mailboxes/personal/status — visibility for the user's own
+// mailboxes. Returns last_sync_at + status so the UI can show
+// "synced 2m ago" or surface an error reason.
+router.get('/personal/status', async (req, res) => {
+  const { rows } = await query(
+    `SELECT m.id, m.email, m.last_sync_at, m.status, m.status_reason,
+            i.id   AS inbox_id, i.slug AS inbox_slug, i.name AS inbox_name
+       FROM inbox_mailboxes m
+  LEFT JOIN inbox_alias_routes r ON r.mailbox_id      = m.id
+  LEFT JOIN inbox_shared       i ON i.id              = r.shared_inbox_id
+                                AND i.owner_user_id   = $1
+      WHERE m.connected_by = $1`,
+    [req.userId]
+  );
+  res.json(rows);
 });
 
 // DELETE /api/mailboxes/:id — disconnect a mailbox (cascades threads/messages).
