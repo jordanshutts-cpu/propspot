@@ -1280,6 +1280,20 @@ CREATE TABLE IF NOT EXISTS task_mentions (
 );
 CREATE INDEX IF NOT EXISTS task_mentions_user_idx ON task_mentions(mentioned_user_id);
 
+-- ── Task Projects (Kanban columns) ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS task_projects (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  description TEXT,
+  color       TEXT DEFAULT '#2563eb',
+  visibility  TEXT NOT NULL DEFAULT 'team' CHECK (visibility IN ('team','private')),
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES task_projects(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS tasks_project_idx ON tasks(project_id);
+
 -- ── Drive: folders ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS drive_folders (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),

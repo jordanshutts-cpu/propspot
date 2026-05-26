@@ -48,6 +48,7 @@ app.use('/api/pinned',            require('./routes/pinned'));
 app.use('/api/recent',            require('./routes/recent'));
 app.use('/api/sidebar-counts',    require('./routes/sidebar-counts'));
 app.use('/api/tasks',             require('./routes/tasks'));
+app.use('/api/task-projects',    require('./routes/task-projects'));
 app.use('/api/drive',             require('./routes/drive'));
 app.use('/api/mentions',          require('./routes/mentions'));
 
