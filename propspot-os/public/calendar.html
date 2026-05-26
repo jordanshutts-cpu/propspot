@@ -55,7 +55,17 @@
 
     .personal-soon { text-align:center; padding:20px; background:var(--bg); border-radius:8px; color:var(--text-muted); font-size:.85rem; margin-top:12px; }
 
-    @media(max-width:640px) { .cal-day { min-height:60px; } .cal-event { font-size:.6rem; padding:1px 3px; } .form-row { flex-direction:column; } }
+    .cal-nav-btn svg { display:block; width:14px; height:14px; }
+
+    @media(max-width:768px) {
+      .cal-day { min-height:60px; }
+      .cal-event { font-size:.6rem; padding:1px 3px; }
+      .form-row { flex-direction:column; gap:10px; }
+      .modal-overlay { padding:10px; }
+      .modal-box { padding:16px; max-height:94vh; }
+      .modal-head { margin-bottom:12px; }
+      .form-input { font-size:16px; }  /* prevent iOS zoom on focus */
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -70,9 +80,13 @@
   </div>
 
   <div class="cal-header">
-    <button class="cal-nav-btn" onclick="prevMonth()">&larr;</button>
+    <button class="cal-nav-btn" onclick="prevMonth()" aria-label="Previous month" title="Previous month">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
     <h2 id="cal-month-label"></h2>
-    <button class="cal-nav-btn" onclick="nextMonth()">&rarr;</button>
+    <button class="cal-nav-btn" onclick="nextMonth()" aria-label="Next month" title="Next month">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
     <button class="cal-nav-btn" onclick="goToday()">Today</button>
     <div class="cal-tabs">
       <button class="cal-tab active" id="tab-company" onclick="setCalView('company')">Company</button>
@@ -200,11 +214,31 @@ function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11
 function nextMonth() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } loadMonth(); }
 function goToday() { var n = new Date(); currentYear = n.getFullYear(); currentMonth = n.getMonth(); loadMonth(); }
 
+// ISO date string (YYYY-MM-DD) for a Date in local time.
+function ymd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// First Sunday on or before the 1st of the month, and last Saturday on or
+// after the last day — the visible grid bounds.
+function gridBounds(year, month) {
+  var first = new Date(year, month, 1);
+  var last = new Date(year, month + 1, 0);
+  var start = new Date(first);
+  start.setDate(first.getDate() - first.getDay());
+  var end = new Date(last);
+  end.setDate(last.getDate() + (6 - last.getDay()));
+  return { start: start, end: end };
+}
+
 async function loadMonth() {
-  var m = String(currentMonth + 1).padStart(2, '0');
   document.getElementById('cal-month-label').textContent = MONTHS[currentMonth] + ' ' + currentYear;
+  var b = gridBounds(currentYear, currentMonth);
+  // 'to' is exclusive in the SQL query (start_at < end), so push one day past last visible.
+  var toExclusive = new Date(b.end);
+  toExclusive.setDate(toExclusive.getDate() + 1);
   try {
-    events = await apiFetch('/api/calendar?month=' + currentYear + '-' + m);
+    events = await apiFetch('/api/calendar?from=' + ymd(b.start) + '&to=' + ymd(toExclusive));
     renderCalendar();
   } catch(e) {
     document.getElementById('cal-content').innerHTML = '<p class="text-muted">Error loading events</p>';
@@ -212,42 +246,29 @@ async function loadMonth() {
 }
 
 function renderCalendar() {
-  var firstDay = new Date(currentYear, currentMonth, 1).getDay();
-  var daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  var prevDays = new Date(currentYear, currentMonth, 0).getDate();
+  var b = gridBounds(currentYear, currentMonth);
   var today = new Date();
-  var todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+  var todayStr = ymd(today);
 
   var html = '<div class="cal-grid">';
   DAYS.forEach(function(d) { html += '<div class="cal-day-header">' + d + '</div>'; });
 
-  // Previous month padding
-  for (var i = firstDay - 1; i >= 0; i--) {
-    html += '<div class="cal-day other-month"><div class="cal-day-num">' + (prevDays - i) + '</div></div>';
-  }
-
-  // Current month days
-  for (var d = 1; d <= daysInMonth; d++) {
-    var dateStr = currentYear + '-' + String(currentMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  // Iterate every cell in the grid (Sun..Sat for each visible week)
+  var cur = new Date(b.start);
+  while (cur <= b.end) {
+    var dateStr = ymd(cur);
     var isToday = dateStr === todayStr;
-    var dayEvents = events.filter(function(e) {
-      var eDate = e.start_at.split('T')[0];
-      return eDate === dateStr;
-    });
-    html += '<div class="cal-day' + (isToday ? ' today' : '') + '" onclick="openNewEvent(\'' + dateStr + '\')">';
-    html += '<div class="cal-day-num">' + d + '</div>';
+    var isThisMonth = cur.getMonth() === currentMonth;
+    var dayEvents = events.filter(function(e) { return e.start_at.split('T')[0] === dateStr; });
+    var classes = 'cal-day' + (isToday ? ' today' : '') + (isThisMonth ? '' : ' other-month');
+    html += '<div class="' + classes + '" onclick="openNewEvent(\'' + dateStr + '\')">';
+    html += '<div class="cal-day-num">' + cur.getDate() + '</div>';
     dayEvents.slice(0, 3).forEach(function(e) {
       html += '<div class="cal-event type-' + e.event_type + '" onclick="event.stopPropagation();viewEvent(\'' + e.id + '\')" title="' + esc(e.title) + '">' + esc(e.title) + '</div>';
     });
     if (dayEvents.length > 3) html += '<div class="cal-more">+' + (dayEvents.length - 3) + ' more</div>';
     html += '</div>';
-  }
-
-  // Next month padding
-  var totalCells = firstDay + daysInMonth;
-  var remaining = (7 - (totalCells % 7)) % 7;
-  for (var i = 1; i <= remaining; i++) {
-    html += '<div class="cal-day other-month"><div class="cal-day-num">' + i + '</div></div>';
+    cur.setDate(cur.getDate() + 1);
   }
 
   html += '</div>';
@@ -278,6 +299,20 @@ function openNewEvent(dateStr) {
 }
 function closeEventModal() { document.getElementById('modal-event').classList.remove('open'); }
 document.getElementById('modal-event').addEventListener('click', function(e) { if (e.target === e.currentTarget) closeEventModal(); });
+
+// When user picks a start time, default end to +1 hour same day (unless
+// they've already typed an end time themselves).
+document.getElementById('e-start').addEventListener('change', function(e) {
+  var endEl = document.getElementById('e-end');
+  if (endEl.value) return;        // don't clobber a manual end
+  if (!e.target.value) return;
+  var d = new Date(e.target.value);
+  if (isNaN(d)) return;
+  d.setHours(d.getHours() + 1);
+  var pad = function(n) { return String(n).padStart(2, '0'); };
+  endEl.value = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate())
+              + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+});
 
 async function saveEvent() {
   var title = document.getElementById('e-title').value.trim();

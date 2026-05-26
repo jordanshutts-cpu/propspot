@@ -6,11 +6,15 @@ const router = express.Router();
 router.use(requireAuth);
 
 // GET /api/calendar?month=2026-05&visibility=company
+//   or  /api/calendar?from=2026-04-26&to=2026-06-07  (preferred for grid views)
 router.get('/', async (req, res) => {
   try {
-    const { month, visibility } = req.query;
+    const { month, from, to, visibility } = req.query;
     let start, end;
-    if (month) {
+    if (from && to) {
+      start = from;
+      end = to;
+    } else if (month) {
       start = month + '-01';
       const d = new Date(start);
       d.setMonth(d.getMonth() + 1);
