@@ -58,6 +58,34 @@ const RENTAL_STRATEGIES = new Set(['LTR', 'STR', 'LTR Fund I']);
 // Flip-indicating strategies.
 const FLIP_STRATEGIES = new Set(["Fix N' Flip", 'Wholesale', 'Wholetail']);
 
+// ── Allowlist for PATCH /api/properties/:id ──────────────────────────────────
+// Anything not in this list is silently ignored by the route. Keep in sync
+// with the columns you actually want callers to write — the route uses this
+// to prevent random fields (created_by, normalized_address, etc.) from being
+// overwritten by the client.
+const PATCHABLE_FIELDS = [
+  // Address
+  'address_line1', 'unit', 'city', 'state', 'zip', 'parcel_id', 'county', 'tms',
+  'lat', 'lng', 'cover_url', 'notes', 'display_name',
+  // Status / lifecycle
+  'status', 'acquisition_status', 'lockbox_code',
+  // Strategy + classification
+  'strategy', 'property_type', 'data_source', 'conversion_method',
+  'investment_type',
+  // Contacts
+  'lender_contact_id', 'seller_contact_id', 'owner_contact_id',
+  'acquisition_agent_contact_id',
+  // Dates + prices
+  'purchase_date', 'purchase_price', 'sold_date', 'sold_price',
+  // Lender / financing
+  'bridge_origination_fee', 'loan_servicing_fee', 'reno_holdback',
+  'total_borrowed', 'purchase_loan_amount', 'lender_arv', 'interest_rate',
+  // Renovations
+  'reno_budget', 'reno_spent', 'reno_draws_received', 'uw_arv', 'dscr_arv',
+  // External refs
+  'companycam_project_id', 'owner',
+];
+
 module.exports = {
   DEFAULT_TRACKER_XLSX,
   TRACKER_COL,
@@ -66,4 +94,5 @@ module.exports = {
   RENTAL_STATUSES,
   RENTAL_STRATEGIES,
   FLIP_STRATEGIES,
+  PATCHABLE_FIELDS,
 };
