@@ -43,6 +43,8 @@
     .bdg-st-in_progress { background:#fef3c7; color:#92400e; }
     .bdg-st-done        { background:#dcfce7; color:#15803d; }
     .bdg-st-cancelled   { background:var(--border); color:var(--text-muted); }
+    .bdg-vis-team    { background:#dbeafe; color:#1e40af; }
+    .bdg-vis-private { background:#f3e8ff; color:#7c3aed; }
     .due-badge { font-size:.72rem; color:var(--text-muted); }
     .due-badge.overdue { color:#dc2626; font-weight:600; }
     .avatar-xs { width:20px; height:20px; border-radius:50%; object-fit:cover; }
@@ -138,6 +140,8 @@
     <button class="pill" data-f="done">Done</button>
     <button class="pill" data-f="mine">Assigned to Me</button>
     <button class="pill" data-f="created">Created by Me</button>
+    <button class="pill" data-f="team">Team</button>
+    <button class="pill" data-f="private">Private</button>
   </div>
 
   <div id="list"><p class="text-muted text-sm">Loading...</p></div>
@@ -187,6 +191,13 @@
             <option value="">-- None --</option>
           </select>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Visibility</label>
+        <select class="form-input" id="c-visibility">
+          <option value="team">Team — visible to everyone</option>
+          <option value="private">Private — only me &amp; assignee</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">Requirements / Sub-tasks</label>
@@ -284,6 +295,8 @@ function filterTasks() {
     case 'done': return allTasks.filter(t => t.status === 'done');
     case 'mine': return allTasks.filter(t => t.assigned_to === currentUser.id && t.status !== 'done' && t.status !== 'cancelled');
     case 'created': return allTasks.filter(t => t.created_by === currentUser.id);
+    case 'team': return allTasks.filter(t => t.visibility === 'team' && t.status !== 'done' && t.status !== 'cancelled');
+    case 'private': return allTasks.filter(t => t.visibility === 'private');
     default: return allTasks;
   }
 }
@@ -310,6 +323,7 @@ function renderList() {
           <div class="task-title ${isDone ? 'done' : ''}">${esc(t.title)}</div>
           <div class="task-sub">${t.description ? esc(t.description.substring(0, 80)) + (t.description.length > 80 ? '...' : '') : ''}</div>
           <div class="task-tags">
+            <span class="badge-xs bdg-vis-${t.visibility || 'team'}">${t.visibility === 'private' ? 'Private' : 'Team'}</span>
             <span class="badge-xs bdg-pri-${t.priority}">${PRI_LBL[t.priority]}</span>
             <span class="badge-xs bdg-st-${t.status}">${STATUS_LBL[t.status]}</span>
             ${t.due_date ? `<span class="due-badge ${isOverdue ? 'overdue' : ''}">Due ${formatDate(t.due_date)}</span>` : ''}
@@ -358,6 +372,7 @@ function openEdit(task) {
   document.getElementById('c-due').value = task.due_date || '';
   document.getElementById('c-assign').value = task.assigned_to || '';
   document.getElementById('c-property').value = task.property_id || '';
+  document.getElementById('c-visibility').value = task.visibility || 'team';
   document.getElementById('c-items').innerHTML = '';
   if (task.items) {
     task.items.forEach((item, i) => {
@@ -378,6 +393,7 @@ function formHasData() {
     document.getElementById('c-assign').value ||
     document.getElementById('c-property').value ||
     document.getElementById('c-priority').value !== 'normal' ||
+    document.getElementById('c-visibility').value !== 'team' ||
     document.querySelectorAll('#c-items input').length > 0 ||
     queuedFiles.length > 0;
 }
@@ -453,6 +469,7 @@ async function submitCreate(e) {
         due_date: document.getElementById('c-due').value || null,
         assigned_to: document.getElementById('c-assign').value || null,
         property_id: document.getElementById('c-property').value || null,
+        visibility: document.getElementById('c-visibility').value,
       })});
       // Sync items: delete removed, update existing, add new
       const existing = await apiFetch(`/api/tasks/${editingTaskId}`);
@@ -488,6 +505,7 @@ async function submitCreate(e) {
         due_date: document.getElementById('c-due').value || null,
         assigned_to: document.getElementById('c-assign').value || null,
         property_id: document.getElementById('c-property').value || null,
+        visibility: document.getElementById('c-visibility').value,
         items: items.map(i => ({ text: i.text }))
       })});
       // Upload queued files
@@ -559,6 +577,10 @@ function renderDetail(task) {
         ${usersCache.map(u => `<option value="${u.id}" ${task.assigned_to===u.id?'selected':''}>${esc(u.full_name || u.email)}</option>`).join('')}
       </select>
       <input type="date" class="form-input" style="width:auto;padding:4px 10px;font-size:.8rem;" value="${task.due_date||''}" onchange="updateTask('${task.id}','due_date',this.value)">
+      <select class="form-input" style="width:auto;padding:4px 10px;font-size:.8rem;" onchange="updateTask('${task.id}','visibility',this.value)">
+        <option value="team" ${(task.visibility||'team')==='team'?'selected':''}>Team</option>
+        <option value="private" ${task.visibility==='private'?'selected':''}>Private</option>
+      </select>
     </div>
 
     ${task.property_address ? `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:6px;border:1px solid var(--border);">

@@ -1234,6 +1234,7 @@ CREATE INDEX IF NOT EXISTS tasks_assigned_idx ON tasks(assigned_to);
 CREATE INDEX IF NOT EXISTS tasks_created_by_idx ON tasks(created_by);
 CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status);
 CREATE INDEX IF NOT EXISTS tasks_due_date_idx ON tasks(due_date);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'team' CHECK (visibility IN ('team','private'));
 
 CREATE TABLE IF NOT EXISTS task_items (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
