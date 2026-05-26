@@ -19,7 +19,41 @@ async function hydrateMessage(row) {
     [row.sender_id]
   );
   const s = rows[0] || {};
-  return { ...row, sender_name: s.full_name || s.email || 'Unknown', sender_email: s.email || null };
+  const reactions = (await loadReactionsForMessages([row.id])).get(row.id) || [];
+  return {
+    ...row,
+    sender_name: s.full_name || s.email || 'Unknown',
+    sender_email: s.email || null,
+    reactions
+  };
+}
+
+// Batch-load reactions for many messages at once. Returns Map<messageId, [{emoji, count, users}, ...]>.
+async function loadReactionsForMessages(messageIds) {
+  if (!messageIds.length) return new Map();
+  const { rows } = await query(
+    `SELECT r.message_id, r.emoji, r.user_id, u.full_name, u.email
+       FROM chat_reactions r
+       LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.message_id = ANY($1::uuid[])
+      ORDER BY r.created_at ASC`,
+    [messageIds]
+  );
+  // Group: msgId -> emoji -> [users]
+  const byMsg = new Map();
+  for (const r of rows) {
+    if (!byMsg.has(r.message_id)) byMsg.set(r.message_id, new Map());
+    const em = byMsg.get(r.message_id);
+    if (!em.has(r.emoji)) em.set(r.emoji, []);
+    em.get(r.emoji).push({ user_id: r.user_id, name: r.full_name || r.email || 'Unknown' });
+  }
+  const result = new Map();
+  for (const [msgId, emojiMap] of byMsg) {
+    result.set(msgId, Array.from(emojiMap, ([emoji, users]) => ({
+      emoji, count: users.length, users
+    })));
+  }
+  return result;
 }
 
 // GET /api/pulse/entity-threads?type=inbox_thread&id=<uuid>
@@ -51,10 +85,15 @@ router.get('/', async (req, res) => {
     ORDER BY m.created_at ASC
     `, [access.entityThreadId]);
 
+    // Batch-load reactions for every message in one query so the widget
+    // can render the chips without round-tripping per message.
+    const rxByMsg = await loadReactionsForMessages(mRows.map(m => m.id));
+    const messages = mRows.map(m => ({ ...m, reactions: rxByMsg.get(m.id) || [] }));
+
     // caller_user_id lets the widget show edit/delete controls only on
     // messages the caller authored (server-side PATCH/DELETE re-check the
     // same condition; this is just for hiding the UI).
-    res.json({ thread: tRows[0], messages: mRows, caller_user_id: req.userId });
+    res.json({ thread: tRows[0], messages, caller_user_id: req.userId });
   } catch (err) {
     console.error('entity-threads GET failed:', err);
     res.status(500).json({ error: 'Failed to load entity thread' });
@@ -247,6 +286,68 @@ router.post('/mark-read', async (req, res) => {
   } catch (err) {
     console.error('mark-read failed:', err);
     res.status(500).json({ error: 'Failed to mark read' });
+  }
+});
+
+// POST /api/pulse/entity-threads/messages/:id/react  { emoji } — toggle reaction
+router.post('/messages/:id/react', async (req, res) => {
+  const messageId = req.params.id;
+  const { emoji } = req.body || {};
+  if (!emoji || typeof emoji !== 'string' || [...emoji].length > 4) {
+    return res.status(400).json({ error: 'valid emoji required' });
+  }
+  try {
+    // Find the message + its entity thread so we can authz-check access.
+    const { rows: msgRows } = await query(
+      `SELECT m.id, m.entity_thread_id, m.deleted_at,
+              t.entity_type, t.entity_id
+         FROM chat_messages m
+         JOIN pulse_entity_threads t ON t.id = m.entity_thread_id
+        WHERE m.id = $1`,
+      [messageId]
+    );
+    if (!msgRows.length || msgRows[0].deleted_at) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    const msg = msgRows[0];
+    const access = await canAccessEntity({
+      userId: req.userId,
+      entityType: msg.entity_type,
+      entityId: msg.entity_id
+    });
+    if (!access.allowed) return res.status(403).json({ error: 'No access' });
+
+    // Toggle: remove if present, add otherwise.
+    const existing = await query(
+      `SELECT id FROM chat_reactions
+        WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
+      [messageId, req.userId, emoji]
+    );
+    if (existing.rows.length) {
+      await query(
+        `DELETE FROM chat_reactions
+          WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
+        [messageId, req.userId, emoji]
+      );
+    } else {
+      await query(
+        `INSERT INTO chat_reactions (message_id, user_id, emoji)
+         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [messageId, req.userId, emoji]
+      );
+    }
+
+    const reactions = (await loadReactionsForMessages([messageId])).get(messageId) || [];
+    hub.publish(streamKey(msg.entity_thread_id), {
+      type: 'entity_thread.reaction_update',
+      entity_thread_id: msg.entity_thread_id,
+      message_id: messageId,
+      reactions
+    });
+    res.json({ ok: true, reactions });
+  } catch (err) {
+    console.error('entity-threads react failed:', err);
+    res.status(500).json({ error: 'Failed to toggle reaction' });
   }
 });
 
