@@ -501,6 +501,11 @@
     } catch (e) { return 0; }
   }
 
+  async function fetchOrg() {
+    try { return IS_SATELLITE ? await osFetch('/api/org') : await apiFetch('/api/org'); }
+    catch (e) { return { company_name: 'My Company', company_logo_url: null }; }
+  }
+
   // ── Pin-a-property dialog ───────────────────────────────────────
   let _allPropertiesCache = null;
   async function loadAllPropertiesOnce() {
@@ -741,8 +746,8 @@
     const user = getCachedUser() || {};
 
     // Kick off all data fetches in parallel.
-    const [counts, pinned, recent, total] = await Promise.all([
-      fetchCounts(), fetchPinned(), fetchRecent(), fetchTotal()
+    const [counts, pinned, recent, total, org] = await Promise.all([
+      fetchCounts(), fetchPinned(), fetchRecent(), fetchTotal(), fetchOrg()
     ]);
 
     // Play notification sound when new mentions or inbox items arrive
@@ -772,10 +777,12 @@
         <a class="os-newchrome-workspace ${window.NAV_CURRENT === 'dashboard' ? 'active' : ''}"
            href="/dashboard.html"
            data-osnav="dashboard"
-           title="Restoration Homes · Home">
-          <div class="os-newchrome-workspace-logo">R</div>
+           title="${escHtml(org.company_name || 'My Company')} · Home">
+          ${org.company_logo_url
+            ? `<img class="os-newchrome-workspace-logo-img" src="${org.company_logo_url}" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">`
+            : `<div class="os-newchrome-workspace-logo">${escHtml((org.company_name || 'M')[0])}</div>`}
           <div class="os-newchrome-workspace-text">
-            <div class="os-newchrome-workspace-name">Restoration Homes</div>
+            <div class="os-newchrome-workspace-name">${escHtml(org.company_name || 'My Company')}</div>
             <div class="os-newchrome-workspace-user">${escHtml(user.full_name || user.email || 'Signed in')}</div>
           </div>
         </a>

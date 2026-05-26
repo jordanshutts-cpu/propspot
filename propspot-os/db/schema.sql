@@ -6,6 +6,16 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- ── Org Settings (singleton row — one per workspace) ──────────────────
+CREATE TABLE IF NOT EXISTS org_settings (
+  id                    INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  company_name          TEXT NOT NULL DEFAULT 'My Company',
+  company_logo_url      TEXT,
+  company_logo_cloud_id TEXT,
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO org_settings (id, company_name) VALUES (1, 'My Company') ON CONFLICT DO NOTHING;
+
 -- ── Users ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
