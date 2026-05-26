@@ -288,8 +288,14 @@
       ? `<div class="am-sub" style="color:#991b1b;margin-top:4px;">${escHtml(r.status_reason)}</div>`
       : '';
     const isError = r.status === 'error';
-    const primaryAction = isError
-      ? `<button class="btn btn-primary" onclick="reconnectMailbox('${r.id}', this)">Reconnect</button>`
+    // On error rows: try Retry first (cheap — just flips status back to
+    // active so the worker re-attempts), then Reconnect (full OAuth) only
+    // if the token is actually broken.
+    const actions = isError
+      ? `
+        <button class="btn btn-primary" onclick="resyncMailbox('${r.id}', this)" title="Flip status back to active so the sync worker re-attempts">Retry</button>
+        <button class="btn btn-secondary" onclick="reconnectMailbox('${r.id}', this)" title="Get a fresh OAuth token from Google">Reconnect</button>
+      `
       : `<button class="btn btn-secondary" onclick="resyncMailbox('${r.id}', this)">Resync</button>`;
     return `
       <div class="am-row" data-id="${r.id}">
@@ -301,7 +307,7 @@
         <div class="am-meta">${stats}</div>
         <div class="am-meta">${lastSync}<br>${connected}${by}</div>
         <div class="am-actions">
-          ${primaryAction}
+          ${actions}
           <button class="btn btn-danger" onclick="disconnectMailbox('${r.id}', '${escAttr(r.email)}', this)">Disconnect</button>
         </div>
       </div>`;
