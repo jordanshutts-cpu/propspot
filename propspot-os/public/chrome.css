@@ -832,15 +832,11 @@ body.mobile-rail-open { overflow: hidden; touch-action: none; }
   gap: 2px;
 }
 @media (max-width: 768px) {
-  .mobile-bottom-nav { display: flex; }
-  /* Make room at the bottom of every page so content doesn't slide under nav */
-  body.os-newchrome main.page,
-  body.os-newlayout main.page {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-  /* FieldCam FAB rides above the bottom nav on mobile */
+  /* Hidden on mobile — the top-left hamburger is the primary nav. */
+  .mobile-bottom-nav { display: none !important; }
+  /* FieldCam FAB sits at the bottom directly (no bottom nav to clear). */
   .fc-mobile-camera-fab {
-    bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 
