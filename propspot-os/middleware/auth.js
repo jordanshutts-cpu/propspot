@@ -87,4 +87,38 @@ async function requireInboxGrant(req, res, next) {
   } catch (err) { res.status(500).json({ error: 'Authorization check failed' }); }
 }
 
-module.exports = { requireAuth, requireOwner, requireMaintenanceGrant, requirePulseGrant, requireInboxGrant };
+// requireTeamUser: redirect external_worker users to /my-work.html on any HTML page.
+// JWT-protected pages typically read the token from localStorage, not cookies — so
+// we apply this guard server-side on the static-HTML routes by checking a
+// token cookie OR the Authorization header. If the user is external_worker, send
+// 302 to /my-work.html; otherwise fall through.
+//
+// NOTE: this is a soft guard. The real authorization happens at API level, which
+// is already scoped via the assigned_user_id checks in my-work-orders.js. The
+// guard here is purely UX — it prevents the external worker from landing on the
+// regular dashboard if they manually type /dashboard.html.
+function redirectExternalToPortal(allowedPages) {
+  const allow = new Set(allowedPages);
+  return async (req, res, next) => {
+    // Pull token from cookie OR Authorization header.
+    let token = req.cookies?.ros_token;
+    if (!token) {
+      const h = req.headers.authorization;
+      if (h?.startsWith('Bearer ')) token = h.slice(7);
+    }
+    if (!token) return next(); // unauthenticated → let login flow handle
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      const { rows } = await query(
+        `SELECT user_type FROM users WHERE id = $1`, [payload.userId]
+      );
+      if (rows[0]?.user_type === 'external_worker'
+          && !allow.has(req.path)) {
+        return res.redirect(302, '/my-work.html');
+      }
+    } catch (_) { /* invalid token → let request proceed; login pages handle it */ }
+    next();
+  };
+}
+
+module.exports = { requireAuth, requireOwner, requireMaintenanceGrant, requirePulseGrant, requireInboxGrant, redirectExternalToPortal };

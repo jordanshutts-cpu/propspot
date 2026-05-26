@@ -130,6 +130,10 @@ router.post('/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
     const token = signToken(user.id, user.email);
+    res.cookie('ros_token', token, {
+      httpOnly: true, secure: true, sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
     res.json({ token, user: safeUser(user) });
   } catch (err) {
     console.error('Login error:', err);
@@ -489,6 +493,10 @@ router.post('/accept-invite', async (req, res) => {
     });
 
     const jwtToken = signToken(user.id, user.email);
+    res.cookie('ros_token', jwtToken, {
+      httpOnly: true, secure: true, sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
     res.json({ token: jwtToken, user: safeUser(user) });
   } catch (err) {
     console.error('Accept invite error:', err);
