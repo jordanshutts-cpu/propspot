@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 CREATE INDEX IF NOT EXISTS calendar_events_start_idx ON calendar_events(start_at);
 CREATE INDEX IF NOT EXISTS calendar_events_creator_idx ON calendar_events(created_by);
 CREATE INDEX IF NOT EXISTS calendar_events_property_idx ON calendar_events(property_id);
+-- Mirror Google Calendar event when this event was written through to the
+-- user's Google Calendar (personal visibility + caller has a calendar grant).
+-- google_event_id is the id from calendar.googleapis.com; meet_url is the
+-- conferenceData hangoutLink when the event was created with a Meet.
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS google_event_id TEXT;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS meet_url        TEXT;
 
 -- ── Users ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
@@ -56,6 +62,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_cloudinary_id TEXT;
 -- allowing many users with NULL (not yet linked).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub   TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_email TEXT;
+-- Per-user Google Calendar OAuth refresh token (encrypted via inbox-crypto).
+-- NULL when the user hasn't connected their calendar yet.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_calendar_refresh_encrypted TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_calendar_connected_at      TIMESTAMPTZ;
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_uniq
   ON users (google_sub)   WHERE google_sub   IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_email_uniq

@@ -1,9 +1,45 @@
 const express = require('express');
+const crypto  = require('crypto');
+const jwt     = require('jsonwebtoken');
 const { query } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const gcal = require('../lib/google-calendar');
 
 const router = express.Router();
 router.use(requireAuth);
+
+// ── POST /api/calendar/google/connect ─────────────────────────────
+// Kick off OAuth so the current user can grant calendar.events scope.
+// Returns the Google consent URL the frontend redirects to. Callback
+// lands at the existing /api/inbox/mailboxes/oauth/callback (same
+// redirect URI we already registered) and is dispatched by `kind`.
+router.post('/google/connect', async (req, res) => {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const state = jwt.sign(
+    { userId: req.userId, nonce, kind: 'personal-calendar' },
+    process.env.JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+  res.json({ url: gcal.buildConsentUrl(state) });
+});
+
+// GET /api/calendar/google/status — { connected: bool, email?: string }
+router.get('/google/status', async (req, res) => {
+  const grant = await gcal.getUserGrant(req.userId);
+  res.json({ connected: !!grant, email: grant?.email || null });
+});
+
+// DELETE /api/calendar/google — disconnect (clear stored refresh token)
+router.delete('/google', async (req, res) => {
+  await query(
+    `UPDATE users
+        SET google_calendar_refresh_encrypted = NULL,
+            google_calendar_connected_at      = NULL
+      WHERE id = $1`,
+    [req.userId]
+  );
+  res.json({ ok: true });
+});
 
 // GET /api/calendar?month=2026-05&visibility=company
 //   or  /api/calendar?from=2026-04-26&to=2026-06-07  (preferred for grid views)
@@ -45,7 +81,52 @@ router.get('/', async (req, res) => {
 
     sql += ` ORDER BY e.start_at`;
     const { rows } = await query(sql, params);
-    res.json(rows);
+
+    // For Personal view, ALSO pull events from the caller's primary
+    // Google Calendar (if connected) inside the same window. We mark
+    // them source='google' so the UI can render them distinctly and
+    // skip the kanban-style edit/delete actions (we'd need to write
+    // back through the API for those, which is its own follow-up).
+    let merged = rows;
+    if (visibility === 'personal') {
+      try {
+        const grant = await gcal.getUserGrant(req.userId);
+        if (grant) {
+          const fromISO = new Date(start + 'T00:00:00Z').toISOString();
+          const toISO   = new Date(end   + 'T00:00:00Z').toISOString();
+          const gEvents = await gcal.listEvents(req.userId, fromISO, toISO);
+          const mapped = gEvents.map(g => ({
+            id:            'gcal-' + g.id,
+            google_event_id: g.id,
+            title:         g.summary || '(no title)',
+            description:   g.description || null,
+            event_type:    'general',
+            visibility:    'personal',
+            start_at:      g.start?.dateTime || (g.start?.date ? g.start.date + 'T00:00:00Z' : null),
+            end_at:        g.end?.dateTime   || (g.end?.date   ? g.end.date   + 'T00:00:00Z' : null),
+            all_day:       !g.start?.dateTime,
+            property_id:   null,
+            created_by:    req.userId,
+            created_by_name: 'Google Calendar',
+            source:        'google',
+            meet_url:      g.hangoutLink || g.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || null,
+            html_link:     g.htmlLink || null
+          }));
+          // Dedupe — skip Google events we mirrored ourselves (we wrote
+          // them with google_event_id so they're already in the DB rows).
+          const mirroredIds = new Set(rows.map(r => r.google_event_id).filter(Boolean));
+          const fresh = mapped.filter(g => !mirroredIds.has(g.google_event_id));
+          merged = [...rows, ...fresh].sort((a, b) =>
+            new Date(a.start_at) - new Date(b.start_at)
+          );
+        }
+      } catch (gerr) {
+        console.warn('Personal Google Calendar pull failed:', gerr.message);
+        // Fall through — return what we have from the DB.
+      }
+    }
+
+    res.json(merged);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load events' });
@@ -53,17 +134,55 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/calendar
+//   body: { title, description, event_type, visibility, start_at, end_at,
+//           all_day, property_id, create_meet }
+// For personal events on a connected user we also write to Google Calendar.
+// create_meet=true asks Google to generate a Meet link via conferenceData.
 router.post('/', async (req, res) => {
   try {
-    const { title, description, event_type, visibility, start_at, end_at, all_day, property_id } = req.body;
+    const { title, description, event_type, visibility, start_at, end_at, all_day, property_id, create_meet } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: 'Title is required' });
     if (!start_at) return res.status(400).json({ error: 'Start date is required' });
 
+    let googleEventId = null;
+    let meetUrl = null;
+    if (visibility === 'personal' && (create_meet || req.body.write_to_google)) {
+      // Only attempt the round-trip if the user has actually connected.
+      // We don't auto-write every personal event to Google — only when
+      // the user opts in (Meet checkbox today; could become a default later).
+      try {
+        const inserted = await gcal.createEvent(req.userId, {
+          summary: title.trim(),
+          description: description || '',
+          start: start_at,
+          end:   end_at || start_at,
+          allDay: !!all_day
+        }, { createMeet: !!create_meet });
+        googleEventId = inserted.googleEventId;
+        meetUrl       = inserted.meetUrl;
+      } catch (gerr) {
+        // Surface the Google error so the UI can prompt to reconnect.
+        return res.status(502).json({ error: 'Google Calendar write failed: ' + gerr.message });
+      }
+    }
+
     const { rows: [event] } = await query(`
-      INSERT INTO calendar_events (title, description, event_type, visibility, start_at, end_at, all_day, property_id, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO calendar_events (title, description, event_type, visibility, start_at, end_at, all_day, property_id, created_by, google_event_id, meet_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
-    `, [title.trim(), description || null, event_type || 'general', visibility || 'company', start_at, end_at || null, all_day || false, property_id || null, req.userId]);
+    `, [
+      title.trim(),
+      description || null,
+      event_type || 'general',
+      visibility || 'company',
+      start_at,
+      end_at || null,
+      all_day || false,
+      property_id || null,
+      req.userId,
+      googleEventId,
+      meetUrl
+    ]);
     res.status(201).json(event);
   } catch (err) {
     console.error(err);

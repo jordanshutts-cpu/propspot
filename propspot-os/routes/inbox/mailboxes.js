@@ -4,6 +4,7 @@ const jwt     = require('jsonwebtoken');
 const { query } = require('../../db');
 const { requireAuth, requireInboxGrant, requireOwner } = require('../../middleware/auth');
 const gmail = require('../../lib/gmail');
+const gcal  = require('../../lib/google-calendar');
 const { encrypt } = require('../../lib/inbox-crypto');
 
 const router = express.Router();
@@ -11,6 +12,10 @@ const router = express.Router();
 // OAuth callback is hit unauthenticated by the browser after the user
 // completes Google's consent screen. We protect it with a signed state
 // token we minted in /connect (carries userId + nonce + iat + kind).
+// Three kinds are handled here:
+//   inbox-oauth      → admin connecting a shared/team mailbox
+//   personal-inbox   → user connecting their own Gmail
+//   personal-calendar → user connecting their own Google Calendar
 router.get('/oauth/callback', async (req, res) => {
   const { code, state, error } = req.query;
   if (error) return res.status(400).send(`OAuth error: ${error}`);
@@ -21,6 +26,31 @@ router.get('/oauth/callback', async (req, res) => {
   } catch {
     return res.status(400).send('Invalid or expired state');
   }
+
+  // ── personal-calendar branch ────────────────────────────────────
+  if (claims.kind === 'personal-calendar') {
+    try {
+      const { refreshToken, email } = await gcal.exchangeCodeForTokens(code);
+      // Same security check as personal-inbox: caller must connect their
+      // own Workspace account, not a coworker's.
+      const { rows: u } = await query(
+        `SELECT email, google_email FROM users WHERE id = $1`, [claims.userId]
+      );
+      const ownEmails = [u[0]?.email, u[0]?.google_email].filter(Boolean).map(s => s.toLowerCase());
+      if (!ownEmails.includes(email.toLowerCase())) {
+        return res.status(403).send(
+          `Connect only your own Workspace calendar. You authorized ${email}, ` +
+          `but your Prop Spot account is ${u[0]?.email}.`
+        );
+      }
+      await gcal.saveUserCalendarGrant(claims.userId, refreshToken);
+      return res.redirect(`/calendar.html?personal_calendar_connected=${encodeURIComponent(email)}`);
+    } catch (err) {
+      console.error('Calendar OAuth callback error:', err);
+      return res.status(500).send(`Failed to connect calendar: ${err.message}`);
+    }
+  }
+
   const isPersonal = claims.kind === 'personal-inbox';
   try {
     const { refreshToken, email, displayName, scopes } = await gmail.exchangeCodeForTokens(code);
