@@ -205,12 +205,13 @@
     function messageInnerHtml(m) {
       const isMine = CALLER_ID && m.sender_id && m.sender_id.toLowerCase() === CALLER_ID.toLowerCase();
       const reactBtn = `<button type="button" data-action="open-react" title="Add reaction">😊</button>`;
+      const replyBtn = `<button type="button" data-action="reply" title="Reply to this comment">↩️</button>`;
       const ownBtns = isMine ? `
           <button type="button" data-action="edit" title="Edit">✏️</button>
           <button type="button" class="danger" data-action="delete" title="Delete">🗑</button>` : '';
       const actions = `
         <div class="pulse-embed-msg-actions">
-          ${reactBtn}${ownBtns}
+          ${reactBtn}${replyBtn}${ownBtns}
         </div>`;
       return `
         <div class="pulse-embed-msg-head">
@@ -308,6 +309,21 @@
         } catch (err) {
           alert('Could not delete: ' + err.message);
         }
+      } else if (action === 'reply') {
+        // Quick-reply: pre-fill composer with a quoted excerpt of the
+        // referenced comment. Plain text quote so it round-trips fine
+        // through the existing serializeMentions/postMessage pipeline.
+        const author = card.querySelector('.pulse-embed-msg-author')?.textContent || 'Unknown';
+        const raw    = deserializeMentions(card.dataset.rawBody || '');
+        const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 140);
+        const quote = `> ${author}: ${snippet}${raw.length > 140 ? '…' : ''}\n\n`;
+        const existing = taEl.value;
+        // Don't double-stack quotes if the composer already starts with one.
+        const prefix = existing.startsWith('>') ? existing + '\n\n' : '';
+        taEl.value = prefix + quote + (existing && !existing.startsWith('>') ? existing : '');
+        taEl.focus();
+        // Place caret at end so the user starts typing after the quote.
+        taEl.setSelectionRange(taEl.value.length, taEl.value.length);
       } else if (action === 'open-react') {
         // Toggle the quick-pick popover. Close any other open ones first.
         msgEl.querySelectorAll('[data-role="react-picker"]:not([hidden])').forEach(el => {

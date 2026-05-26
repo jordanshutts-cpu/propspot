@@ -77,6 +77,7 @@ const PATCHABLE_FIELDS = [
   'acquisition_agent_contact_id',
   // Dates + prices
   'purchase_date', 'purchase_price', 'sold_date', 'sold_price',
+  'anticipated_close_date',
   // Lender / financing
   'bridge_origination_fee', 'loan_servicing_fee', 'reno_holdback',
   'total_borrowed', 'purchase_loan_amount', 'lender_arv', 'interest_rate',
