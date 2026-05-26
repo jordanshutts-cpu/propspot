@@ -1430,7 +1430,8 @@ function renderThreadDetail() {
         <button class="btn btn-secondary btn-sm" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore' : '🗑 Trash'}</button>
         <button class="btn btn-secondary btn-sm" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Spam'}</button>
         <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
-        <button class="btn btn-secondary btn-sm" onclick="createTaskFromThread()" style="border-color:var(--brand);color:var(--brand);">✓ Create Task</button>
+        <button class="btn btn-secondary btn-sm" onclick="createTaskFromThread()" style="border-color:var(--brand);color:var(--brand);">&#10003; Create Task</button>
+        <button class="btn btn-secondary btn-sm" onclick="createCalendarEvent()" style="border-color:#2563eb;color:#2563eb;">&#128197; Calendar Event</button>
       </div>
     </div>
     <div class="messages-scroll" id="messages-scroll">${messagesHtml}</div>
@@ -1626,6 +1627,29 @@ async function createTaskFromThread() {
       window.open('/tasks.html', '_blank');
     }
   } catch (err) { showToast(err.message || 'Could not create task', 'error'); }
+}
+
+// ── Create Calendar Event from email ──────────────────────────────
+async function createCalendarEvent() {
+  const t = STATE.activeThread;
+  if (!t) return;
+  try {
+    await apiFetch('/api/calendar', { method: 'POST', body: JSON.stringify({
+      title: t.subject || '(no subject)',
+      description: `From email thread in ${t.inbox_name || 'Inbox'}`,
+      event_type: 'general',
+      visibility: 'company',
+      start_at: new Date().toISOString(),
+      all_day: true,
+      property_id: t.property_id || null
+    })});
+    showToast('Calendar event created');
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      setTimeout(() => { location.href = '/calendar.html'; }, 600);
+    } else {
+      window.open('/calendar.html', '_blank');
+    }
+  } catch (err) { showToast(err.message || 'Could not create event', 'error'); }
 }
 
 // ── Property linking ──────────────────────────────────────────────
