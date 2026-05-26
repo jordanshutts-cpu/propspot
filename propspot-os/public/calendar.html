@@ -194,9 +194,13 @@ async function init() {
   currentMonth = now.getMonth();
   try {
     propsCache = await apiFetch('/api/properties');
+    // Exclude prospects / dropped ("dead") — we don't schedule events for
+    // properties we aren't actively working on.
+    var EXCLUDED = { prospect: 1, dropped: 1 };
+    var actionable = propsCache.filter(function(p) { return !EXCLUDED[p.status]; });
     var sel = document.getElementById('e-property');
     sel.innerHTML = '<option value="">-- None --</option>' +
-      propsCache.map(function(p) { return '<option value="' + p.id + '">' + esc(p.address_line1) + ', ' + esc(p.city) + '</option>'; }).join('');
+      actionable.map(function(p) { return '<option value="' + p.id + '">' + esc(p.address_line1) + ', ' + esc(p.city) + '</option>'; }).join('');
   } catch(e) {}
   await loadMonth();
 }
