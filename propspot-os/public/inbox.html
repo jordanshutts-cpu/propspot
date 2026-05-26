@@ -981,6 +981,120 @@
   </div>
 </div>
 
+<!-- Create-task-from-thread modal -->
+<div class="modal-backdrop" id="modal-task">
+  <div class="modal">
+    <div class="modal-title">Create Task from email</div>
+    <form onsubmit="submitTaskFromInbox(event)">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="tk-title" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="tk-desc" rows="3" style="min-height:0;resize:vertical;"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-input" id="tk-priority">
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due date</label>
+          <input class="form-input" id="tk-due" type="date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Assign to</label>
+          <select class="form-input" id="tk-assign">
+            <option value="">— Unassigned —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Property (optional)</label>
+          <select class="form-input" id="tk-property">
+            <option value="">— None —</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Visibility</label>
+        <select class="form-input" id="tk-visibility">
+          <option value="team" selected>Team</option>
+          <option value="private">Private</option>
+        </select>
+      </div>
+      <p id="tk-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+        <button type="button" class="btn btn-secondary" onclick="closeTaskModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="tk-save">Create Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Create-calendar-event-from-thread modal -->
+<div class="modal-backdrop" id="modal-cal">
+  <div class="modal">
+    <div class="modal-title">Create Calendar Event from email</div>
+    <form onsubmit="submitCalendarFromInbox(event)">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="cl-title" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="cl-desc" rows="2" style="min-height:0;resize:vertical;"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-input" id="cl-type">
+            <option value="closing">Closing</option>
+            <option value="purchase">Purchase</option>
+            <option value="inspection">Inspection</option>
+            <option value="meeting">Meeting</option>
+            <option value="deadline">Deadline</option>
+            <option value="general" selected>General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Property (optional)</label>
+          <select class="form-input" id="cl-property">
+            <option value="">— None —</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start *</label>
+          <input class="form-input" id="cl-start" type="datetime-local" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">End</label>
+          <input class="form-input" id="cl-end" type="datetime-local">
+        </div>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;">
+          <input type="checkbox" id="cl-allday"> All day event
+        </label>
+      </div>
+      <p id="cl-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+        <button type="button" class="btn btn-secondary" onclick="closeCalModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="cl-save">Create Event</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Save attachment to property modal -->
 <div class="modal-backdrop" id="modal-save-att">
   <div class="modal">
@@ -1603,53 +1717,157 @@ async function markUnread() {
   }
 }
 
-// ── Create Task from email ────────────────────────────────────────
+// ── Create Task / Calendar Event from email (with modals) ────────
+// Lazy-loaded reference data shared by both modals.
+let INBOX_USERS_CACHE = null;
+let INBOX_PROPS_CACHE = null;
+
+async function ensureUsersAndProps() {
+  const jobs = [];
+  if (!INBOX_USERS_CACHE) jobs.push(getUsers().then(u => INBOX_USERS_CACHE = u).catch(() => INBOX_USERS_CACHE = []));
+  if (!INBOX_PROPS_CACHE) jobs.push(apiFetch('/api/properties').then(p => INBOX_PROPS_CACHE = p).catch(() => INBOX_PROPS_CACHE = []));
+  if (jobs.length) await Promise.all(jobs);
+}
+
+function inboxThreadSnippet(t) {
+  const lastMsg = [...(t.messages || [])].reverse().find(m => !m.is_outbound) || t.messages?.[0];
+  return lastMsg?.body_text ? lastMsg.body_text.substring(0, 300) : '';
+}
+
+function propertyLabel(p) {
+  const parts = [p.address_line1];
+  if (p.unit) parts[0] += ' #' + p.unit;
+  if (p.city) parts.push(p.city);
+  return parts.filter(Boolean).join(', ') || p.display_name || '(no address)';
+}
+
 async function createTaskFromThread() {
   const t = STATE.activeThread;
   if (!t) return;
-  const lastMsg = [...(t.messages || [])].reverse().find(m => !m.is_outbound) || t.messages?.[0];
-  const snippet = lastMsg?.body_text ? lastMsg.body_text.substring(0, 300) : '';
-  const desc = `From email: ${t.subject || '(no subject)'}\n\n${snippet}`.trim();
-  try {
-    const task = await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify({
-      title: t.subject || '(no subject)',
-      description: desc,
-      property_id: t.property_id || null,
-      visibility: 'team'
-    })});
-    showToast('Task created');
-    // iOS Safari blocks window.open() after await (no longer treated as a
-    // user gesture). Navigate in-place on mobile so the user actually lands
-    // on the task; new tab is fine on desktop.
-    if (window.matchMedia('(max-width: 768px)').matches) {
-      setTimeout(() => { location.href = '/tasks.html'; }, 600);
-    } else {
-      window.open('/tasks.html', '_blank');
-    }
-  } catch (err) { showToast(err.message || 'Could not create task', 'error'); }
+  await ensureUsersAndProps();
+
+  // Populate dropdowns
+  const assignSel = document.getElementById('tk-assign');
+  assignSel.innerHTML = '<option value="">— Unassigned —</option>' +
+    INBOX_USERS_CACHE.map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.full_name || u.email)}</option>`).join('');
+
+  // Property dropdown — exclude prospects / dropped (no point assigning tasks to dead deals)
+  const SKIP = { prospect: 1, dropped: 1 };
+  const propSel = document.getElementById('tk-property');
+  propSel.innerHTML = '<option value="">— None —</option>' +
+    INBOX_PROPS_CACHE
+      .filter(p => !SKIP[p.status])
+      .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(propertyLabel(p))}</option>`).join('');
+
+  // Pre-fill from the thread
+  document.getElementById('tk-title').value = t.subject || '';
+  document.getElementById('tk-desc').value = `From email: ${t.subject || '(no subject)'}\n\n${inboxThreadSnippet(t)}`.trim();
+  document.getElementById('tk-priority').value = 'normal';
+  document.getElementById('tk-due').value = '';
+  document.getElementById('tk-assign').value = '';
+  document.getElementById('tk-property').value = t.property_id || '';
+  document.getElementById('tk-visibility').value = 'team';
+  document.getElementById('tk-err').style.display = 'none';
+
+  document.getElementById('modal-task').classList.add('open');
+  setTimeout(() => document.getElementById('tk-title').focus(), 50);
 }
 
-// ── Create Calendar Event from email ──────────────────────────────
+function closeTaskModal() { document.getElementById('modal-task').classList.remove('open'); }
+document.getElementById('modal-task').addEventListener('click', e => { if (e.target === e.currentTarget) closeTaskModal(); });
+
+async function submitTaskFromInbox(e) {
+  e.preventDefault();
+  const btn = document.getElementById('tk-save'), err = document.getElementById('tk-err');
+  err.style.display = 'none';
+  showSpinner(btn, 'Creating…');
+  try {
+    await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify({
+      title:       document.getElementById('tk-title').value.trim(),
+      description: document.getElementById('tk-desc').value.trim() || null,
+      priority:    document.getElementById('tk-priority').value,
+      due_date:    document.getElementById('tk-due').value || null,
+      assigned_to: document.getElementById('tk-assign').value || null,
+      property_id: document.getElementById('tk-property').value || null,
+      visibility:  document.getElementById('tk-visibility').value
+    })});
+    closeTaskModal();
+    hideSpinner(btn);
+    showToast('Task created');
+  } catch (e2) {
+    err.textContent = e2.message || 'Could not create task'; err.style.display = 'block';
+    hideSpinner(btn);
+  }
+}
+
 async function createCalendarEvent() {
   const t = STATE.activeThread;
   if (!t) return;
+  await ensureUsersAndProps();
+
+  const SKIP = { prospect: 1, dropped: 1 };
+  const propSel = document.getElementById('cl-property');
+  propSel.innerHTML = '<option value="">— None —</option>' +
+    INBOX_PROPS_CACHE
+      .filter(p => !SKIP[p.status])
+      .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(propertyLabel(p))}</option>`).join('');
+
+  // Default start = next top of the hour
+  const now = new Date();
+  now.setMinutes(0, 0, 0); now.setHours(now.getHours() + 1);
+  const pad = n => String(n).padStart(2, '0');
+  const localISO = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  document.getElementById('cl-title').value = t.subject || '';
+  document.getElementById('cl-desc').value = `From email thread in ${t.inbox_name || 'Inbox'}`;
+  document.getElementById('cl-type').value = 'general';
+  document.getElementById('cl-property').value = t.property_id || '';
+  document.getElementById('cl-start').value = localISO(now);
+  document.getElementById('cl-end').value = '';
+  document.getElementById('cl-allday').checked = false;
+  document.getElementById('cl-err').style.display = 'none';
+
+  document.getElementById('modal-cal').classList.add('open');
+  setTimeout(() => document.getElementById('cl-title').focus(), 50);
+}
+
+function closeCalModal() { document.getElementById('modal-cal').classList.remove('open'); }
+document.getElementById('modal-cal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCalModal(); });
+
+// Auto-fill end = start + 1h when user changes start (only if end is empty)
+document.getElementById('cl-start').addEventListener('change', e => {
+  const endEl = document.getElementById('cl-end');
+  if (endEl.value || !e.target.value) return;
+  const d = new Date(e.target.value);
+  if (isNaN(d)) return;
+  d.setHours(d.getHours() + 1);
+  const pad = n => String(n).padStart(2, '0');
+  endEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+});
+
+async function submitCalendarFromInbox(e) {
+  e.preventDefault();
+  const btn = document.getElementById('cl-save'), err = document.getElementById('cl-err');
+  err.style.display = 'none';
+  showSpinner(btn, 'Creating…');
   try {
     await apiFetch('/api/calendar', { method: 'POST', body: JSON.stringify({
-      title: t.subject || '(no subject)',
-      description: `From email thread in ${t.inbox_name || 'Inbox'}`,
-      event_type: 'general',
-      visibility: 'company',
-      start_at: new Date().toISOString(),
-      all_day: true,
-      property_id: t.property_id || null
+      title:       document.getElementById('cl-title').value.trim(),
+      description: document.getElementById('cl-desc').value.trim() || null,
+      event_type:  document.getElementById('cl-type').value,
+      visibility:  'company',
+      start_at:    document.getElementById('cl-start').value,
+      end_at:      document.getElementById('cl-end').value || null,
+      all_day:     document.getElementById('cl-allday').checked,
+      property_id: document.getElementById('cl-property').value || null
     })});
+    closeCalModal();
+    hideSpinner(btn);
     showToast('Calendar event created');
-    if (window.matchMedia('(max-width: 768px)').matches) {
-      setTimeout(() => { location.href = '/calendar.html'; }, 600);
-    } else {
-      window.open('/calendar.html', '_blank');
-    }
-  } catch (err) { showToast(err.message || 'Could not create event', 'error'); }
+  } catch (e2) {
+    err.textContent = e2.message || 'Could not create event'; err.style.display = 'block';
+    hideSpinner(btn);
+  }
 }
 
 // ── Property linking ──────────────────────────────────────────────
