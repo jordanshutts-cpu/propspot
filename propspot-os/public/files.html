@@ -9,15 +9,39 @@
   <link rel="stylesheet" href="style.css">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
-    .breadcrumb { display:flex; align-items:center; gap:4px; font-size:.85rem; margin-bottom:16px; flex-wrap:wrap; }
+    /* ── Layout: left nav + main area ── */
+    .drive-layout { display:flex; gap:0; min-height:calc(100vh - 120px); }
+    .drive-nav { width:220px; flex-shrink:0; border-right:1px solid var(--border); padding:16px 0; }
+    .drive-main { flex:1; min-width:0; padding:0 24px; }
+
+    .drive-nav-btn { display:flex; align-items:center; gap:10px; width:100%; padding:9px 20px; border:none; background:none; cursor:pointer; font-size:.85rem; font-weight:500; color:var(--text-muted); text-align:left; transition:all .1s; border-radius:0; }
+    .drive-nav-btn:hover { background:var(--brand-light); color:var(--text); }
+    .drive-nav-btn.active { background:var(--brand-light); color:var(--brand); font-weight:700; }
+    .drive-nav-btn svg { width:18px; height:18px; flex-shrink:0; }
+    .drive-nav-sep { height:1px; background:var(--border); margin:8px 16px; }
+    .drive-nav-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:700; padding:12px 20px 4px; }
+
+    .drive-new-btn { display:flex; align-items:center; gap:8px; margin:0 16px 16px; padding:10px 20px; border-radius:100px; border:none; background:var(--surface); box-shadow:var(--shadow); cursor:pointer; font-size:.88rem; font-weight:600; color:var(--text); transition:all .12s; }
+    .drive-new-btn:hover { box-shadow:0 2px 12px rgba(0,0,0,.15); }
+    .drive-new-btn svg { width:20px; height:20px; }
+
+    /* ── Breadcrumb ── */
+    .breadcrumb { display:flex; align-items:center; gap:4px; font-size:.85rem; margin-bottom:12px; flex-wrap:wrap; }
     .breadcrumb a { color:var(--brand); text-decoration:none; font-weight:500; }
     .breadcrumb a:hover { text-decoration:underline; }
     .breadcrumb .sep { color:var(--text-muted); }
     .breadcrumb .current { color:var(--text); font-weight:700; }
 
-    .drive-toolbar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+    /* ── Toolbar ── */
+    .drive-toolbar { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
     .drive-toolbar .spacer { flex:1; }
+    .view-toggle { display:flex; border:1.5px solid var(--border); border-radius:6px; overflow:hidden; }
+    .view-toggle button { padding:5px 10px; border:none; background:var(--surface); cursor:pointer; color:var(--text-muted); transition:all .1s; display:flex; align-items:center; }
+    .view-toggle button:first-child { border-right:1.5px solid var(--border); }
+    .view-toggle button.active { background:var(--brand); color:#fff; }
+    .view-toggle button svg { width:16px; height:16px; }
 
+    /* ── Grid view ── */
     .drive-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
     .drive-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 12px; text-align:center; cursor:pointer; transition:all .12s; border:2px solid transparent; position:relative; }
     .drive-card:hover { border-color:var(--brand); transform:translateY(-1px); }
@@ -31,15 +55,25 @@
     .drive-card .card-badge.restricted { background:#f3e8ff; color:#7c3aed; }
     .drive-card .card-menu { position:absolute; top:4px; right:4px; opacity:0; background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1.1rem; padding:2px 6px; border-radius:4px; }
     .drive-card:hover .card-menu { opacity:1; }
-    .drive-card .card-menu:hover { background:var(--border); }
 
+    /* ── List view ── */
+    .drive-list { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .drive-list-header { display:grid; grid-template-columns:auto 1fr 120px 100px 80px; gap:12px; padding:8px 16px; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); border-bottom:1px solid var(--border); }
+    .drive-list-row { display:grid; grid-template-columns:auto 1fr 120px 100px 80px; gap:12px; padding:10px 16px; align-items:center; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .drive-list-row:last-child { border-bottom:none; }
+    .drive-list-row:hover { background:var(--brand-light); }
+    .drive-list-row svg.list-icon { width:20px; height:20px; flex-shrink:0; }
+    .drive-list-row .list-name { font-size:.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .drive-list-row .list-meta { font-size:.78rem; color:var(--text-muted); }
+
+    /* ── Drop zone ── */
     .drop-zone-drive { border:2px dashed var(--border); border-radius:var(--radius); padding:40px 20px; text-align:center; color:var(--text-muted); font-size:.88rem; cursor:pointer; transition:all .15s; margin-bottom:16px; }
     .drop-zone-drive:hover, .drop-zone-drive.dragover { border-color:var(--brand); color:var(--brand); background:var(--brand-light); }
 
     .empty-drive { text-align:center; padding:60px 20px; color:var(--text-muted); }
     .empty-drive svg { width:56px; height:56px; margin-bottom:12px; opacity:.3; }
 
-    /* Modals */
+    /* ── Modals ── */
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:500; align-items:center; justify-content:center; padding:20px; }
     .modal-overlay.open { display:flex; }
     .modal-box { background:var(--surface); border-radius:var(--radius); box-shadow:0 8px 40px rgba(0,0,0,.2); width:100%; max-width:480px; max-height:90vh; overflow-y:auto; padding:24px; }
@@ -62,13 +96,18 @@
     .context-menu button:hover { background:var(--brand-light); }
     .context-menu button.danger { color:#dc2626; }
 
-    .drive-tabs { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
-    .drive-tab { padding:10px 20px; font-size:.88rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--text-muted); transition:all .12s; background:none; border-top:none; border-left:none; border-right:none; }
-    .drive-tab:hover { color:var(--brand); }
-    .drive-tab.active { color:var(--brand); border-bottom-color:var(--brand); }
-    .drive-tab svg { width:16px; height:16px; vertical-align:-3px; margin-right:6px; }
-
-    @media(max-width:640px) { .drive-grid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); } }
+    @media(max-width:768px) {
+      .drive-layout { flex-direction:column; }
+      .drive-nav { width:100%; border-right:none; border-bottom:1px solid var(--border); padding:8px 0; display:flex; flex-wrap:wrap; gap:0; }
+      .drive-nav-btn { width:auto; padding:8px 14px; font-size:.8rem; }
+      .drive-nav-sep, .drive-nav-label { display:none; }
+      .drive-new-btn { margin:4px 8px; }
+      .drive-main { padding:0 12px; }
+      .drive-grid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); }
+      .drive-list-header, .drive-list-row { grid-template-columns:auto 1fr 80px; }
+      .drive-list-header > :nth-child(3), .drive-list-header > :nth-child(4),
+      .drive-list-row > :nth-child(3), .drive-list-row > :nth-child(4) { display:none; }
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -76,44 +115,79 @@
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
 
-<main class="page">
-  <div class="section-header" style="margin-bottom:12px;">
-    <span class="section-title">Files</span>
-  </div>
+<main class="page" style="padding:0;">
+  <div class="drive-layout">
+    <!-- Left nav -->
+    <nav class="drive-nav">
+      <button class="drive-new-btn" onclick="openNewMenu(event)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New
+      </button>
 
-  <div class="drive-tabs">
-    <button class="drive-tab active" id="tab-shared" onclick="switchDrive('shared')">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Shared Drive
-    </button>
-    <button class="drive-tab" id="tab-personal" onclick="switchDrive('personal')">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      My Drive
-    </button>
-  </div>
+      <button class="drive-nav-btn active" data-view="my-drive" onclick="navTo('my-drive')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        My Drive
+      </button>
+      <button class="drive-nav-btn" data-view="shared-drive" onclick="navTo('shared-drive')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Shared Drive
+      </button>
+      <button class="drive-nav-btn" data-view="shared-with-me" onclick="navTo('shared-with-me')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-3-3"/><path d="M19 14V8"/></svg>
+        Shared with me
+      </button>
 
-  <div id="breadcrumb" class="breadcrumb">
-    <span class="current">Shared Drive</span>
-  </div>
+      <div class="drive-nav-sep"></div>
 
-  <div class="drive-toolbar">
-    <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="openNewFolder()">+ New Folder</button>
-    <button class="btn btn-secondary" style="padding:8px 16px;font-size:.85rem;" onclick="document.getElementById('upload-input').click()">Upload Files</button>
-    <input type="file" id="upload-input" multiple style="display:none" onchange="uploadFiles(this.files)">
-    <div class="spacer"></div>
-  </div>
+      <button class="drive-nav-btn" data-view="recent" onclick="navTo('recent')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Recent
+      </button>
+      <button class="drive-nav-btn" data-view="starred" onclick="navTo('starred')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Starred
+      </button>
+    </nav>
 
-  <div class="drop-zone-drive" id="drop-zone"
-       onclick="document.getElementById('upload-input').click()"
-       ondragover="event.preventDefault();this.classList.add('dragover')"
-       ondragleave="this.classList.remove('dragover')"
-       ondrop="event.preventDefault();this.classList.remove('dragover');uploadFiles(event.dataTransfer.files)"
-       style="display:none;">
-    Drop files here to upload
-  </div>
+    <!-- Main content area -->
+    <div class="drive-main">
+      <div style="padding-top:16px;">
+        <div id="breadcrumb" class="breadcrumb">
+          <span class="current">My Drive</span>
+        </div>
 
-  <div id="content"><p class="text-muted text-sm">Loading...</p></div>
+        <div class="drive-toolbar">
+          <button class="btn btn-primary" style="padding:7px 14px;font-size:.82rem;" onclick="openNewFolder()">+ New Folder</button>
+          <button class="btn btn-secondary" style="padding:7px 14px;font-size:.82rem;" onclick="document.getElementById('upload-input').click()">Upload Files</button>
+          <input type="file" id="upload-input" multiple style="display:none" onchange="uploadFiles(this.files)">
+          <div class="spacer"></div>
+          <div class="view-toggle">
+            <button id="btn-grid" class="active" onclick="setView('grid')" title="Grid view">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </button>
+            <button id="btn-list" onclick="setView('list')" title="List view">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="drop-zone-drive" id="drop-zone"
+             onclick="document.getElementById('upload-input').click()"
+             ondragover="event.preventDefault();this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="event.preventDefault();this.classList.remove('dragover');uploadFiles(event.dataTransfer.files)"
+             style="display:none;">
+          Drop files here to upload
+        </div>
+
+        <div id="content"><p class="text-muted text-sm">Loading...</p></div>
+      </div>
+    </div>
+  </div>
 </main>
+
+<!-- New menu (dropdown from + New button) -->
+<div class="context-menu" id="new-menu"></div>
 
 <!-- New Folder modal -->
 <div class="modal-overlay" id="modal-folder">
@@ -193,33 +267,64 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-let currentFolder = null; // null = root
-let currentDriveType = 'shared'; // 'shared' or 'personal'
+let currentFolder = null;
+let currentView = 'my-drive'; // 'my-drive','shared-drive','shared-with-me','recent','starred'
+let currentDriveType = 'personal';
+let viewMode = localStorage.getItem('drive_view_mode') || 'grid';
 let folders = [], files = [], usersCache = [];
-let shareTarget = null; // { type: 'folder'|'file', id: '...' }
-let renameTarget = null;
-let editingFolderId = null;
+let shareTarget = null, renameTarget = null;
 
-function switchDrive(type) {
-  currentDriveType = type;
+const VIEW_CONFIG = {
+  'my-drive':       { driveType: 'personal', label: 'My Drive' },
+  'shared-drive':   { driveType: 'shared',   label: 'Shared Drive' },
+  'shared-with-me': { driveType: null,       label: 'Shared with me' },
+  'recent':         { driveType: null,       label: 'Recent' },
+  'starred':        { driveType: null,       label: 'Starred' },
+};
+
+function navTo(view) {
+  currentView = view;
   currentFolder = null;
-  document.getElementById('tab-shared').classList.toggle('active', type === 'shared');
-  document.getElementById('tab-personal').classList.toggle('active', type === 'personal');
+  currentDriveType = VIEW_CONFIG[view]?.driveType || 'shared';
+  document.querySelectorAll('.drive-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   loadFolder(null);
+}
+
+function setView(mode) {
+  viewMode = mode;
+  localStorage.setItem('drive_view_mode', mode);
+  document.getElementById('btn-grid').classList.toggle('active', mode === 'grid');
+  document.getElementById('btn-list').classList.toggle('active', mode === 'list');
+  renderContent();
 }
 
 async function init() {
   const user = await requireAuth();
   if (!user) return;
   try { usersCache = await apiFetch('/api/users'); } catch {}
-  await loadFolder(null);
+  setView(viewMode);
+  navTo('my-drive');
 }
 
 async function loadFolder(folderId) {
   currentFolder = folderId;
-  const dtParam = `drive_type=${currentDriveType}`;
-  const qs = folderId ? `?parent_id=${folderId}` : `?${dtParam}`;
-  const fqs = folderId ? `?folder_id=${folderId}` : `?${dtParam}`;
+  const cfg = VIEW_CONFIG[currentView];
+  if (currentView === 'recent') {
+    folders = [];
+    try { files = await apiFetch('/api/drive/files?recent=1'); } catch { files = []; }
+    renderBreadcrumb(null);
+    renderContent();
+    return;
+  }
+  if (currentView === 'starred' || currentView === 'shared-with-me') {
+    folders = []; files = [];
+    renderBreadcrumb(null);
+    renderContent();
+    return;
+  }
+  const dtParam = cfg.driveType ? `drive_type=${cfg.driveType}` : '';
+  const qs = folderId ? `?parent_id=${folderId}` : (dtParam ? `?${dtParam}` : '');
+  const fqs = folderId ? `?folder_id=${folderId}` : (dtParam ? `?${dtParam}` : '');
   try {
     [folders, files] = await Promise.all([
       apiFetch(`/api/drive/folders${qs}`),
@@ -239,7 +344,7 @@ async function loadFolder(folderId) {
 
 function renderBreadcrumb(crumbs) {
   const el = document.getElementById('breadcrumb');
-  const rootLabel = currentDriveType === 'personal' ? 'My Drive' : 'Shared Drive';
+  const rootLabel = VIEW_CONFIG[currentView]?.label || 'Files';
   if (!crumbs) {
     el.innerHTML = `<span class="current">${rootLabel}</span>`;
     return;
@@ -256,50 +361,107 @@ function renderBreadcrumb(crumbs) {
   el.innerHTML = html;
 }
 
+const FOLDER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--brand)" stroke="var(--brand)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+const FILE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+
 function renderContent() {
   const dropZone = document.getElementById('drop-zone');
+  const isPlaceholder = currentView === 'starred' || currentView === 'shared-with-me';
+
+  if (isPlaceholder && folders.length === 0 && files.length === 0) {
+    dropZone.style.display = 'none';
+    const msg = currentView === 'starred' ? 'Star files and folders to find them here quickly.' : 'Files that others share with you will appear here.';
+    document.getElementById('content').innerHTML = `<div class="empty-drive"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${currentView === 'starred' ? '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>' : '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-3-3"/><path d="M19 14V8"/>'}</svg><p>${msg}</p></div>`;
+    return;
+  }
+
   if (folders.length === 0 && files.length === 0) {
     dropZone.style.display = '';
-    document.getElementById('content').innerHTML = `
-      <div class="empty-drive">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <p>${currentDriveType === 'personal' ? 'Your personal drive is empty. Upload working files or create folders for your own use.' : 'The shared drive is empty. Upload company documents or create folders to get started.'}</p>
-      </div>`;
+    const msg = currentDriveType === 'personal' ? 'Your personal drive is empty. Upload working files or create folders.' : 'The shared drive is empty. Upload company documents or create folders.';
+    document.getElementById('content').innerHTML = `<div class="empty-drive"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><p>${msg}</p></div>`;
     return;
   }
   dropZone.style.display = 'none';
-  let html = '<div class="drive-grid">';
 
+  if (viewMode === 'list') {
+    renderListView();
+  } else {
+    renderGridView();
+  }
+}
+
+function renderGridView() {
+  let html = '<div class="drive-grid">';
   folders.forEach(f => {
     html += `
       <div class="drive-card" ondblclick="loadFolder('${f.id}')" onclick="selectCard(this)" oncontextmenu="event.preventDefault();showContextMenu(event,'folder','${f.id}','${esc(f.name)}')">
         ${!f.team_visible ? '<span class="card-badge restricted">Restricted</span>' : ''}
         <button class="card-menu" onclick="event.stopPropagation();showContextMenu(event,'folder','${f.id}','${esc(f.name)}')" title="More">&#8943;</button>
-        <div class="card-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--brand)" stroke="var(--brand)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="card-icon">${FOLDER_SVG}</div>
         <div class="card-name" title="${esc(f.name)}">${esc(f.name)}</div>
         <div class="card-meta">${f.subfolder_count || 0} folders, ${f.file_count || 0} files</div>
       </div>`;
   });
-
   files.forEach(f => {
     const isImg = f.mime_type && f.mime_type.startsWith('image/');
     html += `
       <div class="drive-card" onclick="selectCard(this)" ondblclick="window.open('${f.url}','_blank')" oncontextmenu="event.preventDefault();showContextMenu(event,'file','${f.id}','${esc(f.filename)}')">
         <button class="card-menu" onclick="event.stopPropagation();showContextMenu(event,'file','${f.id}','${esc(f.filename)}')" title="More">&#8943;</button>
-        ${isImg ? `<img class="card-thumb" src="${f.url}" alt="">` : `<div class="card-icon" style="opacity:.4;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`}
+        ${isImg ? `<img class="card-thumb" src="${f.url}" alt="">` : `<div class="card-icon" style="opacity:.4;">${FILE_SVG}</div>`}
         <div class="card-name" title="${esc(f.filename)}">${esc(f.filename)}</div>
         <div class="card-meta">${f.uploaded_by_name || ''} &middot; ${formatSize(f.size_bytes)}</div>
       </div>`;
   });
+  html += '</div>';
+  document.getElementById('content').innerHTML = html;
+}
 
+function renderListView() {
+  let html = '<div class="drive-list">';
+  html += '<div class="drive-list-header"><span></span><span>Name</span><span>Owner</span><span>Modified</span><span>Size</span></div>';
+  folders.forEach(f => {
+    html += `
+      <div class="drive-list-row" ondblclick="loadFolder('${f.id}')" onclick="selectCard(this)" oncontextmenu="event.preventDefault();showContextMenu(event,'folder','${f.id}','${esc(f.name)}')">
+        <svg class="list-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="var(--brand)" stroke="var(--brand)" stroke-width="1"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span class="list-name">${esc(f.name)}${!f.team_visible ? ' <span style="font-size:.65rem;background:#f3e8ff;color:#7c3aed;padding:1px 6px;border-radius:100px;">Restricted</span>' : ''}</span>
+        <span class="list-meta">${esc(f.created_by_name || '')}</span>
+        <span class="list-meta">${formatDate(f.updated_at || f.created_at)}</span>
+        <span class="list-meta">${f.file_count || 0} files</span>
+      </div>`;
+  });
+  files.forEach(f => {
+    html += `
+      <div class="drive-list-row" onclick="selectCard(this)" ondblclick="window.open('${f.url}','_blank')" oncontextmenu="event.preventDefault();showContextMenu(event,'file','${f.id}','${esc(f.filename)}')">
+        <svg class="list-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="list-name">${esc(f.filename)}</span>
+        <span class="list-meta">${esc(f.uploaded_by_name || '')}</span>
+        <span class="list-meta">${formatDate(f.created_at)}</span>
+        <span class="list-meta">${formatSize(f.size_bytes)}</span>
+      </div>`;
+  });
   html += '</div>';
   document.getElementById('content').innerHTML = html;
 }
 
 function selectCard(el) {
-  document.querySelectorAll('.drive-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.drive-card,.drive-list-row').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
 }
+
+// ── + New menu
+function openNewMenu(e) {
+  const menu = document.getElementById('new-menu');
+  menu.innerHTML = `
+    <button onclick="hideNewMenu();openNewFolder()">New folder</button>
+    <button onclick="hideNewMenu();document.getElementById('upload-input').click()">File upload</button>
+  `;
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.left = rect.left + 'px';
+  menu.classList.add('open');
+  e.stopPropagation();
+}
+function hideNewMenu() { document.getElementById('new-menu').classList.remove('open'); }
 
 // ── Context menu
 function showContextMenu(e, type, id, name) {
@@ -319,7 +481,7 @@ function showContextMenu(e, type, id, name) {
   menu.classList.add('open');
 }
 function hideContextMenu() { document.getElementById('context-menu').classList.remove('open'); }
-document.addEventListener('click', hideContextMenu);
+document.addEventListener('click', () => { hideContextMenu(); hideNewMenu(); });
 
 function getFileUrl(id) {
   const f = files.find(f => f.id === id);
@@ -332,7 +494,7 @@ async function uploadFiles(fileList) {
     const form = new FormData();
     form.append('file', file);
     if (currentFolder) form.append('folder_id', currentFolder);
-    form.append('drive_type', currentDriveType);
+    form.append('drive_type', currentDriveType || 'personal');
     try { await apiFetch('/api/drive/files', { method: 'POST', body: form }); } catch {}
   }
   await loadFolder(currentFolder);
@@ -340,9 +502,8 @@ async function uploadFiles(fileList) {
 
 // ── New Folder
 function openNewFolder() {
-  editingFolderId = null;
   document.getElementById('f-name').value = '';
-  document.getElementById('f-visibility').value = 'true';
+  document.getElementById('f-visibility').value = currentDriveType === 'shared' ? 'true' : 'false';
   document.getElementById('folder-modal-title').textContent = 'New Folder';
   document.getElementById('f-save').textContent = 'Create';
   document.getElementById('modal-folder').classList.add('open');
@@ -357,13 +518,11 @@ async function saveFolder() {
   const teamVisible = document.getElementById('f-visibility').value === 'true';
   try {
     await apiFetch('/api/drive/folders', { method: 'POST', body: JSON.stringify({
-      name, parent_id: currentFolder, team_visible: teamVisible, drive_type: currentDriveType
+      name, parent_id: currentFolder, team_visible: teamVisible, drive_type: currentDriveType || 'personal'
     })});
     closeFolderModal();
     await loadFolder(currentFolder);
-  } catch (err) {
-    alert(err.message);
-  }
+  } catch (err) { alert(err.message); }
 }
 
 // ── Rename
@@ -395,9 +554,8 @@ async function saveRename() {
 async function deleteItem(type, id) {
   const label = type === 'folder' ? 'folder and all its contents' : 'file';
   if (!confirm(`Delete this ${label}?`)) return;
-  const endpoint = type === 'folder' ? `/api/drive/folders/${id}` : `/api/drive/files/${id}`;
   try {
-    await apiFetch(endpoint, { method: 'DELETE' });
+    await apiFetch(`/api/drive/${type === 'folder' ? 'folders' : 'files'}/${id}`, { method: 'DELETE' });
     await loadFolder(currentFolder);
   } catch (err) { alert(err.message); }
 }
@@ -440,30 +598,19 @@ async function loadPermissions() {
 
 async function addShare() {
   if (!shareTarget) return;
-  const userId = document.getElementById('s-user').value;
-  const role = document.getElementById('s-role').value;
-  const body = { user_id: userId, role };
+  const body = { user_id: document.getElementById('s-user').value, role: document.getElementById('s-role').value };
   body[shareTarget.type === 'folder' ? 'folder_id' : 'file_id'] = shareTarget.id;
-  try {
-    await apiFetch('/api/drive/permissions', { method: 'POST', body: JSON.stringify(body) });
-    await loadPermissions();
-  } catch (err) { alert(err.message); }
+  try { await apiFetch('/api/drive/permissions', { method: 'POST', body: JSON.stringify(body) }); await loadPermissions(); } catch (err) { alert(err.message); }
 }
 
 async function updatePerm(permId, type, targetId, userId, newRole) {
   const body = { user_id: userId, role: newRole };
   body[type === 'folder' ? 'folder_id' : 'file_id'] = targetId;
-  try {
-    await apiFetch('/api/drive/permissions', { method: 'POST', body: JSON.stringify(body) });
-    await loadPermissions();
-  } catch (err) { alert(err.message); }
+  try { await apiFetch('/api/drive/permissions', { method: 'POST', body: JSON.stringify(body) }); await loadPermissions(); } catch (err) { alert(err.message); }
 }
 
 async function removePerm(permId) {
-  try {
-    await apiFetch(`/api/drive/permissions/${permId}`, { method: 'DELETE' });
-    await loadPermissions();
-  } catch (err) { alert(err.message); }
+  try { await apiFetch(`/api/drive/permissions/${permId}`, { method: 'DELETE' }); await loadPermissions(); } catch (err) { alert(err.message); }
 }
 
 // ── Paste screenshots
@@ -485,6 +632,10 @@ function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
   return (bytes / 1048576).toFixed(1) + ' MB';
+}
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
 }
 
 init();
