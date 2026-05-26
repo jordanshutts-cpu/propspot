@@ -129,8 +129,10 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS reno_budget            NUMERIC(1
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS reno_spent             NUMERIC(12,2);
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS reno_draws_received    NUMERIC(12,2);
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS uw_arv                 NUMERIC(12,2);
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS investment_type        TEXT CHECK (investment_type IN ('rental','flip'));
 
-CREATE INDEX IF NOT EXISTS properties_strategy_idx ON properties(strategy);
+CREATE INDEX IF NOT EXISTS properties_strategy_idx      ON properties(strategy);
+CREATE INDEX IF NOT EXISTS properties_investment_type_idx ON properties(investment_type);
 CREATE INDEX IF NOT EXISTS properties_acq_agent_idx ON properties(acquisition_agent_contact_id);
 
 -- ── Property files (PDFs, deeds, inspection reports, etc.) ─────────────

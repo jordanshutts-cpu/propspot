@@ -23,6 +23,7 @@
 
 require('dotenv').config();
 const fs   = require('fs');
+const path = require('path');
 const XLSX = require('xlsx');
 const { Pool } = require('pg');
 const { normalizeAddress, parseFreetextAddress } = require('../lib/address');
@@ -30,11 +31,12 @@ const { normalizeAddress, parseFreetextAddress } = require('../lib/address');
 // ── All schema constants live in one place — edit there, not here ────────────
 const {
   DEFAULT_TRACKER_XLSX,
-  TRACKER_COL       : COL,
+  TRACKER_COL        : COL,
   TRACKER_STATUS_MAP : STATUS_MAP,
   CLOSED_STATUSES,
   RENTAL_STATUSES,
   RENTAL_STRATEGIES,
+  FLIP_STRATEGIES,
 } = require('../config/property-database');
 
 // ── Value cleaners ──────────────────────────────────────────────────────────
@@ -99,7 +101,8 @@ function readTracker(xlsxPath) {
     const addrRaw = row[COL.address];
     if (!addrRaw || typeof addrRaw !== 'string') continue;
     const addrStr = addrRaw.trim();
-    if (!addrStr || addrStr.includes('Total')) continue;
+    const addrLow = addrStr.toLowerCase();
+    if (!addrStr || addrLow.includes('total') || addrLow.includes('average') || addrLow.startsWith('averages')) continue;
 
     const statusText   = String(row[COL.status]   || '').trim();
     const strategyText = String(row[COL.strategy] || '').trim();
@@ -119,6 +122,7 @@ function readTracker(xlsxPath) {
     const dbStatus  = STATUS_MAP[statusText] || null;
     const isClosed  = CLOSED_STATUSES.has(dbStatus);
     const isRental  = RENTAL_STATUSES.has(dbStatus) || RENTAL_STRATEGIES.has(strategyText);
+    const invType   = isRental ? 'rental' : FLIP_STRATEGIES.has(strategyText) ? 'flip' : null;
 
     // ARV: rentals prefer DSCR ARV; flips prefer sales section ARV
     const flipArv  = num(row[COL.uwArv]);
@@ -131,6 +135,7 @@ function readTracker(xlsxPath) {
       addrStr,
       status:               dbStatus,
       strategy:             strategyText || null,
+      investment_type:      invType,
       property_type:        str(row[COL.propType]),
       data_source:          str(row[COL.dataSource]),
       conversion_method:    str(row[COL.conversion]),
@@ -163,7 +168,7 @@ function readTracker(xlsxPath) {
 const UPSERT_SQL = `
   INSERT INTO properties (
     address_line1, city, state, zip, normalized_address,
-    status, strategy, property_type, data_source, conversion_method,
+    status, strategy, investment_type, property_type, data_source, conversion_method,
     purchase_date, purchase_price,
     bridge_origination_fee, loan_servicing_fee, reno_holdback,
     total_borrowed, purchase_loan_amount, lender_arv, interest_rate,
@@ -171,16 +176,20 @@ const UPSERT_SQL = `
     sold_date, sold_price, uw_arv
   ) VALUES (
     $1,$2,$3,$4,$5,
-    COALESCE($6,'purchasing'), $7,$8,$9,$10,
-    $11,$12,
-    $13,$14,$15,
-    $16,$17,$18,$19,
-    $20,$21,$22,
-    $23,$24,$25
+    COALESCE($6,'purchasing'), $7,$8,$9,$10,$11,
+    $12,$13,
+    $14,$15,$16,
+    $17,$18,$19,$20,
+    $21,$22,$23,
+    $24,$25,$26
   )
   ON CONFLICT (normalized_address) DO UPDATE SET
-    status                 = COALESCE(EXCLUDED.status,                 properties.status),
+    status                 = CASE WHEN properties.status = 'prospect'
+                               THEN properties.status
+                               ELSE COALESCE(EXCLUDED.status, properties.status)
+                             END,
     strategy               = COALESCE(EXCLUDED.strategy,               properties.strategy),
+    investment_type        = COALESCE(EXCLUDED.investment_type,        properties.investment_type),
     property_type          = COALESCE(EXCLUDED.property_type,          properties.property_type),
     data_source            = COALESCE(EXCLUDED.data_source,            properties.data_source),
     conversion_method      = COALESCE(EXCLUDED.conversion_method,      properties.conversion_method),
@@ -224,8 +233,9 @@ async function main() {
     process.exit(1);
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
   let inserted = 0, updated = 0, errors = 0;
+  let rentals = 0, flips = 0;
 
   for (const r of rows) {
     try {
@@ -234,7 +244,7 @@ async function main() {
 
       const res = await pool.query(UPSERT_SQL, [
         parsed.address_line1, parsed.city, parsed.state, parsed.zip, normAddr,
-        r.status ?? null, r.strategy ?? null,
+        r.status ?? null, r.strategy ?? null, r.investment_type ?? null,
         r.property_type ?? null, r.data_source ?? null, r.conversion_method ?? null,
         r.purchase_date ?? null, r.purchase_price ?? null,
         r.bridge_origination_fee ?? null, r.loan_servicing_fee ?? null,
@@ -248,6 +258,8 @@ async function main() {
 
       if (res.rows[0]?.is_insert) inserted++;
       else updated++;
+      if (r.investment_type === 'rental') rentals++;
+      else if (r.investment_type === 'flip') flips++;
 
       const done = inserted + updated;
       if (done % 50 === 0) process.stdout.write(`  ... ${done} processed\r`);
@@ -264,6 +276,9 @@ async function main() {
   console.log(`  ${inserted} new properties inserted`);
   console.log(`  ${updated}  existing properties updated`);
   if (errors) console.log(`  ${errors}  errors (see above)`);
+  console.log(`\n  Investment type breakdown (from this import):`);
+  console.log(`    Rentals : ${rentals}`);
+  console.log(`    Flips   : ${flips}`);
   console.log('');
 }
 

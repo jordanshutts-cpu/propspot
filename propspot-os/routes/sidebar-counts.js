@@ -56,7 +56,7 @@ router.get('/', async (req, res) => {
       SELECT COUNT(*)::int AS count
         FROM tasks
        WHERE status IN ('open','in_progress')
-         AND (assigned_to = $1 OR created_by = $1)
+         AND assigned_to = $1
     `, [me]),
 
     // ── Pipeline (Jordan's flow: prospect → lead → opportunity → acquisition

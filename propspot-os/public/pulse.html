@@ -73,30 +73,50 @@
     .ps-mention { background:rgba(97,183,70,.15); color:var(--brand); border-radius:4px; padding:0 3px; font-weight:600; }
     .ps-mention-me { background:rgba(97,183,70,.28); color:var(--brand); border-radius:4px; padding:0 3px; font-weight:700; }
 
-    /* ── Hover action toolbar ───────────────────────────────────── */
-    .ps-msg-toolbar {
-      display:none; position:absolute; right:8px; top:2px;
-      background:var(--surface); border:1px solid var(--border);
-      border-radius:10px; box-shadow:0 2px 14px rgba(0,0,0,.12);
-      align-items:center; gap:1px; padding:3px 5px; z-index:50;
-      white-space:nowrap;
+    /* ── Message action bar (below text, shown on hover) ─────────── */
+    .ps-msg-actions {
+      display:none; align-items:center; gap:1px;
+      margin:3px 0 2px;
     }
-    .ps-msg:hover .ps-msg-toolbar { display:flex; }
-    .ps-rx-quick-btn {
-      font-size:.95rem; padding:3px 4px; border:none; background:transparent;
-      cursor:pointer; border-radius:6px; line-height:1;
+    .ps-msg:hover .ps-msg-actions,
+    .ps-msg-actions.visible { display:flex; }
+
+    .ps-act-emoji {
+      font-size:.88rem; padding:3px 5px; border:none; background:transparent;
+      cursor:pointer; border-radius:7px; line-height:1;
       transition:background .1s, transform .08s;
     }
-    .ps-rx-quick-btn:hover { background:var(--brand-light); transform:scale(1.2); }
-    .ps-msg-action-btn {
+    .ps-act-emoji:hover { background:var(--brand-light); transform:scale(1.15); }
+
+    .ps-act-sep { width:1px; height:14px; background:var(--border); margin:0 4px; flex-shrink:0; }
+
+    .ps-act-btn {
       width:26px; height:26px; border:none; background:transparent;
-      cursor:pointer; border-radius:6px; display:flex; align-items:center;
-      justify-content:center; color:var(--text-muted);
+      cursor:pointer; border-radius:7px; display:flex; align-items:center;
+      justify-content:center; color:var(--text-muted); position:relative;
       transition:background .1s, color .1s;
     }
-    .ps-msg-action-btn:hover { background:var(--brand-light); color:var(--text); }
-    .ps-msg-action-btn.danger:hover { background:rgba(239,68,68,.1); color:#ef4444; }
-    .ps-toolbar-sep { width:1px; height:16px; background:var(--border); margin:0 2px; flex-shrink:0; }
+    .ps-act-btn:hover { background:var(--brand-light); color:var(--text); }
+    .ps-act-btn.active { background:var(--brand-light); color:var(--brand); }
+
+    /* More options dropdown */
+    .ps-more-menu {
+      position:absolute; top:calc(100% + 4px); right:0;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:11px; box-shadow:0 8px 32px -4px rgba(0,0,0,.2);
+      z-index:300; display:none; min-width:170px; padding:4px;
+    }
+    .ps-more-menu.open { display:block; }
+    .ps-more-item {
+      display:flex; align-items:center; gap:9px; padding:7px 10px;
+      border-radius:7px; cursor:pointer; font-size:.84rem; color:var(--text);
+      transition:background .1s; border:none; background:transparent;
+      width:100%; text-align:left; white-space:nowrap;
+    }
+    .ps-more-item:hover { background:var(--brand-light); }
+    .ps-more-item.danger { color:#ef4444; }
+    .ps-more-item.danger:hover { background:rgba(239,68,68,.08); }
+    .ps-more-divider { height:1px; background:var(--border); margin:3px 0; }
 
     /* ── Reaction chips ─────────────────────────────────────────── */
     .ps-reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; min-height:0; }
@@ -635,25 +655,35 @@
     // Reaction chips
     const rxHtml = reactionsHtml(m.reactions || [], mid);
 
-    // Toolbar SVGs
-    const svgEdit  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-    const svgDel   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-    const svgMore  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
-    const svgReply = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`;
+    // Action bar SVGs
+    const svgEdit   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    const svgDel    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+    const svgReply  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`;
+    const svgSmile  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`;
+    const svgDots   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>`;
+    const svgCopy   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const svgTask   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
 
-    const quickEmojis = ['👍','❤️','😂','🎉','🤔'];
-    const quickBtns = quickEmojis.map(e =>
-      `<button class="ps-rx-quick-btn" title="${e}" onclick="reactMsg('${mid}','${e}',event)">${e}</button>`
+    const quickEmojis = ['👍','❤️','😂','🎉','🔥'];
+    const quickBtns = quickEmojis.map(em =>
+      `<button class="ps-act-emoji" title="React with ${em}" onclick="reactMsg('${mid}','${em}',event)">${em}</button>`
     ).join('');
 
-    const toolbar = `<div class="ps-msg-toolbar">
+    const moreMenu = `<div class="ps-more-menu" id="more-menu-${mid}">
+      <button class="ps-more-item" onclick="copyMsgText('${mid}')">${svgCopy} Copy text</button>
+      <button class="ps-more-item" onclick="startReply('${mid}','${esc1(senderName)}');closeMoreMenu('${mid}')">${svgReply} Reply to message</button>
+      <button class="ps-more-item" onclick="createTaskFromMsg('${mid}');closeMoreMenu('${mid}')">${svgTask} Create task from this</button>
+      ${isOwn ? `<div class="ps-more-divider"></div>
+      <button class="ps-more-item" onclick="editMsg('${mid}');closeMoreMenu('${mid}')">${svgEdit} Edit message</button>
+      <button class="ps-more-item danger" onclick="deleteMsg('${mid}')">${svgDel} Delete message</button>` : ''}
+    </div>`;
+
+    const actionBar = `<div class="ps-msg-actions" id="act-${mid}">
       ${quickBtns}
-      <button class="ps-msg-action-btn" title="More reactions" onclick="openEmojiPicker('${mid}',event,this)">${svgMore}</button>
-      <div class="ps-toolbar-sep"></div>
-      <button class="ps-msg-action-btn" title="Reply" onclick="startReply('${mid}','${esc1(senderName)}')">${svgReply}</button>
-      <button class="ps-msg-action-btn" title="Create Task" onclick="createTaskFromMsg('${mid}')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>
-      ${isOwn ? `<button class="ps-msg-action-btn" title="Edit message" onclick="editMsg('${mid}')">${svgEdit}</button>
-        <button class="ps-msg-action-btn danger" title="Delete message" onclick="deleteMsg('${mid}')">${svgDel}</button>` : ''}
+      <button class="ps-act-btn" title="Add reaction" onclick="openEmojiPicker('${mid}',event,this)">${svgSmile}</button>
+      <div class="ps-act-sep"></div>
+      <button class="ps-act-btn" title="Reply" onclick="startReply('${mid}','${esc1(senderName)}')">${svgReply}</button>
+      <button class="ps-act-btn" title="More options" onclick="toggleMoreMenu('${mid}',this)">${svgDots}${moreMenu}</button>
     </div>`;
 
     // Reply-to quote block
@@ -681,9 +711,9 @@
         </div>
         ${replyQuote}
         <div class="ps-msg-text" id="msgt-${mid}">${textOut}${edited}</div>
+        ${actionBar}
         <div class="ps-reactions" id="rxc-${mid}">${rxHtml}</div>
       </div>
-      ${toolbar}
     </div>`;
     lastSender = m.sender_id;
     return out;
@@ -960,6 +990,50 @@
   function closeEmojiPicker() {
     document.getElementById('ps-emoji-picker')?.classList.remove('open');
     emojiPickerTarget = null;
+  }
+
+  // ── More options menu ──────────────────────────────────────────
+  function toggleMoreMenu(msgId, btn) {
+    const menu   = document.getElementById(`more-menu-${msgId}`);
+    const actBar = document.getElementById(`act-${msgId}`);
+    if (!menu) return;
+    const isOpen = menu.classList.contains('open');
+    closeAllMoreMenus();
+    if (!isOpen) {
+      menu.classList.add('open');
+      btn.classList.add('active');
+      if (actBar) actBar.classList.add('visible');
+    }
+    btn.closest('.ps-msg')?.addEventListener('mouseleave', () => {
+      // keep visible while menu is open; let closeAllMoreMenus handle teardown
+    }, { once: true });
+  }
+
+  function closeMoreMenu(msgId) {
+    const menu   = document.getElementById(`more-menu-${msgId}`);
+    const actBar = document.getElementById(`act-${msgId}`);
+    if (menu) {
+      menu.classList.remove('open');
+      actBar?.classList.remove('visible');
+      menu.closest('.ps-act-btn')?.classList.remove('active');
+    }
+  }
+
+  function closeAllMoreMenus() {
+    document.querySelectorAll('.ps-more-menu.open').forEach(m => {
+      const msgId = m.id.replace('more-menu-', '');
+      closeMoreMenu(msgId);
+    });
+  }
+
+  async function copyMsgText(msgId) {
+    closeAllMoreMenus();
+    const msg = messages.find(m => m.id === msgId);
+    if (!msg) return;
+    try {
+      await navigator.clipboard.writeText(msg.body || '');
+      showToast('Message copied', 'success');
+    } catch (_) { showToast('Could not copy', 'error'); }
   }
 
   // ── @mention picker ────────────────────────────────────────────
@@ -1436,6 +1510,14 @@
   document.addEventListener('click', e => {
     const picker = document.getElementById('ps-emoji-picker');
     if (picker?.classList.contains('open') && !picker.contains(e.target)) closeEmojiPicker();
+  });
+
+  // Close more-options menus on outside click
+  document.addEventListener('click', e => {
+    if (!document.querySelector('.ps-more-menu.open')) return;
+    if (!e.target.closest('.ps-more-menu') && !e.target.closest('.ps-act-btn')) {
+      closeAllMoreMenus();
+    }
   });
 
   // Close upick on outside click
