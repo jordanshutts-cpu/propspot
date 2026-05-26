@@ -52,6 +52,7 @@ app.use('/api/task-projects',    require('./routes/task-projects'));
 app.use('/api/drive',             require('./routes/drive'));
 app.use('/api/mentions',          require('./routes/mentions'));
 app.use('/api/org',               require('./routes/org'));
+app.use('/api/calendar',          require('./routes/calendar'));
 
 // ── Holdings (full CRUD — replaces stub) ──────────────────────────
 app.use('/api/holdings', require('./routes/holdings'));
