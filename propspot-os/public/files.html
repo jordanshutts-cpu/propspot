@@ -62,6 +62,12 @@
     .context-menu button:hover { background:var(--brand-light); }
     .context-menu button.danger { color:#dc2626; }
 
+    .drive-tabs { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
+    .drive-tab { padding:10px 20px; font-size:.88rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--text-muted); transition:all .12s; background:none; border-top:none; border-left:none; border-right:none; }
+    .drive-tab:hover { color:var(--brand); }
+    .drive-tab.active { color:var(--brand); border-bottom-color:var(--brand); }
+    .drive-tab svg { width:16px; height:16px; vertical-align:-3px; margin-right:6px; }
+
     @media(max-width:640px) { .drive-grid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); } }
   </style>
 </head>
@@ -75,8 +81,19 @@
     <span class="section-title">Files</span>
   </div>
 
+  <div class="drive-tabs">
+    <button class="drive-tab active" id="tab-shared" onclick="switchDrive('shared')">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Shared Drive
+    </button>
+    <button class="drive-tab" id="tab-personal" onclick="switchDrive('personal')">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      My Drive
+    </button>
+  </div>
+
   <div id="breadcrumb" class="breadcrumb">
-    <span class="current">My Drive</span>
+    <span class="current">Shared Drive</span>
   </div>
 
   <div class="drive-toolbar">
@@ -177,10 +194,19 @@
 <script src="app.js"></script>
 <script>
 let currentFolder = null; // null = root
+let currentDriveType = 'shared'; // 'shared' or 'personal'
 let folders = [], files = [], usersCache = [];
 let shareTarget = null; // { type: 'folder'|'file', id: '...' }
 let renameTarget = null;
 let editingFolderId = null;
+
+function switchDrive(type) {
+  currentDriveType = type;
+  currentFolder = null;
+  document.getElementById('tab-shared').classList.toggle('active', type === 'shared');
+  document.getElementById('tab-personal').classList.toggle('active', type === 'personal');
+  loadFolder(null);
+}
 
 async function init() {
   const user = await requireAuth();
@@ -191,8 +217,9 @@ async function init() {
 
 async function loadFolder(folderId) {
   currentFolder = folderId;
-  const qs = folderId ? `?parent_id=${folderId}` : '';
-  const fqs = folderId ? `?folder_id=${folderId}` : '';
+  const dtParam = `drive_type=${currentDriveType}`;
+  const qs = folderId ? `?parent_id=${folderId}` : `?${dtParam}`;
+  const fqs = folderId ? `?folder_id=${folderId}` : `?${dtParam}`;
   try {
     [folders, files] = await Promise.all([
       apiFetch(`/api/drive/folders${qs}`),
@@ -212,11 +239,12 @@ async function loadFolder(folderId) {
 
 function renderBreadcrumb(crumbs) {
   const el = document.getElementById('breadcrumb');
+  const rootLabel = currentDriveType === 'personal' ? 'My Drive' : 'Shared Drive';
   if (!crumbs) {
-    el.innerHTML = '<span class="current">My Drive</span>';
+    el.innerHTML = `<span class="current">${rootLabel}</span>`;
     return;
   }
-  let html = `<a href="#" onclick="event.preventDefault();loadFolder(null)">My Drive</a>`;
+  let html = `<a href="#" onclick="event.preventDefault();loadFolder(null)">${rootLabel}</a>`;
   crumbs.forEach((c, i) => {
     html += `<span class="sep">/</span>`;
     if (i === crumbs.length - 1) {
@@ -235,7 +263,7 @@ function renderContent() {
     document.getElementById('content').innerHTML = `
       <div class="empty-drive">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <p>This folder is empty. Upload files or create a folder to get started.</p>
+        <p>${currentDriveType === 'personal' ? 'Your personal drive is empty. Upload working files or create folders for your own use.' : 'The shared drive is empty. Upload company documents or create folders to get started.'}</p>
       </div>`;
     return;
   }
@@ -304,6 +332,7 @@ async function uploadFiles(fileList) {
     const form = new FormData();
     form.append('file', file);
     if (currentFolder) form.append('folder_id', currentFolder);
+    form.append('drive_type', currentDriveType);
     try { await apiFetch('/api/drive/files', { method: 'POST', body: form }); } catch {}
   }
   await loadFolder(currentFolder);
@@ -328,7 +357,7 @@ async function saveFolder() {
   const teamVisible = document.getElementById('f-visibility').value === 'true';
   try {
     await apiFetch('/api/drive/folders', { method: 'POST', body: JSON.stringify({
-      name, parent_id: currentFolder, team_visible: teamVisible
+      name, parent_id: currentFolder, team_visible: teamVisible, drive_type: currentDriveType
     })});
     closeFolderModal();
     await loadFolder(currentFolder);

@@ -1283,6 +1283,8 @@ CREATE TABLE IF NOT EXISTS drive_folders (
 );
 CREATE INDEX IF NOT EXISTS drive_folders_parent_idx   ON drive_folders(parent_id);
 CREATE INDEX IF NOT EXISTS drive_folders_property_idx ON drive_folders(property_id);
+ALTER TABLE drive_folders ADD COLUMN IF NOT EXISTS drive_type TEXT NOT NULL DEFAULT 'shared' CHECK (drive_type IN ('shared','personal'));
+ALTER TABLE drive_files ADD COLUMN IF NOT EXISTS drive_type TEXT NOT NULL DEFAULT 'shared' CHECK (drive_type IN ('shared','personal'));
 
 -- ── Drive: files ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS drive_files (
