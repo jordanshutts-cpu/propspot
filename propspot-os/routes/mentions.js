@@ -76,7 +76,6 @@ router.get('/', async (req, res) => {
         LEFT JOIN properties p ON p.id = ph.property_id
         WHERE c.body ILIKE '%@' || $1 || '%'
           AND c.user_id != $2
-          AND c.deleted_at IS NULL
         ORDER BY c.created_at DESC
         LIMIT 50
       `, [meUser.full_name, me]);
