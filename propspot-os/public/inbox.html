@@ -704,8 +704,10 @@
         padding: 0 !important;
         max-width: none !important;
       }
-      body:has(main.page.page-inbox-fullscreen) .mobile-bottom-nav,
-      body:has(main.page.page-inbox-fullscreen) .apps-rail {
+      body:has(main.page.page-inbox-fullscreen) .mobile-bottom-nav {
+        display: none !important;
+      }
+      body:has(main.page.page-inbox-fullscreen) .apps-rail:not(.open) {
         display: none !important;
       }
       body.os-newlayout:has(main.page.page-inbox-fullscreen) {
