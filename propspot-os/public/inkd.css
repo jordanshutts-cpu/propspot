@@ -1,0 +1,16 @@
+body.inkd-dash { margin: 0; font-family: system-ui, sans-serif; background: #f5f6f8; }
+.inkd-dash-header { display: flex; gap: 12px; align-items: center; padding: 16px 24px; background: white; border-bottom: 1px solid #e3e3e3; }
+.inkd-dash-header h1 { margin: 0; flex: 1; font-size: 18px; }
+.inkd-dash-header a { text-decoration: none; padding: 8px 14px; border-radius: 4px; }
+.inkd-dash-header a.primary   { background: #2563eb; color: white; }
+.inkd-dash-header a.secondary { background: #f3f4f6; color: #111; border: 1px solid #ccc; }
+.lanes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 16px; height: calc(100vh - 72px); }
+.lane { background: #ececec; border-radius: 6px; padding: 12px; overflow-y: auto; }
+.lane h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; color: #555; }
+.card { background: white; border-radius: 4px; padding: 10px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.card h3 { margin: 0 0 4px; font-size: 14px; }
+.card p { margin: 2px 0; font-size: 12px; color: #666; }
+.card .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.card .actions button, .card .actions a { font-size: 11px; padding: 4px 8px; background: #f3f4f6; border: 1px solid #ccc; border-radius: 3px; text-decoration: none; color: #111; cursor: pointer; }
+.card .actions .file { background: #16a34a; color: white; border-color: #16a34a; }
+.card .actions .void { background: #ef4444; color: white; border-color: #ef4444; }
