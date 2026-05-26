@@ -372,9 +372,77 @@ async function signOut() {
   window.location.href = '/index.html';
 }
 
+// ── Sidebar mode (open | collapsed | auto) ───────────────────────────
+// 'open'      — always expanded
+// 'collapsed' — always icon-only
+// 'auto'      — icon-only by default, expands on hover, collapses on leave
+const SIDEBAR_MODE_KEY = 'sidebar_mode';
+function getSidebarMode() {
+  try { return localStorage.getItem(SIDEBAR_MODE_KEY) || 'open'; }
+  catch { return 'open'; }
+}
+function setSidebarMode(mode) {
+  if (!['open','collapsed','auto'].includes(mode)) mode = 'open';
+  try { localStorage.setItem(SIDEBAR_MODE_KEY, mode); } catch {}
+  applySidebarMode(mode);
+}
+function applySidebarMode(mode) {
+  const html = document.documentElement;
+  html.classList.toggle('sidebar-mode-auto', mode === 'auto');
+  const collapsed = (mode === 'collapsed' || mode === 'auto');
+  html.classList.toggle('sidebar-collapsed', collapsed);
+  try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch {}
+  wireSidebarAutoHover(mode === 'auto');
+}
+let _autoHoverWired = false;
+let _autoLeaveTimer = null;
+function wireSidebarAutoHover(enable) {
+  const rail = document.getElementById('apps-rail');
+  if (!rail) return;
+  if (enable && !_autoHoverWired) {
+    rail.addEventListener('mouseenter', _autoOnEnter);
+    rail.addEventListener('mouseleave', _autoOnLeave);
+    _autoHoverWired = true;
+  } else if (!enable && _autoHoverWired) {
+    rail.removeEventListener('mouseenter', _autoOnEnter);
+    rail.removeEventListener('mouseleave', _autoOnLeave);
+    _autoHoverWired = false;
+    clearTimeout(_autoLeaveTimer);
+  }
+}
+function _autoOnEnter() {
+  clearTimeout(_autoLeaveTimer);
+  document.documentElement.classList.remove('sidebar-collapsed');
+}
+function _autoOnLeave() {
+  clearTimeout(_autoLeaveTimer);
+  _autoLeaveTimer = setTimeout(() => {
+    if (document.documentElement.classList.contains('sidebar-mode-auto')) {
+      document.documentElement.classList.add('sidebar-collapsed');
+    }
+  }, 220);
+}
+// Run on every page load so hover handlers attach for users in auto mode.
+// Retry briefly because sidebar.js may mount #apps-rail slightly after DCL.
+function _bootSidebarMode() {
+  const mode = getSidebarMode();
+  applySidebarMode(mode);
+  if (mode === 'auto' && !_autoHoverWired) {
+    setTimeout(() => applySidebarMode(getSidebarMode()), 400);
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _bootSidebarMode);
+} else {
+  _bootSidebarMode();
+}
+
 function toggleSidebar() {
-  const collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
-  try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+  // Manual collapse button — flips the user's pref between open and collapsed
+  // (does NOT preserve 'auto'; if you wanted auto-hover, change it in Settings).
+  const current = getSidebarMode();
+  setSidebarMode(current === 'open' ? 'collapsed' : 'open');
+  const collapsed = document.documentElement.classList.contains('sidebar-collapsed');
   // Legacy chrome button (chevron via textContent)
   const legacyBtn = document.getElementById('nav-collapse-btn');
   if (legacyBtn) {
@@ -895,6 +963,7 @@ function openSettings() {
   document.getElementById('settings-modal')?.remove();
 
   const currentTheme = (window.__getTheme && window.__getTheme()) || 'classic';
+  const currentSidebar = getSidebarMode();
   const wrap = document.createElement('div');
   wrap.id = 'settings-modal';
   wrap.className = 'settings-backdrop open';
@@ -915,6 +984,17 @@ function openSettings() {
             <div class="settings-segmented" role="group">
               <button type="button" class="settings-seg-btn ${currentTheme==='premium' ? 'active' : ''}" data-theme="premium" onclick="pickTheme('premium')">Light</button>
               <button type="button" class="settings-seg-btn ${currentTheme==='dark'    ? 'active' : ''}" data-theme="dark"    onclick="pickTheme('dark')">Dark</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Sidebar</div>
+              <div class="settings-row-sub">Keep the left sidebar open, keep it collapsed, or auto-expand on hover.</div>
+            </div>
+            <div class="settings-segmented" role="group">
+              <button type="button" class="settings-seg-btn ${currentSidebar==='open'      ? 'active' : ''}" data-sidebar="open"      onclick="pickSidebarMode('open')">Open</button>
+              <button type="button" class="settings-seg-btn ${currentSidebar==='auto'      ? 'active' : ''}" data-sidebar="auto"      onclick="pickSidebarMode('auto')">Auto</button>
+              <button type="button" class="settings-seg-btn ${currentSidebar==='collapsed' ? 'active' : ''}" data-sidebar="collapsed" onclick="pickSidebarMode('collapsed')">Collapsed</button>
             </div>
           </div>
         </div>
@@ -947,6 +1027,12 @@ function closeSettings() {
 // pickTheme is the settings-modal entry point. theme.js owns the
 // actual class-toggling / CSS-loading via window.setTheme; this just
 // forwards and keeps the segmented control's active state in sync.
+function pickSidebarMode(mode) {
+  setSidebarMode(mode);
+  document.querySelectorAll('#settings-modal .settings-seg-btn[data-sidebar]').forEach(b => {
+    b.classList.toggle('active', b.dataset.sidebar === mode);
+  });
+}
 function pickTheme(which) {
   if (typeof window.setTheme === 'function') {
     window.setTheme(which);
@@ -954,7 +1040,7 @@ function pickTheme(which) {
     // Fallback for older theme.js — best-effort
     window.toggleTheme();
   }
-  document.querySelectorAll('#settings-modal .settings-seg-btn').forEach(b => {
+  document.querySelectorAll('#settings-modal .settings-seg-btn[data-theme]').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === which);
   });
 }
