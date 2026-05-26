@@ -185,6 +185,7 @@ initDb()
     app.listen(PORT, () => {
       console.log(`Prop Spot running on port ${PORT}`);
       console.log(`  http://localhost:${PORT}`);
+      require('./routes/inkd/workers').startWorker();
     });
     // Background Gmail sync for every connected mailbox (shared + personal).
     // Skip with INBOX_SYNC_ENABLED=0 in environments where you don't want
