@@ -678,8 +678,19 @@
     /* ── Modal + form-row (not in OS style.css) ──────────────────── */
     .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; align-items:center; justify-content:center; padding:20px; }
     .modal-backdrop.open { display:flex; }
-    .modal { background:#fff; border-radius:12px; padding:24px 28px; width:min(620px,100%); max-height:90vh; overflow-y:auto; }
-    .modal-title { font-size:1.05rem; font-weight:700; margin-bottom:16px; }
+    .modal {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      width: min(620px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    }
+    .modal-title { font-size:1.05rem; font-weight:700; margin-bottom:16px; color: var(--text); }
+    .modal .form-label { color: var(--text); }
     .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media (max-width:560px) { .form-row { grid-template-columns:1fr; } }
     .btn-sm { padding:5px 10px; font-size:.78rem; }
@@ -1812,9 +1823,10 @@ async function createCalendarEvent() {
       .filter(p => !SKIP[p.status])
       .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(propertyLabel(p))}</option>`).join('');
 
-  // Default start = next top of the hour
+  // Default start = next top of the hour, end = start + 1h
   const now = new Date();
   now.setMinutes(0, 0, 0); now.setHours(now.getHours() + 1);
+  const endDefault = new Date(now); endDefault.setHours(endDefault.getHours() + 1);
   const pad = n => String(n).padStart(2, '0');
   const localISO = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
@@ -1823,7 +1835,8 @@ async function createCalendarEvent() {
   document.getElementById('cl-type').value = 'general';
   document.getElementById('cl-property').value = t.property_id || '';
   document.getElementById('cl-start').value = localISO(now);
-  document.getElementById('cl-end').value = '';
+  document.getElementById('cl-end').value = localISO(endDefault);
+  _clPrevStart = localISO(now);   // so the delta-shift listener has a baseline
   document.getElementById('cl-allday').checked = false;
   document.getElementById('cl-err').style.display = 'none';
 
@@ -1834,15 +1847,29 @@ async function createCalendarEvent() {
 function closeCalModal() { document.getElementById('modal-cal').classList.remove('open'); }
 document.getElementById('modal-cal').addEventListener('click', e => { if (e.target === e.currentTarget) closeCalModal(); });
 
-// Auto-fill end = start + 1h when user changes start (only if end is empty)
+// When start changes, shift end by the same delta so duration stays
+// constant (defaults to 1h since the modal pre-fills end = start + 1h).
+// If end is empty, set it to new-start + 1h.
+let _clPrevStart = null;
 document.getElementById('cl-start').addEventListener('change', e => {
   const endEl = document.getElementById('cl-end');
-  if (endEl.value || !e.target.value) return;
-  const d = new Date(e.target.value);
-  if (isNaN(d)) return;
-  d.setHours(d.getHours() + 1);
+  const newStart = e.target.value ? new Date(e.target.value) : null;
+  if (!newStart || isNaN(newStart)) return;
   const pad = n => String(n).padStart(2, '0');
-  endEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const oldStart = _clPrevStart ? new Date(_clPrevStart) : null;
+  if (endEl.value && oldStart && !isNaN(oldStart)) {
+    const end = new Date(endEl.value);
+    if (!isNaN(end)) {
+      const deltaMs = end.getTime() - oldStart.getTime();
+      const newEnd = new Date(newStart.getTime() + deltaMs);
+      endEl.value = fmt(newEnd);
+    }
+  } else if (!endEl.value) {
+    const newEnd = new Date(newStart); newEnd.setHours(newEnd.getHours() + 1);
+    endEl.value = fmt(newEnd);
+  }
+  _clPrevStart = e.target.value;
 });
 
 async function submitCalendarFromInbox(e) {
