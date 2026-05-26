@@ -99,6 +99,7 @@
   <div class="section-header">
     <span class="section-title">Lawn maintenance</span>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="optimizeRoute()" title="Optimize stop order to minimize driving distance">🔄 Optimize Route</button>
       <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open today's route in Google Maps">🗺️ Open Route in Maps</button>
     </div>
   </div>
@@ -396,6 +397,8 @@
         </td>
         <td><code class="lockbox">${escHtml(r.lockbox_code || '—')}</code></td>
         <td style="text-align:right;white-space:nowrap;">
+          ${r.route_pin === 'first' ? '<span class="badge badge-blue" style="margin-right:4px;" title="Pinned first">1st</span>' : r.route_pin === 'last' ? '<span class="badge badge-amber" style="margin-right:4px;" title="Pinned last">Last</span>' : ''}
+          <button class="btn btn-secondary btn-xs" data-act="pin" data-id="${escHtml(r.id)}" data-pin="${r.route_pin || ''}" title="Pin to first or last">${r.route_pin ? '📌' : '📌'}</button>
           <button class="btn btn-secondary btn-xs" data-act="checkin" data-id="${escHtml(r.id)}" title="Check in (records arrival + GPS)">📍 Check in</button>
           <button class="btn btn-primary btn-xs" data-act="mowed" data-id="${escHtml(r.id)}" title="Log a mow">✓ Mowed</button>
           <a class="btn btn-secondary btn-xs" href="${fieldcamHref}" title="Take photos in FieldCam">📷</a>
@@ -415,6 +418,7 @@
         if (act === 'checkin')  await onCheckIn(id);
         if (act === 'mowed')    openMowLog(id);
         if (act === 'settings') openSettings(id);
+        if (act === 'pin')      await onTogglePin(id, btn.dataset.pin);
       });
     });
     document.querySelectorAll('.assignee-select').forEach(sel => {
@@ -733,6 +737,104 @@
     });
     showToast('Route updated');
     render();
+  }
+
+  // ── Pin to first / last ──────────────────────────────────────
+  async function onTogglePin(id, currentPin) {
+    var options = [];
+    if (currentPin !== 'first') options.push('Pin to first');
+    if (currentPin !== 'last') options.push('Pin to last');
+    if (currentPin) options.push('Remove pin');
+    var choice = prompt(options.join('\n') + '\n\nType: first, last, or remove');
+    if (!choice) return;
+    choice = choice.trim().toLowerCase();
+    var pin = null;
+    if (choice === 'first' || choice === 'pin to first') pin = 'first';
+    else if (choice === 'last' || choice === 'pin to last') pin = 'last';
+    else if (choice === 'remove' || choice === 'remove pin') pin = null;
+    else return;
+    try {
+      await apiFetch(LAWN + '/' + id + '/pin', { method: 'PATCH', body: JSON.stringify({ pin: pin }) });
+      var r = rows.find(function(x) { return x.id === id; });
+      if (r) r.route_pin = pin;
+      // Clear other rows with same pin
+      if (pin) rows.forEach(function(x) { if (x.id !== id && x.route_pin === pin) x.route_pin = null; });
+      showToast(pin ? 'Pinned to ' + pin : 'Pin removed');
+      render();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Route optimization (nearest-neighbor TSP approximation) ──
+  function haversine(lat1, lon1, lat2, lon2) {
+    var R = 3958.8; // miles
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  async function optimizeRoute() {
+    var route = bucketRows().route;
+    if (route.length < 2) { showToast('Need at least 2 stops to optimize', 'error'); return; }
+
+    // Separate pinned stops from optimizable ones
+    var pinnedFirst = route.find(function(r) { return r.route_pin === 'first'; });
+    var pinnedLast = route.find(function(r) { return r.route_pin === 'last'; });
+    var toOptimize = route.filter(function(r) { return r.route_pin !== 'first' && r.route_pin !== 'last'; });
+
+    var withCoords = toOptimize.filter(function(r) { return r.lat != null && r.lng != null; });
+    var noCoords = toOptimize.filter(function(r) { return r.lat == null || r.lng == null; });
+
+    // Determine starting point for nearest-neighbor
+    var startLat, startLng;
+    if (pinnedFirst && pinnedFirst.lat != null) {
+      startLat = pinnedFirst.lat;
+      startLng = pinnedFirst.lng;
+    } else {
+      try {
+        var pos = await new Promise(function(resolve, reject) {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        });
+        startLat = pos.coords.latitude;
+        startLng = pos.coords.longitude;
+      } catch(e) {
+        var first = withCoords[0] || route[0];
+        startLat = first.lat;
+        startLng = first.lng;
+      }
+    }
+
+    // Nearest-neighbor on unpinned stops
+    var visited = [];
+    var remaining = withCoords.slice();
+    var curLat = startLat, curLng = startLng;
+    while (remaining.length > 0) {
+      var bestIdx = 0, bestDist = Infinity;
+      for (var i = 0; i < remaining.length; i++) {
+        var d = haversine(curLat, curLng, remaining[i].lat, remaining[i].lng);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      var next = remaining.splice(bestIdx, 1)[0];
+      visited.push(next);
+      curLat = next.lat;
+      curLng = next.lng;
+    }
+
+    // Build final order: pinned first + optimized middle + no-coords + pinned last
+    var middle = visited.concat(noCoords);
+    var final = [];
+    if (pinnedFirst) final.push(pinnedFirst);
+    final = final.concat(middle);
+    if (pinnedLast) final.push(pinnedLast);
+
+    var optimizedOrder = final.map(function(r) { return r.id; });
+    await applyRouteChange(optimizedOrder);
+    var pinMsg = '';
+    if (pinnedFirst) pinMsg += pinnedFirst.address_line1 + ' locked first';
+    if (pinnedLast) pinMsg += (pinMsg ? ', ' : '') + pinnedLast.address_line1 + ' locked last';
+    showToast('Route optimized' + (pinMsg ? ' (' + pinMsg + ')' : ''));
   }
 
   // ── Google Maps directions URL ──────────────────────────────

@@ -614,10 +614,12 @@ CREATE TABLE IF NOT EXISTS lawn_maintenance (
   sign_for_sale        BOOLEAN NOT NULL DEFAULT FALSE,
   sign_for_rent        BOOLEAN NOT NULL DEFAULT FALSE,
   route_position       INT,
+  route_pin            TEXT CHECK (route_pin IN ('first','last')),
   notes                TEXT,
   created_at           TIMESTAMPTZ DEFAULT NOW(),
   updated_at           TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE lawn_maintenance ADD COLUMN IF NOT EXISTS route_pin TEXT CHECK (route_pin IN ('first','last'));
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lawn_maintenance_mode_check') THEN
     ALTER TABLE lawn_maintenance DROP CONSTRAINT lawn_maintenance_mode_check;

@@ -52,7 +52,7 @@ router.get('/', async (req, res) => {
              lm.last_checked_in_at, lm.last_checked_in_by,
              lm.last_checked_in_lat, lm.last_checked_in_lng,
              lm.sign_for_sale, lm.sign_for_rent,
-             lm.route_position, lm.notes,
+             lm.route_position, lm.route_pin, lm.notes,
              u.full_name   AS assigned_user_name,
              lmu.full_name AS last_mowed_by_name,
              ciu.full_name AS last_checked_in_by_name,
@@ -311,6 +311,24 @@ router.post('/route', async (req, res) => {
     res.status(500).json({ error: 'Failed to save route' });
   } finally {
     client.release();
+  }
+});
+
+// PATCH /api/maintenance/lawn/:propertyId/pin — set or clear route pin
+router.patch('/:propertyId/pin', async (req, res) => {
+  try {
+    const { pin } = req.body;
+    if (pin && pin !== 'first' && pin !== 'last') return res.status(400).json({ error: 'pin must be first, last, or null' });
+    // Clear any existing pin of the same type so only one stop is pinned first/last
+    if (pin) await query(`UPDATE lawn_maintenance SET route_pin = NULL WHERE route_pin = $1`, [pin]);
+    await query(
+      `UPDATE lawn_maintenance SET route_pin = $1, updated_at = NOW() WHERE property_id = $2`,
+      [pin || null, req.params.propertyId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update pin' });
   }
 });
 
