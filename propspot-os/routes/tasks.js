@@ -266,11 +266,12 @@ router.post('/:id/attachments', upload.single('file'), async (req, res) => {
       ).end(req.file.buffer);
     });
 
+    const taskItemId = req.body && req.body.task_item_id ? req.body.task_item_id : null;
     const { rows: [att] } = await query(`
-      INSERT INTO task_attachments (task_id, filename, url, cloudinary_id, mime_type, size_bytes, uploaded_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO task_attachments (task_id, task_item_id, filename, url, cloudinary_id, mime_type, size_bytes, uploaded_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
-    `, [req.params.id, req.file.originalname || 'upload', result.secure_url, result.public_id, req.file.mimetype || null, req.file.size || null, req.userId]);
+    `, [req.params.id, taskItemId, req.file.originalname || 'upload', result.secure_url, result.public_id, req.file.mimetype || null, req.file.size || null, req.userId]);
 
     res.status(201).json(att);
   } catch (err) {

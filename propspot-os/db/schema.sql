@@ -1257,6 +1257,8 @@ CREATE TABLE IF NOT EXISTS task_attachments (
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS task_attachments_task_idx ON task_attachments(task_id);
+ALTER TABLE task_attachments ADD COLUMN IF NOT EXISTS task_item_id UUID REFERENCES task_items(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS task_attachments_item_idx ON task_attachments(task_item_id);
 
 CREATE TABLE IF NOT EXISTS task_comments (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
