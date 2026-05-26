@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Lawn</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    .pill-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+    .pill { padding:6px 14px; border-radius:100px; border:1.5px solid var(--border); background:var(--surface); font-size:.82rem; font-weight:500; cursor:pointer; color:var(--text-muted); transition:all .12s; }
+    .pill:hover { border-color:var(--brand); color:var(--brand); }
+    .pill.active { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
+
+    .lawn-table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .lawn-table { width:100%; border-collapse:collapse; font-size:.85rem; min-width:980px; }
+    .lawn-table th, .lawn-table td { padding:10px 12px; text-align:left; vertical-align:middle; border-bottom:1px solid var(--border); }
+    .lawn-table thead th { background:var(--bg); color:var(--text-muted); font-size:.68rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; position:sticky; top:0; z-index:1; }
+    .lawn-table tbody tr { transition:background .12s, opacity .08s; }
+    .lawn-table tbody tr:hover { background:var(--bg); }
+    .lawn-table tbody tr.dragging { opacity:.35; }
+    .lawn-table .drag-handle { cursor:grab; color:var(--text-muted); text-align:center; font-weight:700; user-select:none; letter-spacing:-1px; }
+    .lawn-table .drag-handle:active { cursor:grabbing; }
+    .lawn-table .addr-link { font-weight:700; color:var(--text); text-decoration:underline; text-decoration-thickness:2px; text-underline-offset:3px; }
+    .lawn-table .addr-link:hover { color:var(--brand); text-decoration-color:var(--brand); }
+    .lawn-table .cell-sub { font-size:.72rem; color:var(--text-muted); margin-top:2px; }
+    .lawn-table .lockbox { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.8rem; background:var(--bg); padding:2px 6px; border-radius:6px; }
+    .lawn-table .assignee-select { padding:4px 6px; font-size:.8rem; min-width:130px; }
+
+    .sign-toggle { display:inline-flex; align-items:center; gap:4px; margin-right:8px; font-size:.76rem; white-space:nowrap; }
+    .sign-toggle input { margin:0; }
+
+    .overdue-text { color:#b91c1c; font-weight:600; }
+    .overdue-dot { display:inline-block; width:8px; height:8px; border-radius:100px; background:#ef4444; vertical-align:middle; margin-left:4px; }
+
+    .badge-purple { background:#ede9fe; color:#6b21a8; }
+    .badge-amber  { background:#fef3c7; color:#92400e; }
+    .badge-grey   { background:#f3f4f6; color:#4b5563; }
+    .badge-blue   { background:#dbeafe; color:#1e40af; }
+
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); align-items:center; justify-content:center; z-index:500; padding:20px; }
+    .modal-backdrop.open { display:flex; }
+    .modal-box { background:var(--surface); border-radius:var(--radius); box-shadow:0 8px 40px rgba(0,0,0,.2); width:100%; max-width:560px; max-height:92vh; overflow-y:auto; padding:24px; }
+    .modal-title { font-size:1.1rem; font-weight:700; margin-bottom:14px; }
+    .modal-actions { display:flex; gap:8px; margin-top:16px; }
+
+    .mow-event-row { display:flex; align-items:center; gap:8px; padding:8px 4px; border-bottom:1px solid var(--border); }
+    .mow-event-row:last-child { border-bottom:none; }
+
+    .empty-state { padding:32px 16px; text-align:center; color:var(--text-muted); }
+    .empty-state .empty-icon { font-size:3rem; margin-bottom:8px; }
+
+    .btn-xs { padding:4px 8px; font-size:.72rem; }
+  </style>
+</head>
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+
+  <div class="pill-row" style="margin-bottom:16px;">
+    <a class="pill" href="/maintenance.html" style="text-decoration:none;">🛠️ Work Orders</a>
+    <a class="pill active" href="/lawn.html" style="text-decoration:none;">🌳 Lawn Mowing</a>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title" id="props-count">Lawn maintenance</span>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open the current route in Google Maps">🗺️ Open Route in Maps</button>
+    </div>
+  </div>
+
+  <div class="pill-row" id="filter-pills">
+    <button class="pill active" data-f="all">All</button>
+    <button class="pill" data-f="mine">Mine</button>
+    <button class="pill" data-f="overdue">Overdue</button>
+    <button class="pill" data-f="forced">Force-on</button>
+  </div>
+
+  <p class="text-muted text-sm" id="route-hint" style="display:none;"></p>
+
+  <div id="list"><p class="text-muted text-sm">Loading…</p></div>
+
+</main>
+
+<!-- Mowing log modal -->
+<div class="modal-backdrop" id="modal-mow">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title" id="mow-title">Mowing log</div>
+
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;background:var(--bg);">
+      <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;" id="mow-form-title">Log a new mow</div>
+      <form onsubmit="submitMow(event)">
+        <div style="display:flex;gap:12px;">
+          <div class="form-group" style="flex:1;margin-bottom:8px;">
+            <label class="form-label">Date &amp; time</label>
+            <input class="form-input" type="datetime-local" id="mow-at" required>
+          </div>
+          <div class="form-group" style="flex:1;margin-bottom:8px;">
+            <label class="form-label">Mowed by</label>
+            <select class="form-input" id="mow-by"></select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+          <label class="form-label">Notes</label>
+          <input class="form-input" id="mow-notes" placeholder="e.g. trimmed bushes too">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="mow-cancel-edit" style="display:none;" onclick="resetMowForm()">Cancel edit</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="mow-save">Save</button>
+        </div>
+        <p id="mow-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+      </form>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">History</div>
+    <div id="mow-history" style="max-height:280px;overflow-y:auto;">
+      <p class="text-muted text-sm">Loading…</p>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeMowModal()" style="flex:1;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="modal-settings">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title" id="ms-title">Settings</div>
+    <form onsubmit="submitSettings(event)">
+      <div class="form-group">
+        <label class="form-label">Inclusion</label>
+        <select class="form-input" id="ms-mode">
+          <option value="auto">Auto — follow property status</option>
+          <option value="force_on">Always include</option>
+          <option value="force_off">Always exclude (hide)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mowing frequency (days)</label>
+        <input class="form-input" type="number" min="1" max="120" id="ms-freq" value="14">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" id="ms-notes" rows="2" placeholder="e.g. dog in backyard, gate code 1234"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="ms-save">Save</button>
+      </div>
+      <p id="ms-error" class="text-sm mt-12" style="color:var(--danger);display:none;"></p>
+    </form>
+  </div>
+</div>
+
+<script>window.NAV_CURRENT = 'workorders';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  // ── Date/time helpers (local to this page) ───────────────────
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+  function formatDateTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  }
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1)  return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7)  return `${d}d ago`;
+    return formatDate(iso);
+  }
+  function nowForInput() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // ── API wrappers — propspot-os mounts lawn at /api/maintenance/lawn ───────
+  const LAWN = '/api/maintenance/lawn';
+  const getLawn        = ()             => apiFetch(LAWN);
+  const markMowed      = (id, body={})  => apiFetch(`${LAWN}/${id}/mowed`,   { method:'POST',   body: JSON.stringify(body) });
+  const getMowEvents   = (id)           => apiFetch(`${LAWN}/${id}/mow-events`);
+  const patchMowEvent  = (eid, body)    => apiFetch(`${LAWN}/mow-events/${eid}`, { method:'PATCH', body: JSON.stringify(body) });
+  const deleteMowEvent = (eid)          => apiFetch(`${LAWN}/mow-events/${eid}`, { method:'DELETE' });
+  const checkIn        = (id, coords={}) => apiFetch(`${LAWN}/${id}/checkin`,    { method:'POST',  body: JSON.stringify(coords) });
+  const patchLawn      = (id, body)     => apiFetch(`${LAWN}/${id}`,             { method:'PATCH', body: JSON.stringify(body) });
+  const saveLawnRoute  = (order)        => apiFetch(`${LAWN}/route`,             { method:'POST',  body: JSON.stringify({ order }) });
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let rows = [], users = [], me = null;
+  let currentFilter = 'all';
+  let editingPropertyId = null;
+  let mowingPropertyId  = null;
+  let editingEventId    = null;
+
+  async function init() {
+    me = await requireAuth(); if (!me) return;
+
+    document.querySelectorAll('#filter-pills .pill').forEach(p => p.addEventListener('click', () => {
+      document.querySelectorAll('#filter-pills .pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      currentFilter = p.dataset.f;
+      render();
+    }));
+
+    await Promise.all([loadData(), loadUsers()]);
+  }
+
+  async function loadData() {
+    try {
+      rows = await getLawn();
+      render();
+    } catch (err) {
+      document.getElementById('list').innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+  async function loadUsers() {
+    try { users = await getUsers(); }
+    catch (err) { console.error('loadUsers failed', err); users = []; }
+  }
+
+  function defaultAssigneeId() {
+    const jon = users.find(u => /^jonathan/i.test(u.full_name || ''));
+    return jon?.id || users[0]?.id || null;
+  }
+
+  function filteredRows() {
+    let list = rows.slice();
+    if (currentFilter === 'mine')    list = list.filter(r => r.assigned_user_id === me.id);
+    if (currentFilter === 'overdue') list = list.filter(r => r.overdue);
+    if (currentFilter === 'forced')  list = list.filter(r => r.enabled_mode === 'force_on');
+    return list;
+  }
+
+  function render() {
+    const list = filteredRows();
+    document.getElementById('props-count').textContent =
+      `Lawn maintenance · ${list.length === 1 ? '1 property' : list.length + ' properties'}`;
+
+    if (!list.length) {
+      document.getElementById('list').innerHTML =
+        `<div class="empty-state"><div class="empty-icon">🌿</div><p>No properties in this view.</p></div>`;
+      return;
+    }
+
+    document.getElementById('list').innerHTML = `
+      <div class="lawn-table-wrap">
+        <table class="lawn-table">
+          <thead>
+            <tr>
+              <th style="width:34px;"></th>
+              <th>Address</th>
+              <th>Status</th>
+              <th>Assignee</th>
+              <th>Last visit</th>
+              <th>Last mowed</th>
+              <th>Signs</th>
+              <th>Lockbox</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="lawn-tbody">
+            ${list.map(rowHtml).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    wireRowEvents();
+    wireDragReorder();
+  }
+
+  function statusBadgeForLawn(s) {
+    if (s === 'renovating')           return 'badge-blue';
+    if (s === 'listed_for_rent')      return 'badge';
+    if (s === 'listed_for_sale')      return 'badge-purple';
+    if (s === 'under_contract_buyer') return 'badge-amber';
+    if (s === 'rented' || s === 'renting') return 'badge-green';
+    return 'badge-grey';
+  }
+
+  function rowHtml(r) {
+    const addr = (r.address_line1 || '') + (r.unit ? ' #' + r.unit : '');
+    const city = [r.city, r.state].filter(Boolean).join(', ');
+    const assignOptions = `
+      <option value="">— unassigned —</option>
+      ${users.map(u => `<option value="${u.id}"${(r.assigned_user_id || defaultAssigneeId()) === u.id ? ' selected' : ''}>${escHtml(u.full_name || u.email)}</option>`).join('')}
+    `;
+    const lastMowedCell = r.last_mowed_at
+      ? `<span class="${r.overdue ? 'overdue-text' : ''}">${escHtml(relativeTime(r.last_mowed_at))}</span>${r.overdue ? ' <span class="overdue-dot" title="Overdue"></span>' : ''}${r.last_mowed_by_name ? `<div class="cell-sub">${escHtml(r.last_mowed_by_name)}</div>` : ''}`
+      : `<span class="text-muted">Never</span> <span class="overdue-dot" title="Never mowed"></span>`;
+    const lastVisitCell = r.last_checked_in_at
+      ? `${escHtml(relativeTime(r.last_checked_in_at))}${r.last_checked_in_by_name ? `<div class="cell-sub">${escHtml(r.last_checked_in_by_name)}</div>` : ''}`
+      : `<span class="text-muted">—</span>`;
+    const statusPretty = (r.status || '').replace(/_/g, ' ');
+    const forcedBadge = r.enabled_mode === 'force_on'
+      ? `<span class="badge badge-purple" title="Forced on">FORCE-ON</span> `
+      : r.enabled_mode === 'force_off'
+      ? `<span class="badge badge-grey">FORCE-OFF</span> ` : '';
+    const fieldcamHref = `/fieldcam-camera.html?property_id=${encodeURIComponent(r.id)}`;
+    return `
+      <tr draggable="true" data-id="${escHtml(r.id)}">
+        <td class="drag-handle" title="Drag to reorder">⋮⋮</td>
+        <td>
+          <a class="addr-link" href="/property.html?id=${encodeURIComponent(r.id)}" title="${escHtml(addr)}" draggable="false">${escHtml(addr)}</a>
+          <div class="cell-sub">${escHtml(city)}</div>
+        </td>
+        <td>${forcedBadge}<span class="badge ${statusBadgeForLawn(r.status)}">${escHtml(statusPretty)}</span></td>
+        <td>
+          <select class="form-input assignee-select" data-id="${escHtml(r.id)}" data-prev="${escHtml(r.assigned_user_id || '')}">
+            ${assignOptions}
+          </select>
+        </td>
+        <td>${lastVisitCell}</td>
+        <td>${lastMowedCell}</td>
+        <td>
+          <label class="sign-toggle"><input type="checkbox" data-sign="for_sale" data-id="${escHtml(r.id)}" ${r.sign_for_sale ? 'checked' : ''}> Sale</label>
+          <label class="sign-toggle"><input type="checkbox" data-sign="for_rent" data-id="${escHtml(r.id)}" ${r.sign_for_rent ? 'checked' : ''}> Rent</label>
+        </td>
+        <td><code class="lockbox">${escHtml(r.lockbox_code || '—')}</code></td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button class="btn btn-secondary btn-xs" data-act="checkin" data-id="${escHtml(r.id)}" title="Check in (records arrival + GPS)">📍 Check in</button>
+          <button class="btn btn-primary btn-xs" data-act="mowed" data-id="${escHtml(r.id)}" title="Log a mow">✓ Mowed</button>
+          <a class="btn btn-secondary btn-xs" href="${fieldcamHref}" title="Take photos in FieldCam">📷</a>
+          <button class="btn btn-secondary btn-xs" data-act="settings" data-id="${escHtml(r.id)}" title="Settings">⚙</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  // ── Per-row events ──────────────────────────────────────────
+  function wireRowEvents() {
+    document.querySelectorAll('button[data-act]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id  = btn.dataset.id;
+        const act = btn.dataset.act;
+        if (act === 'checkin')  await onCheckIn(id);
+        if (act === 'mowed')    openMowLog(id);
+        if (act === 'settings') openSettings(id);
+      });
+    });
+    document.querySelectorAll('.assignee-select').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const id = sel.dataset.id;
+        const val = sel.value || null;
+        try {
+          await patchLawn(id, { assigned_user_id: val });
+          const r = rows.find(x => x.id === id);
+          if (r) r.assigned_user_id = val;
+          const u = users.find(x => x.id === val);
+          if (r) r.assigned_user_name = u?.full_name || u?.email || null;
+          showToast('Assignee updated');
+        } catch (e) { showToast(e.message, 'error'); }
+      });
+    });
+    document.querySelectorAll('input[type=checkbox][data-sign]').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const id  = cb.dataset.id;
+        const key = cb.dataset.sign === 'for_sale' ? 'sign_for_sale' : 'sign_for_rent';
+        try {
+          await patchLawn(id, { [key]: cb.checked });
+          const r = rows.find(x => x.id === id);
+          if (r) r[key] = cb.checked;
+        } catch (e) {
+          cb.checked = !cb.checked;
+          showToast(e.message, 'error');
+        }
+      });
+    });
+  }
+
+  async function onCheckIn(id) {
+    let coords = {};
+    if (navigator.geolocation) {
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout:6000, maximumAge:60000 });
+        });
+        coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      } catch {}
+    }
+    try {
+      const res = await checkIn(id, coords);
+      const r = rows.find(x => x.id === id);
+      if (r) {
+        r.last_checked_in_at      = res.last_checked_in_at;
+        r.last_checked_in_by      = res.last_checked_in_by;
+        r.last_checked_in_by_name = me.full_name || me.email;
+        r.last_checked_in_lat     = res.last_checked_in_lat;
+        r.last_checked_in_lng     = res.last_checked_in_lng;
+      }
+      render();
+      showToast(coords.lat ? 'Checked in (location captured)' : 'Checked in');
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Mowing log modal ────────────────────────────────────────
+  function openMowLog(propertyId) {
+    mowingPropertyId = propertyId;
+    editingEventId   = null;
+    const r = rows.find(x => x.id === propertyId);
+    if (!r) return;
+    document.getElementById('mow-title').textContent =
+      `Mowing log — ${r.address_line1 || ''}${r.unit ? ' #' + r.unit : ''}`;
+    const sel = document.getElementById('mow-by');
+    sel.innerHTML = `<option value="">— unknown —</option>` +
+      users.map(u => `<option value="${u.id}"${u.id === me.id ? ' selected' : ''}>${escHtml(u.full_name || u.email)}</option>`).join('');
+    resetMowForm();
+    document.getElementById('modal-mow').classList.add('open');
+    loadMowHistory(propertyId);
+  }
+  function closeMowModal() { document.getElementById('modal-mow').classList.remove('open'); }
+
+  function resetMowForm() {
+    editingEventId = null;
+    document.getElementById('mow-form-title').textContent = 'Log a new mow';
+    document.getElementById('mow-at').value = nowForInput();
+    document.getElementById('mow-by').value = me.id;
+    document.getElementById('mow-notes').value = '';
+    document.getElementById('mow-error').style.display = 'none';
+    document.getElementById('mow-cancel-edit').style.display = 'none';
+    document.getElementById('mow-save').textContent = 'Save';
+  }
+
+  async function loadMowHistory(propertyId) {
+    const wrap = document.getElementById('mow-history');
+    wrap.innerHTML = '<p class="text-muted text-sm">Loading…</p>';
+    try {
+      const events = await getMowEvents(propertyId);
+      if (!events.length) { wrap.innerHTML = '<p class="text-muted text-sm">No mow events logged yet.</p>'; return; }
+      wrap.innerHTML = events.map(e => `
+        <div class="mow-event-row" data-event-id="${escHtml(e.id)}">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:.86rem;">${escHtml(formatDateTime(e.mowed_at))}</div>
+            <div class="text-muted text-xs">${escHtml(e.mowed_by_name || '—')}${e.notes ? ' · ' + escHtml(e.notes) : ''}</div>
+          </div>
+          <button class="btn btn-secondary btn-xs" data-event-act="edit"   data-event-id="${escHtml(e.id)}">Edit</button>
+          <button class="btn btn-secondary btn-xs" data-event-act="delete" data-event-id="${escHtml(e.id)}" style="color:var(--danger);">Delete</button>
+        </div>
+      `).join('');
+      wrap.querySelectorAll('button[data-event-act]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const eid = btn.dataset.eventId;
+          const act = btn.dataset.eventAct;
+          if (act === 'edit')   loadEventIntoForm(events.find(e => e.id === eid));
+          if (act === 'delete') deleteEvent(eid);
+        });
+      });
+    } catch (err) {
+      wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function loadEventIntoForm(evt) {
+    if (!evt) return;
+    editingEventId = evt.id;
+    document.getElementById('mow-form-title').textContent = 'Edit mow event';
+    const d = new Date(evt.mowed_at);
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('mow-at').value =
+      `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    document.getElementById('mow-by').value = evt.mowed_by || '';
+    document.getElementById('mow-notes').value = evt.notes || '';
+    document.getElementById('mow-cancel-edit').style.display = '';
+    document.getElementById('mow-save').textContent = 'Update';
+    document.getElementById('mow-error').style.display = 'none';
+  }
+
+  async function submitMow(e) {
+    e.preventDefault();
+    if (!mowingPropertyId) return;
+    const localStr = document.getElementById('mow-at').value;
+    const mowedAt  = localStr ? new Date(localStr).toISOString() : null;
+    const mowedBy  = document.getElementById('mow-by').value || null;
+    const notes    = document.getElementById('mow-notes').value || null;
+    const err = document.getElementById('mow-error'); err.style.display = 'none';
+    const btn = document.getElementById('mow-save');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      if (editingEventId) {
+        await patchMowEvent(editingEventId, { mowed_at: mowedAt, mowed_by: mowedBy, notes });
+        showToast('Event updated');
+      } else {
+        await markMowed(mowingPropertyId, { mowed_at: mowedAt, mowed_by: mowedBy, notes });
+        showToast('Mow logged');
+      }
+      resetMowForm();
+      await loadMowHistory(mowingPropertyId);
+      rows = await getLawn();
+      render();
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = editingEventId ? 'Update' : 'Save';
+    }
+  }
+
+  async function deleteEvent(eventId) {
+    if (!confirm('Delete this mow event?')) return;
+    try {
+      await deleteMowEvent(eventId);
+      showToast('Event deleted');
+      if (editingEventId === eventId) resetMowForm();
+      await loadMowHistory(mowingPropertyId);
+      rows = await getLawn();
+      render();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Settings modal ──────────────────────────────────────────
+  function openSettings(id) {
+    editingPropertyId = id;
+    const r = rows.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('ms-title').textContent = `Settings — ${r.address_line1 || ''}`;
+    document.getElementById('ms-mode').value  = r.enabled_mode || 'auto';
+    document.getElementById('ms-freq').value  = r.frequency_days || 14;
+    document.getElementById('ms-notes').value = r.notes || '';
+    document.getElementById('ms-error').style.display = 'none';
+    document.getElementById('modal-settings').classList.add('open');
+  }
+  function closeSettingsModal() { document.getElementById('modal-settings').classList.remove('open'); }
+
+  async function submitSettings(e) {
+    e.preventDefault();
+    if (!editingPropertyId) return;
+    const body = {
+      enabled_mode:   document.getElementById('ms-mode').value,
+      frequency_days: parseInt(document.getElementById('ms-freq').value, 10) || 14,
+      notes:          document.getElementById('ms-notes').value || null,
+    };
+    const err = document.getElementById('ms-error'); err.style.display = 'none';
+    const btn = document.getElementById('ms-save');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await patchLawn(editingPropertyId, body);
+      closeSettingsModal();
+      await loadData();
+      showToast('Settings saved');
+    } catch (e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  }
+
+  // ── Drag-to-reorder ─────────────────────────────────────────
+  let dragSrc = null;
+  function wireDragReorder() {
+    const tbody = document.getElementById('lawn-tbody');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr[draggable=true]').forEach(tr => {
+      tr.addEventListener('dragstart', e => {
+        dragSrc = tr;
+        tr.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', tr.dataset.id);
+      });
+      tr.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!dragSrc || dragSrc === tr) return;
+        const rect = tr.getBoundingClientRect();
+        const after = (e.clientY - rect.top) > rect.height / 2;
+        tbody.insertBefore(dragSrc, after ? tr.nextSibling : tr);
+      });
+      tr.addEventListener('dragend', async () => {
+        tr.classList.remove('dragging');
+        if (!dragSrc) return;
+        dragSrc = null;
+        const newOrder = [...tbody.querySelectorAll('tr[draggable=true]')].map(r => r.dataset.id);
+        try {
+          await saveLawnRoute(newOrder);
+          for (let i = 0; i < newOrder.length; i++) {
+            const r = rows.find(x => x.id === newOrder[i]);
+            if (r) r.route_position = i + 1;
+          }
+          showToast('Route saved');
+        } catch (e) {
+          showToast(e.message, 'error');
+          await loadData();
+        }
+      });
+    });
+  }
+
+  // ── Google Maps directions URL ──────────────────────────────
+  function openInMaps() {
+    const list = filteredRows().filter(r => r.lat != null && r.lng != null);
+    if (!list.length) { showToast('No properties with coordinates in this view', 'error'); return; }
+    const skipped = filteredRows().length - list.length;
+    const hint = document.getElementById('route-hint');
+    if (skipped > 0) {
+      hint.style.display = '';
+      hint.textContent = `Note: ${skipped} ${skipped === 1 ? 'property' : 'properties'} skipped (no GPS coordinates).`;
+    } else {
+      hint.style.display = 'none';
+    }
+    const dest = list[list.length - 1];
+    const waypoints = list.slice(0, -1).map(r => `${r.lat},${r.lng}`).join('|');
+    const url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`
+              + `&destination=${dest.lat},${dest.lng}`
+              + (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '');
+    window.open(url, '_blank', 'noopener');
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -207,7 +207,7 @@
     { id: 'tasks',     iconKey: 'check',     label: 'My Tasks',    osnav: 'tasks',     href: '/tasks.html', default: true, badgeKey: 'myTasks' },
     { id: 'pulse',     iconKey: 'pulse',     label: 'Pulse',       app: 'pulse',       default: false, badgeKey: 'pulse' },
     { id: 'fieldcam',  iconKey: 'camera',    label: 'FieldCam',    app: 'fieldcam',    default: false, badgeKey: 'photosToday', badgeClass: 'muted' },
-    { id: 'workorders',iconKey: 'wrench',    label: 'Work Orders', app: 'maintenance', default: false, badgeKey: 'workOrders',  badgeClass: 'warn' },
+    { id: 'workorders',iconKey: 'wrench',    label: 'Maintenance', app: 'maintenance', default: false, badgeKey: 'workOrders',  badgeClass: 'warn' },
     { id: 'activity',  iconKey: 'activity',  label: 'Activity',    osnav: 'activity',  href: '/activity.html', default: false },
   ];
 
@@ -794,7 +794,7 @@
 
           ${sectionLabel('Tools')}
           ${row({ section: 'tools', icon: ICONS.camera,   label: 'FieldCam',     app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
-          ${row({ section: 'tools', icon: ICONS.wrench,   label: 'Work Orders',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
+          ${row({ section: 'tools', icon: ICONS.wrench,   label: 'Maintenance',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
           ${row({ section: 'tools', icon: ICONS.pulse,    label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
           ${row({ section: 'tools', icon: ICONS.folder,   label: 'Files',        osnav: 'files',        href: '/files.html' })}
           ${row({ section: 'tools', icon: ICONS.barChart, label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
