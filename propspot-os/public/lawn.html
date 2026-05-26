@@ -53,6 +53,34 @@
     .empty-state .empty-icon { font-size:3rem; margin-bottom:8px; }
 
     .btn-xs { padding:4px 8px; font-size:.72rem; }
+
+    /* Three-table layout */
+    .lawn-section { margin-bottom: 28px; }
+    .lawn-section-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+    .lawn-section-title { font-size:.95rem; font-weight:700; color:var(--text); }
+    .lawn-section-count {
+      font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:100px;
+      background:var(--bg); color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;
+    }
+    .lawn-section-hint { font-size:.78rem; color:var(--text-muted); margin-left:auto; }
+
+    .lawn-section.section-route .lawn-section-title::before { content:'📋 '; }
+    .lawn-section.section-attention .lawn-section-title::before { content:'⚠️ '; }
+    .lawn-section.section-attention .lawn-section-title { color:#b91c1c; }
+    .lawn-section.section-other .lawn-section-title::before { content:'🌳 '; }
+
+    /* Drop-target highlight on tbody */
+    .lawn-table tbody.drop-target { background: var(--brand-light); outline: 2px dashed var(--brand); outline-offset: -2px; }
+    .lawn-table tbody.drop-target tr td { background: transparent; }
+
+    /* Empty route placeholder — clear call to action with drop zone */
+    .route-empty {
+      padding: 28px 16px; text-align:center; color:var(--text-muted);
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      background: var(--surface); font-size:.9rem; transition: all .12s;
+    }
+    .route-empty.drop-target { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
+    .route-empty .empty-icon { font-size: 1.8rem; margin-bottom: 6px; display:block; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -68,17 +96,10 @@
   </div>
 
   <div class="section-header">
-    <span class="section-title" id="props-count">Lawn maintenance</span>
+    <span class="section-title">Lawn maintenance</span>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open the current route in Google Maps">🗺️ Open Route in Maps</button>
+      <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open today's route in Google Maps">🗺️ Open Route in Maps</button>
     </div>
-  </div>
-
-  <div class="pill-row" id="filter-pills">
-    <button class="pill active" data-f="all">All</button>
-    <button class="pill" data-f="mine">Mine</button>
-    <button class="pill" data-f="overdue">Overdue</button>
-    <button class="pill" data-f="forced">Force-on</button>
   </div>
 
   <p class="text-muted text-sm" id="route-hint" style="display:none;"></p>
@@ -206,22 +227,29 @@
 
   // ── State ──────────────────────────────────────────────────────────────────
   let rows = [], users = [], me = null;
-  let currentFilter = 'all';
   let editingPropertyId = null;
   let mowingPropertyId  = null;
   let editingEventId    = null;
 
   async function init() {
     me = await requireAuth(); if (!me) return;
-
-    document.querySelectorAll('#filter-pills .pill').forEach(p => p.addEventListener('click', () => {
-      document.querySelectorAll('#filter-pills .pill').forEach(x => x.classList.remove('active'));
-      p.classList.add('active');
-      currentFilter = p.dataset.f;
-      render();
-    }));
-
     await Promise.all([loadData(), loadUsers()]);
+  }
+
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  function needsAttention(r) {
+    const lastMowed = r.last_mowed_at      ? new Date(r.last_mowed_at).getTime()      : 0;
+    const lastVisit = r.last_checked_in_at ? new Date(r.last_checked_in_at).getTime() : 0;
+    const mostRecent = Math.max(lastMowed, lastVisit);
+    return mostRecent < (Date.now() - SEVEN_DAYS_MS);
+  }
+
+  function bucketRows() {
+    const route     = rows.filter(r => r.route_position != null)
+                          .sort((a, b) => a.route_position - b.route_position);
+    const attention = rows.filter(r => r.route_position == null &&  needsAttention(r));
+    const other     = rows.filter(r => r.route_position == null && !needsAttention(r));
+    return { route, attention, other };
   }
 
   async function loadData() {
@@ -242,26 +270,8 @@
     return jon?.id || users[0]?.id || null;
   }
 
-  function filteredRows() {
-    let list = rows.slice();
-    if (currentFilter === 'mine')    list = list.filter(r => r.assigned_user_id === me.id);
-    if (currentFilter === 'overdue') list = list.filter(r => r.overdue);
-    if (currentFilter === 'forced')  list = list.filter(r => r.enabled_mode === 'force_on');
-    return list;
-  }
-
-  function render() {
-    const list = filteredRows();
-    document.getElementById('props-count').textContent =
-      `Lawn maintenance · ${list.length === 1 ? '1 property' : list.length + ' properties'}`;
-
-    if (!list.length) {
-      document.getElementById('list').innerHTML =
-        `<div class="empty-state"><div class="empty-icon">🌿</div><p>No properties in this view.</p></div>`;
-      return;
-    }
-
-    document.getElementById('list').innerHTML = `
+  function tableHtml(bucketName, rowsArr) {
+    return `
       <div class="lawn-table-wrap">
         <table class="lawn-table">
           <thead>
@@ -277,13 +287,64 @@
               <th style="text-align:right;">Actions</th>
             </tr>
           </thead>
-          <tbody id="lawn-tbody">
-            ${list.map(rowHtml).join('')}
+          <tbody data-bucket="${bucketName}">
+            ${rowsArr.map(r => rowHtml(r)).join('')}
           </tbody>
         </table>
       </div>`;
+  }
+
+  function render() {
+    const { route, attention, other } = bucketRows();
+
+    const routeBody = route.length
+      ? tableHtml('route', route)
+      : `<div class="route-empty" data-bucket="route">
+           <span class="empty-icon">📋</span>
+           Drag properties here to build today's mowing route.
+         </div>`;
+
+    const attentionBody = attention.length
+      ? tableHtml('attention', attention)
+      : `<div class="empty-state" data-bucket="attention" style="padding:18px;border:1px dashed var(--border);border-radius:var(--radius);">
+           <div>All properties have been visited or mowed in the last 7 days. 🎉</div>
+         </div>`;
+
+    const otherBody = other.length
+      ? tableHtml('other', other)
+      : `<div class="empty-state" data-bucket="other" style="padding:18px;border:1px dashed var(--border);border-radius:var(--radius);">
+           <div>No other properties.</div>
+         </div>`;
+
+    document.getElementById('list').innerHTML = `
+      <div class="lawn-section section-route">
+        <div class="lawn-section-head">
+          <span class="lawn-section-title">Today's Route</span>
+          <span class="lawn-section-count">${route.length} ${route.length === 1 ? 'property' : 'properties'}</span>
+          <span class="lawn-section-hint">Drag rows in or out · drag within to reorder stops</span>
+        </div>
+        ${routeBody}
+      </div>
+
+      <div class="lawn-section section-attention">
+        <div class="lawn-section-head">
+          <span class="lawn-section-title">Needs Attention</span>
+          <span class="lawn-section-count">${attention.length} ${attention.length === 1 ? 'property' : 'properties'}</span>
+          <span class="lawn-section-hint">Not mowed or checked in within 7 days</span>
+        </div>
+        ${attentionBody}
+      </div>
+
+      <div class="lawn-section section-other">
+        <div class="lawn-section-head">
+          <span class="lawn-section-title">All Other Properties</span>
+          <span class="lawn-section-count">${other.length} ${other.length === 1 ? 'property' : 'properties'}</span>
+        </div>
+        ${otherBody}
+      </div>`;
+
     wireRowEvents();
-    wireDragReorder();
+    wireCrossTableDragDrop();
   }
 
   function statusBadgeForLawn(s) {
@@ -561,51 +622,129 @@
     }
   }
 
-  // ── Drag-to-reorder ─────────────────────────────────────────
-  let dragSrc = null;
-  function wireDragReorder() {
-    const tbody = document.getElementById('lawn-tbody');
-    if (!tbody) return;
-    tbody.querySelectorAll('tr[draggable=true]').forEach(tr => {
+  // ── Cross-table drag & drop ─────────────────────────────────
+  let dragId = null;
+  let dragSourceBucket = null;
+
+  function getRowAfter(container, y) {
+    const rowsInContainer = [...container.querySelectorAll('tr[data-id]:not(.dragging)')];
+    return rowsInContainer.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) return { offset, element: child };
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element || null;
+  }
+
+  function wireCrossTableDragDrop() {
+    // 1. Rows are draggable
+    document.querySelectorAll('#list tr[data-id]').forEach(tr => {
       tr.addEventListener('dragstart', e => {
-        dragSrc = tr;
+        dragId = tr.dataset.id;
+        dragSourceBucket = tr.closest('tbody')?.dataset.bucket || null;
         tr.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', tr.dataset.id);
+        e.dataTransfer.setData('text/plain', dragId);
       });
-      tr.addEventListener('dragover', e => {
+      tr.addEventListener('dragend', () => {
+        tr.classList.remove('dragging');
+        document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+      });
+    });
+
+    // 2. Drop targets — every tbody plus the empty placeholders
+    const targets = document.querySelectorAll('#list tbody[data-bucket], #list [data-bucket].route-empty, #list [data-bucket].empty-state');
+    targets.forEach(target => {
+      const bucket = target.dataset.bucket;
+
+      target.addEventListener('dragover', e => {
+        if (!dragId) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (!dragSrc || dragSrc === tr) return;
-        const rect = tr.getBoundingClientRect();
-        const after = (e.clientY - rect.top) > rect.height / 2;
-        tbody.insertBefore(dragSrc, after ? tr.nextSibling : tr);
-      });
-      tr.addEventListener('dragend', async () => {
-        tr.classList.remove('dragging');
-        if (!dragSrc) return;
-        dragSrc = null;
-        const newOrder = [...tbody.querySelectorAll('tr[draggable=true]')].map(r => r.dataset.id);
-        try {
-          await saveLawnRoute(newOrder);
-          for (let i = 0; i < newOrder.length; i++) {
-            const r = rows.find(x => x.id === newOrder[i]);
-            if (r) r.route_position = i + 1;
+        target.classList.add('drop-target');
+
+        // Live reorder preview only when reordering WITHIN the route table
+        if (bucket === 'route' && dragSourceBucket === 'route' && target.tagName === 'TBODY') {
+          const after = getRowAfter(target, e.clientY);
+          const draggingRow = target.querySelector('tr.dragging');
+          if (draggingRow) {
+            if (after == null) target.appendChild(draggingRow);
+            else target.insertBefore(draggingRow, after);
           }
-          showToast('Route saved');
-        } catch (e) {
-          showToast(e.message, 'error');
+        }
+      });
+      target.addEventListener('dragleave', e => {
+        if (!target.contains(e.relatedTarget)) target.classList.remove('drop-target');
+      });
+      target.addEventListener('drop', async e => {
+        e.preventDefault();
+        target.classList.remove('drop-target');
+        if (!dragId) return;
+
+        const sourceWasRoute = dragSourceBucket === 'route';
+        const droppedId = dragId;
+        dragId = null;
+        dragSourceBucket = null;
+
+        try {
+          if (bucket === 'route') {
+            if (sourceWasRoute && target.tagName === 'TBODY') {
+              // Reorder within route — read new order from DOM
+              const newOrder = [...target.querySelectorAll('tr[data-id]')].map(r => r.dataset.id);
+              await applyRouteChange(newOrder);
+            } else if (!sourceWasRoute) {
+              // Add to route at end (or at drop position if dropping on tbody)
+              const currentRoute = rows.filter(r => r.route_position != null)
+                                       .sort((a, b) => a.route_position - b.route_position)
+                                       .map(r => r.id);
+              let insertIdx = currentRoute.length;
+              if (target.tagName === 'TBODY') {
+                const afterRow = getRowAfter(target, e.clientY);
+                if (afterRow) insertIdx = currentRoute.indexOf(afterRow.dataset.id);
+                if (insertIdx < 0) insertIdx = currentRoute.length;
+              }
+              const newOrder = [...currentRoute.slice(0, insertIdx), droppedId, ...currentRoute.slice(insertIdx)];
+              await applyRouteChange(newOrder);
+            }
+          } else {
+            // Dropped on attention or other — only meaningful if source was route (remove from route)
+            if (sourceWasRoute) {
+              const newOrder = rows.filter(r => r.route_position != null && r.id !== droppedId)
+                                   .sort((a, b) => a.route_position - b.route_position)
+                                   .map(r => r.id);
+              await applyRouteChange(newOrder);
+            }
+            // Source was attention/other → noop (a row sorts itself into the right bucket already)
+          }
+        } catch (err) {
+          showToast(err.message, 'error');
           await loadData();
         }
       });
     });
   }
 
+  async function applyRouteChange(newOrderIds) {
+    await saveLawnRoute(newOrderIds);
+    rows.forEach(r => r.route_position = null);
+    newOrderIds.forEach((id, i) => {
+      const r = rows.find(x => x.id === id);
+      if (r) r.route_position = i + 1;
+    });
+    showToast('Route updated');
+    render();
+  }
+
   // ── Google Maps directions URL ──────────────────────────────
   function openInMaps() {
-    const list = filteredRows().filter(r => r.lat != null && r.lng != null);
-    if (!list.length) { showToast('No properties with coordinates in this view', 'error'); return; }
-    const skipped = filteredRows().length - list.length;
+    const route = bucketRows().route;
+    if (!route.length) {
+      showToast('Add properties to today’s route first', 'error');
+      return;
+    }
+    const list = route.filter(r => r.lat != null && r.lng != null);
+    if (!list.length) { showToast('No properties with coordinates in today’s route', 'error'); return; }
+    const skipped = route.length - list.length;
     const hint = document.getElementById('route-hint');
     if (skipped > 0) {
       hint.style.display = '';
