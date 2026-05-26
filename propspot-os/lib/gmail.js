@@ -20,15 +20,19 @@ function makeOAuthClient() {
   );
 }
 
-function buildConsentUrl(state) {
+function buildConsentUrl(state, options = {}) {
   const oauth = makeOAuthClient();
-  return oauth.generateAuthUrl({
+  const params = {
     access_type: 'offline',
     prompt: 'consent',
     scope: SCOPES,
     state,
     include_granted_scopes: true
-  });
+  };
+  // When reconnecting a known mailbox, pass login_hint so Google preselects
+  // (or auto-selects) the right account in the account picker.
+  if (options.login_hint) params.login_hint = options.login_hint;
+  return oauth.generateAuthUrl(params);
 }
 
 async function exchangeCodeForTokens(code) {

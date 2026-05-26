@@ -52,8 +52,38 @@ router.get('/oauth/callback', async (req, res) => {
   }
 
   const isPersonal = claims.kind === 'personal-inbox';
+  const isReconnect = claims.kind === 'mailbox-reconnect';
   try {
     const { refreshToken, email, displayName, scopes } = await gmail.exchangeCodeForTokens(code);
+
+    // Reconnect flow: the JWT pinned a specific mailbox_id + expected email.
+    // If the user picked a different Google account in the picker, refuse
+    // — overwriting a different mailbox's token here would corrupt routing.
+    if (isReconnect) {
+      const { rows: m } = await query(
+        `SELECT id, email FROM inbox_mailboxes WHERE id = $1`, [claims.mailboxId]
+      );
+      if (!m[0]) return res.status(404).send('Mailbox not found');
+      if (m[0].email.toLowerCase() !== email.toLowerCase()) {
+        return res.status(403).send(
+          `Reconnect picked the wrong account. You signed in as ${email}, ` +
+          `but this mailbox is ${m[0].email}. Click Reconnect again and choose ${m[0].email}.`
+        );
+      }
+      const encrypted = encrypt(refreshToken);
+      await query(
+        `UPDATE inbox_mailboxes
+            SET refresh_token_encrypted = $1,
+                oauth_scopes            = $2,
+                connected_by            = $3,
+                status                  = 'active',
+                status_reason           = NULL,
+                sync_state              = '{}'::jsonb
+          WHERE id = $4`,
+        [encrypted, scopes, claims.userId, claims.mailboxId]
+      );
+      return res.redirect(`/admin-mailboxes.html?reconnected=${encodeURIComponent(email)}`);
+    }
 
     // For personal mailboxes: lock to the caller's own Workspace email.
     // Without this anyone could connect a coworker's mailbox to themselves.
@@ -153,6 +183,26 @@ router.post('/connect', requireOwner, async (req, res) => {
     { expiresIn: '10m' }
   );
   const url = gmail.buildConsentUrl(state);
+  res.json({ url });
+});
+
+// POST /api/mailboxes/:id/reconnect — start OAuth flow scoped to an existing
+// mailbox. Pre-fills the Google account picker with the mailbox's email
+// (login_hint) so the owner doesn't have to hunt through their Google logins.
+// Used to refresh a broken token (e.g. after the INBOX_TOKEN_KEY changed
+// and the previously-encrypted token is no longer decryptable).
+router.post('/:id/reconnect', requireOwner, async (req, res) => {
+  const { rows } = await query(
+    `SELECT id, email FROM inbox_mailboxes WHERE id = $1`, [req.params.id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Mailbox not found' });
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const state = jwt.sign(
+    { userId: req.userId, nonce, kind: 'mailbox-reconnect', mailboxId: rows[0].id },
+    process.env.JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+  const url = gmail.buildConsentUrl(state, { login_hint: rows[0].email });
   res.json({ url });
 });
 
