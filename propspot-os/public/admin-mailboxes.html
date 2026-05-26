@@ -469,19 +469,20 @@
         apiFetch('/api/inbox/shared-inboxes'),
         apiFetch('/api/users')
       ]);
-      STATE.sharedInboxes = shared;
-      STATE.users = users.filter(u => u.is_active !== false);
+      // Personal inboxes belong to one user and are managed by them from
+      // the Inbox page — they don't belong in the shared-inbox admin view.
       const teamInboxes = shared.filter(s => !s.owner_user_id);
-      const personalInboxes = shared.filter(s => s.owner_user_id);
-      wrap.innerHTML = renderSharedList(teamInboxes, personalInboxes);
+      STATE.sharedInboxes = teamInboxes;
+      STATE.users = users.filter(u => u.is_active !== false);
+      wrap.innerHTML = renderSharedList(teamInboxes);
       teamInboxes.forEach(i => loadMembersFor(i.id));
     } catch (err) {
       wrap.innerHTML = `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
     }
   }
 
-  function renderSharedList(team, personal) {
-    if (!team.length && !personal.length) {
+  function renderSharedList(team) {
+    if (!team.length) {
       return `
         <div class="am-empty">
           <div style="font-size:2rem;margin-bottom:8px;">📨</div>
@@ -489,16 +490,7 @@
           <div class="text-sm">Click <strong>+ New Shared Inbox</strong> to create one (e.g. Acquisitions, Support).</div>
         </div>`;
     }
-    const teamHtml = team.length ? `
-      <div class="am-card" style="margin-bottom:14px;">
-        ${team.map(siRowHtml).join('')}
-      </div>` : '';
-    const personalHtml = personal.length ? `
-      <div class="alias-section-label">Personal inboxes</div>
-      <div class="am-card">
-        ${personal.map(siRowHtml).join('')}
-      </div>` : '';
-    return teamHtml + personalHtml;
+    return `<div class="am-card">${team.map(siRowHtml).join('')}</div>`;
   }
 
   function siRowHtml(i) {
