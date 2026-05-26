@@ -688,15 +688,105 @@
     .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:.7rem; font-weight:700; }
     .badge-green { background:#dcfce7; color:#15803d; }
 
-    /* ── Mobile ──────────────────────────────────────────────────── */
-    @media (max-width: 900px) {
-      .inbox-3col { flex-direction: column; height: auto; overflow: visible; }
-      .col-left, .col-middle, .col-right { width: 100% !important; flex: 0 0 auto; border-right: none; border-bottom: 1px solid var(--border); }
-      .resizer { display: none; }
-      .col-left .nav-scroll { max-height: 320px; }
-      .col-middle .thread-list { max-height: 480px; }
-      .messages-scroll { max-height: 60vh; }
+    /* Mobile-only / desktop-only helpers (used in inbox markup only) */
+    .ib-mobile-only { display: none; }
+
+    /* ── Mobile (single-pane, slide-in drawer + reader) ─────────── */
+    @media (max-width: 768px) {
+      .ib-mobile-only { display: inline-flex !important; align-items: center; justify-content: center; }
+      .ib-desktop-only { display: none !important; }
+
+      /* Let the inbox page fill the viewport — kill the .page padding so the
+         single-pane layout can use full screen width/height. */
+      body.os-newlayout main.page.page-inbox-fullscreen,
+      body.os-newchrome main.page.page-inbox-fullscreen {
+        padding: 0 !important;
+        max-width: none !important;
+      }
+
+      /* Inbox container: position:relative so panes can stack as overlays.
+         Height = viewport − top-header (56px) − mobile bottom nav (76px). */
+      .inbox-3col {
+        flex-direction: row;
+        position: relative;
+        height: calc(100dvh - 56px - 76px);
+        height: calc(100vh - 56px - 76px);
+        overflow: hidden;
+      }
+      .resizer { display: none !important; }
+
+      /* All three columns become full-screen overlays inside the container. */
+      .inbox-3col .col {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        max-width: none !important;
+        flex: none;
+        border: none !important;
+        background: var(--surface);
+      }
+
+      /* Z-stack so reader slides in over list, drawer slides in over both. */
+      .col-middle { z-index: 1; }
+      .col-right {
+        z-index: 2;
+        transform: translateX(100%);
+        transition: transform .22s ease;
+        box-shadow: -4px 0 16px rgba(0,0,0,.10);
+      }
+      .col-left {
+        z-index: 4;
+        width: 86% !important;
+        max-width: 320px !important;
+        transform: translateX(-100%);
+        transition: transform .22s ease;
+        box-shadow: 2px 0 24px rgba(0,0,0,.22);
+      }
+
+      /* State changes — controlled by data-mobile-view on .inbox-3col */
+      .inbox-3col[data-mobile-view="reader"] .col-right { transform: none; }
+      .inbox-3col[data-mobile-view="drawer"] .col-left  { transform: none; }
+
+      /* Backdrop scrim behind the drawer. */
+      .mobile-scrim {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 3;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .18s ease;
+      }
+      .inbox-3col[data-mobile-view="drawer"] .mobile-scrim {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      /* Bigger tap targets in list. */
+      .thread-card { padding: 12px 14px; min-height: 64px; }
+
+      /* Reader header — wrap action chips on small screens. */
+      .thread-head { padding: 12px 14px !important; }
+      .thread-head h2 { font-size: 1rem !important; line-height: 1.25; }
+      .thread-head-actions { flex-wrap: wrap; gap: 6px; }
+      .thread-head-actions .btn { font-size: .72rem; padding: 6px 10px; }
+      .messages-scroll { max-height: none; }
+
+      /* List header — make room for the hamburger. */
+      .col-middle .col-head .head-row { gap: 8px; }
+
+      /* Hide the empty "Select a thread" pane on mobile — that whole pane
+         is a slide-in overlay and only shows when a thread is selected. */
+      .col-right .empty-pane.lg { display: none; }
     }
+
+    @media (min-width: 769px) {
+      .ib-mobile-only { display: none !important; }
+    }
+
+    /* Bigger icons inside the mobile-only buttons */
+    .ib-icon-btn.ib-mobile-only { width: 36px; height: 36px; border-radius: 10px; }
+    .ib-icon-btn.ib-mobile-only svg { width: 20px; height: 20px; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -704,8 +794,9 @@
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
 
-<main class="page">
-  <main class="inbox-3col">
+<main class="page page-inbox-fullscreen">
+  <main class="inbox-3col" id="inbox-3col">
+    <div class="mobile-scrim" onclick="closeMobileDrawer()"></div>
 
     <!-- LEFT: nav (compose lives here) -->
     <aside class="col col-left" id="col-left">
@@ -760,6 +851,9 @@
     <section class="col col-middle" id="col-middle">
       <div class="col-head">
         <div class="head-row">
+          <button class="ib-icon-btn ib-mobile-only" onclick="openMobileDrawer()" title="Inboxes" aria-label="Open inbox list" style="margin-right:4px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
           <h3 id="active-inbox-title">All open threads</h3>
           <button class="ib-icon-btn" onclick="refreshThreads()" title="Refresh threads" aria-label="Refresh">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -1073,6 +1167,7 @@ function attachLeftNavHandlers() {
       updateActiveInboxTitle();
       updateInboxTabsVisibility();
       refreshThreads();
+      setMobileView('list');
     });
   });
   document.querySelectorAll('.inbox-tab[data-tab]').forEach(el => {
@@ -1154,6 +1249,7 @@ async function loadInboxes() {
       updateActiveInboxTitle();
       updateInboxTabsVisibility();
       refreshThreads();
+      setMobileView('list');
     });
   });
 }
@@ -1262,6 +1358,7 @@ async function selectThread(threadId) {
     history.replaceState(null, '', u.toString());
   } catch {}
   renderThreadList();
+  setMobileView('reader');
   document.getElementById('thread-detail').innerHTML = '<div class="empty-pane">Loading…</div>';
   try {
     STATE.activeThread = await getThread(threadId);
@@ -1271,6 +1368,25 @@ async function selectThread(threadId) {
   }
   renderThreadDetail();
 }
+
+// ── Mobile single-pane navigation ─────────────────────────────────
+// Controlled via data-mobile-view on .inbox-3col. The matching CSS
+// shows exactly one of {list, reader, drawer} at ≤768px width.
+function setMobileView(state) {
+  const el = document.getElementById('inbox-3col');
+  if (!el) return;
+  el.setAttribute('data-mobile-view', state || 'list');
+}
+function openMobileDrawer()  { setMobileView('drawer'); }
+function closeMobileDrawer() { setMobileView(STATE.activeThreadId ? 'reader' : 'list'); }
+function backToMobileList()  { setMobileView('list'); }
+// Browser back button closes drawer/reader before navigating away.
+window.addEventListener('popstate', () => {
+  const el = document.getElementById('inbox-3col');
+  if (el && el.getAttribute('data-mobile-view') && window.matchMedia('(max-width: 768px)').matches) {
+    backToMobileList();
+  }
+});
 
 function renderThreadDetail() {
   const t = STATE.activeThread;
@@ -1291,7 +1407,12 @@ function renderThreadDetail() {
 
   document.getElementById('thread-detail').innerHTML = `
     <div class="thread-head">
-      <h2>${escapeHtml(t.subject || '(no subject)')}</h2>
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        <button class="ib-icon-btn ib-mobile-only" onclick="backToMobileList()" title="Back to list" aria-label="Back" style="flex-shrink:0;margin-top:2px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <h2 style="flex:1;min-width:0;">${escapeHtml(t.subject || '(no subject)')}</h2>
+      </div>
       <div class="thread-head-meta">${headParts.join(' • ')}</div>
       <div class="thread-head-actions">
         <button class="btn btn-secondary btn-sm" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</button>
