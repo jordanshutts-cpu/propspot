@@ -140,6 +140,56 @@ router.post('/:id/resend-invite', requireOwner, async (req, res) => {
   }
 });
 
+// POST /api/users/resend-all-pending  (owner only)
+// Resends invites to every pending non-owner user. Continues on per-user failure
+// and reports both successes and failures.
+router.post('/resend-all-pending', requireOwner, async (req, res) => {
+  try {
+    const { rows: pending } = await query(
+      `SELECT id, email FROM users
+        WHERE password_hash IS NULL
+          AND google_sub IS NULL
+          AND is_owner = FALSE
+        ORDER BY created_at`
+    );
+
+    const failed = [];
+    let sent = 0;
+
+    for (const u of pending) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await sendInviteToUser({
+          client, userId: u.id, inviterUserId: req.userId
+        });
+        await client.query('COMMIT');
+
+        if (result.emailSent) {
+          sent += 1;
+          await logActivity({
+            actorUserId: req.userId, entityType: 'user', entityId: u.id,
+            action: 'invite_resent', payload: { email: u.email, email_sent: true }
+          });
+        } else {
+          failed.push({ email: u.email, reason: 'no email server configured' });
+        }
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error(`Resend failed for ${u.email}:`, err.message);
+        failed.push({ email: u.email, reason: err.message });
+      } finally {
+        client.release();
+      }
+    }
+
+    res.json({ attempted: pending.length, sent, failed });
+  } catch (err) {
+    console.error('Bulk resend error:', err);
+    res.status(500).json({ error: 'Failed to bulk resend invites' });
+  }
+});
+
 // PATCH /api/users/:id  (owner only — change is_owner / full_name)
 router.patch('/:id', requireOwner, async (req, res) => {
   const { full_name, is_owner } = req.body;
