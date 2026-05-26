@@ -160,12 +160,33 @@ router.patch('/:id', async (req, res) => {
   if (!sets.length) return res.status(400).json({ error: 'no fields to update' });
   vals.push(req.params.id);
   try {
+    // Read the previous assignee so we can detect a real change.
+    const { rows: priorRows } = await query(
+      `SELECT assigned_user_id FROM work_orders WHERE id = $1`, [req.params.id]
+    );
+    const previousAssignee = priorRows[0]?.assigned_user_id || null;
+
     const { rows } = await query(
       `UPDATE work_orders SET ${sets.join(', ')}, updated_at = NOW()
         WHERE id = $${i} RETURNING *`,
       vals
     );
     if (!rows[0]) return res.status(404).json({ error: 'Work order not found' });
+
+    // Fire-and-forget: notify a NEW assignee on a real change. Skip if
+    // unchanged, if cleared (set to null), or if self-assignment.
+    const newAssignee = rows[0].assigned_user_id;
+    if (req.body.assigned_user_id !== undefined
+        && newAssignee
+        && newAssignee !== previousAssignee
+        && newAssignee !== req.userId) {
+      notifyAssignment({
+        woId: rows[0].id,
+        assigneeId: newAssignee,
+        inviterId: req.userId
+      }).catch(e => console.error('notifyAssignment failed:', e));
+    }
+
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -182,5 +203,70 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete work order' });
   }
 });
+
+// ── Assignment notifications ──────────────────────────────────────
+// Sends an email to the new assignee, plus a Pulse mention in #maintenance
+// for team members. External workers don't see Pulse, so they get email only.
+const { sendWorkOrderAssignmentEmail } = require('../../lib/email');
+
+async function notifyAssignment({ woId, assigneeId, inviterId }) {
+  const { rows } = await query(`
+    SELECT u.email, u.full_name AS recipient_name, u.user_type,
+           inv.full_name AS inviter_name,
+           wo.title AS wo_title,
+           p.address_line1, p.city, p.state
+      FROM users u
+      JOIN work_orders wo ON wo.id = $1
+      JOIN properties p ON p.id = wo.property_id
+      JOIN users inv ON inv.id = $3
+     WHERE u.id = $2
+  `, [woId, assigneeId, inviterId]);
+  if (!rows[0]) return;
+  const r = rows[0];
+  const propertyAddress = [
+    r.address_line1,
+    [r.city, r.state].filter(Boolean).join(', ')
+  ].filter(Boolean).join(', ');
+  const appUrl = process.env.APP_URL || 'https://os.propspot.io';
+  const link = r.user_type === 'external_worker'
+    ? `${appUrl}/my-work.html`
+    : `${appUrl}/maintenance.html`;
+
+  // Email to the assignee — always.
+  try {
+    await sendWorkOrderAssignmentEmail({
+      to: r.email, recipientName: r.recipient_name,
+      inviterName: r.inviter_name,
+      propertyAddress, workOrderTitle: r.wo_title, link
+    });
+  } catch (e) { console.error('assignment email failed:', e); }
+
+  // Pulse mention — team only (external workers have no Pulse access).
+  if (r.user_type === 'team') {
+    try {
+      await postMaintenancePulseMention({
+        assigneeId, woTitle: r.wo_title, propertyAddress,
+        inviterId, inviterName: r.inviter_name
+      });
+    } catch (e) { console.error('pulse mention failed:', e); }
+  }
+}
+
+async function postMaintenancePulseMention({ assigneeId, woTitle, propertyAddress, inviterId, inviterName }) {
+  const { rows: chRows } = await query(
+    `SELECT id FROM chat_channels WHERE slug = 'maintenance' LIMIT 1`
+  );
+  if (!chRows[0]) return;
+  const channelId = chRows[0].id;
+  const body = `${inviterName} assigned <@${assigneeId}> to "${woTitle}" at ${propertyAddress}`;
+  const { rows: msgRows } = await query(`
+    INSERT INTO chat_messages (channel_id, sender_id, body)
+    VALUES ($1, $2, $3) RETURNING id
+  `, [channelId, inviterId, body]);
+  await query(`
+    INSERT INTO chat_mentions (message_id, mentioned_user_id)
+    VALUES ($1, $2) ON CONFLICT DO NOTHING
+  `, [msgRows[0].id, assigneeId]);
+}
 
 module.exports = router;

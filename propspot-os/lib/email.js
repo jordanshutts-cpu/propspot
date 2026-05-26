@@ -107,4 +107,36 @@ async function sendExternalWorkerInviteEmail({ to, inviteLink, inviterName, prop
   return true;
 }
 
-module.exports = { sendInviteEmail, sendPasswordResetEmail, sendExternalWorkerInviteEmail };
+async function sendWorkOrderAssignmentEmail({ to, recipientName, inviterName, propertyAddress, workOrderTitle, link }) {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+    console.log('No SMTP — assignment notification skipped for', to);
+    return false;
+  }
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+  });
+  await transporter.sendMail({
+    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@propspot.io>',
+    to,
+    subject: `${inviterName} assigned you a work order at ${propertyAddress}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#111827;">
+        <h2 style="color:#61B746;">New work-order assignment</h2>
+        <p>Hi ${recipientName || ''},</p>
+        <p>${inviterName} assigned you to <strong>${workOrderTitle}</strong> at ${propertyAddress}.</p>
+        <p>
+          <a href="${link}"
+             style="display:inline-block;background:#61B746;color:#fff;padding:12px 28px;
+                    border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0;">
+            Open work order
+          </a>
+        </p>
+      </div>`
+  });
+  return true;
+}
+
+module.exports = { sendInviteEmail, sendPasswordResetEmail, sendExternalWorkerInviteEmail, sendWorkOrderAssignmentEmail };
