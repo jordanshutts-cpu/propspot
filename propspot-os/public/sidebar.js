@@ -765,11 +765,7 @@
     const sidebarHTML = `
       <aside class="os-newchrome-sidebar">
 
-        <div class="os-newchrome-brand-bar">
-          <a class="os-newchrome-brand-logo" href="/dashboard.html" title="PropSpot.OS · Home">
-            <img src="/logo.png" alt="PropSpot.OS">
-            <span class="os-newchrome-brand-text">PropSpot<span class="os-newchrome-brand-suffix">.OS</span></span>
-          </a>
+        <div class="os-newchrome-brand-bar os-newchrome-brand-bar-slim">
           <button type="button" class="os-newchrome-collapse-btn" id="os-newchrome-collapse-btn"
                   onclick="toggleSidebar()" title="Collapse sidebar" aria-label="Collapse sidebar">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
