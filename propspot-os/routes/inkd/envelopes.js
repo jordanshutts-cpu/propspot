@@ -169,4 +169,124 @@ async function buildAutofillContext({ property_id, opportunity_id, contact_id, u
   return ctx;
 }
 
+const { sendInvite, sendYourTurn } = require('../../lib/inkd-email');
+const { mintToken, hashToken } = require('../../lib/inkd-tokens');
+
+// Internal: bind field_values to recipients by role + resolve recipient.* autofills.
+// Called at send time so role-based field assignment and recipient.* autofill paths
+// can finally resolve (recipients don't exist yet at draft creation).
+async function bindFieldsAndResolveRecipientAutofills(envelopeId) {
+  const recipients = (await query(
+    'SELECT id, role, full_name, email, phone FROM inkd_recipients WHERE envelope_id=$1',
+    [envelopeId])).rows;
+  const byRole = {};
+  for (const r of recipients) { byRole[r.role] = r; }
+
+  const fields = (await query(
+    `SELECT fv.id AS fv_id, fv.value, fv.autofilled,
+            tf.recipient_role, tf.autofill_source
+       FROM inkd_field_values fv
+       LEFT JOIN inkd_template_fields tf ON tf.id = fv.template_field_id
+      WHERE fv.envelope_id=$1`, [envelopeId])).rows;
+
+  const today = new Date();
+  const ctxBase = {
+    recipients: byRole,
+    today:      today.toISOString().slice(0, 10),
+    today_long: today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    envelope:   { id: envelopeId },
+  };
+
+  for (const f of fields) {
+    const role = f.recipient_role;
+    const recipientId = role && byRole[role] ? byRole[role].id : null;
+
+    let newValue = null;
+    if (f.autofill_source && f.autofill_source.startsWith('recipient.') && !f.value) {
+      newValue = resolvePath(f.autofill_source, ctxBase);
+    }
+
+    if (recipientId || newValue != null) {
+      await query(
+        `UPDATE inkd_field_values
+            SET recipient_id = COALESCE($2, recipient_id),
+                value        = COALESCE($3, value),
+                autofilled   = CASE WHEN $3 IS NOT NULL THEN TRUE ELSE autofilled END
+          WHERE id=$1`,
+        [f.fv_id, recipientId, newValue]);
+    }
+  }
+}
+
+// POST /api/inkd/envelopes/:id/send  — kick off the envelope
+router.post('/:id/send', async (req, res) => {
+  try {
+    const env = (await query('SELECT * FROM inkd_envelopes WHERE id=$1', [req.params.id])).rows[0];
+    if (!env) return res.status(404).json({ error: 'Not found' });
+    if (env.status !== 'draft') return res.status(400).json({ error: 'Already sent' });
+
+    const recipients = (await query(
+      'SELECT * FROM inkd_recipients WHERE envelope_id=$1 ORDER BY signing_order', [req.params.id])).rows;
+    if (!recipients.length) return res.status(400).json({ error: 'Add at least one recipient' });
+
+    await bindFieldsAndResolveRecipientAutofills(req.params.id);
+
+    const sender = (await query('SELECT full_name, email FROM users WHERE id=$1', [env.created_by])).rows[0];
+
+    await query(`UPDATE inkd_envelopes SET status='sent', sent_at=now(),
+                  expires_at=COALESCE(expires_at, now() + interval '30 days') WHERE id=$1`,
+      [req.params.id]);
+    await logAudit({ envelopeId: req.params.id, eventType: 'sent', req, userId: req.user.id });
+
+    const firstOrder = recipients[0].signing_order;
+    const firstBatch = recipients.filter(r => r.signing_order === firstOrder);
+    for (const r of firstBatch) {
+      const newToken = mintToken();
+      await query('UPDATE inkd_recipients SET sign_token_hash=$2, notified_at=now(), status=$3 WHERE id=$1',
+        [r.id, await hashToken(newToken), 'notified']);
+      try {
+        await sendInvite({
+          to: r.email, recipientName: r.full_name, envelopeName: env.name,
+          senderName: sender?.full_name || 'PropSpot user', token: newToken,
+        });
+      } catch (e) { console.error('Email send failed for', r.email, e); }
+    }
+
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to send envelope' }); }
+});
+
+// Internal helper: notify the next batch in sequence after one signs.
+// Called by the signing router when a recipient finishes.
+async function notifyNextBatchIfReady(envelopeId) {
+  const env = (await query('SELECT * FROM inkd_envelopes WHERE id=$1', [envelopeId])).rows[0];
+  if (!env) return;
+  const recipients = (await query(
+    'SELECT * FROM inkd_recipients WHERE envelope_id=$1 ORDER BY signing_order, id', [envelopeId])).rows;
+  const orders = [...new Set(recipients.map(r => r.signing_order))].sort((a, b) => a - b);
+  let nextOrder = null;
+  for (const o of orders) {
+    const batch = recipients.filter(r => r.signing_order === o);
+    if (batch.every(r => r.status === 'signed')) continue;
+    if (batch.some(r => r.status === 'notified' || r.status === 'viewed')) return;
+    nextOrder = o; break;
+  }
+  if (nextOrder == null) return;
+  const sender = (await query('SELECT full_name FROM users WHERE id=$1', [env.created_by])).rows[0];
+  const batch = recipients.filter(r => r.signing_order === nextOrder);
+  for (const r of batch) {
+    const newToken = mintToken();
+    await query('UPDATE inkd_recipients SET sign_token_hash=$2, notified_at=now(), status=$3 WHERE id=$1',
+      [r.id, await hashToken(newToken), 'notified']);
+    try {
+      await sendYourTurn({
+        to: r.email, recipientName: r.full_name, envelopeName: env.name,
+        senderName: sender?.full_name || 'PropSpot user', token: newToken,
+      });
+    } catch (e) { console.error('Your-turn email failed for', r.email, e); }
+  }
+}
+
+router.notifyNextBatchIfReady = notifyNextBatchIfReady;
+
 module.exports = router;
