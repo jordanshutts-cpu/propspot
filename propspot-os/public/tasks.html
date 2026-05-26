@@ -178,6 +178,17 @@
         <div id="c-items"></div>
         <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:.8rem;margin-top:6px;" onclick="addCreateItem()">+ Add item</button>
       </div>
+      <div class="form-group">
+        <label class="form-label">Attachments</label>
+        <div class="drop-zone" id="c-drop-zone" onclick="document.getElementById('c-file-input').click()"
+             ondragover="event.preventDefault();this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="event.preventDefault();this.classList.remove('dragover');queueFiles(event.dataTransfer.files)">
+          Drop files here, click to upload, or paste screenshots
+        </div>
+        <input type="file" id="c-file-input" multiple style="display:none" onchange="queueFiles(this.files);this.value=''">
+        <div id="c-file-list"></div>
+      </div>
       <p id="c-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" style="padding:10px 18px;font-size:.88rem;" onclick="closeCreate()">Cancel</button>
@@ -304,15 +315,44 @@ document.getElementById('pills').addEventListener('click', e => {
   renderList();
 });
 
-// ── Create task
-let createItems = [];
+// ── Create / Edit task
+let editingTaskId = null;
+let queuedFiles = [];
 function openCreate() {
-  createItems = [];
+  editingTaskId = null;
+  queuedFiles = [];
   document.getElementById('c-items').innerHTML = '';
+  document.getElementById('c-file-list').innerHTML = '';
   document.getElementById('create-form').reset();
   document.getElementById('c-err').style.display = 'none';
   document.getElementById('modal-title').textContent = 'New Task';
   document.getElementById('c-save').textContent = 'Create Task';
+  document.getElementById('modal-create').classList.add('open');
+}
+function openEdit(task) {
+  editingTaskId = task.id;
+  queuedFiles = [];
+  document.getElementById('c-file-list').innerHTML = '';
+  document.getElementById('c-err').style.display = 'none';
+  document.getElementById('modal-title').textContent = 'Edit Task';
+  document.getElementById('c-save').textContent = 'Save Changes';
+  document.getElementById('c-title').value = task.title || '';
+  document.getElementById('c-desc').value = task.description || '';
+  document.getElementById('c-priority').value = task.priority || 'normal';
+  document.getElementById('c-due').value = task.due_date || '';
+  document.getElementById('c-assign').value = task.assigned_to || '';
+  document.getElementById('c-property').value = task.property_id || '';
+  document.getElementById('c-items').innerHTML = '';
+  if (task.items) {
+    task.items.forEach((item, i) => {
+      const div = document.getElementById('c-items');
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;align-items:center;';
+      row.innerHTML = `<input class="form-input" style="flex:1;padding:6px 10px;font-size:.85rem;" placeholder="Requirement ${i+1}" value="${esc(item.text)}" data-item-id="${item.id}">
+        <button type="button" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;" onclick="this.parentElement.remove()">&#10005;</button>`;
+      div.appendChild(row);
+    });
+  }
   document.getElementById('modal-create').classList.add('open');
 }
 function formHasData() {
@@ -322,15 +362,51 @@ function formHasData() {
     document.getElementById('c-assign').value ||
     document.getElementById('c-property').value ||
     document.getElementById('c-priority').value !== 'normal' ||
-    document.querySelectorAll('#c-items input').length > 0;
+    document.querySelectorAll('#c-items input').length > 0 ||
+    queuedFiles.length > 0;
 }
 function closeCreate(force) {
-  if (!force && formHasData()) {
+  if (!force && !editingTaskId && formHasData()) {
     if (!confirm('You have unsaved work. Discard this task?')) return;
   }
+  editingTaskId = null;
+  queuedFiles = [];
   document.getElementById('modal-create').classList.remove('open');
 }
 document.getElementById('modal-create').addEventListener('click', e => { if (e.target === e.currentTarget) closeCreate(); });
+
+// ── File queuing for create/edit modal
+function queueFiles(fileList) {
+  for (const f of fileList) queuedFiles.push(f);
+  renderQueuedFiles();
+}
+function removeQueuedFile(idx) {
+  queuedFiles.splice(idx, 1);
+  renderQueuedFiles();
+}
+function renderQueuedFiles() {
+  const el = document.getElementById('c-file-list');
+  if (queuedFiles.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = queuedFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:.82rem;">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.name)}</span>
+      <span style="color:var(--text-muted);font-size:.72rem;">${(f.size/1024).toFixed(0)} KB</span>
+      <button type="button" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.9rem;" onclick="removeQueuedFile(${i})">&#10005;</button>
+    </div>
+  `).join('');
+}
+
+// Paste screenshots into the create/edit modal
+document.getElementById('modal-create').addEventListener('paste', (e) => {
+  const files = [];
+  for (const item of e.clipboardData.items) {
+    if (item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      if (blob) files.push(new File([blob], `screenshot-${Date.now()}.png`, { type: blob.type }));
+    }
+  }
+  if (files.length > 0) queueFiles(files);
+});
 
 function addCreateItem() {
   const div = document.getElementById('c-items');
@@ -347,21 +423,67 @@ async function submitCreate(e) {
   e.preventDefault();
   const title = document.getElementById('c-title').value.trim();
   if (!title) return;
-  const items = Array.from(document.querySelectorAll('#c-items input')).map(i => ({text: i.value})).filter(i => i.text.trim());
-  const body = {
-    title,
-    description: document.getElementById('c-desc').value.trim() || null,
-    priority: document.getElementById('c-priority').value,
-    due_date: document.getElementById('c-due').value || null,
-    assigned_to: document.getElementById('c-assign').value || null,
-    property_id: document.getElementById('c-property').value || null,
-    items
-  };
+  const items = Array.from(document.querySelectorAll('#c-items input')).map(i => ({text: i.value, id: i.dataset.itemId})).filter(i => i.text.trim());
+
   try {
     document.getElementById('c-save').disabled = true;
-    await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify(body) });
-    closeCreate(true);
-    await loadTasks();
+
+    if (editingTaskId) {
+      // ── Edit mode
+      await apiFetch(`/api/tasks/${editingTaskId}`, { method: 'PATCH', body: JSON.stringify({
+        title,
+        description: document.getElementById('c-desc').value.trim() || null,
+        priority: document.getElementById('c-priority').value,
+        due_date: document.getElementById('c-due').value || null,
+        assigned_to: document.getElementById('c-assign').value || null,
+        property_id: document.getElementById('c-property').value || null,
+      })});
+      // Sync items: delete removed, update existing, add new
+      const existing = await apiFetch(`/api/tasks/${editingTaskId}`);
+      const oldIds = existing.items.map(i => i.id);
+      const newIds = items.filter(i => i.id).map(i => i.id);
+      for (const oldId of oldIds) {
+        if (!newIds.includes(oldId)) await apiFetch(`/api/tasks/${editingTaskId}/items/${oldId}`, { method: 'DELETE' });
+      }
+      for (const item of items) {
+        if (item.id) {
+          const old = existing.items.find(i => i.id === item.id);
+          if (old && old.text !== item.text) await apiFetch(`/api/tasks/${editingTaskId}/items/${item.id}`, { method: 'PATCH', body: JSON.stringify({ text: item.text }) });
+        } else {
+          await apiFetch(`/api/tasks/${editingTaskId}/items`, { method: 'POST', body: JSON.stringify({ text: item.text }) });
+        }
+      }
+      // Upload queued files
+      for (const file of queuedFiles) {
+        const form = new FormData();
+        form.append('file', file);
+        await apiFetch(`/api/tasks/${editingTaskId}/attachments`, { method: 'POST', body: form });
+      }
+      const savedId = editingTaskId;
+      closeCreate(true);
+      await loadTasks();
+      await openDetail(savedId);
+    } else {
+      // ── Create mode
+      const task = await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify({
+        title,
+        description: document.getElementById('c-desc').value.trim() || null,
+        priority: document.getElementById('c-priority').value,
+        due_date: document.getElementById('c-due').value || null,
+        assigned_to: document.getElementById('c-assign').value || null,
+        property_id: document.getElementById('c-property').value || null,
+        items: items.map(i => ({ text: i.text }))
+      })});
+      // Upload queued files
+      for (const file of queuedFiles) {
+        const form = new FormData();
+        form.append('file', file);
+        await apiFetch(`/api/tasks/${task.id}/attachments`, { method: 'POST', body: form });
+      }
+      closeCreate(true);
+      await loadTasks();
+      if (queuedFiles.length > 0) await openDetail(task.id);
+    }
   } catch (err) {
     document.getElementById('c-err').textContent = err.message;
     document.getElementById('c-err').style.display = '';
@@ -397,13 +519,16 @@ function renderDetail(task) {
   const isOverdue = task.due_date && task.due_date < today && task.status !== 'done';
   const html = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
-      <div>
+      <div style="flex:1;min-width:0;">
         <h2 style="font-size:1.2rem;font-weight:700;margin:0 0 4px 0;">${esc(task.title)}</h2>
         <div style="font-size:.8rem;color:var(--text-muted);">
           Created by ${esc(task.created_by_name || 'Unknown')} &middot; ${formatDate(task.created_at)}
         </div>
       </div>
-      <button class="modal-close" onclick="closeDetail()">&#10005;</button>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:.78rem;" onclick="editFromDetail('${task.id}')">Edit</button>
+        <button class="modal-close" onclick="closeDetail()">&#10005;</button>
+      </div>
     </div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
@@ -486,6 +611,15 @@ function renderDetail(task) {
     </div>
   `;
   document.getElementById('detail-content').innerHTML = html;
+}
+
+// ── Edit from detail panel
+async function editFromDetail(id) {
+  try {
+    const task = await apiFetch(`/api/tasks/${id}`);
+    closeDetail();
+    openEdit(task);
+  } catch {}
 }
 
 // ── Task CRUD helpers
