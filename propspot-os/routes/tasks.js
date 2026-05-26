@@ -317,6 +317,21 @@ router.post('/:id/comments', async (req, res) => {
       RETURNING *
     `, [req.params.id, req.userId, body.trim()]);
 
+    // Parse @mentions — match "@Full Name" against users list
+    const { rows: users } = await query(`SELECT id, full_name FROM users WHERE full_name IS NOT NULL`);
+    const mentionedIds = [];
+    for (const u of users) {
+      if (u.full_name && body.includes('@' + u.full_name)) {
+        mentionedIds.push(u.id);
+      }
+    }
+    for (const uid of mentionedIds) {
+      await query(
+        `INSERT INTO task_mentions (comment_id, mentioned_user_id, task_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [comment.id, uid, req.params.id]
+      );
+    }
+
     const { rows: [withUser] } = await query(`
       SELECT tc.*, u.full_name AS user_name, u.avatar_url AS user_avatar
         FROM task_comments tc

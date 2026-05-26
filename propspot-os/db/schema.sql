@@ -1270,6 +1270,16 @@ CREATE TABLE IF NOT EXISTS task_comments (
 );
 CREATE INDEX IF NOT EXISTS task_comments_task_idx ON task_comments(task_id);
 
+-- ── Task mentions ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS task_mentions (
+  comment_id        UUID NOT NULL REFERENCES task_comments(id) ON DELETE CASCADE,
+  mentioned_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  task_id           UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (comment_id, mentioned_user_id)
+);
+CREATE INDEX IF NOT EXISTS task_mentions_user_idx ON task_mentions(mentioned_user_id);
+
 -- ── Drive: folders ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS drive_folders (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
