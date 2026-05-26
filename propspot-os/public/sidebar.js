@@ -766,29 +766,24 @@
     const sidebarHTML = `
       <aside class="os-newchrome-sidebar">
 
-        <div class="os-newchrome-brand-bar">
-          <a class="os-newchrome-brand-logo" href="/dashboard.html" title="PropSpot.OS · Home">
-            <img src="/logo.png" alt="PropSpot.OS">
-            <span class="os-newchrome-brand-text">PropSpot<span class="os-newchrome-brand-suffix">.OS</span></span>
+        <div class="os-newchrome-workspace-row">
+          <a class="os-newchrome-workspace ${window.NAV_CURRENT === 'dashboard' ? 'active' : ''}"
+             href="/dashboard.html"
+             data-osnav="dashboard"
+             title="${escHtml(org.company_name || 'My Company')} · Home">
+            ${org.company_logo_url
+              ? `<img class="os-newchrome-workspace-logo-img" src="${org.company_logo_url}" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">`
+              : `<div class="os-newchrome-workspace-logo">${escHtml((org.company_name || 'M')[0])}</div>`}
+            <div class="os-newchrome-workspace-text">
+              <div class="os-newchrome-workspace-name">${escHtml(org.company_name || 'My Company')}</div>
+              <div class="os-newchrome-workspace-user">${escHtml(user.full_name || user.email || 'Signed in')}</div>
+            </div>
           </a>
           <button type="button" class="os-newchrome-collapse-btn" id="os-newchrome-collapse-btn"
                   onclick="toggleSidebar()" title="Collapse sidebar" aria-label="Collapse sidebar">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
         </div>
-
-        <a class="os-newchrome-workspace ${window.NAV_CURRENT === 'dashboard' ? 'active' : ''}"
-           href="/dashboard.html"
-           data-osnav="dashboard"
-           title="${escHtml(org.company_name || 'My Company')} · Home">
-          ${org.company_logo_url
-            ? `<img class="os-newchrome-workspace-logo-img" src="${org.company_logo_url}" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;">`
-            : `<div class="os-newchrome-workspace-logo">${escHtml((org.company_name || 'M')[0])}</div>`}
-          <div class="os-newchrome-workspace-text">
-            <div class="os-newchrome-workspace-name">${escHtml(org.company_name || 'My Company')}</div>
-            <div class="os-newchrome-workspace-user">${escHtml(user.full_name || user.email || 'Signed in')}</div>
-          </div>
-        </a>
 
         <div class="os-newchrome-sidebar-scroll">
 

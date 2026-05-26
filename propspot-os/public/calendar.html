@@ -297,11 +297,47 @@ async function loadMonth() {
   var qs = '?from=' + ymd(b.start) + '&to=' + ymd(toExclusive);
   if (calView === 'personal') qs += '&visibility=personal';
   try {
-    events = await apiFetch('/api/calendar' + qs);
+    var resp = await apiFetch('/api/calendar' + qs);
+    // API now returns { events, google_warning, google_event_count }.
+    // Old shape (plain array) is still tolerated for back-compat.
+    events = Array.isArray(resp) ? resp : (resp.events || []);
+    renderGoogleBanner(Array.isArray(resp) ? null : resp);
     renderCalendar();
   } catch(e) {
     document.getElementById('cal-content').innerHTML = '<p class="text-muted">Error loading events</p>';
   }
+}
+
+function renderGoogleBanner(resp) {
+  var existing = document.getElementById('cal-google-banner');
+  if (existing) existing.remove();
+  if (!resp || calView !== 'personal') return;
+  var msg = null;
+  var kind = 'info';
+  if (resp.google_warning) {
+    msg = 'Couldn\'t pull events from Google: ' + resp.google_warning +
+          '. Try disconnecting + reconnecting your Google Calendar in Personal Settings.';
+    kind = 'error';
+  } else if (resp.google_event_count === 0 && personalCalendarConnected) {
+    msg = 'Connected to Google Calendar — but Google returned 0 events for this month on your primary calendar. ' +
+          'If your work events live on a different Google calendar, they won\'t show here.';
+    kind = 'info';
+  } else if (resp.google_event_count > 0) {
+    // Optional positive feedback — helpful when debugging.
+    msg = 'Loaded ' + resp.google_event_count + ' event' +
+          (resp.google_event_count === 1 ? '' : 's') + ' from Google Calendar.';
+    kind = 'success';
+  }
+  if (!msg) return;
+  var banner = document.createElement('div');
+  banner.id = 'cal-google-banner';
+  banner.style.cssText = 'margin-bottom:12px;padding:10px 14px;border-radius:6px;font-size:.85rem;' +
+    (kind === 'error'   ? 'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;' :
+     kind === 'success' ? 'background:#dcfce7;color:#166534;border:1px solid #86efac;' :
+                          'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;');
+  banner.textContent = msg;
+  var content = document.getElementById('cal-content');
+  content.parentNode.insertBefore(banner, content);
 }
 
 function renderCalendar() {

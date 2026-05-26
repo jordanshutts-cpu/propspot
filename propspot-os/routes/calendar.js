@@ -88,13 +88,22 @@ router.get('/', async (req, res) => {
     // skip the kanban-style edit/delete actions (we'd need to write
     // back through the API for those, which is its own follow-up).
     let merged = rows;
+    let googleWarning = null;
+    let googleEventCount = null;
     if (visibility === 'personal') {
       try {
         const grant = await gcal.getUserGrant(req.userId);
         if (grant) {
-          const fromISO = new Date(start + 'T00:00:00Z').toISOString();
-          const toISO   = new Date(end   + 'T00:00:00Z').toISOString();
-          const gEvents = await gcal.listEvents(req.userId, fromISO, toISO);
+          // Widen the window by one day on each side to catch events whose
+          // local time crosses midnight UTC. Without this, an event scheduled
+          // at 9 PM EDT on the last visible Saturday is at 01:00 UTC Sunday
+          // and falls outside a strict UTC-midnight bound.
+          const fromDate = new Date(start + 'T00:00:00Z');
+          fromDate.setUTCDate(fromDate.getUTCDate() - 1);
+          const toDate = new Date(end + 'T00:00:00Z');
+          toDate.setUTCDate(toDate.getUTCDate() + 1);
+          const gEvents = await gcal.listEvents(req.userId, fromDate.toISOString(), toDate.toISOString());
+          googleEventCount = gEvents.length;
           const mapped = gEvents.map(g => ({
             id:            'gcal-' + g.id,
             google_event_id: g.id,
@@ -121,12 +130,17 @@ router.get('/', async (req, res) => {
           );
         }
       } catch (gerr) {
+        googleWarning = gerr.message || 'Google Calendar fetch failed';
         console.warn('Personal Google Calendar pull failed:', gerr.message);
         // Fall through — return what we have from the DB.
       }
     }
 
-    res.json(merged);
+    res.json({
+      events: merged,
+      google_warning: googleWarning,
+      google_event_count: googleEventCount
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to load events' });

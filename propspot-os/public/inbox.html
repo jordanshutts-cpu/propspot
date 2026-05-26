@@ -893,10 +893,12 @@
         <div class="nav-section" data-section="personal">
           <div class="nav-section-head">
             <span class="nav-head-title">Personal</span>
+            <button type="button" id="personal-sync-btn" class="nav-section-icon-btn" onclick="resyncPersonalMailbox()" title="Pull new mail from Gmail now" style="display:none;">↻</button>
           </div>
           <div id="personal-list">
             <p class="text-muted text-sm" style="padding: 6px 10px;">Loading…</p>
           </div>
+          <div id="personal-sync-status" class="text-muted text-xs" style="padding:0 14px 6px;display:none;"></div>
         </div>
         <div class="nav-section" data-section="shared">
           <div class="nav-section-head">
@@ -1287,6 +1289,7 @@ async function init() {
   attachLeftNavHandlers();
   attachSearchHandler();
   await loadInboxes();
+  loadPersonalSyncStatus();
   await refreshThreads();
 
   const initialThread = new URLSearchParams(location.search).get('thread');
@@ -1458,6 +1461,51 @@ function renderInboxGroup(elId, inboxes, opts) {
       setMobileView('list');
     });
   });
+}
+
+// Force-resync the user's personal mailbox(es). Shows last-sync feedback.
+async function resyncPersonalMailbox() {
+  const btn = document.getElementById('personal-sync-btn');
+  const status = document.getElementById('personal-sync-status');
+  btn.disabled = true; btn.textContent = '⟳';
+  status.style.display = '';
+  status.textContent = 'Pulling new mail from Gmail…';
+  try {
+    const res = await apiFetch('/api/inbox/mailboxes/personal/resync', { method: 'POST' });
+    status.textContent = res.count
+      ? `Queued ${res.count} mailbox${res.count === 1 ? '' : 'es'} for sync — new mail should land within ~60s.`
+      : 'No personal mailbox connected.';
+    setTimeout(refreshThreads, 8000);
+  } catch (e) {
+    status.textContent = 'Could not start sync: ' + (e.message || 'unknown error');
+  } finally {
+    btn.disabled = false; btn.textContent = '↻';
+  }
+}
+
+// Show the resync button + last-sync hint if the user has a personal mailbox.
+async function loadPersonalSyncStatus() {
+  try {
+    const rows = await apiFetch('/api/inbox/mailboxes/personal/status');
+    if (!rows.length) return;
+    document.getElementById('personal-sync-btn').style.display = '';
+    const newest = rows.sort((a, b) =>
+      new Date(b.last_sync_at || 0) - new Date(a.last_sync_at || 0)
+    )[0];
+    const status = document.getElementById('personal-sync-status');
+    if (newest.status === 'error') {
+      status.style.display = '';
+      status.textContent = 'Sync error: ' + (newest.status_reason || 'unknown') + ' — click ↻ to retry.';
+      status.style.color = '#dc2626';
+    } else if (newest.last_sync_at) {
+      const diff = Date.now() - new Date(newest.last_sync_at).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins >= 5) {
+        status.style.display = '';
+        status.textContent = `Last sync ${mins < 60 ? mins + 'm' : Math.floor(mins/60) + 'h'} ago`;
+      }
+    }
+  } catch (e) { /* personal not connected — silent */ }
 }
 
 // Kick off the Google OAuth dance for the caller's own Workspace email.

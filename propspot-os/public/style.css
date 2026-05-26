@@ -1164,13 +1164,16 @@ body.os-newlayout .page.page-narrow { max-width: 1100px; margin-left: auto; marg
 
 /* ── Login Page ──────────────────────────────────────────── */
 .login-wrap {
-  min-height: 100dvh;
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
   background: linear-gradient(160deg, #edf7e9 0%, #ffffff 100%);
+  overflow-y: auto;
+  text-align: center;
 }
 
 .login-logo-img {

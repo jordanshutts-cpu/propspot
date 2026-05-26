@@ -213,41 +213,59 @@ body.os-newchrome .page.page-narrow {
   font-size: 13px;
   color: #1f2937;
 }
+/* Workspace row container — anchors the workspace link on the left and
+   the sidebar-collapse chevron on the right. Border-bottom lives here
+   now so the collapse button sits on the same baseline. */
+.os-newchrome-workspace-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  flex-shrink: 0;
+}
+.os-newchrome-workspace-row .os-newchrome-collapse-btn {
+  flex-shrink: 0;
+  margin-right: 8px;
+  align-self: center;
+}
+
+/* Collapsed sidebar: stack logo over chevron so neither gets squeezed
+   into the narrow rail. */
+html.sidebar-collapsed .os-newchrome-workspace-row {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+}
+html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
+  margin: 0;
+}
+
 /* Workspace row doubles as the Home button — clicking it navigates
-   to /dashboard.html. The chevron is no longer rendered. */
+   to /dashboard.html. The chevron is rendered alongside it (sibling). */
 .os-newchrome-workspace {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 14px;
   height: 56px;
-  border-bottom: 1px solid #e5e7eb;
   cursor: pointer;
   user-select: none;
-  background: #fff;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   text-decoration: none;
   color: inherit;
   position: relative;
   transition: background 0.12s ease;
 }
 .os-newchrome-workspace:hover { background: #f9fafb; }
-/* Active state when on the dashboard — slim brand accent on the left
-   edge, subtle brand-tinted background. Matches the pill treatment
-   used by nav rows but adapted for the larger workspace tile. */
-.os-newchrome-workspace.active {
-  background: linear-gradient(90deg, rgba(97,183,70,0.08), transparent 80%);
-}
-.os-newchrome-workspace.active::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 28px;
-  background: var(--brand);
-  border-radius: 0 3px 3px 0;
-}
+/* Workspace tile no longer renders a separate "active on dashboard"
+   accent — the logo + workspace name already make it obvious where
+   the dashboard lives, and the green slash visually clashed with the
+   logo in collapsed mode. Kept as no-op rules in case anything else
+   on the page relies on the selectors existing. */
+.os-newchrome-workspace.active { background: transparent; }
+.os-newchrome-workspace.active::before { display: none; }
 .os-newchrome-workspace-logo {
   width: 28px;
   height: 28px;
@@ -311,6 +329,31 @@ body.os-newchrome .page.page-narrow {
   color: #1f2937;
   cursor: pointer;
   font-size: 13px;
+  position: relative;
+}
+
+/* Collapsed-sidebar hover tooltip — pops the row's label out to the
+   right of the icon so users can identify icons without expanding the
+   sidebar. Driven by the existing title="" attribute that row() sets. */
+html.sidebar-collapsed .os-newchrome-row[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  background: #1f2937;
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1200;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+html.theme-dark.sidebar-collapsed .os-newchrome-row[title]:hover::after {
+  background: #4b5563;
 }
 .os-newchrome-row:not([data-section]):hover { background: var(--brand-light); color: var(--brand-dark); }
 .os-newchrome-row.active {
@@ -1691,6 +1734,15 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   border-bottom: 1px solid #e8eaed;
   background: linear-gradient(180deg, rgba(97,183,70,0.06) 0%, transparent 100%);
   flex-shrink: 0;
+}
+/* Slim variant — only the collapse button lives in this bar now that the
+   PropSpot wordmark moved out (the workspace row below covers branding). */
+.os-newchrome-brand-bar.os-newchrome-brand-bar-slim {
+  justify-content: flex-end;
+  height: 40px;
+  padding: 4px 10px;
+  background: transparent;
+  border-bottom: none;
 }
 .os-newchrome-brand-logo {
   display: inline-flex;
