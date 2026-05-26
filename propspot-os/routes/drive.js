@@ -53,7 +53,7 @@ function hasRole(effective, required) {
 // GET /api/drive/folders?parent_id=&property_id=
 router.get('/folders', async (req, res) => {
   try {
-    const { parent_id, property_id } = req.query;
+    const { parent_id, property_id, drive_type } = req.query;
     let sql = `
       SELECT f.*, u.full_name AS created_by_name,
              (SELECT COUNT(*)::int FROM drive_folders WHERE parent_id = f.id) AS subfolder_count,
@@ -73,10 +73,15 @@ router.get('/folders', async (req, res) => {
       params.push(property_id);
       sql += ` AND f.property_id = $${params.length}`;
     }
+    if (drive_type) {
+      params.push(drive_type);
+      sql += ` AND f.drive_type = $${params.length}`;
+    }
     sql += ` ORDER BY f.name`;
     const { rows } = await query(sql, params);
     const visible = [];
     for (const folder of rows) {
+      if (folder.drive_type === 'personal' && folder.created_by !== req.userId) continue;
       if (folder.team_visible || folder.created_by === req.userId) {
         visible.push(folder);
       } else {
@@ -121,7 +126,7 @@ router.get('/folders/:id', async (req, res) => {
 // POST /api/drive/folders
 router.post('/folders', async (req, res) => {
   try {
-    const { name, parent_id, property_id, team_visible } = req.body;
+    const { name, parent_id, property_id, team_visible, drive_type } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
 
     if (parent_id) {
@@ -130,10 +135,10 @@ router.post('/folders', async (req, res) => {
     }
 
     const { rows: [folder] } = await query(`
-      INSERT INTO drive_folders (name, parent_id, property_id, team_visible, created_by)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO drive_folders (name, parent_id, property_id, team_visible, created_by, drive_type)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [name.trim(), parent_id || null, property_id || null, team_visible !== false, req.userId]);
+    `, [name.trim(), parent_id || null, property_id || null, team_visible !== false, req.userId, drive_type || 'shared']);
     res.status(201).json(folder);
   } catch (err) {
     console.error(err);
@@ -200,7 +205,7 @@ router.delete('/folders/:id', async (req, res) => {
 // GET /api/drive/files?folder_id=&property_id=
 router.get('/files', async (req, res) => {
   try {
-    const { folder_id, property_id } = req.query;
+    const { folder_id, property_id, drive_type } = req.query;
     let sql = `
       SELECT f.*, u.full_name AS uploaded_by_name
         FROM drive_files f
@@ -218,6 +223,14 @@ router.get('/files', async (req, res) => {
       params.push(property_id);
       sql += ` AND f.property_id = $${params.length}`;
     }
+    if (drive_type) {
+      params.push(drive_type);
+      sql += ` AND f.drive_type = $${params.length}`;
+    }
+    if (!folder_id && (!drive_type || drive_type === 'personal')) {
+      params.push(req.userId);
+      sql += ` AND f.uploaded_by = $${params.length}`;
+    }
     sql += ` ORDER BY f.filename`;
     const { rows } = await query(sql, params);
     res.json(rows);
@@ -231,7 +244,7 @@ router.get('/files', async (req, res) => {
 router.post('/files', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
-    const { folder_id, property_id } = req.body;
+    const { folder_id, property_id, drive_type } = req.body;
 
     if (folder_id) {
       const role = await getEffectiveRole(req.userId, 'folder', folder_id);
@@ -247,10 +260,10 @@ router.post('/files', upload.single('file'), async (req, res) => {
     });
 
     const { rows: [file] } = await query(`
-      INSERT INTO drive_files (folder_id, property_id, filename, url, cloudinary_id, mime_type, size_bytes, uploaded_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO drive_files (folder_id, property_id, filename, url, cloudinary_id, mime_type, size_bytes, uploaded_by, drive_type)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
-    `, [folder_id || null, property_id || null, req.file.originalname || 'upload', result.secure_url, result.public_id, req.file.mimetype || null, req.file.size || null, req.userId]);
+    `, [folder_id || null, property_id || null, req.file.originalname || 'upload', result.secure_url, result.public_id, req.file.mimetype || null, req.file.size || null, req.userId, drive_type || 'shared']);
 
     res.status(201).json(file);
   } catch (err) {
