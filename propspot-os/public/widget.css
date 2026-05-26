@@ -35,9 +35,16 @@
 .pulse-embed-msg-body { font-size: .9rem; line-height: 1.45; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
 /* Edit/delete controls on own messages. Low-contrast, hover-revealed
    so they don't compete with the message content. */
-.pulse-embed-msg-actions { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
+/* Edit/delete actions: visible at low opacity always (so touch devices can
+   reach them), full opacity on hover/focus/edit. */
+.pulse-embed-msg-actions {
+  margin-left: auto; display: flex; gap: 2px;
+  opacity: .55; transition: opacity .12s;
+}
 .pulse-embed-msg:hover .pulse-embed-msg-actions,
+.pulse-embed-msg:focus-within .pulse-embed-msg-actions,
 .pulse-embed-msg.editing .pulse-embed-msg-actions { opacity: 1; }
+@media (hover: none) { .pulse-embed-msg-actions { opacity: 1; } }
 .pulse-embed-msg-actions button {
   background: none; border: 0; padding: 2px 6px; border-radius: 4px;
   font-size: .82rem; cursor: pointer; color: #666;
