@@ -95,6 +95,7 @@ app.use('/api/pulse/attachments',    require('./routes/pulse/attachments'));
 app.use('/api/inkd/templates',       require('./routes/inkd/templates'));
 app.use('/api/inkd/envelopes',       require('./routes/inkd/envelopes'));
 app.use('/api/inkd/envelopes/:envelopeId/recipients', require('./routes/inkd/recipients'));
+app.use('/api/inkd/signing', require('./routes/inkd/signing'));
 
 // ── Inbox (35 MB body limit for base64 attachments) ───────────────
 app.use('/api/inbox', express.json({ limit: '35mb' }), express.urlencoded({ extended: true, limit: '35mb' }));
