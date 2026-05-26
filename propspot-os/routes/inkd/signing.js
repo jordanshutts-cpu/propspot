@@ -90,7 +90,8 @@ router.post('/:token/submit', express.json(), async (req, res) => {
     const { signed, total } = counts.rows[0];
     if (Number(signed) === Number(total)) {
       await query(`UPDATE inkd_envelopes SET status='completed', completed_at=now() WHERE id=$1`, [rec.envelope_id]);
-      // Phase 5 will hook into this point to call the signing engine.
+      try { await finalizeEnvelope(rec.envelope_id); }
+      catch (e) { console.error('finalizeEnvelope failed', e); }
     } else {
       await query(`UPDATE inkd_envelopes SET status='partial' WHERE id=$1 AND status<>'partial'`, [rec.envelope_id]);
       await envelopesRouter.notifyNextBatchIfReady(rec.envelope_id);
@@ -110,5 +111,40 @@ router.post('/:token/decline', express.json(), async (req, res) => {
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Decline failed' }); }
 });
+
+const cloudinaryV2 = require('cloudinary').v2;
+const { buildSignedPdf } = require('../../lib/inkd-pdf');
+const { sendCompletedToSender } = require('../../lib/inkd-email');
+
+async function finalizeEnvelope(envelopeId) {
+  const env       = (await query('SELECT * FROM inkd_envelopes WHERE id=$1', [envelopeId])).rows[0];
+  const recips    = (await query('SELECT * FROM inkd_recipients WHERE envelope_id=$1 ORDER BY signing_order, id', [envelopeId])).rows;
+  const fvs       = (await query('SELECT * FROM inkd_field_values WHERE envelope_id=$1', [envelopeId])).rows;
+  const events    = (await query('SELECT * FROM inkd_audit_events WHERE envelope_id=$1 ORDER BY event_at', [envelopeId])).rows;
+  const sender    = (await query('SELECT full_name, email FROM users WHERE id=$1', [env.created_by])).rows[0];
+
+  const { bytes, hash } = await buildSignedPdf({
+    sourcePdfUrl: env.source_pdf_url,
+    envelope: env, recipients: recips, fieldValues: fvs, auditEvents: events,
+  });
+
+  const cloud = await new Promise((resolve, reject) => {
+    cloudinaryV2.uploader.upload_stream(
+      { resource_type: 'raw', folder: 'propspot/inkd/signed', format: 'pdf' },
+      (e, out) => e ? reject(e) : resolve(out)
+    ).end(Buffer.from(bytes));
+  });
+
+  await query(
+    `UPDATE inkd_envelopes
+        SET final_pdf_url=$2, final_pdf_id=$3, final_pdf_hash=$4
+      WHERE id=$1`,
+    [envelopeId, cloud.secure_url, cloud.public_id, hash]);
+
+  if (sender?.email) {
+    try { await sendCompletedToSender({ to: sender.email, senderName: sender.full_name, envelopeName: env.name }); }
+    catch (e) { console.error('sender completion email failed', e); }
+  }
+}
 
 module.exports = router;
