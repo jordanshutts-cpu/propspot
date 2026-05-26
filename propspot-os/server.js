@@ -91,6 +91,9 @@ app.use('/api/pulse/sections',       require('./routes/pulse/sections'));
 app.use('/api/pulse/entity-threads', require('./routes/pulse/entity-threads'));
 app.use('/api/pulse/attachments',    require('./routes/pulse/attachments'));
 
+// ── Ink'd (e-signature) ───────────────────────────────────────────
+app.use('/api/inkd/templates',       require('./routes/inkd/templates'));
+
 // ── Inbox (35 MB body limit for base64 attachments) ───────────────
 app.use('/api/inbox', express.json({ limit: '35mb' }), express.urlencoded({ extended: true, limit: '35mb' }));
 app.use('/api/inbox/shared-inboxes', require('./routes/inbox/shared-inboxes'));
