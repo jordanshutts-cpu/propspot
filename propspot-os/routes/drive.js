@@ -231,7 +231,11 @@ router.get('/files', async (req, res) => {
       params.push(req.userId);
       sql += ` AND f.uploaded_by = $${params.length}`;
     }
-    sql += ` ORDER BY f.filename`;
+    if (req.query.recent) {
+      sql += ` ORDER BY f.created_at DESC LIMIT 50`;
+    } else {
+      sql += ` ORDER BY f.filename`;
+    }
     const { rows } = await query(sql, params);
     res.json(rows);
   } catch (err) {
