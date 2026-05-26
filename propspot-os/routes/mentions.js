@@ -31,6 +31,8 @@ router.get('/', async (req, res) => {
           ''
         ) AS context_name,
         COALESCE(m.channel_id, et.entity_id) AS context_id,
+        m.channel_id,
+        m.dm_id,
         NULL AS task_id,
         NULL AS photo_id,
         CASE WHEN et.entity_type = 'inbox_thread' THEN et.entity_id ELSE NULL END AS inbox_thread_id
