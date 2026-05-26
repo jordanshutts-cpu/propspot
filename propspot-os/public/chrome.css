@@ -1692,6 +1692,15 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   background: linear-gradient(180deg, rgba(97,183,70,0.06) 0%, transparent 100%);
   flex-shrink: 0;
 }
+/* Slim variant — only the collapse button lives in this bar now that the
+   PropSpot wordmark moved out (the workspace row below covers branding). */
+.os-newchrome-brand-bar.os-newchrome-brand-bar-slim {
+  justify-content: flex-end;
+  height: 40px;
+  padding: 4px 10px;
+  background: transparent;
+  border-bottom: none;
+}
 .os-newchrome-brand-logo {
   display: inline-flex;
   align-items: center;
