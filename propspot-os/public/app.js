@@ -494,6 +494,12 @@ async function inviteUser(email, fullName, app_grants) {
     body: JSON.stringify({ email, fullName, app_grants })
   });
 }
+async function resendInvite(userId) {
+  return apiFetch(`/api/users/${userId}/resend-invite`, { method: 'POST' });
+}
+async function resendAllPending() {
+  return apiFetch('/api/users/resend-all-pending', { method: 'POST' });
+}
 
 async function listPipeline(stage, propertyId) {
   const qs = propertyId ? `?property_id=${propertyId}` : '';
