@@ -25,14 +25,14 @@ function resolvePath(path, ctx) {
     const col  = parts[2];
     if (!role || !col) return null;
     const r = ctx.recipients?.[role];
-    if (!r || r[col] == null) return null;
+    if (!r || !Object.prototype.hasOwnProperty.call(r, col) || r[col] == null) return null;
     return String(r[col]);
   }
 
   if (['property','opportunity','contact','user'].includes(root)) {
     const obj = ctx[root];
     const col = parts[1];
-    if (!obj || !col || obj[col] == null) return null;
+    if (!obj || !col || !Object.prototype.hasOwnProperty.call(obj, col) || obj[col] == null) return null;
     return String(obj[col]);
   }
 

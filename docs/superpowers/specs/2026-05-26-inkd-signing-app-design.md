@@ -307,7 +307,7 @@ The template editor exposes a dropdown of available autofill paths. Sources:
 - **Opportunity** — every column on `opportunities`: purchase_price, earnest_money, closing_date, contingency_period_days, etc.
 - **Contact (by role)** — `recipient.<role>.full_name`, `.email`, `.phone`, `.company`, etc. Resolves to the recipient assigned to that role on the envelope.
 - **Current user / sender** — `user.full_name`, `user.email`, `user.license_number` (if we add this to users) — for the agent-name field
-- **Computed** — `today` (ISO date), `today.long` ("May 26, 2026"), `envelope.id`
+- **Computed** — `today` (ISO date), `today_long` ("May 26, 2026"), `envelope.id`
 
 Resolution happens server-side at draft creation. Unresolvable paths → field left blank with a yellow "needs attention" highlight in the composer.
 

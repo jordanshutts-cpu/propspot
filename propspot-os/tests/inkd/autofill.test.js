@@ -49,3 +49,20 @@ test('returns null for null / empty path', () => {
   assert.strictEqual(resolvePath('', ctx), null);
   assert.strictEqual(resolvePath(null, ctx), null);
 });
+
+test('returns null for prototype-chain properties (no leakage)', () => {
+  // Without the hasOwnProperty guard, these would resolve to inherited
+  // Object.prototype methods and stamp garbage onto signed PDFs.
+  assert.strictEqual(resolvePath('property.constructor', ctx), null);
+  assert.strictEqual(resolvePath('property.toString', ctx), null);
+  assert.strictEqual(resolvePath('property.hasOwnProperty', ctx), null);
+  assert.strictEqual(resolvePath('recipient.buyer.constructor', ctx), null);
+});
+
+test('resolves envelope.id', () => {
+  assert.strictEqual(resolvePath('envelope.id', ctx), 'env-1');
+});
+
+test('resolves today_long', () => {
+  assert.strictEqual(resolvePath('today_long', ctx), 'May 26, 2026');
+});
