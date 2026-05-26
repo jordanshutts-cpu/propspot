@@ -69,6 +69,7 @@ app.use('/api/fieldcam/trash',      require('./routes/fieldcam/trash'));
 
 // ── Maintenance ───────────────────────────────────────────────────
 app.use('/api/maintenance/work-orders', require('./routes/maintenance/work-orders'));
+app.use('/api/maintenance/work-orders', require('./routes/maintenance/invite-external-worker'));
 app.use('/api/maintenance/lawn',        require('./routes/maintenance/lawn'));
 app.use('/api/maintenance/updates',     require('./routes/maintenance/updates'));
 app.use('/api/maintenance/properties',  require('./routes/maintenance/properties'));
