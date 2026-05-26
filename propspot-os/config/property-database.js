@@ -68,7 +68,7 @@ const PATCHABLE_FIELDS = [
   'address_line1', 'unit', 'city', 'state', 'zip', 'parcel_id', 'county', 'tms',
   'lat', 'lng', 'cover_url', 'notes', 'display_name',
   // Status / lifecycle
-  'status', 'acquisition_status', 'lockbox_code',
+  'status', 'acquisition_status', 'project_status', 'lockbox_code',
   // Strategy + classification
   'strategy', 'property_type', 'data_source', 'conversion_method',
   'investment_type',

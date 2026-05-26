@@ -799,7 +799,7 @@
           ${row({ section: 'pipeline', icon: ICONS.phone,      label: 'Leads',         osnav: 'leads',         href: '/acquisitions.html',                    badge: counts.leads,         badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.users,      label: 'Opportunities', osnav: 'opportunities', href: '/acquisitions.html',                    badge: counts.opportunities, badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.clipboard,  label: 'Acquisitions',  osnav: 'acquisitions',  href: '/acquisitions.html',                    badge: counts.acquisitions,  badgeClass: 'muted' })}
-          ${row({ section: 'pipeline', icon: ICONS.hammer,     label: 'Projects',      osnav: 'projects',      href: '/properties.html?status=renovating',    badge: counts.projects,      badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.hammer,     label: 'Projects',      osnav: 'projects',      href: '/projects.html',                        badge: counts.projects,      badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.briefcase,  label: 'Holdings',      osnav: 'holdings',      href: '/holdings.html',                        badge: counts.holdings,      badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.trendingUp, label: 'Dispositions',  osnav: 'dispositions',  href: '/dispositions.html',                    badge: counts.dispositions,  badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.package,    label: 'Sold',          osnav: 'sold',          href: '/closed.html',                          badge: counts.sold,          badgeClass: 'muted' })}

@@ -1723,6 +1723,24 @@ function acquisitionStatusBadge(s) {
   return `<span class="status-badge" style="color:${f[2]};background:${f[3]};">${f[1]}</span>`;
 }
 
+// Project (renovation) lanes — mirrors ACQUISITION_STATUSES pattern.
+// Order matters; do not reorder without Jordan's explicit ask.
+const PROJECT_STATUSES = [
+  ['planning',      'Planning',      '#475569', '#e2e8f0'],   // slate
+  ['in_progress',   'In Progress',   '#1e40af', '#dbeafe'],   // blue
+  ['punch_list',    'Punch List',    '#92400e', '#fef3c7'],   // amber
+  ['ready_to_list', 'Ready to List', '#15803d', '#dcfce7']    // green
+];
+function projectStatusLabel(s) {
+  const f = PROJECT_STATUSES.find(([k]) => k === s);
+  return f ? f[1] : (s || '—');
+}
+function projectStatusBadge(s) {
+  const f = PROJECT_STATUSES.find(([k]) => k === s);
+  if (!f) return `<span class="status-badge">—</span>`;
+  return `<span class="status-badge" style="color:${f[2]};background:${f[3]};">${f[1]}</span>`;
+}
+
 // ── View-mode toggle (Kanban | Table) ──────────────────────────────────
 // Drop into the section header on any lifecycle page. Persists the user's
 // choice per-page in localStorage so it stays consistent across reloads.
