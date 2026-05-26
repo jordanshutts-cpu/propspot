@@ -122,15 +122,59 @@
     }
   }
 
+  function renderProcessDiagnostics(p) {
+    if (!p) return '';
+    const fpBadge = p.key_fingerprint
+      ? `<code style="background:var(--bg);padding:2px 6px;border-radius:4px;">${escHtml(p.key_fingerprint)}</code>`
+      : '<span style="color:#991b1b;">missing</span>';
+    const rtBadge = p.roundtrip_ok
+      ? '<span class="mh-badge ok">OK</span>'
+      : '<span class="mh-badge bad">FAIL</span>';
+    const keyLen = p.key_byte_length === 32
+      ? '32 bytes'
+      : `<span style="color:#991b1b;">${p.key_byte_length} bytes (should be 32)</span>`;
+    const wsWarn = p.key_has_whitespace
+      ? '<div style="color:#991b1b;font-size:.78rem;margin-top:6px;">⚠ Key value has leading/trailing whitespace in the env var — strip it in Railway.</div>'
+      : '';
+    const rtErr = p.roundtrip_error
+      ? `<div style="color:#991b1b;font-size:.78rem;margin-top:6px;">Round-trip error: ${escHtml(p.roundtrip_error)}</div>`
+      : '';
+    return `
+      <div class="cs-card" style="padding:12px 14px;margin-bottom:12px;font-size:.82rem;">
+        <div style="font-weight:600;margin-bottom:6px;">Process diagnostics</div>
+        <div>Key fingerprint: ${fpBadge} · Key length: ${keyLen}</div>
+        <div style="margin-top:4px;">Encrypt+decrypt round-trip in this process: ${rtBadge}</div>
+        <div class="text-muted" style="font-size:.76rem;margin-top:6px;">
+          PID ${p.pid} · started ${new Date(p.started_at).toLocaleString()} · uptime ${formatUptime(p.uptime_seconds)}
+        </div>
+        ${wsWarn}${rtErr}
+        <div class="text-muted" style="font-size:.74rem;margin-top:8px;">
+          Hit "Check now" multiple times — if the PID or fingerprint changes between calls, you're
+          load-balanced across replicas with different keys (the root cause of decrypt errors).
+        </div>
+      </div>`;
+  }
+
+  function formatUptime(secs) {
+    if (secs < 60) return `${secs}s`;
+    if (secs < 3600) return `${Math.round(secs/60)}m`;
+    if (secs < 86400) return `${Math.round(secs/3600)}h`;
+    return `${Math.round(secs/86400)}d`;
+  }
+
   function renderHealthResults(data) {
+    const procBlock = renderProcessDiagnostics(data.process);
     if (!data.total) {
-      return '<p class="text-muted text-sm">No mailboxes connected.</p>';
+      return procBlock + '<p class="text-muted text-sm">No mailboxes connected.</p>';
     }
     const summary = data.broken
       ? `<div class="mh-summary warn">
            <strong>${data.broken} of ${data.total} mailbox${data.total === 1 ? '' : 'es'} can't be decrypted.</strong>
-           Each affected user needs to reconnect their Gmail (Personal section → Connect Gmail)
-           or, for shared mailboxes, an owner needs to reconnect from the inbox admin flow.
+           ${data.process && data.process.roundtrip_ok === false
+             ? 'The encryption key itself is broken in this process — see diagnostics above.'
+             : data.process && data.process.roundtrip_ok && data.broken > 0
+               ? 'This process can encrypt+decrypt fine, so the stored tokens were written by a different process or different key. Most likely: another Railway service / replica is sharing this database with its own INBOX_TOKEN_KEY. Find and stop it, or align its key, then reconnect.'
+               : 'Reconnect each affected mailbox to mint a fresh token.'}
          </div>`
       : `<div class="mh-summary">
            All ${data.total} mailbox${data.total === 1 ? '' : 'es'} healthy.
@@ -151,7 +195,7 @@
           ${badge}
         </div>`;
     }).join('');
-    return summary + `<div class="cs-card" style="padding:0;margin-top:8px;">${rows}</div>`;
+    return procBlock + summary + `<div class="cs-card" style="padding:0;margin-top:8px;">${rows}</div>`;
   }
 
   function renderForm(org) {
