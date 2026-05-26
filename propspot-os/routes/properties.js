@@ -94,7 +94,7 @@ router.get('/:id', async (req, res) => {
     `, [req.params.id]);
     if (!pRows[0]) return res.status(404).json({ error: 'Property not found' });
 
-    const [prospects, leads, opps, purchases, projects, contacts, photos, holdings] = await Promise.all([
+    const [prospects, leads, opps, purchases, projects, contacts, photos, holdings, workOrders] = await Promise.all([
       query('SELECT * FROM prospects     WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
       query('SELECT * FROM leads         WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
       query('SELECT * FROM opportunities WHERE property_id = $1 ORDER BY created_at DESC', [req.params.id]),
@@ -114,7 +114,20 @@ router.get('/:id', async (req, res) => {
                FROM holdings_items i
                LEFT JOIN contacts c ON c.id = i.contact_id
               WHERE i.property_id = $1
-              ORDER BY i.next_due_date NULLS LAST, i.created_at DESC`, [req.params.id])
+              ORDER BY i.next_due_date NULLS LAST, i.created_at DESC`, [req.params.id]),
+      query(`SELECT wo.id, wo.title, wo.category, wo.priority, wo.status,
+                    wo.scheduled_for, wo.created_at,
+                    au.full_name AS assigned_user_name,
+                    au.avatar_url AS assigned_user_avatar
+               FROM work_orders wo
+               LEFT JOIN users au ON au.id = wo.assigned_user_id
+              WHERE wo.property_id = $1
+              ORDER BY
+                CASE wo.status WHEN 'open' THEN 0 WHEN 'scheduled' THEN 1
+                               WHEN 'in_progress' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END,
+                CASE wo.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
+                                 WHEN 'normal' THEN 2 ELSE 3 END,
+                wo.created_at DESC`, [req.params.id])
     ]);
 
     // Fire-and-forget recent-properties tracking for the new-chrome sidebar.
@@ -129,7 +142,8 @@ router.get('/:id', async (req, res) => {
       projects: projects.rows,
       contacts: contacts.rows,
       photos: photos.rows,
-      holdings_items: holdings.rows
+      holdings_items: holdings.rows,
+      work_orders: workOrders.rows
     });
   } catch (err) {
     console.error(err);
