@@ -66,12 +66,21 @@
     .detail-panel { background:var(--surface); width:100%; max-width:640px; height:100vh; overflow-y:auto; padding:28px; box-shadow:-4px 0 30px rgba(0,0,0,.15); }
     .detail-section { margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
     .detail-section h3 { font-size:.85rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin-bottom:10px; }
+    .checklist-item-wrap { border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:4px; }
+    .checklist-item-wrap:last-child { border-bottom:none; }
     .checklist-item { display:flex; align-items:center; gap:8px; padding:6px 0; }
     .checklist-item input[type=checkbox] { width:16px; height:16px; accent-color:var(--brand); }
     .checklist-item .item-text { flex:1; font-size:.88rem; }
     .checklist-item .item-text.done { text-decoration:line-through; opacity:.6; }
-    .checklist-item .item-del { opacity:0; cursor:pointer; color:var(--text-muted); font-size:.8rem; }
-    .checklist-item:hover .item-del { opacity:1; }
+    .checklist-item .item-actions { display:flex; gap:4px; opacity:0; transition:opacity .1s; }
+    .checklist-item:hover .item-actions { opacity:1; }
+    .item-action-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:.75rem; padding:2px 4px; border-radius:4px; }
+    .item-action-btn:hover { color:var(--brand); background:var(--brand-light); }
+    .item-att-list { margin-left:28px; margin-bottom:4px; }
+    .item-att { display:inline-flex; align-items:center; gap:4px; font-size:.72rem; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:3px 8px; margin:2px 4px 2px 0; }
+    .item-att img { width:24px; height:24px; object-fit:cover; border-radius:3px; cursor:pointer; }
+    .item-att .item-att-del { color:var(--text-muted); cursor:pointer; font-size:.7rem; margin-left:2px; }
+    .item-att .item-att-del:hover { color:#dc2626; }
     .add-item-row { display:flex; gap:6px; margin-top:6px; }
     .add-item-row input { flex:1; }
     .att-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
@@ -304,6 +313,7 @@ function renderList() {
             <span class="badge-xs bdg-pri-${t.priority}">${PRI_LBL[t.priority]}</span>
             <span class="badge-xs bdg-st-${t.status}">${STATUS_LBL[t.status]}</span>
             ${t.due_date ? `<span class="due-badge ${isOverdue ? 'overdue' : ''}">Due ${formatDate(t.due_date)}</span>` : ''}
+            ${t.property_address ? `<span class="assignee-chip" style="color:var(--brand);">${esc(t.property_address)}</span>` : ''}
             ${t.assigned_to_name ? `<span class="assignee-chip">${t.assigned_to_avatar ? `<img class="avatar-xs" src="${t.assigned_to_avatar}">` : ''} ${esc(t.assigned_to_name)}</span>` : ''}
           </div>
         </div>
@@ -551,28 +561,50 @@ function renderDetail(task) {
       <input type="date" class="form-input" style="width:auto;padding:4px 10px;font-size:.8rem;" value="${task.due_date||''}" onchange="updateTask('${task.id}','due_date',this.value)">
     </div>
 
+    ${task.property_address ? `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:6px;border:1px solid var(--border);">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <a href="/property.html?id=${task.property_id}" style="font-size:.85rem;color:var(--brand);font-weight:600;text-decoration:none;">${esc(task.property_address)}</a>
+    </div>` : ''}
     ${task.description ? `<div style="font-size:.9rem;line-height:1.5;margin-bottom:16px;white-space:pre-wrap;">${esc(task.description)}</div>` : ''}
     ${isOverdue ? `<div style="background:#fee2e2;color:#b91c1c;padding:8px 12px;border-radius:6px;font-size:.82rem;font-weight:600;margin-bottom:16px;">Overdue - was due ${formatDate(task.due_date)}</div>` : ''}
 
     <div class="detail-section">
       <h3>Requirements / Checklist (${task.items.filter(i=>i.is_done).length}/${task.items.length})</h3>
       <div id="checklist-items">
-        ${task.items.map(item => `
-          <div class="checklist-item">
-            <input type="checkbox" ${item.is_done?'checked':''} onchange="toggleItem('${task.id}','${item.id}',this.checked)">
-            <span class="item-text ${item.is_done?'done':''}">${esc(item.text)}</span>
-            <span class="item-del" onclick="deleteItem('${task.id}','${item.id}')">&#10005;</span>
-          </div>
-        `).join('')}
+        ${task.items.map(item => {
+          const itemAtts = task.attachments.filter(a => a.task_item_id === item.id);
+          return `
+          <div class="checklist-item-wrap">
+            <div class="checklist-item">
+              <input type="checkbox" ${item.is_done?'checked':''} onchange="toggleItem('${task.id}','${item.id}',this.checked)">
+              <span class="item-text ${item.is_done?'done':''}">${esc(item.text)}</span>
+              <span class="item-actions">
+                <button class="item-action-btn" title="Attach file" onclick="event.stopPropagation();triggerItemUpload('${task.id}','${item.id}')">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                </button>
+                <button class="item-action-btn" title="Delete" onclick="deleteItem('${task.id}','${item.id}')" style="color:var(--text-muted);">&#10005;</button>
+              </span>
+            </div>
+            ${itemAtts.length > 0 ? `<div class="item-att-list">${itemAtts.map(a => {
+              const isImg = a.mime_type && a.mime_type.startsWith('image/');
+              return `<span class="item-att">
+                ${isImg ? `<img src="${a.url}" onclick="window.open('${a.url}','_blank')">` : ''}
+                <a href="${a.url}" target="_blank" style="color:inherit;text-decoration:none;">${esc(a.filename)}</a>
+                <span class="item-att-del" onclick="deleteAtt('${task.id}','${a.id}')">&#10005;</span>
+              </span>`;
+            }).join('')}</div>` : ''}
+          </div>`;
+        }).join('')}
       </div>
       <div class="add-item-row">
         <input class="form-input" style="padding:6px 10px;font-size:.85rem;" placeholder="Add a requirement..." id="new-item-input" onkeydown="if(event.key==='Enter'){event.preventDefault();addItem('${task.id}')}">
         <button class="btn btn-secondary" style="padding:6px 12px;font-size:.8rem;" onclick="addItem('${task.id}')">Add</button>
       </div>
+      <input type="file" id="item-file-input" multiple style="display:none">
     </div>
 
     <div class="detail-section">
-      <h3>Attachments (${task.attachments.length})</h3>
+      <h3>Attachments (${task.attachments.filter(a => !a.task_item_id).length})</h3>
       <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
            ondragover="event.preventDefault();this.classList.add('dragover')"
            ondragleave="this.classList.remove('dragover')"
@@ -581,7 +613,7 @@ function renderDetail(task) {
       </div>
       <input type="file" id="file-input" multiple style="display:none" onchange="uploadFiles('${task.id}',this.files)">
       <div class="att-grid" id="att-grid">
-        ${task.attachments.map(att => {
+        ${task.attachments.filter(a => !a.task_item_id).map(att => {
           const isImg = att.mime_type && att.mime_type.startsWith('image/');
           return `<div class="att-card">
             <button class="att-del" onclick="event.stopPropagation();deleteAtt('${task.id}','${att.id}')">&#10005;</button>
@@ -676,6 +708,20 @@ async function deleteItem(taskId, itemId) {
 }
 
 // ── Attachments
+function triggerItemUpload(taskId, itemId) {
+  const input = document.getElementById('item-file-input');
+  input.onchange = () => { uploadItemFiles(taskId, itemId, input.files); input.value = ''; };
+  input.click();
+}
+async function uploadItemFiles(taskId, itemId, files) {
+  for (const file of files) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('task_item_id', itemId);
+    try { await apiFetch(`/api/tasks/${taskId}/attachments`, { method: 'POST', body: form }); } catch {}
+  }
+  await openDetail(taskId);
+}
 async function uploadFiles(taskId, files) {
   for (const file of files) {
     const form = new FormData();
