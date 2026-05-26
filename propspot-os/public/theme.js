@@ -15,7 +15,13 @@
   // ── Inline SVG icon library ────────────────────────────────
   // Lucide-style icons (24×24 viewBox, stroke-based).
   function S(d) {
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+    // Default to 1em × 1em so the SVG inherits its size from the surrounding
+    // font-size — matching how an emoji rendered. CSS with explicit width/
+    // height (e.g. .premium-emoji-prefix svg) still overrides this attribute.
+    // Without this, replaceIconEl injects an unsized SVG into a parent like
+    // <div style="font-size:2rem;">📅</div> and the SVG fills 100% of the
+    // container width.
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
   }
 
   var ICONS = {

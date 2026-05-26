@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ink'd Template Editor</title>
+<link rel="stylesheet" href="/chrome.css">
+<link rel="stylesheet" href="/inkd-template-editor.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+</head>
+<body class="inkd-editor">
+  <header class="inkd-editor-header">
+    <a class="back" href="/inkd.html">← Ink'd</a>
+    <input id="tpl-name" placeholder="Template name (e.g., Purchase Agreement — FL)">
+    <select id="tpl-category">
+      <option value="">No category</option>
+      <option value="purchase-agreement">Purchase Agreement</option>
+      <option value="disclosure">Disclosure</option>
+      <option value="addendum">Addendum</option>
+      <option value="listing-agreement">Listing Agreement</option>
+      <option value="other">Other</option>
+    </select>
+    <button id="btn-save">Save</button>
+  </header>
+
+  <aside class="inkd-editor-toolbox">
+    <h3>Fields</h3>
+    <p>Click a field type, then click-and-drag on the PDF to place it.</p>
+    <button class="field-btn" data-type="text">Text</button>
+    <button class="field-btn" data-type="signature">Signature</button>
+    <button class="field-btn" data-type="initial">Initial</button>
+    <button class="field-btn" data-type="date">Date</button>
+    <button class="field-btn" data-type="checkbox">Checkbox</button>
+
+    <h3>Selected field</h3>
+    <div id="selected-empty" class="muted">Click a field on the PDF to edit it.</div>
+    <div id="selected-form" hidden>
+      <label>Label <input type="text" id="f-label"></label>
+      <label>Recipient role
+        <select id="f-role">
+          <option value="">(no recipient)</option>
+          <option value="buyer">Buyer</option>
+          <option value="seller">Seller</option>
+          <option value="agent">Agent</option>
+          <option value="witness">Witness</option>
+        </select>
+      </label>
+      <label>Autofill source
+        <select id="f-autofill"></select>
+      </label>
+      <label><input type="checkbox" id="f-required" checked> Required</label>
+      <button id="btn-delete-field">Delete field</button>
+    </div>
+  </aside>
+
+  <main id="pdf-stage"><div id="upload-prompt">
+    <input type="file" id="pdf-upload" accept="application/pdf">
+    <p>Upload a PDF to start.</p>
+  </div></main>
+
+  <script src="/inkd-template-editor.js" type="module"></script>
+</body>
+</html>

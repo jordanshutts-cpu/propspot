@@ -1537,3 +1537,121 @@ DO $$ BEGIN
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS users_user_type_idx ON users(user_type);
+
+-- =====================================================================
+-- Ink'd — in-PropSpot document signing
+-- See docs/superpowers/specs/2026-05-26-inkd-signing-app-design.md
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS inkd_templates (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            TEXT NOT NULL,
+  category        TEXT,
+  description     TEXT,
+  source_pdf_url  TEXT NOT NULL,
+  source_pdf_id   TEXT NOT NULL,
+  page_count      INT NOT NULL,
+  created_by      UUID REFERENCES users(id),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  archived_at     TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_inkd_templates_category ON inkd_templates(category) WHERE archived_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS inkd_template_fields (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id       UUID NOT NULL REFERENCES inkd_templates(id) ON DELETE CASCADE,
+  page_number       INT NOT NULL,
+  x_pct             NUMERIC(6,4) NOT NULL,
+  y_pct             NUMERIC(6,4) NOT NULL,
+  width_pct         NUMERIC(6,4) NOT NULL,
+  height_pct        NUMERIC(6,4) NOT NULL,
+  field_type        TEXT NOT NULL CHECK (field_type IN ('text','signature','initial','date','checkbox')),
+  label             TEXT,
+  recipient_role    TEXT,
+  required          BOOLEAN NOT NULL DEFAULT TRUE,
+  autofill_source   TEXT,
+  display_order     INT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_inkd_template_fields_template ON inkd_template_fields(template_id, page_number, display_order);
+
+CREATE TABLE IF NOT EXISTS inkd_envelopes (
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id              UUID REFERENCES inkd_templates(id),
+  source_pdf_url           TEXT NOT NULL,
+  source_pdf_id            TEXT NOT NULL,
+  page_count               INT NOT NULL,
+  name                     TEXT NOT NULL,
+  property_id              UUID REFERENCES properties(id),
+  opportunity_id           UUID REFERENCES opportunities(id),
+  contact_id               UUID REFERENCES contacts(id),
+  status                   TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','sent','partial','completed','voided','expired')),
+  reminders_enabled        BOOLEAN NOT NULL DEFAULT TRUE,
+  reminder_schedule        JSONB NOT NULL DEFAULT '[3,7]'::jsonb,
+  expires_at               TIMESTAMPTZ,
+  sent_at                  TIMESTAMPTZ,
+  completed_at             TIMESTAMPTZ,
+  filed_at                 TIMESTAMPTZ,
+  filed_property_file_id   UUID REFERENCES property_files(id),
+  final_pdf_url            TEXT,
+  final_pdf_id             TEXT,
+  final_pdf_hash           TEXT,
+  created_by               UUID NOT NULL REFERENCES users(id),
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_inkd_envelopes_status ON inkd_envelopes(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inkd_envelopes_property ON inkd_envelopes(property_id) WHERE property_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS inkd_recipients (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  envelope_id            UUID NOT NULL REFERENCES inkd_envelopes(id) ON DELETE CASCADE,
+  role                   TEXT NOT NULL,
+  full_name              TEXT NOT NULL,
+  email                  TEXT NOT NULL,
+  phone                  TEXT,
+  contact_id             UUID REFERENCES contacts(id),
+  signing_order          INT NOT NULL DEFAULT 1,
+  status                 TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','notified','viewed','signed','declined','expired')),
+  sign_token_hash        TEXT NOT NULL UNIQUE,
+  sign_token_expires_at  TIMESTAMPTZ NOT NULL,
+  notified_at            TIMESTAMPTZ,
+  viewed_at              TIMESTAMPTZ,
+  signed_at              TIMESTAMPTZ,
+  signed_ip              INET,
+  signed_user_agent      TEXT,
+  decline_reason         TEXT,
+  last_reminded_at       TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_inkd_recipients_envelope ON inkd_recipients(envelope_id, signing_order);
+
+CREATE TABLE IF NOT EXISTS inkd_field_values (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  envelope_id         UUID NOT NULL REFERENCES inkd_envelopes(id) ON DELETE CASCADE,
+  template_field_id   UUID REFERENCES inkd_template_fields(id),
+  page_number         INT NOT NULL,
+  x_pct               NUMERIC(6,4) NOT NULL,
+  y_pct               NUMERIC(6,4) NOT NULL,
+  width_pct           NUMERIC(6,4) NOT NULL,
+  height_pct          NUMERIC(6,4) NOT NULL,
+  field_type          TEXT NOT NULL CHECK (field_type IN ('text','signature','initial','date','checkbox')),
+  label               TEXT,
+  recipient_id        UUID REFERENCES inkd_recipients(id) ON DELETE CASCADE,
+  value               TEXT,
+  value_filled_at     TIMESTAMPTZ,
+  value_filled_by     UUID REFERENCES users(id),
+  autofilled          BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_inkd_field_values_envelope ON inkd_field_values(envelope_id, page_number);
+
+CREATE TABLE IF NOT EXISTS inkd_audit_events (
+  id            BIGSERIAL PRIMARY KEY,
+  envelope_id   UUID NOT NULL REFERENCES inkd_envelopes(id) ON DELETE CASCADE,
+  recipient_id  UUID REFERENCES inkd_recipients(id),
+  event_type    TEXT NOT NULL,
+  event_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip            INET,
+  user_agent    TEXT,
+  user_id       UUID REFERENCES users(id),
+  details       JSONB
+);
+CREATE INDEX IF NOT EXISTS idx_inkd_audit_envelope ON inkd_audit_events(envelope_id, event_at);

@@ -1,0 +1,19 @@
+body.inkd-editor { display: grid; grid-template-columns: 280px 1fr; grid-template-rows: 56px 1fr; height: 100vh; margin: 0; font-family: system-ui, sans-serif; }
+.inkd-editor-header { grid-column: 1 / span 2; display: flex; gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid #e3e3e3; background: #fff; }
+.inkd-editor-header input, .inkd-editor-header select { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; }
+.inkd-editor-header #btn-save { margin-left: auto; padding: 8px 16px; background: #2563eb; color: white; border: 0; border-radius: 4px; cursor: pointer; }
+.inkd-editor-toolbox { padding: 16px; border-right: 1px solid #e3e3e3; overflow-y: auto; }
+.inkd-editor-toolbox h3 { margin-top: 0; font-size: 13px; text-transform: uppercase; color: #666; }
+.field-btn { display: block; width: 100%; padding: 8px; margin-bottom: 4px; background: #f3f4f6; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: left; }
+.field-btn.active { background: #dbeafe; border-color: #2563eb; }
+#pdf-stage { overflow: auto; background: #f5f6f8; padding: 24px; position: relative; }
+.pdf-page { position: relative; margin: 0 auto 16px; background: white; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+.pdf-page canvas { display: block; }
+.pdf-field { position: absolute; border: 2px solid #2563eb; background: rgba(37,99,235,.12); cursor: move; font-size: 11px; color: #1e40af; padding: 2px 4px; box-sizing: border-box; }
+.pdf-field.selected { outline: 2px solid #f59e0b; }
+.pdf-field .resize-handle { position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px; background: #2563eb; cursor: nwse-resize; }
+.muted { color: #888; font-size: 12px; }
+#selected-form label { display: block; margin: 8px 0; font-size: 12px; }
+#selected-form input[type=text], #selected-form select { width: 100%; padding: 4px; }
+#btn-delete-field { background: #ef4444; color: white; border: 0; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+#upload-prompt { text-align: center; padding: 80px 20px; color: #666; }
