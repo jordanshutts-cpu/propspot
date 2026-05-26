@@ -136,17 +136,33 @@
 
     // Replace each "@<displayName>" the user picked with its "<@uuid>" token
     // before sending. Iterate longest-first so "@Jordan Shutts" wins over
-    // "@Jordan" if both happen to be mentionable.
+    // "@Jordan" if both happen to be mentionable. Also resolves any
+    // "@displayName" matching a known user (covers edits where the original
+    // mention was loaded from the DB, not freshly picked).
     function serializeMentions(text) {
-      const names = [...PICKED_MENTIONS.keys()].sort((a, b) => b.length - a.length);
+      const nameToId = new Map(PICKED_MENTIONS);
+      USERS_BY_ID.forEach((u, id) => {
+        const display = u.full_name || u.email;
+        if (display && !nameToId.has(display)) nameToId.set(display, id);
+      });
+      const names = [...nameToId.keys()].sort((a, b) => b.length - a.length);
       let out = text;
       for (const name of names) {
-        const uid = PICKED_MENTIONS.get(name);
-        // Escape regex special chars in the display name.
+        const uid = nameToId.get(name);
         const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         out = out.replace(new RegExp(`@${esc}`, 'g'), `<@${uid}>`);
       }
       return out;
+    }
+
+    // Inverse of serializeMentions for pre-filling the edit textarea:
+    // replace "<@uuid>" → "@DisplayName". Unknown ids fall back to "@user".
+    function deserializeMentions(raw) {
+      if (!raw) return '';
+      return String(raw).replace(/<@([0-9a-f-]{36})>/gi, (m, uid) => {
+        const u = USERS_BY_ID.get(uid);
+        return '@' + (u?.full_name || u?.email || 'user');
+      });
     }
 
     async function loadInitial() {
@@ -255,7 +271,7 @@
 
       if (action === 'edit') {
         const ta = card.querySelector('[data-role="edit-textarea"]');
-        ta.value = card.dataset.rawBody || '';
+        ta.value = deserializeMentions(card.dataset.rawBody || '');
         card.classList.add('editing');
         ta.focus();
         ta.setSelectionRange(ta.value.length, ta.value.length);
@@ -263,8 +279,9 @@
         card.classList.remove('editing');
       } else if (action === 'save-edit') {
         const ta = card.querySelector('[data-role="edit-textarea"]');
-        const newBody = ta.value.trim();
-        if (!newBody) return;
+        const typed = ta.value.trim();
+        if (!typed) return;
+        const newBody = serializeMentions(typed);
         btn.disabled = true;
         try {
           const updated = await api(`/api/pulse/entity-threads/messages/${encodeURIComponent(msgId)}`,
