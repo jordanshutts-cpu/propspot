@@ -1,19 +1,36 @@
-body.inkd-editor { display: grid; grid-template-columns: 280px 1fr; grid-template-rows: 56px 1fr; height: 100vh; margin: 0; font-family: system-ui, sans-serif; }
-.inkd-editor-header { grid-column: 1 / span 2; display: flex; gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid #e3e3e3; background: #fff; }
-.inkd-editor-header input, .inkd-editor-header select { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; }
-.inkd-editor-header #btn-save { margin-left: auto; padding: 8px 16px; background: #2563eb; color: white; border: 0; border-radius: 4px; cursor: pointer; }
-.inkd-editor-toolbox { padding: 16px; border-right: 1px solid #e3e3e3; overflow-y: auto; }
-.inkd-editor-toolbox h3 { margin-top: 0; font-size: 13px; text-transform: uppercase; color: #666; }
-.field-btn { display: block; width: 100%; padding: 8px; margin-bottom: 4px; background: #f3f4f6; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: left; }
-.field-btn.active { background: #dbeafe; border-color: #2563eb; }
-#pdf-stage { overflow: auto; background: #f5f6f8; padding: 24px; position: relative; }
-.pdf-page { position: relative; margin: 0 auto 16px; background: white; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+/* Ink'd template editor — fullscreen layout inside <main class="page page-inkd-fullscreen">.
+   The grid is defined inline in the HTML head so other Ink'd CSS doesn't conflict.
+   This file styles the panes within that grid. */
+
+.inkd-editor-header { grid-column: 1 / span 2; display: flex; gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.inkd-editor-header .back { color: var(--text-muted); text-decoration: none; font-size: .88rem; font-weight: 500; }
+.inkd-editor-header .back:hover { color: var(--brand); }
+.inkd-editor-header input, .inkd-editor-header select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font-size: .88rem; }
+.inkd-editor-header #tpl-name { flex: 1; max-width: 480px; }
+.inkd-editor-header #btn-save { margin-left: auto; padding: 8px 16px; background: var(--brand); color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: .88rem; }
+.inkd-editor-header #btn-save:hover { background: var(--brand-dark, #4a9337); }
+
+.inkd-editor-toolbox { padding: 16px; border-right: 1px solid var(--border); overflow-y: auto; background: var(--surface); }
+.inkd-editor-toolbox h3 { margin: 0 0 8px; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 700; }
+.inkd-editor-toolbox h3:not(:first-child) { margin-top: 20px; }
+.inkd-editor-toolbox p { font-size: .78rem; color: var(--text-muted); margin: 0 0 12px; }
+
+.field-btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 4px; background: var(--surface-muted, #f3f4f6); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-align: left; font-size: .88rem; color: var(--text); font-weight: 500; }
+.field-btn:hover { border-color: var(--brand); color: var(--brand); }
+.field-btn.active { background: var(--brand-light, rgba(97,183,70,.12)); border-color: var(--brand); color: var(--brand); }
+
+#pdf-stage { overflow: auto; background: var(--surface-muted, #f5f6f8); padding: 24px; position: relative; }
+
+.pdf-page { position: relative; margin: 0 auto 16px; background: white; box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,.1)); }
 .pdf-page canvas { display: block; }
-.pdf-field { position: absolute; border: 2px solid #2563eb; background: rgba(37,99,235,.12); cursor: move; font-size: 11px; color: #1e40af; padding: 2px 4px; box-sizing: border-box; }
+
+.pdf-field { position: absolute; border: 2px solid var(--brand); background: rgba(97,183,70,.12); cursor: move; font-size: 11px; color: var(--brand-dark, #15803d); padding: 2px 4px; box-sizing: border-box; }
 .pdf-field.selected { outline: 2px solid #f59e0b; }
-.pdf-field .resize-handle { position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px; background: #2563eb; cursor: nwse-resize; }
-.muted { color: #888; font-size: 12px; }
-#selected-form label { display: block; margin: 8px 0; font-size: 12px; }
-#selected-form input[type=text], #selected-form select { width: 100%; padding: 4px; }
-#btn-delete-field { background: #ef4444; color: white; border: 0; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-top: 8px; }
-#upload-prompt { text-align: center; padding: 80px 20px; color: #666; }
+.pdf-field .resize-handle { position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px; background: var(--brand); cursor: nwse-resize; }
+
+.muted { color: var(--text-muted); font-size: .78rem; }
+#selected-form label { display: block; margin: 8px 0; font-size: .78rem; color: var(--text); }
+#selected-form input[type=text], #selected-form select { width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font-size: .85rem; }
+#btn-delete-field { background: #ef4444; color: #fff; border: 0; padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-top: 12px; font-size: .85rem; font-weight: 600; }
+#btn-delete-field:hover { background: #dc2626; }
+#upload-prompt { text-align: center; padding: 80px 20px; color: var(--text-muted); }

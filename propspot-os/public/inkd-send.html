@@ -1,30 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Ink'd — Send Document</title>
-<link rel="stylesheet" href="/chrome.css">
-<link rel="stylesheet" href="/inkd-template-editor.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
-<style>
-  body.inkd-send { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: 56px 1fr; height: 100vh; margin: 0; font-family: system-ui, sans-serif; }
-  .inkd-send-header { grid-column: 1 / span 2; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #e3e3e3; }
-  .inkd-send-header h1 { font-size: 15px; margin: 0; }
-  .inkd-send-header #btn-send { margin-left: auto; padding: 8px 16px; background: #16a34a; color: white; border: 0; border-radius: 4px; cursor: pointer; }
-  .inkd-send-header #btn-draft { padding: 8px 14px; background: #f3f4f6; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
-  aside.right { padding: 16px; border-left: 1px solid #e3e3e3; overflow-y: auto; }
-  aside.right h3 { font-size: 12px; text-transform: uppercase; color: #666; margin-top: 16px; }
-  .recip { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
-  .recip input { width: 100%; margin: 2px 0; padding: 4px; box-sizing: border-box; }
-  .field-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 3px; }
-  .field-row.highlight-yellow { background: #fef3c7; }
-  .field-row input { flex: 1; padding: 4px; }
-  .field-row .label { font-size: 11px; color: #666; width: 110px; flex-shrink: 0; }
-  #reminders-row { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Send Document</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/inkd-template-editor.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+  <style>
+    body.os-newlayout main.page.page-inkd-send { padding: 0 !important; max-width: none !important; height: calc(100vh - 56px); display: grid; grid-template-columns: 1fr 340px; grid-template-rows: 56px 1fr; }
+
+    .inkd-send-header { grid-column: 1 / span 2; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .inkd-send-header a { color: var(--text-muted); text-decoration: none; font-size: .88rem; font-weight: 500; }
+    .inkd-send-header a:hover { color: var(--brand); }
+    .inkd-send-header h1 { font-size: .95rem; margin: 0; color: var(--text); flex: 1; }
+    .inkd-send-header #btn-draft { padding: 8px 14px; background: var(--surface); color: var(--text); border: 1.5px solid var(--border); border-radius: 6px; cursor: pointer; font-size: .85rem; font-weight: 600; }
+    .inkd-send-header #btn-draft:hover { border-color: var(--brand); color: var(--brand); }
+    .inkd-send-header #btn-send { padding: 8px 16px; background: var(--brand); color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-size: .88rem; font-weight: 600; }
+    .inkd-send-header #btn-send:hover { background: var(--brand-dark, #4a9337); }
+
+    #pdf-stage { overflow: auto; background: var(--surface-muted, #f5f6f8); padding: 24px; }
+
+    aside.right { padding: 16px; border-left: 1px solid var(--border); overflow-y: auto; background: var(--surface); }
+    aside.right h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 700; margin: 16px 0 8px; }
+    aside.right h3:first-child { margin-top: 0; }
+
+    .recip { background: var(--surface-muted, #f9fafb); border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+    .recip input, .recip select { width: 100%; margin: 2px 0; padding: 5px 8px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font-size: .85rem; }
+    .recip label { font-size: .72rem; color: var(--text-muted); display: block; margin-top: 6px; }
+    .recip button { font-size: .72rem; padding: 4px 10px; margin-top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; color: var(--text); }
+    .recip button:hover { border-color: #ef4444; color: #ef4444; }
+
+    #btn-add-recip { width: 100%; padding: 8px; background: var(--surface); border: 1.5px dashed var(--border); border-radius: 6px; cursor: pointer; color: var(--text-muted); font-size: .85rem; font-weight: 500; }
+    #btn-add-recip:hover { border-color: var(--brand); color: var(--brand); }
+
+    .field-row { display: flex; align-items: center; gap: 6px; padding: 5px 0; }
+    .field-row.highlight-yellow input { background: #fef3c7; }
+    .field-row input { flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font-size: .85rem; }
+    .field-row .label { font-size: .72rem; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+
+    #reminders-row { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: .85rem; color: var(--text); }
+  </style>
 </head>
-<body class="inkd-send">
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page page-inkd-send">
   <header class="inkd-send-header">
     <a href="/inkd.html">← Ink'd</a>
     <h1 id="env-name">Loading…</h1>
@@ -32,7 +59,7 @@
     <button id="btn-send">Send</button>
   </header>
 
-  <main id="pdf-stage" style="overflow: auto; background: #f5f6f8; padding: 24px;"></main>
+  <div id="pdf-stage"></div>
 
   <aside class="right">
     <h3>Recipients</h3>
@@ -40,14 +67,18 @@
     <button id="btn-add-recip">+ Add recipient</button>
 
     <h3>Field values</h3>
-    <p class="muted" style="font-size:11px">Yellow = missing data. Edit any value here.</p>
+    <p class="muted" style="font-size:.72rem; color: var(--text-muted); margin: 0 0 8px;">Yellow = missing data. Edit any value here.</p>
     <div id="fields-list"></div>
 
     <div id="reminders-row">
       <label><input type="checkbox" id="reminders-toggle" checked> Send reminders (day 3 + day 7)</label>
     </div>
   </aside>
+</main>
 
-  <script src="/inkd-send.js" type="module"></script>
+<script>window.NAV_CURRENT = 'inkd';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="/inkd-send.js" type="module"></script>
 </body>
 </html>

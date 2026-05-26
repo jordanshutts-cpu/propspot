@@ -1,17 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Ink'd Template Editor</title>
-<link rel="stylesheet" href="/chrome.css">
-<link rel="stylesheet" href="/inkd-template-editor.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Template Editor</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/inkd-template-editor.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+  <style>
+    body.os-newlayout main.page.page-inkd-fullscreen { padding: 0 !important; max-width: none !important; height: calc(100vh - 56px); display: grid; grid-template-columns: 280px 1fr; grid-template-rows: 56px 1fr; }
+  </style>
 </head>
-<body class="inkd-editor">
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page page-inkd-fullscreen">
   <header class="inkd-editor-header">
     <a class="back" href="/inkd.html">← Ink'd</a>
-    <input id="tpl-name" placeholder="Template name (e.g., Purchase Agreement — FL)">
+    <input type="text" id="tpl-name" placeholder="Template name (e.g., Purchase Agreement — FL)">
     <select id="tpl-category">
       <option value="">No category</option>
       <option value="purchase-agreement">Purchase Agreement</option>
@@ -53,11 +65,17 @@
     </div>
   </aside>
 
-  <main id="pdf-stage"><div id="upload-prompt">
-    <input type="file" id="pdf-upload" accept="application/pdf">
-    <p>Upload a PDF to start.</p>
-  </div></main>
+  <div id="pdf-stage">
+    <div id="upload-prompt">
+      <input type="file" id="pdf-upload" accept="application/pdf">
+      <p>Upload a PDF to start.</p>
+    </div>
+  </div>
+</main>
 
-  <script src="/inkd-template-editor.js" type="module"></script>
+<script>window.NAV_CURRENT = 'inkd';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="/inkd-template-editor.js" type="module"></script>
 </body>
 </html>
