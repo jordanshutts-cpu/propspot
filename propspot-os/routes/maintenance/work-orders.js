@@ -1,4 +1,6 @@
 const express = require('express');
+const multer  = require('multer');
+const cloudinary = require('cloudinary').v2;
 const { query } = require('../../db');
 const { requireAuth, requireMaintenanceGrant } = require('../../middleware/auth');
 const { scopedPropertyIds } = require('../../lib/maintenance-scope');
@@ -6,6 +8,36 @@ const { scopedPropertyIds } = require('../../lib/maintenance-scope');
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireMaintenanceGrant);
+
+// Upload buffer through Cloudinary (mirrors fieldcam/photos.js).
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+function uploadToCloudinary(buffer, mimetype, options = {}) {
+  return new Promise((resolve, reject) => {
+    const isVideo = mimetype.startsWith('video/');
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: isVideo ? 'video' : 'image', ...options },
+      (err, result) => err ? reject(err) : resolve(result)
+    );
+    stream.end(buffer);
+  });
+}
+
+// Find-or-create the "Maintenance" folder under a property.
+async function ensureMaintenanceFolder(propertyId, userId) {
+  const { rows: existing } = await query(
+    `SELECT id FROM folders
+      WHERE property_id = $1 AND LOWER(name) = 'maintenance'
+      LIMIT 1`,
+    [propertyId]
+  );
+  if (existing[0]) return existing[0].id;
+  const { rows: created } = await query(
+    `INSERT INTO folders (property_id, name, created_by)
+     VALUES ($1, 'Maintenance', $2) RETURNING id`,
+    [propertyId, userId]
+  );
+  return created[0].id;
+}
 
 // GET /api/work-orders
 //   ?property_id=<uuid>   filter by property
@@ -268,5 +300,88 @@ async function postMaintenancePulseMention({ assigneeId, woTitle, propertyAddres
     VALUES ($1, $2) ON CONFLICT DO NOTHING
   `, [msgRows[0].id, assigneeId]);
 }
+
+// ── GET /api/work-orders/:id/photos ─────────────────────────────
+// Photos already on FieldCam under the work order's property's
+// Maintenance folder. Lets the edit modal show what's been attached
+// so far.
+router.get('/:id/photos', async (req, res) => {
+  try {
+    const { rows: wo } = await query(
+      `SELECT property_id FROM work_orders WHERE id = $1`, [req.params.id]
+    );
+    if (!wo[0]) return res.status(404).json({ error: 'Work order not found' });
+    const allowedIds = await scopedPropertyIds(req.maintenanceGrant.scope);
+    if (allowedIds && !allowedIds.includes(wo[0].property_id)) {
+      return res.status(403).json({ error: 'No access' });
+    }
+    const { rows: folder } = await query(
+      `SELECT id FROM folders
+        WHERE property_id = $1 AND LOWER(name) = 'maintenance'
+        LIMIT 1`,
+      [wo[0].property_id]
+    );
+    if (!folder[0]) return res.json([]);
+    const { rows: photos } = await query(`
+      SELECT id, url, media_type, notes, taken_at, created_at, uploaded_by,
+             cloudinary_id
+        FROM photos
+       WHERE property_id = $1 AND folder_id = $2 AND deleted_at IS NULL
+    ORDER BY COALESCE(taken_at, created_at) DESC
+       LIMIT 200
+    `, [wo[0].property_id, folder[0].id]);
+    res.json(photos);
+  } catch (err) {
+    console.error('list work-order photos:', err);
+    res.status(500).json({ error: 'Failed to load photos' });
+  }
+});
+
+// ── POST /api/work-orders/:id/photos (multipart: photo) ─────────
+// Uploads a file to FieldCam under the work order's property's
+// Maintenance folder (find-or-create). Returns the photo row.
+router.post('/:id/photos', upload.single('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+  try {
+    const { rows: wo } = await query(
+      `SELECT property_id FROM work_orders WHERE id = $1`, [req.params.id]
+    );
+    if (!wo[0]) return res.status(404).json({ error: 'Work order not found' });
+    const allowedIds = await scopedPropertyIds(req.maintenanceGrant.scope);
+    if (allowedIds && !allowedIds.includes(wo[0].property_id)) {
+      return res.status(403).json({ error: 'No access' });
+    }
+    const propertyId = wo[0].property_id;
+    const folderId = await ensureMaintenanceFolder(propertyId, req.userId);
+
+    const mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+    const result = await uploadToCloudinary(req.file.buffer, req.file.mimetype, {
+      public_id: `${propertyId}/maintenance/${Date.now()}`,
+      ...(mediaType === 'image'
+        ? { transformation: [{ quality: 'auto', fetch_format: 'auto' }] }
+        : {})
+    });
+
+    const { rows } = await query(`
+      INSERT INTO photos
+        (property_id, uploaded_by, url, cloudinary_id, notes, media_type, folder_id, taken_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      RETURNING *
+    `, [
+      propertyId,
+      req.userId,
+      result.secure_url,
+      result.public_id,
+      req.body?.notes?.trim() || null,
+      mediaType,
+      folderId
+    ]);
+
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error('work-order photo upload:', err);
+    res.status(500).json({ error: 'Failed to upload photo: ' + err.message });
+  }
+});
 
 module.exports = router;

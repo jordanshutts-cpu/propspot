@@ -270,6 +270,14 @@
         </button>
         <input type="hidden" id="e-assigned-user-id" value="">
       </div>
+      <div class="form-group">
+        <label class="form-label">Photos</label>
+        <div class="text-xs text-muted" style="margin:-4px 0 6px;">Saved to FieldCam under the property's Maintenance folder.</div>
+        <div id="e-photos" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;"></div>
+        <input type="file" accept="image/*,video/*" id="e-photo-input" multiple style="display:none;" onchange="uploadWoPhotos(this.files)">
+        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;padding:6px 12px;font-size:.78rem;" onclick="document.getElementById('e-photo-input').click()">+ Upload photo</button>
+        <p id="e-photo-status" class="text-xs text-muted" style="margin-top:6px;"></p>
+      </div>
       <p id="e-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" style="padding:10px 18px;font-size:.88rem;margin-right:auto;" onclick="confirmDeleteWo()">Delete</button>
@@ -433,7 +441,57 @@
     document.getElementById('e-sched').value    = wo.scheduled_for ? wo.scheduled_for.split('T')[0] : '';
     setAssigneeDisplay('e', wo.assigned_user_id);
     document.getElementById('e-err').style.display = 'none';
+    document.getElementById('e-photo-status').textContent = '';
+    document.getElementById('e-photos').innerHTML = '<span class="text-muted text-xs">Loading…</span>';
     document.getElementById('modal-edit').classList.add('open');
+    loadWoPhotos(id);
+  }
+
+  // ── Work-order photos (FieldCam → property's "Maintenance" folder) ──
+  async function loadWoPhotos(id) {
+    const wrap = document.getElementById('e-photos');
+    try {
+      const photos = await apiFetch('/api/maintenance/work-orders/' + id + '/photos');
+      if (!photos.length) {
+        wrap.innerHTML = '<span class="text-muted text-xs">No photos yet.</span>';
+        return;
+      }
+      wrap.innerHTML = photos.map(p => {
+        const isVideo = (p.media_type || '').toLowerCase() === 'video';
+        return `<a href="${escHtml(p.url)}" target="_blank" rel="noopener" title="${escHtml(p.notes || '')}" style="display:inline-block;width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--bg);border:1px solid var(--border);">
+          ${isVideo
+            ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:#000;color:#fff;">▶</div>`
+            : `<img src="${escHtml(p.url)}" alt="" style="width:100%;height:100%;object-fit:cover;">`}
+        </a>`;
+      }).join('');
+    } catch (e) {
+      wrap.innerHTML = `<span class="text-muted text-xs">Could not load photos: ${escHtml(e.message)}</span>`;
+    }
+  }
+
+  async function uploadWoPhotos(files) {
+    if (!editingWoId || !files || !files.length) return;
+    const status = document.getElementById('e-photo-status');
+    const list = Array.from(files);
+    let ok = 0, failed = 0;
+    status.textContent = `Uploading 1 of ${list.length}…`;
+    for (let i = 0; i < list.length; i++) {
+      status.textContent = `Uploading ${i + 1} of ${list.length}…`;
+      const fd = new FormData();
+      fd.append('photo', list[i]);
+      try {
+        await apiFetch('/api/maintenance/work-orders/' + editingWoId + '/photos', { method: 'POST', body: fd });
+        ok++;
+      } catch (e) {
+        failed++;
+        console.error('photo upload failed:', e);
+      }
+    }
+    status.textContent = failed
+      ? `${ok} uploaded · ${failed} failed`
+      : `${ok} uploaded ✓`;
+    document.getElementById('e-photo-input').value = '';
+    await loadWoPhotos(editingWoId);
   }
   function closeEdit() { document.getElementById('modal-edit').classList.remove('open'); editingWoId = null; }
   document.getElementById('modal-edit').addEventListener('click', e => { if (e.target===e.currentTarget) closeEdit(); });
