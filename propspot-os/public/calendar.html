@@ -65,7 +65,8 @@
     /* ── Range picker (Month / Week segmented) ── */
     .cal-range-seg { display:flex; gap:0; border:1.5px solid var(--border); border-radius:8px; overflow:hidden; }
     .cal-range-btn { padding:6px 12px; border:none; background:var(--surface); cursor:pointer;
-                     font-size:.78rem; font-weight:600; color:var(--text-muted); transition:all .1s; }
+                     font-size:.78rem; font-weight:600; color:var(--text-muted); transition:all .1s;
+                     min-width:64px; text-align:center; }
     .cal-range-btn:not(:last-child) { border-right:1.5px solid var(--border); }
     .cal-range-btn.active { background:var(--text); color:var(--surface); }
 
