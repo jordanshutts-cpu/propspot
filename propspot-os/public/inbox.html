@@ -1615,8 +1615,15 @@ async function createTaskFromThread() {
       visibility: 'team'
     })});
     showToast('Task created');
-    window.open('/tasks.html', '_blank');
-  } catch (err) { showToast(err.message, 'error'); }
+    // iOS Safari blocks window.open() after await (no longer treated as a
+    // user gesture). Navigate in-place on mobile so the user actually lands
+    // on the task; new tab is fine on desktop.
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      setTimeout(() => { location.href = '/tasks.html'; }, 600);
+    } else {
+      window.open('/tasks.html', '_blank');
+    }
+  } catch (err) { showToast(err.message || 'Could not create task', 'error'); }
 }
 
 // ── Property linking ──────────────────────────────────────────────
