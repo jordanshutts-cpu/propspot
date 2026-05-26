@@ -12,10 +12,28 @@ const state = {
 };
 
 async function init() {
-  // Load autofill sources for the dropdown
-  const ar = await fetch('/api/inkd/templates/autofill-sources');
-  state.autofillSources = await ar.json();
-  populateAutofillDropdown();
+  // Wire DOM event listeners SYNCHRONOUSLY first — before any await.
+  // Otherwise a user who clicks Choose File during the autofill-sources
+  // fetch will fire a 'change' event with no listener attached, and the
+  // PDF upload silently does nothing.
+  if (!templateId) {
+    document.getElementById('pdf-upload').addEventListener('change', onPdfPicked);
+  }
+  document.querySelectorAll('.field-btn').forEach(b =>
+    b.addEventListener('click', () => setTool(b.dataset.type)));
+  document.getElementById('btn-save').addEventListener('click', save);
+  document.getElementById('btn-delete-field').addEventListener('click', deleteSelectedField);
+  ['f-label','f-role','f-autofill','f-required'].forEach(id =>
+    document.getElementById(id).addEventListener('change', applySelectedFieldEdits));
+
+  // Now do the async work — load autofill sources for the dropdown.
+  try {
+    const ar = await fetch('/api/inkd/templates/autofill-sources');
+    state.autofillSources = await ar.json();
+    populateAutofillDropdown();
+  } catch (err) {
+    console.error('Failed to load autofill sources', err);
+  }
 
   if (templateId) {
     const r = await fetch(`/api/inkd/templates/${templateId}`);
@@ -25,16 +43,7 @@ async function init() {
     document.getElementById('tpl-category').value = state.template.category || '';
     state.fields = state.template.fields || [];
     await loadAndRenderPdf(state.template.source_pdf_url);
-  } else {
-    document.getElementById('pdf-upload').addEventListener('change', onPdfPicked);
   }
-
-  document.querySelectorAll('.field-btn').forEach(b =>
-    b.addEventListener('click', () => setTool(b.dataset.type)));
-  document.getElementById('btn-save').addEventListener('click', save);
-  document.getElementById('btn-delete-field').addEventListener('click', deleteSelectedField);
-  ['f-label','f-role','f-autofill','f-required'].forEach(id =>
-    document.getElementById(id).addEventListener('change', applySelectedFieldEdits));
 }
 
 function populateAutofillDropdown() {
