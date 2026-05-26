@@ -93,6 +93,10 @@ app.use('/api/pulse/attachments',    require('./routes/pulse/attachments'));
 
 // ── Ink'd (e-signature) ───────────────────────────────────────────
 app.use('/api/inkd/templates',       require('./routes/inkd/templates'));
+app.use('/api/inkd/envelopes',       require('./routes/inkd/envelopes'));
+app.use('/api/inkd/envelopes/:envelopeId/recipients', require('./routes/inkd/recipients'));
+app.use('/api/inkd/signing',         require('./routes/inkd/signing'));
+app.use('/api/inkd/envelopes',       require('./routes/inkd/files-promotion'));
 
 // ── Inbox (35 MB body limit for base64 attachments) ───────────────
 app.use('/api/inbox', express.json({ limit: '35mb' }), express.urlencoded({ extended: true, limit: '35mb' }));
@@ -181,6 +185,7 @@ initDb()
     app.listen(PORT, () => {
       console.log(`Prop Spot running on port ${PORT}`);
       console.log(`  http://localhost:${PORT}`);
+      require('./routes/inkd/workers').startWorker();
     });
     // Background Gmail sync for every connected mailbox (shared + personal).
     // Skip with INBOX_SYNC_ENABLED=0 in environments where you don't want

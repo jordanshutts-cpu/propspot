@@ -797,7 +797,7 @@
     // Files (full-width) — now ABOVE photos
     html += panelSection({
       title: `📎 Files <span class="text-muted text-xs" style="font-weight:400;margin-left:4px;" id="files-count"></span>`,
-      link: `<label class="os-panel-link" style="cursor:pointer;">+ Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)"></label>`,
+      link: `<a class="os-panel-link" href="javascript:void(0)" onclick="openSendDocument()" style="margin-right:12px;">📝 Send for signature</a><label class="os-panel-link" style="cursor:pointer;">+ Upload<input type="file" id="file-input" style="display:none;" onchange="handleFileUpload(event)"></label>`,
       body: `<div id="files-list" class="text-muted text-xs">Loading…</div>
              <div id="files-progress" class="text-muted text-xs" style="display:none;margin-top:8px;"></div>`
     });
@@ -988,6 +988,33 @@
       showToast(err.message, 'error');
     }
   }
+
+  // ── Ink'd: send a document for signature ──
+  async function openSendDocument(){
+    try {
+      const r = await fetch('/api/inkd/templates');
+      if (!r.ok) { alert('Failed to load templates'); return; }
+      const tpls = await r.json();
+      if (!tpls.length) {
+        if (confirm("No Ink'd templates exist yet. Open the template editor?")) location.href = '/inkd-template-editor.html';
+        return;
+      }
+      // Build a simple picker
+      const choices = tpls.map((t, i) => `${i+1}. ${t.name}${t.category ? ' ('+t.category+')' : ''}`).join('\n');
+      const pick = prompt(`Pick a template:\n\n${choices}\n\nEnter a number:`);
+      const idx = parseInt(pick, 10) - 1;
+      const tpl = tpls[idx];
+      if (!tpl) return;
+      const propertyId = id; // `id` is the in-scope property UUID this page already uses
+      location.href = `/inkd-send.html?template_id=${tpl.id}&property_id=${propertyId}`;
+    } catch (err) {
+      console.error(err);
+      alert('Send document failed: ' + err.message);
+    }
+  }
+
+  // Expose globally so onclick="openSendDocument()" works from the link.
+  window.openSendDocument = openSendDocument;
 
   async function confirmDeleteFile(fileId, filename){
     if (!confirm(`Delete "${filename}"? This cannot be undone.`)) return;
