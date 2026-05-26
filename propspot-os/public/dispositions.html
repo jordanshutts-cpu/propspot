@@ -110,6 +110,15 @@
     const totalExpected = list.reduce((s, p) => s + (Number(p.sold_price) || Number(p.purchase_price) || 0), 0);
     const projectedGain = totalExpected - totalAskBasis;
 
+    // Closings inside the next 30 days based on anticipated_close_date.
+    const now = Date.now();
+    const in30 = now + 30 * 86400000;
+    const closingSoon = list.filter(p => {
+      if (!p.anticipated_close_date) return false;
+      const t = new Date(p.anticipated_close_date).getTime();
+      return t >= now && t <= in30;
+    }).length;
+
     document.getElementById('page-hero').innerHTML = `
       <section class="os-hero">
         <div class="os-hero-eyebrow">Dispositions</div>
@@ -138,6 +147,11 @@
             <div class="os-kpi-label">Projected Gain</div>
             <div class="os-kpi-value ${projectedGain >= 0 ? 'brand' : 'danger'}">${projectedGain !== 0 ? fmtMoney(projectedGain) : '—'}</div>
             <div class="os-kpi-sub">before costs</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Closing &lt; 30d</div>
+            <div class="os-kpi-value ${closingSoon > 0 ? 'warn' : ''}">${closingSoon}</div>
+            <div class="os-kpi-sub">anticipated</div>
           </div>
         </div>
       </section>
@@ -203,6 +217,7 @@
         { key: 'status',         label: 'Status',         width: 110, render: r => propertyStatusBadge(r.status), sortValue: r => r.status },
         { key: 'owner',          label: 'Owner',          width: 140, render: r => escHtml(r.owner_name || r.owner || '') },
         { key: 'tms',            label: 'TMS',            width: 110, render: r => escHtml(r.tms || '') },
+        { key: 'anticipated_close_date', label: 'Anticipated close', width: 150, render: r => fmtDate(r.anticipated_close_date), sortValue: r => r.anticipated_close_date },
         { key: 'purchase_date',  label: 'Purchased',      width: 110, render: r => fmtDate(r.purchase_date), sortValue: r => r.purchase_date },
         { key: 'purchase_price', label: 'Purchase $',     width: 110, render: r => fmtMoney(r.purchase_price), sortValue: r => r.purchase_price },
         { key: 'sold_date',      label: 'Sold',           width: 110, render: r => fmtDate(r.sold_date), sortValue: r => r.sold_date },

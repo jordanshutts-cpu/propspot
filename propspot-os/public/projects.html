@@ -39,18 +39,20 @@
 <script src="kanban.js"></script>
 <script>
   window.PAGE_TITLE     = 'Projects';
-  window.PAGE_STATUSES  = ['renovating'];
+  // Projects covers everything post-acquisition / pre-sold. Lanes are the
+  // top-level property statuses in workflow order.
+  window.PAGE_STATUSES  = ['renovating','listed_for_sale','listed_for_rent','under_contract_buyer'];
   window.NAV_CURRENT    = 'projects';
   window.PAGE_TABLE_KEY = 'properties:projects';
   window.PAGE_VIEW_KEY  = 'view:projects';
 
-  // Fixed lane order — Planning → In Progress → Punch List → Ready to List.
+  // Fixed lane order — Renovating → Listed on MLS → Listed for Rent → UC w/ Buyer.
   // Do not reorder without Jordan's explicit ask.
   const LANES = [
-    ['planning',      'Planning',      '#94a3b8'],
-    ['in_progress',   'In Progress',   '#3b82f6'],
-    ['punch_list',    'Punch List',    '#f59e0b'],
-    ['ready_to_list', 'Ready to List', '#22c55e']
+    ['renovating',           'Renovating',      '#2563eb'],
+    ['listed_for_sale',      'Listed on MLS',   '#9333ea'],
+    ['listed_for_rent',      'Listed for Rent', '#0284c7'],
+    ['under_contract_buyer', 'UC with Buyer',   '#db2777']
   ];
 
   let allProps   = [];
@@ -67,10 +69,6 @@
       const props = await getProperties();
       allProps = (Array.isArray(props) ? props : [])
         .filter(p => window.PAGE_STATUSES.includes(p.status));
-      // Default any property without a project_status to 'planning' so it appears.
-      for (const p of allProps) {
-        if (!p.project_status) p.project_status = 'planning';
-      }
       const q = new URLSearchParams(location.search).get('q');
       if (q) {
         document.getElementById('search-input').value = q;
@@ -108,14 +106,13 @@
     const laneCounts = {};
     for (const [k] of LANES) laneCounts[k] = 0;
     for (const p of list) {
-      const k = p.project_status || 'planning';
-      if (k in laneCounts) laneCounts[k]++;
+      if (p.status in laneCounts) laneCounts[p.status]++;
     }
 
     document.getElementById('page-hero').innerHTML = `
       <section class="os-hero">
         <div class="os-hero-eyebrow">Projects</div>
-        <h1 class="os-hero-title">Renovation Pipeline</h1>
+        <h1 class="os-hero-title">Project Pipeline</h1>
         <div class="os-hero-subtitle">${total === 1 ? '1 project' : total + ' projects'} in flight · ${LANES.map(([k,l]) => `${laneCounts[k] || 0} ${l}`).join(' · ')}</div>
         <div class="os-kpi-row">
           <div class="os-kpi">
@@ -134,9 +131,9 @@
             <div class="os-kpi-sub">${totalReno > 0 ? Math.round((totalSpent / totalReno) * 100) + '% of budget' : 'to date'}</div>
           </div>
           <div class="os-kpi">
-            <div class="os-kpi-label">Ready to List</div>
-            <div class="os-kpi-value brand">${laneCounts['ready_to_list'] || 0}</div>
-            <div class="os-kpi-sub">finished</div>
+            <div class="os-kpi-label">UC with Buyer</div>
+            <div class="os-kpi-value brand">${laneCounts['under_contract_buyer'] || 0}</div>
+            <div class="os-kpi-sub">closing soon</div>
           </div>
         </div>
       </section>
@@ -157,19 +154,19 @@
     const el = document.getElementById('view-root');
     renderKanban(el, list, {
       lanes: LANES,
-      field: 'project_status',
+      field: 'status',
       onCardMove: async (id, newLane) => {
         const prop = allProps.find(p => p.id === id);
         if (!prop) return;
-        const prev = prop.project_status || 'planning';
-        prop.project_status = newLane;
+        const prev = prop.status;
+        prop.status = newLane;
         renderCurrent();
         try {
-          await updateProperty(id, { project_status: newLane });
+          await updateProperty(id, { status: newLane });
           const label = LANES.find(([k]) => k === newLane)?.[1] || newLane;
           showKbToast(`Moved to ${label}`);
         } catch (err) {
-          prop.project_status = prev;
+          prop.status = prev;
           renderCurrent();
           showKbToast(`Couldn't save: ${err.message}`, true);
         }
@@ -197,7 +194,7 @@
         { key: 'state',                  label: 'State',                 width: 70,  render: r => escHtml(r.state || '') },
         { key: 'zip',                    label: 'ZIP',                   width: 80,  render: r => escHtml(r.zip || '') },
         { key: 'county',                 label: 'County',                width: 120, render: r => escHtml(r.county || '') },
-        { key: 'project_status',         label: 'Stage',                 width: 130, render: r => projectStatusBadge(r.project_status || 'planning'), sortValue: r => r.project_status || 'planning' },
+        { key: 'status',                 label: 'Stage',                 width: 140, render: r => propertyStatusBadge(r.status), sortValue: r => r.status },
         { key: 'reno_budget',            label: 'Reno Budget',           width: 110, render: r => fmtMoney(r.reno_budget), sortValue: r => Number(r.reno_budget) || 0 },
         { key: 'reno_spent',             label: 'Reno Spent',            width: 110, render: r => fmtMoney(r.reno_spent),  sortValue: r => Number(r.reno_spent)  || 0 },
         { key: 'purchase_date',          label: 'Purchased',             width: 110, render: r => fmtDate(r.purchase_date), sortValue: r => r.purchase_date },

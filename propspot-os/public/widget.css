@@ -35,11 +35,12 @@
 .pulse-embed-msg-body { font-size: .9rem; line-height: 1.45; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
 /* Edit/delete controls on own messages. Low-contrast, hover-revealed
    so they don't compete with the message content. */
-/* Edit/delete actions: visible at low opacity always (so touch devices can
-   reach them), full opacity on hover/focus/edit. */
+/* Edit/react/reply actions: hidden until you hover the row on desktop.
+   Touch devices report (hover: none) — keep them visible there since you
+   can't hover with a finger. */
 .pulse-embed-msg-actions {
   margin-left: auto; display: flex; gap: 2px;
-  opacity: .55; transition: opacity .12s;
+  opacity: 0; transition: opacity .12s;
 }
 .pulse-embed-msg:hover .pulse-embed-msg-actions,
 .pulse-embed-msg:focus-within .pulse-embed-msg-actions,
