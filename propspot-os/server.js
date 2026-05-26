@@ -158,6 +158,16 @@ initDb()
       console.log(`Prop Spot running on port ${PORT}`);
       console.log(`  http://localhost:${PORT}`);
     });
+    // Background Gmail sync for every connected mailbox (shared + personal).
+    // Skip with INBOX_SYNC_ENABLED=0 in environments where you don't want
+    // the API hammered (e.g. local dev with stale tokens).
+    if (process.env.INBOX_SYNC_ENABLED !== '0') {
+      try {
+        require('./workers/inbox-sync').start();
+      } catch (e) {
+        console.error('[inbox-sync] failed to start:', e.message);
+      }
+    }
   })
   .catch(err => {
     console.error('Failed to initialize database:', err);

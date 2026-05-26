@@ -9,7 +9,7 @@ router.use(requireInboxGrant);
 
 // GET /api/shared-inboxes — list inboxes the caller can see.
 router.get('/', async (req, res) => {
-  const allowed = await scopedInboxIds(req.inboxGrant.scope);
+  const allowed = await scopedInboxIds(req.inboxGrant.scope, req.userId);
   const params = [];
   let where = '';
   if (allowed !== null) {
@@ -19,13 +19,14 @@ router.get('/', async (req, res) => {
   }
   const { rows } = await query(`
     SELECT i.id, i.slug, i.name, i.description, i.icon, i.signature_html, i.created_at,
+           i.owner_user_id,
            (SELECT COUNT(*) FROM inbox_threads t
              WHERE t.shared_inbox_id = i.id AND t.status = 'open')::int AS open_count,
            (SELECT COUNT(*) FROM inbox_threads t
              WHERE t.shared_inbox_id = i.id AND t.status = 'open' AND t.unread = TRUE)::int AS unread_count
       FROM inbox_shared i
       ${where}
-  ORDER BY i.name ASC
+  ORDER BY (i.owner_user_id IS NULL) ASC, i.name ASC
   `, params);
   res.json(rows);
 });

@@ -11,7 +11,7 @@ router.use(requireInboxGrant);
 
 // Helper: load an attachment and confirm the caller can see the parent thread.
 async function loadAttachment(req, attachmentId) {
-  const allowed = await scopedInboxIds(req.inboxGrant.scope);
+  const allowed = await scopedInboxIds(req.inboxGrant.scope, req.userId);
   const { rows } = await query(`
     SELECT a.id, a.message_id, a.filename, a.mime_type, a.size_bytes,
            a.provider_attachment_id,

@@ -69,9 +69,21 @@ async function requireInboxGrant(req, res, next) {
     const { rows } = await query(`
       SELECT ag.role, ag.scope FROM app_grants ag JOIN apps a ON a.id = ag.app_id
        WHERE ag.user_id = $1 AND a.slug = 'inbox' LIMIT 1`, [req.userId]);
-    if (!rows[0]) return res.status(403).json({ error: 'No access to Inbox' });
-    req.inboxGrant = { role: rows[0].role, scope: rows[0].scope || {} };
-    next();
+    if (rows[0]) {
+      req.inboxGrant = { role: rows[0].role, scope: rows[0].scope || {} };
+      return next();
+    }
+    // No explicit grant — fall back to personal-only access if they own
+    // any personal inbox. scopedInboxIds(scope, userId) will return just
+    // their personals.
+    const { rows: own } = await query(
+      `SELECT 1 FROM inbox_shared WHERE owner_user_id = $1 LIMIT 1`, [req.userId]
+    );
+    if (own[0]) {
+      req.inboxGrant = { role: 'member', scope: { inbox_ids: [] } };
+      return next();
+    }
+    return res.status(403).json({ error: 'No access to Inbox' });
   } catch (err) { res.status(500).json({ error: 'Authorization check failed' }); }
 }
 

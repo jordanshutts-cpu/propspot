@@ -161,8 +161,22 @@
       opacity: 0.6;
     }
     /* Color-coded section labels — matches sidebar pattern */
-    .nav-section[data-section="inbox"]  .nav-section-head { color: #15803d; }
-    .nav-section[data-section="shared"] .nav-section-head { color: #b45309; }
+    .nav-section[data-section="inbox"]    .nav-section-head { color: #15803d; }
+    .nav-section[data-section="personal"] .nav-section-head { color: #0369a1; }
+    .nav-section[data-section="shared"]   .nav-section-head { color: #b45309; }
+
+    /* Connect Gmail CTA shown when the user has no personal inbox yet */
+    .ib-connect-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      width: calc(100% - 16px); margin: 4px 8px;
+      padding: 8px 12px;
+      background: var(--surface); color: var(--brand);
+      border: 1.5px dashed var(--border); border-radius: 8px;
+      font-size: .82rem; font-weight: 600; cursor: pointer;
+      transition: border-color .12s, background .12s, color .12s;
+    }
+    .ib-connect-btn:hover { border-color: var(--brand); background: var(--brand-light); color: var(--brand-dark, var(--brand)); }
+    .ib-connect-btn svg { flex-shrink: 0; }
 
     .nav-section-head .nav-head-total {
       font-size: .68rem;
@@ -876,6 +890,14 @@
             <span>Sent</span>
           </div>
         </div>
+        <div class="nav-section" data-section="personal">
+          <div class="nav-section-head">
+            <span class="nav-head-title">Personal</span>
+          </div>
+          <div id="personal-list">
+            <p class="text-muted text-sm" style="padding: 6px 10px;">Loading…</p>
+          </div>
+        </div>
         <div class="nav-section" data-section="shared">
           <div class="nav-section-head">
             <span class="nav-head-title">Shared inboxes</span>
@@ -1370,36 +1392,58 @@ async function loadInboxes() {
   try {
     STATE.inboxes = await listSharedInboxes();
   } catch (err) {
-    showToast(err.message, 'error');
+    // 403 here means no inbox grant AND no personal inbox connected.
+    // Render the Personal section with a Connect Gmail CTA and skip the
+    // toast so new users aren't greeted with a scary error.
     STATE.inboxes = [];
+    if (!/403/.test(err.message)) showToast(err.message, 'error');
   }
-  const el = document.getElementById('shared-list');
+
+  const myId = STATE.user?.id;
+  const personalInboxes = STATE.inboxes.filter(i => i.owner_user_id === myId);
+  const sharedInboxes   = STATE.inboxes.filter(i => !i.owner_user_id);
+
+  renderInboxGroup('personal-list', personalInboxes, { kind: 'personal' });
+  renderInboxGroup('shared-list',   sharedInboxes,   { kind: 'shared' });
+
+  // Total counters reflect shared only (personal is per-user, not org-wide).
   const totalEl = document.getElementById('shared-total');
-  if (totalEl) totalEl.textContent = '';
-
-  if (!STATE.inboxes.length) {
-    el.innerHTML = `<p class="text-muted text-sm" style="padding:6px 10px;">None yet — ask an admin to create one.</p>`;
-    return;
-  }
-
-  const total = STATE.inboxes.reduce((acc, i) => acc + (i.open_count || 0), 0);
-  if (totalEl && total > 0) totalEl.textContent = total.toLocaleString();
+  const total = sharedInboxes.reduce((acc, i) => acc + (i.open_count || 0), 0);
+  if (totalEl) totalEl.textContent = total > 0 ? total.toLocaleString() : '';
   const openCountEl = document.getElementById('count-open');
   if (openCountEl) openCountEl.textContent = total > 0 ? total.toLocaleString() : '';
+}
 
-  el.innerHTML = STATE.inboxes.map(i => {
+function renderInboxGroup(elId, inboxes, opts) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!inboxes.length) {
+    if (opts.kind === 'personal') {
+      el.innerHTML = `
+        <button class="ib-connect-btn" onclick="connectPersonalInbox()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2"/><path d="m22 7-10 5L2 7"/><path d="M22 7v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7"/></svg>
+          Connect Gmail
+        </button>
+        <p class="text-muted text-sm" style="padding:4px 10px 0;line-height:1.4;">
+          Sign in with your Workspace email to use it inside Prop Spot.
+        </p>`;
+    } else {
+      el.innerHTML = `<p class="text-muted text-sm" style="padding:6px 10px;">None yet — ask an admin to create one.</p>`;
+    }
+    return;
+  }
+  el.innerHTML = inboxes.map(i => {
     const open = i.open_count || 0;
     const unread = i.unread_count || 0;
     let badge = '';
-    if (unread > 0)      badge = `<span class="count count-unread" title="${unread} unread">${unread}</span>`;
-    else if (open > 0)   badge = `<span class="count" title="${open} open">${open}</span>`;
+    if (unread > 0)    badge = `<span class="count count-unread" title="${unread} unread">${unread}</span>`;
+    else if (open > 0) badge = `<span class="count" title="${open} open">${open}</span>`;
     return `
       <div class="ib-nav-item ${STATE.activeInboxSlug === i.slug ? 'active' : ''}" data-inbox-slug="${escapeHtml(i.slug)}">
         <span class="ib-inbox-icon" data-inbox-slug="${escapeHtml(i.slug)}">${escapeHtml(i.icon || '📨')}</span>
         <span>${escapeHtml(i.name)}</span>
         ${badge}
-      </div>
-    `;
+      </div>`;
   }).join('');
   el.querySelectorAll('.ib-nav-item').forEach(el2 => {
     el2.addEventListener('click', () => {
@@ -1414,6 +1458,17 @@ async function loadInboxes() {
       setMobileView('list');
     });
   });
+}
+
+// Kick off the Google OAuth dance for the caller's own Workspace email.
+async function connectPersonalInbox() {
+  try {
+    const res = await apiFetch('/api/inbox/mailboxes/personal/connect', { method: 'POST' });
+    if (res?.url) window.location.href = res.url;
+    else throw new Error('No OAuth URL returned');
+  } catch (e) {
+    showToast(e.message || 'Could not start connect flow', 'error');
+  }
 }
 
 // ── Search ────────────────────────────────────────────────────────
