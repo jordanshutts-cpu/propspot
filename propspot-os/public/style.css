@@ -715,15 +715,16 @@ body.os-newlayout .page.page-narrow { max-width: 1100px; margin-left: auto; marg
   .top-header   { left: 0; padding: 0 12px; gap: 8px; }
   .top-nav-links .top-nav-link { padding: 6px 10px; font-size: .82rem; }
   .top-nav-search { max-width: 180px; }
-  .apps-rail {
+  body.os-newlayout:not(.os-newchrome) .apps-rail {
     top: auto; bottom: 0; left: 0; right: 0;
     width: 100%; height: var(--apps-rail-width, 64px);
     flex-direction: row; justify-content: space-around;
     border-right: none; border-top: 1px solid var(--border);
     padding: 6px 0;
   }
-  .apps-rail-brand, .apps-rail-link { width: 44px; height: 44px; }
-  .apps-rail-link::after { display: none; }
+  body.os-newlayout:not(.os-newchrome) .apps-rail-brand,
+  body.os-newlayout:not(.os-newchrome) .apps-rail-link { width: 44px; height: 44px; }
+  body.os-newlayout:not(.os-newchrome) .apps-rail-link::after { display: none; }
   .user-menu { right: 8px; }
 }
 
