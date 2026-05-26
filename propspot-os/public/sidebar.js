@@ -805,16 +805,14 @@
           ${row({ section: 'pipeline', icon: ICONS.package,    label: 'Sold',          osnav: 'sold',          href: '/closed.html',                          badge: counts.sold,          badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.xCircle,    label: 'Dead',          osnav: 'dead',          href: '/properties.html?status=dropped' })}
 
-          ${sectionLabel('Workspace')}
-          ${row({ section: 'workspace', icon: ICONS.database, label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' })}
-          ${row({ section: 'workspace', icon: ICONS.activity, label: 'Activity', osnav: 'activity', href: '/activity.html' })}
-
           ${sectionLabel('Tools')}
           ${row({ section: 'tools', icon: ICONS.camera,   label: 'FieldCam',     app: 'fieldcam',                                       badge: counts.photosToday, badgeClass: 'muted' })}
           ${row({ section: 'tools', icon: ICONS.wrench,   label: 'Maintenance',  app: 'maintenance',                                    badge: counts.workOrders,  badgeClass: 'warn' })}
           ${row({ section: 'tools', icon: ICONS.pulse,    label: 'Pulse',        app: 'pulse',                                          badge: counts.pulse })}
           ${row({ section: 'tools', icon: ICONS.folder,   label: 'Files',        osnav: 'files',        href: '/files.html' })}
           ${row({ section: 'tools', icon: ICONS.barChart, label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
+          ${row({ section: 'tools', icon: ICONS.database, label: 'Database',     osnav: 'database',     href: '/database.html', badge: total, badgeClass: 'muted' })}
+          ${row({ section: 'tools', icon: ICONS.activity, label: 'Activity',     osnav: 'activity',     href: '/activity.html' })}
 
           ${sectionLabel('Soon')}
           ${row({ section: 'soon', icon: ICONS.globe,   label: 'Listings',         soon: true })}
