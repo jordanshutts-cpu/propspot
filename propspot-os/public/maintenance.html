@@ -56,6 +56,47 @@
     .bdg-st-completed   { background:#dcfce7; color:#15803d; }
     .bdg-st-cancelled   { background:var(--border); color:var(--text-muted); }
     .badge-xs { font-size:.68rem; padding:2px 8px; border-radius:100px; font-weight:600; display:inline-block; }
+    /* ── Assignee picker ── */
+    .picker-btn { display:flex; align-items:center; justify-content:space-between;
+                  width:100%; padding:8px 12px; border:1px solid var(--border);
+                  border-radius:6px; background:var(--surface); cursor:pointer;
+                  font-size:.88rem; color:var(--text); }
+    .picker-btn:hover { border-color:var(--brand); }
+    .picker-caret { color:var(--text-muted); font-size:.7rem; margin-left:8px; }
+    .picker-popup { position:fixed; inset:0; z-index:1000; }
+    .picker-popup[hidden] { display:none; }
+    .picker-overlay { position:absolute; inset:0; background:rgba(0,0,0,.4); }
+    .picker-panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                    width:420px; max-width:95vw; max-height:70vh; display:flex; flex-direction:column;
+                    background:var(--surface); border-radius:10px; box-shadow:0 8px 40px rgba(0,0,0,.25);
+                    overflow:hidden; }
+    .picker-panel > input { margin:12px; padding:8px 12px; border:1px solid var(--border);
+                            border-radius:6px; font-size:.9rem; }
+    #assignee-results { flex:1; overflow-y:auto; padding:0 8px 8px; }
+    .picker-row { display:flex; align-items:center; gap:10px; padding:8px 12px;
+                  border-radius:6px; cursor:pointer; }
+    .picker-row:hover { background:var(--brand-light); }
+    .picker-avatar { width:28px; height:28px; border-radius:50%; background:var(--border);
+                     display:flex; align-items:center; justify-content:center;
+                     font-weight:600; font-size:.75rem; color:var(--text); object-fit:cover; }
+    .picker-name { flex:1; min-width:0; }
+    .picker-name .name-line { font-size:.88rem; }
+    .picker-name .email-line { font-size:.72rem; color:var(--text-muted); }
+    .picker-pending-pip { width:8px; height:8px; border-radius:50%; background:#f59e0b; }
+    .picker-section-label { padding:10px 16px 4px; font-size:.7rem; text-transform:uppercase;
+                            color:var(--text-muted); font-weight:600; letter-spacing:.05em; }
+    .picker-action { margin:8px 12px 14px; padding:10px; background:var(--brand);
+                     color:#fff; border:none; border-radius:6px; cursor:pointer;
+                     font-weight:600; font-size:.85rem; }
+    /* ── Assignee chip on WO row ── */
+    .wo-assignee-chip { display:inline-flex; align-items:center; gap:5px;
+                        padding:2px 8px 2px 2px; border-radius:100px;
+                        background:var(--brand-light); font-size:.7rem; font-weight:600;
+                        color:var(--text); }
+    .wo-assignee-chip .wo-assignee-avatar { width:18px; height:18px; border-radius:50%;
+                                            background:var(--border); display:inline-flex;
+                                            align-items:center; justify-content:center;
+                                            font-size:.62rem; font-weight:700; object-fit:cover; }
     @media(max-width:640px) { .stat-grid { grid-template-columns:repeat(2,1fr); } .form-row { flex-direction:column; } }
   </style>
 </head>
@@ -84,6 +125,7 @@
 
   <div class="pill-row" id="pills">
     <button class="pill active" data-f="active">Active</button>
+    <button class="pill" data-f="mine">Assigned to me</button>
     <button class="pill" data-f="open">Open</button>
     <button class="pill" data-f="scheduled">Scheduled</button>
     <button class="pill" data-f="in_progress">In Progress</button>
@@ -145,12 +187,108 @@
         <label class="form-label">Scheduled For</label>
         <input class="form-input" id="c-sched" type="date">
       </div>
+      <div class="form-group">
+        <label class="form-label">Assignee</label>
+        <button type="button" id="c-assignee-btn" class="picker-btn" onclick="openAssigneePicker('c')">
+          <span id="c-assignee-display" style="color:var(--text-muted);">Unassigned</span>
+          <span class="picker-caret">▾</span>
+        </button>
+        <input type="hidden" id="c-assigned-user-id" value="">
+      </div>
       <p id="c-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" style="padding:10px 18px;font-size:.88rem;" onclick="closeCreate()">Cancel</button>
         <button type="submit" class="btn btn-primary" style="padding:10px 18px;font-size:.88rem;" id="c-save">Create</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h2>Edit Work Order</h2>
+      <button class="modal-close" onclick="closeEdit()">✕</button>
+    </div>
+    <form id="edit-form" onsubmit="submitEdit(event)">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="e-title" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="e-desc" rows="2" style="min-height:0;resize:vertical;"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-input" id="e-cat">
+            <option value="">— none —</option>
+            <option value="plumbing">🚿 Plumbing</option>
+            <option value="electrical">💡 Electrical</option>
+            <option value="hvac">❄️ HVAC</option>
+            <option value="roofing">🏠 Roofing</option>
+            <option value="landscaping">🌳 Landscaping</option>
+            <option value="cleaning">🧹 Cleaning</option>
+            <option value="appliance">🔌 Appliance</option>
+            <option value="pest">🐜 Pest Control</option>
+            <option value="general">🛠️ General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-input" id="e-priority">
+            <option value="low">Low</option>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">🚨 Urgent</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-input" id="e-status">
+            <option value="open">Open</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scheduled For</label>
+          <input class="form-input" id="e-sched" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assignee</label>
+        <button type="button" id="e-assignee-btn" class="picker-btn" onclick="openAssigneePicker('e')">
+          <span id="e-assignee-display" style="color:var(--text-muted);">Unassigned</span>
+          <span class="picker-caret">▾</span>
+        </button>
+        <input type="hidden" id="e-assigned-user-id" value="">
+      </div>
+      <p id="e-err" class="text-sm mt-8" style="color:var(--danger);display:none;"></p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" style="padding:10px 18px;font-size:.88rem;margin-right:auto;" onclick="confirmDeleteWo()">Delete</button>
+        <button type="button" class="btn btn-secondary" style="padding:10px 18px;font-size:.88rem;" onclick="closeEdit()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="padding:10px 18px;font-size:.88rem;" id="e-save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Assignee picker popup -->
+<div id="assignee-picker" class="picker-popup" hidden>
+  <div class="picker-overlay" onclick="closeAssigneePicker()"></div>
+  <div class="picker-panel">
+    <input id="assignee-search" type="text" placeholder="Search by name or email…">
+    <div id="assignee-results"></div>
+    <button type="button" class="picker-action" onclick="openInviteExternalModal()">
+      ➕ Invite external worker…
+    </button>
   </div>
 </div>
 
@@ -162,17 +300,27 @@
   const STATUS_LBL = {open:'Open',scheduled:'Scheduled',in_progress:'In Progress',completed:'Completed',cancelled:'Cancelled'};
   const PRI_LBL = {low:'Low',normal:'Normal',high:'High',urgent:'Urgent'};
   let allOrders = [], propsCache = [], currentFilter = 'active';
+  let currentUser = null, assignableUsers = [], pickerTarget = null, editingWoId = null;
 
   async function init() {
-    const me = await requireAuth(); if (!me) return;
-    await Promise.all([loadOrders(), loadProps()]);
+    currentUser = await requireAuth(); if (!currentUser) return;
+    await Promise.all([loadOrders(), loadProps(), loadAssignableUsers()]);
+    // Only filter pills under #pills (the WO-status row) drive currentFilter —
+    // the "Work Orders / Lawn Mowing" row above is plain links, not pills.
     document.getElementById('pills').addEventListener('click', e => {
       const pill = e.target.closest('.pill'); if (!pill) return;
-      document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('#pills .pill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       currentFilter = pill.dataset.f;
       render();
     });
+    document.getElementById('assignee-search').addEventListener('input',
+      e => renderAssigneeResults(e.target.value));
+  }
+
+  async function loadAssignableUsers() {
+    try { assignableUsers = await apiFetch('/api/maintenance/assignable-users'); }
+    catch (e) { assignableUsers = []; }
   }
 
   async function loadOrders() {
@@ -208,7 +356,8 @@
 
   function render() {
     let rows = allOrders;
-    if (currentFilter==='active')  rows = rows.filter(o => ['open','scheduled','in_progress'].includes(o.status));
+    if (currentFilter==='active')      rows = rows.filter(o => ['open','scheduled','in_progress'].includes(o.status));
+    else if (currentFilter==='mine')   rows = rows.filter(o => o.assigned_user_id === currentUser?.id);
     else if (currentFilter==='urgent') rows = rows.filter(o => o.priority==='urgent'&&!['completed','cancelled'].includes(o.status));
     else rows = rows.filter(o => o.status===currentFilter);
 
@@ -218,7 +367,7 @@
       return;
     }
     el.innerHTML = `<div class="wo-list">${rows.map(o => `
-      <div class="wo-row pri-${o.priority}" onclick="openDetail('${o.id}')">
+      <div class="wo-row pri-${o.priority}" onclick="openEdit('${o.id}')">
         <div class="wo-icon">${CAT_ICONS[o.category]||'🛠️'}</div>
         <div class="wo-body">
           <div class="wo-title">${escHtml(o.title)}</div>
@@ -226,7 +375,7 @@
           <div class="wo-tags">
             <span class="badge-xs bdg-st-${o.status}">${STATUS_LBL[o.status]||o.status}</span>
             <span class="badge-xs bdg-pri-${o.priority}">${PRI_LBL[o.priority]||o.priority}</span>
-            ${o.assigned_name?`<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);">👤 ${escHtml(o.assigned_name)}</span>`:''}
+            ${assigneeChipHtml(o)}
             ${o.scheduled_for?`<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);">📅 ${new Date(o.scheduled_for).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`:''}
             ${o.update_count>0?`<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);">💬 ${o.update_count}</span>`:''}
           </div>
@@ -235,8 +384,143 @@
       </div>`).join('')}</div>`;
   }
 
-  async function openDetail(id) {
-    window.location.href = await satellitePageUrl('maintenance', '/work-order.html?id='+id);
+  function assigneeChipHtml(o) {
+    if (!o.assigned_user_id) {
+      return `<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);">Unassigned</span>`;
+    }
+    const u = assignableUsers.find(x => x.id === o.assigned_user_id);
+    const name = u ? (u.full_name || u.email) : (o.assigned_user_name || 'Assigned');
+    const first = name.split(' ')[0];
+    const initial = (name[0] || '?').toUpperCase();
+    const avatar = u?.avatar_url
+      ? `<img class="wo-assignee-avatar" src="${escHtml(u.avatar_url)}">`
+      : `<span class="wo-assignee-avatar">${escHtml(initial)}</span>`;
+    return `<span class="wo-assignee-chip" title="${escHtml(name)}">${avatar}${escHtml(first)}</span>`;
+  }
+
+  // ── Edit modal ──
+  async function openEdit(id) {
+    const wo = allOrders.find(o => o.id === id);
+    if (!wo) return;
+    editingWoId = id;
+    document.getElementById('e-title').value = wo.title || '';
+    document.getElementById('e-desc').value  = wo.description || '';
+    document.getElementById('e-cat').value   = wo.category || '';
+    document.getElementById('e-priority').value = wo.priority || 'normal';
+    document.getElementById('e-status').value   = wo.status || 'open';
+    document.getElementById('e-sched').value    = wo.scheduled_for ? wo.scheduled_for.split('T')[0] : '';
+    setAssigneeDisplay('e', wo.assigned_user_id);
+    document.getElementById('e-err').style.display = 'none';
+    document.getElementById('modal-edit').classList.add('open');
+  }
+  function closeEdit() { document.getElementById('modal-edit').classList.remove('open'); editingWoId = null; }
+  document.getElementById('modal-edit').addEventListener('click', e => { if (e.target===e.currentTarget) closeEdit(); });
+
+  async function submitEdit(e) {
+    e.preventDefault();
+    const body = {
+      title:       document.getElementById('e-title').value.trim(),
+      description: document.getElementById('e-desc').value.trim(),
+      category:    document.getElementById('e-cat').value || null,
+      priority:    document.getElementById('e-priority').value,
+      status:      document.getElementById('e-status').value,
+      scheduled_for: document.getElementById('e-sched').value || null,
+      assigned_user_id: document.getElementById('e-assigned-user-id').value || null
+    };
+    const errEl = document.getElementById('e-err'); errEl.style.display='none';
+    const btn = document.getElementById('e-save'); btn.disabled=true; btn.textContent='Saving…';
+    try {
+      await apiFetch('/api/maintenance/work-orders/' + editingWoId,
+        { method:'PATCH', body: JSON.stringify(body) });
+      closeEdit();
+      await loadOrders();
+      showToast('Work order saved');
+    } catch (err) { errEl.textContent = err.message; errEl.style.display='block'; }
+    finally { btn.disabled=false; btn.textContent='Save'; }
+  }
+
+  async function confirmDeleteWo() {
+    if (!confirm('Delete this work order? Updates will be deleted too.')) return;
+    try {
+      await apiFetch('/api/maintenance/work-orders/' + editingWoId, { method: 'DELETE' });
+      closeEdit();
+      await loadOrders();
+      showToast('Work order deleted');
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Assignee picker (shared between Create and Edit modals) ──
+  function openAssigneePicker(target) {
+    pickerTarget = target; // 'c' or 'e'
+    document.getElementById('assignee-picker').hidden = false;
+    document.getElementById('assignee-search').value = '';
+    document.getElementById('assignee-search').focus();
+    renderAssigneeResults('');
+  }
+  function closeAssigneePicker() {
+    document.getElementById('assignee-picker').hidden = true;
+    pickerTarget = null;
+  }
+
+  function renderAssigneeResults(needle) {
+    const n = (needle || '').toLowerCase();
+    const match = (u) => !n
+      || (u.full_name || '').toLowerCase().includes(n)
+      || (u.email || '').toLowerCase().includes(n);
+    const team = assignableUsers.filter(u => u.user_type === 'team' && match(u));
+    const ext  = assignableUsers.filter(u => u.user_type === 'external_worker' && match(u));
+    const row = (u) => {
+      const initial = ((u.full_name || u.email || '?')[0] || '?').toUpperCase();
+      const avatar = u.avatar_url
+        ? `<img class="picker-avatar" src="${escHtml(u.avatar_url)}">`
+        : `<span class="picker-avatar">${escHtml(initial)}</span>`;
+      const pending = !u.is_active ? '<span class="picker-pending-pip" title="Pending invite"></span>' : '';
+      return `<div class="picker-row" data-uid="${escHtml(u.id)}" onclick="selectAssignee(this)">
+        ${avatar}
+        <div class="picker-name">
+          <div class="name-line">${escHtml(u.full_name || u.email)}</div>
+          <div class="email-line">${escHtml(u.email)}</div>
+        </div>
+        ${pending}
+      </div>`;
+    };
+    const clearRow = `<div class="picker-row" data-uid="" onclick="selectAssignee(this)">
+      <span class="picker-avatar" style="background:transparent;color:var(--text-muted);">∅</span>
+      <div class="picker-name"><div class="name-line" style="color:var(--text-muted);">Unassigned</div></div>
+    </div>`;
+    const html = [
+      clearRow,
+      team.length ? `<div class="picker-section-label">Team</div>${team.map(row).join('')}` : '',
+      ext.length  ? `<div class="picker-section-label">External workers</div>${ext.map(row).join('')}` : '',
+      (!team.length && !ext.length && n) ? '<div class="text-muted text-sm" style="padding:14px;">No matches.</div>' : ''
+    ].join('');
+    document.getElementById('assignee-results').innerHTML = html;
+  }
+
+  function selectAssignee(rowEl) {
+    const uid = rowEl.dataset.uid;
+    setAssigneeDisplay(pickerTarget, uid);
+    closeAssigneePicker();
+  }
+
+  function setAssigneeDisplay(target, uid) {
+    const idInput   = document.getElementById(target + '-assigned-user-id');
+    const displayEl = document.getElementById(target + '-assignee-display');
+    if (!uid) {
+      idInput.value = '';
+      displayEl.textContent = 'Unassigned';
+      displayEl.style.color = 'var(--text-muted)';
+      return;
+    }
+    const u = assignableUsers.find(x => x.id === uid);
+    idInput.value = uid;
+    displayEl.textContent = u ? (u.full_name || u.email) : 'Assigned';
+    displayEl.style.color = '';
+  }
+
+  function openInviteExternalModal() {
+    // Wired up in Stage 3.
+    showToast('Invite external worker — coming in the next deploy');
   }
 
   function openCreate() {
@@ -244,6 +528,7 @@
     document.getElementById('c-cat').value = '';
     document.getElementById('c-priority').value = 'normal';
     document.getElementById('c-err').style.display = 'none';
+    setAssigneeDisplay('c', '');
     renderPropOpts(propsCache);
     document.getElementById('modal-create').classList.add('open');
   }
@@ -259,6 +544,7 @@
       category:    document.getElementById('c-cat').value||null,
       priority:    document.getElementById('c-priority').value,
       scheduled_for: document.getElementById('c-sched').value||null,
+      assigned_user_id: document.getElementById('c-assigned-user-id').value || null
     };
     const errEl = document.getElementById('c-err'); errEl.style.display='none';
     const btn = document.getElementById('c-save'); btn.disabled=true; btn.textContent='Creating…';
