@@ -112,7 +112,6 @@ router.post('/:token/decline', express.json(), async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Decline failed' }); }
 });
 
-const cloudinaryV2 = require('cloudinary').v2;
 const { buildSignedPdf } = require('../../lib/inkd-pdf');
 const { sendCompletedToSender } = require('../../lib/inkd-email');
 
@@ -129,7 +128,7 @@ async function finalizeEnvelope(envelopeId) {
   });
 
   const cloud = await new Promise((resolve, reject) => {
-    cloudinaryV2.uploader.upload_stream(
+    cloudinary.uploader.upload_stream(
       { resource_type: 'raw', folder: 'propspot/inkd/signed', format: 'pdf' },
       (e, out) => e ? reject(e) : resolve(out)
     ).end(Buffer.from(bytes));
