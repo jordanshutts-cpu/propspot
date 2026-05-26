@@ -19,6 +19,7 @@
     .mention-author { font-weight:700; font-size:.88rem; }
     .mention-source { font-size:.68rem; padding:1px 8px; border-radius:100px; font-weight:600; }
     .mention-source.pulse { background:#dbeafe; color:#1e40af; }
+    .mention-source.inbox { background:#ede9fe; color:#6d28d9; }
     .mention-source.task { background:#dcfce7; color:#15803d; }
     .mention-source.fieldcam { background:#fef3c7; color:#92400e; }
     .mention-time { font-size:.72rem; color:var(--text-muted); margin-left:auto; }
@@ -49,6 +50,7 @@
   <div class="pill-row" id="pills">
     <button class="pill active" data-f="all">All</button>
     <button class="pill" data-f="pulse">Pulse</button>
+    <button class="pill" data-f="inbox">Inbox</button>
     <button class="pill" data-f="task">Tasks</button>
     <button class="pill" data-f="fieldcam">FieldCam</button>
   </div>
@@ -63,7 +65,7 @@
 let allMentions = [], currentFilter = 'all', currentUser = null;
 let usersById = {};
 
-const SOURCE_LABELS = { pulse: 'Pulse', task: 'Task', fieldcam: 'FieldCam' };
+const SOURCE_LABELS = { pulse: 'Pulse', inbox: 'Inbox', task: 'Task', fieldcam: 'FieldCam' };
 
 async function init() {
   currentUser = await requireAuth();
@@ -145,6 +147,7 @@ function renderList() {
 
 function getLinkForMention(m) {
   if (m.source === 'task' && m.task_id) return `window.location.href='/tasks.html'`;
+  if (m.source === 'inbox' && m.inbox_thread_id) return `window.location.href='/inbox.html?thread=${m.inbox_thread_id}'`;
   if (m.source === 'pulse' && m.context_id) return `window.location.href='/pulse.html'`;
   if (m.source === 'fieldcam' && m.photo_id) return `window.location.href='/fieldcam.html'`;
   return '';
