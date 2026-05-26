@@ -135,8 +135,11 @@
     .kanban-col-count { font-size:.7rem; background:var(--border); color:var(--text-muted); padding:1px 7px; border-radius:100px; font-weight:600; }
     .kanban-col-menu { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1rem; padding:2px 4px; border-radius:4px; }
     .kanban-col-menu:hover { background:var(--border); }
-    .kanban-col-body { padding:8px; min-height:60px; }
-    .kanban-card { background:var(--surface); border-radius:8px; padding:10px 12px; margin-bottom:8px; cursor:pointer; border:1px solid var(--border); transition:all .1s; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .kanban-col-body { padding:8px; min-height:60px; transition:background .15s; }
+    .kanban-col-body.drag-over { background:var(--brand-light); border-radius:0 0 var(--radius) var(--radius); }
+    .kanban-card { background:var(--surface); border-radius:8px; padding:10px 12px; margin-bottom:8px; cursor:grab; border:1px solid var(--border); transition:all .1s; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .kanban-card:active { cursor:grabbing; }
+    .kanban-card.dragging { opacity:.4; transform:scale(.95); }
     .kanban-card:hover { border-color:var(--brand); box-shadow:0 2px 8px rgba(0,0,0,.08); }
     .kanban-card:last-child { margin-bottom:0; }
     .kanban-card .kc-title { font-size:.82rem; font-weight:600; margin-bottom:4px; }
@@ -500,7 +503,10 @@ function renderKanbanCol(projectId, name, color, tasks, visibility) {
         <span class="kanban-col-count">${tasks.length}</span>
         ${projectId ? `<button class="kanban-col-menu" onclick="event.stopPropagation();editProject('${projectId}')" title="Edit project">&#9881;</button>` : ''}
       </div>
-      <div class="kanban-col-body">
+      <div class="kanban-col-body" data-project-id="${projectId || ''}"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="this.classList.remove('drag-over');dropTask(event,'${projectId || ''}')">
         ${active.map(t => renderKanbanCard(t)).join('')}
         ${doneList.length > 0 ? `<div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;padding:8px 4px 4px;">Done (${doneList.length})</div>` : ''}
         ${doneList.map(t => renderKanbanCard(t)).join('')}
@@ -515,7 +521,7 @@ function renderKanbanCard(t) {
   const today = new Date().toISOString().split('T')[0];
   const isOverdue = t.due_date && t.due_date < today && !isDone;
   return `
-    <div class="kanban-card" onclick="openDetail('${t.id}')">
+    <div class="kanban-card" draggable="true" ondragstart="dragTask(event,'${t.id}')" ondragend="dragEnd(event)" onclick="openDetail('${t.id}')">
       <div class="kc-title" style="${isDone ? 'text-decoration:line-through;opacity:.6;' : ''}">${esc(t.title)}</div>
       <div class="kc-meta">
         <span class="badge-xs bdg-pri-${t.priority}" style="font-size:.62rem;">${PRI_LBL[t.priority]}</span>
@@ -530,6 +536,24 @@ function renderKanbanCard(t) {
 function openCreateInProject(projectId) {
   openCreate();
   if (projectId) document.getElementById('c-project').value = projectId;
+}
+
+// ── Drag and drop
+function dragTask(e, taskId) {
+  e.dataTransfer.setData('text/plain', taskId);
+  e.dataTransfer.effectAllowed = 'move';
+  requestAnimationFrame(() => e.target.classList.add('dragging'));
+}
+function dragEnd(e) {
+  e.target.classList.remove('dragging');
+}
+async function dropTask(e, projectId) {
+  const taskId = e.dataTransfer.getData('text/plain');
+  if (!taskId) return;
+  try {
+    await apiFetch(`/api/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify({ project_id: projectId || null }) });
+    await loadTasks();
+  } catch {}
 }
 
 // ── Project CRUD
