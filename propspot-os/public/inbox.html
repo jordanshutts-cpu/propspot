@@ -1641,6 +1641,7 @@ async function doLpSearch(q) {
 function openLinkPropertyDialog() {
   document.getElementById('modal-link-prop').classList.add('open');
   document.getElementById('lp-unlink-btn').style.display = STATE.activeThread.property_id ? '' : 'none';
+  document.getElementById('lp-search').value = '';
   doLpSearch('');
 }
 function closeLinkPropertyDialog() { document.getElementById('modal-link-prop').classList.remove('open'); }
