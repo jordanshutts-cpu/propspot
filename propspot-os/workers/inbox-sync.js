@@ -142,9 +142,15 @@ async function syncMailbox(mailbox) {
       );
       return;
     }
-    // Otherwise mark as error so the UI surfaces it.
+    // Otherwise mark as error so the UI surfaces it. Stamp last_sync_at so
+    // the tick() backoff window (5 min) takes effect — without this, a
+    // permanently-broken mailbox would be retried every single tick.
     await query(
-      `UPDATE inbox_mailboxes SET status = 'error', status_reason = $1 WHERE id = $2`,
+      `UPDATE inbox_mailboxes
+          SET status        = 'error',
+              status_reason = $1,
+              last_sync_at  = NOW()
+        WHERE id = $2`,
       [err.message.slice(0, 500), mailbox.id]
     );
   }
@@ -154,9 +160,18 @@ async function tick() {
   if (running) return;
   running = true;
   try {
-    const { rows } = await query(
-      `SELECT * FROM inbox_mailboxes WHERE status = 'active' ORDER BY last_sync_at NULLS FIRST`
-    );
+    // Include error mailboxes with a 5-minute backoff so transient failures
+    // (process restart with stale status, brief Google outage, key rotated
+    // and then reconnected) self-heal without manual intervention. The
+    // error-path UPDATE below sets last_sync_at = NOW() so a permanently
+    // broken mailbox only retries every 5 minutes — not every tick.
+    const { rows } = await query(`
+      SELECT * FROM inbox_mailboxes
+       WHERE status = 'active'
+          OR (status = 'error'
+              AND (last_sync_at IS NULL OR last_sync_at < NOW() - INTERVAL '5 minutes'))
+    ORDER BY last_sync_at NULLS FIRST
+    `);
     for (const mb of rows) {
       await syncMailbox(mb);
     }
