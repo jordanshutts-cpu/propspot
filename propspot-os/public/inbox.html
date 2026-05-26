@@ -696,21 +696,21 @@
       .ib-mobile-only { display: inline-flex !important; align-items: center; justify-content: center; }
       .ib-desktop-only { display: none !important; }
 
-      /* Let the inbox page fill the viewport — kill the .page padding so the
-         single-pane layout can use full screen width/height. */
+      /* Let the inbox page fill the viewport — hide the global bottom nav
+         so the inbox UX (list ↔ reader ↔ drawer) fills the screen. */
       body.os-newlayout main.page.page-inbox-fullscreen,
       body.os-newchrome main.page.page-inbox-fullscreen {
         padding: 0 !important;
         max-width: none !important;
       }
+      body:has(main.page.page-inbox-fullscreen) .mobile-bottom-nav { display: none !important; }
 
-      /* Inbox container: position:relative so panes can stack as overlays.
-         Height = viewport − top-header (56px) − mobile bottom nav (76px). */
+      /* Inbox container: position:relative so panes can stack as overlays. */
       .inbox-3col {
         flex-direction: row;
         position: relative;
-        height: calc(100dvh - 56px - 76px);
-        height: calc(100vh - 56px - 76px);
+        height: calc(100dvh - 56px);
+        height: calc(100vh - 56px);
         overflow: hidden;
       }
       .resizer { display: none !important; }
