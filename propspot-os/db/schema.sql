@@ -1270,6 +1270,52 @@ CREATE TABLE IF NOT EXISTS task_comments (
 );
 CREATE INDEX IF NOT EXISTS task_comments_task_idx ON task_comments(task_id);
 
+-- ── Drive: folders ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS drive_folders (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  parent_id    UUID REFERENCES drive_folders(id) ON DELETE CASCADE,
+  property_id  UUID REFERENCES properties(id) ON DELETE SET NULL,
+  name         TEXT NOT NULL,
+  team_visible BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS drive_folders_parent_idx   ON drive_folders(parent_id);
+CREATE INDEX IF NOT EXISTS drive_folders_property_idx ON drive_folders(property_id);
+
+-- ── Drive: files ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS drive_files (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  folder_id     UUID REFERENCES drive_folders(id) ON DELETE CASCADE,
+  property_id   UUID REFERENCES properties(id) ON DELETE SET NULL,
+  filename      TEXT NOT NULL,
+  url           TEXT NOT NULL,
+  cloudinary_id TEXT,
+  mime_type     TEXT,
+  size_bytes    BIGINT,
+  team_visible  BOOLEAN NOT NULL DEFAULT TRUE,
+  uploaded_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS drive_files_folder_idx   ON drive_files(folder_id);
+CREATE INDEX IF NOT EXISTS drive_files_property_idx ON drive_files(property_id);
+
+-- ── Drive: permissions (Google Drive-style) ──────────────────────────
+CREATE TABLE IF NOT EXISTS drive_permissions (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  folder_id  UUID REFERENCES drive_folders(id) ON DELETE CASCADE,
+  file_id    UUID REFERENCES drive_files(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role       TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('viewer','editor','owner')),
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CHECK ((folder_id IS NULL) != (file_id IS NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS drive_perms_folder_user_uniq ON drive_permissions(folder_id, user_id) WHERE folder_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS drive_perms_file_user_uniq ON drive_permissions(file_id, user_id) WHERE file_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS drive_perms_user_idx ON drive_permissions(user_id);
+
 -- ── 2026-05-23 one-time: archive every open thread with no activity in the
 -- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
 -- without years of backfilled history cluttering the lists. Owners can
