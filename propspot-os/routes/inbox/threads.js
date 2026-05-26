@@ -80,6 +80,21 @@ router.get('/', async (req, res) => {
       params.push(req.userId);
       where.push(`t.assigned_to_user_id = $${i++}`);
     }
+    // "Sent" filter: threads where the caller has sent at least one
+    // outbound message. Drops the default open-status filter so sent
+    // archived/closed threads still appear.
+    if (!tab && req.query.sent_by_me === '1') {
+      params.push(req.userId);
+      where.push(`EXISTS (
+        SELECT 1 FROM inbox_messages m2
+         WHERE m2.thread_id = t.id
+           AND m2.is_outbound = TRUE
+           AND m2.sent_by_user_id = $${i++}
+      )`);
+      // remove the default "t.status = 'open'" so closed-but-sent threads show
+      const idx = where.findIndex(c => c === `t.status = 'open'`);
+      if (idx >= 0) where.splice(idx, 1);
+    }
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
 
     const sql = `

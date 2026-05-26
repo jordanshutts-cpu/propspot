@@ -1462,6 +1462,14 @@ html.theme-dark .ib-filter-icon[data-icon="assigned"] {
   --ib-filter-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>");
   color: #d8b4fe;
 }
+html.theme-dark .ib-filter-icon[data-icon="drafts"] {
+  --ib-filter-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg>");
+  color: #fbbf24;
+}
+html.theme-dark .ib-filter-icon[data-icon="sent"] {
+  --ib-filter-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='22' y1='2' x2='11' y2='13'/><polygon points='22 2 15 22 11 13 2 9 22 2'/></svg>");
+  color: #7dd3fc;
+}
 html.theme-dark .ib-nav-item.active .ib-filter-icon,
 html.theme-dark .ib-nav-item.active .ib-inbox-icon { color: var(--d-brand) !important; }
 
