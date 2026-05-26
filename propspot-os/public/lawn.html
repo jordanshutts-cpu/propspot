@@ -99,6 +99,7 @@
   <div class="section-header">
     <span class="section-title">Lawn maintenance</span>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="optimizeRoute()" title="Optimize stop order to minimize driving distance">🔄 Optimize Route</button>
       <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open today's route in Google Maps">🗺️ Open Route in Maps</button>
     </div>
   </div>
@@ -733,6 +734,59 @@
     });
     showToast('Route updated');
     render();
+  }
+
+  // ── Route optimization (nearest-neighbor TSP approximation) ──
+  function haversine(lat1, lon1, lat2, lon2) {
+    var R = 3958.8; // miles
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  async function optimizeRoute() {
+    var route = bucketRows().route;
+    if (route.length < 2) { showToast('Need at least 2 stops to optimize', 'error'); return; }
+    var withCoords = route.filter(function(r) { return r.lat != null && r.lng != null; });
+    var noCoords = route.filter(function(r) { return r.lat == null || r.lng == null; });
+    if (withCoords.length < 2) { showToast('Need GPS coordinates on at least 2 properties to optimize', 'error'); return; }
+
+    // Use browser geolocation as starting point if available, otherwise start from first stop
+    var startLat, startLng;
+    try {
+      var pos = await new Promise(function(resolve, reject) {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+      });
+      startLat = pos.coords.latitude;
+      startLng = pos.coords.longitude;
+    } catch(e) {
+      startLat = withCoords[0].lat;
+      startLng = withCoords[0].lng;
+    }
+
+    // Nearest-neighbor: always go to the closest unvisited stop
+    var visited = [];
+    var remaining = withCoords.slice();
+    var curLat = startLat, curLng = startLng;
+    while (remaining.length > 0) {
+      var bestIdx = 0, bestDist = Infinity;
+      for (var i = 0; i < remaining.length; i++) {
+        var d = haversine(curLat, curLng, remaining[i].lat, remaining[i].lng);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      var next = remaining.splice(bestIdx, 1)[0];
+      visited.push(next);
+      curLat = next.lat;
+      curLng = next.lng;
+    }
+
+    // Append any stops without coordinates at the end
+    var optimizedOrder = visited.concat(noCoords).map(function(r) { return r.id; });
+    await applyRouteChange(optimizedOrder);
+    showToast('Route optimized for shortest distance');
   }
 
   // ── Google Maps directions URL ──────────────────────────────
