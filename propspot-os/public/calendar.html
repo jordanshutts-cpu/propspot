@@ -299,12 +299,22 @@ async function init() {
     personalCalendarConnected = !!status.connected;
   } catch(e) { personalCalendarConnected = false; }
   // If we bounced back from a fresh connect, flip to Personal automatically.
-  if (new URLSearchParams(location.search).get('personal_calendar_connected')) {
+  var params = new URLSearchParams(location.search);
+  if (params.get('personal_calendar_connected')) {
     personalCalendarConnected = true;
     setCalView('personal');
     showToast('Google Calendar connected');
   } else {
     await loadMonth();
+  }
+  // Pulse → "Create event from this" sends users here with new_event=1 and
+  // title/description pre-filled. Pop the modal so they pick a date/time.
+  if (params.get('new_event') === '1') {
+    openNewEvent();
+    var prefillTitle = params.get('title');
+    var prefillDesc  = params.get('description');
+    if (prefillTitle) document.getElementById('e-title').value = prefillTitle;
+    if (prefillDesc)  document.getElementById('e-desc').value  = prefillDesc;
   }
 }
 
