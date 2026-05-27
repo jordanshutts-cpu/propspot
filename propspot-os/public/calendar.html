@@ -98,12 +98,15 @@
     .cal-week-allday-label { padding:6px 8px; font-size:.65rem; text-transform:uppercase;
                              letter-spacing:.04em; color:var(--text-muted); align-self:center;
                              border-right:1px solid var(--border); }
+    /* min-width:0 forces 1fr to win against long event titles — without
+       it the cell expands to fit its widest chip and the 7-day row no
+       longer lines up with the hour grid below. */
     .cal-week-allday-cell { border-left:1px solid var(--border); padding:3px 4px;
-                            min-height:28px; cursor:pointer; }
+                            min-height:28px; cursor:pointer; min-width:0; overflow:hidden; }
     .cal-week-allday-cell:hover { background:var(--brand-light); }
     .cal-week-allday-event { font-size:.7rem; padding:2px 6px; border-radius:4px;
                              color:#fff; margin-bottom:2px; cursor:pointer; overflow:hidden;
-                             text-overflow:ellipsis; white-space:nowrap; }
+                             text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
     .cal-week-body { display:grid; grid-template-columns:56px repeat(7,1fr);
                      position:relative; overflow-y:auto; max-height:calc(100vh - 320px); }
     .cal-week-times { display:flex; flex-direction:column; border-right:1px solid var(--border); }
