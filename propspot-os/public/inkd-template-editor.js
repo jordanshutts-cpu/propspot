@@ -405,6 +405,9 @@ async function save() {
     return;
   }
   showToast('Template saved');
+  // Pause briefly so the toast is visible before we navigate, then go back
+  // to the Ink'd templates list — that's where the saved template now lives.
+  setTimeout(() => { location.href = '/inkd.html?view=templates'; }, 700);
 }
 
 init();
