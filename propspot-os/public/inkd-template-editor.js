@@ -1,3 +1,16 @@
+// Wrapper around fetch() that adds the PropSpot Authorization header from
+// localStorage.ros_token. Without it every /api/inkd/ call returns 401.
+function api(url, options = {}) {
+  const token = localStorage.getItem('ros_token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 const params = new URLSearchParams(location.search);
 const templateId = params.get('id'); // null = new template
 
@@ -33,7 +46,7 @@ async function init() {
 
   // Now do the async work — load autofill sources for the dropdown.
   try {
-    const ar = await fetch('/api/inkd/templates/autofill-sources');
+    const ar = await api('/api/inkd/templates/autofill-sources');
     state.autofillSources = await ar.json();
     populateAutofillDropdown();
   } catch (err) {
@@ -41,7 +54,7 @@ async function init() {
   }
 
   if (templateId) {
-    const r = await fetch(`/api/inkd/templates/${templateId}`);
+    const r = await api(`/api/inkd/templates/${templateId}`);
     if (!r.ok) { alert('Template not found'); return; }
     state.template = await r.json();
     document.getElementById('tpl-name').value = state.template.name;
@@ -326,7 +339,7 @@ async function save() {
     fd.append('file', new Blob([state.pdfBytes], { type: 'application/pdf' }), 'template.pdf');
     fd.append('name', name);
     fd.append('category', category);
-    const r = await fetch('/api/inkd/templates', { method: 'POST', body: fd });
+    const r = await api('/api/inkd/templates', { method: 'POST', body: fd });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       const where = j.stage ? ` (stage: ${j.stage})` : '';
@@ -336,7 +349,7 @@ async function save() {
     state.template = await r.json();
     history.replaceState({}, '', `?id=${state.template.id}`);
   } else {
-    await fetch(`/api/inkd/templates/${state.template.id}`, {
+    await api(`/api/inkd/templates/${state.template.id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name, category }),
@@ -344,7 +357,7 @@ async function save() {
   }
 
   // Step B: save fields
-  const r2 = await fetch(`/api/inkd/templates/${state.template.id}/fields`, {
+  const r2 = await api(`/api/inkd/templates/${state.template.id}/fields`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ fields: state.fields }),

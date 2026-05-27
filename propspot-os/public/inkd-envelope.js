@@ -1,6 +1,19 @@
+// Wrapper around fetch() that adds the PropSpot Authorization header from
+// localStorage.ros_token. Without it every /api/inkd/ call returns 401.
+function api(url, options = {}) {
+  const token = localStorage.getItem('ros_token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 (async () => {
   const id = new URLSearchParams(location.search).get('id');
-  const r = await fetch(`/api/inkd/envelopes/${id}`);
+  const r = await api(`/api/inkd/envelopes/${id}`);
   const e = await r.json();
   document.getElementById('env-title').textContent = e.name;
   document.getElementById('env-status').textContent = e.status + (e.filed_at ? ' (filed)' : '');
@@ -11,7 +24,7 @@
     div.innerHTML = `<strong>${escapeHtml(r.full_name)}</strong> (${escapeHtml(r.role)}) — <span class="status ${r.status}">${r.status}</span><br><span style="font-size:11px;color:#666">${escapeHtml(r.email)}</span>`;
     rec.appendChild(div);
   }
-  const a = await fetch(`/api/inkd/envelopes/${id}/audit`).then(x => x.ok ? x.json() : []);
+  const a = await api(`/api/inkd/envelopes/${id}/audit`).then(x => x.ok ? x.json() : []);
   const auditEl = document.getElementById('audit');
   for (const ev of a) {
     const d = document.createElement('div');

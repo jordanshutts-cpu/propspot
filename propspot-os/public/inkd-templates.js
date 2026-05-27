@@ -1,5 +1,18 @@
+// Wrapper around fetch() that adds the PropSpot Authorization header from
+// localStorage.ros_token. Without it every /api/inkd/ call returns 401.
+function api(url, options = {}) {
+  const token = localStorage.getItem('ros_token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 (async () => {
-  const r = await fetch('/api/inkd/templates');
+  const r = await api('/api/inkd/templates');
   const tpls = await r.json();
   const tbody = document.querySelector('#tpl-table tbody');
   if (!tpls.length) {
@@ -16,7 +29,7 @@
       <td><button class="archive-btn" data-id="${t.id}">Archive</button></td>`;
     tr.querySelector('button').addEventListener('click', async () => {
       if (!confirm('Archive this template?')) return;
-      await fetch(`/api/inkd/templates/${t.id}`, { method: 'DELETE' });
+      await api(`/api/inkd/templates/${t.id}`, { method: 'DELETE' });
       location.reload();
     });
     tbody.appendChild(tr);
