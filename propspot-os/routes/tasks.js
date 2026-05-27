@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const { query } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { logActivity } = require('../lib/activity');
+const { pushNotification } = require('../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -134,6 +135,18 @@ router.post('/', async (req, res) => {
       action: 'task_created', payload: { title: task.title, assigned_to }
     });
 
+    // Notify assignee (skip if assigning to yourself)
+    if (assigned_to && assigned_to !== req.userId) {
+      const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+      const actorName = actor?.full_name || 'Someone';
+      pushNotification({
+        userId: assigned_to, type: 'task_assigned',
+        title: `${actorName} assigned you a task`,
+        body: task.title, url: '/tasks.html',
+        payload: { task_id: task.id, actor_user_id: req.userId }
+      });
+    }
+
     res.status(201).json(task);
   } catch (err) {
     console.error(err);
@@ -173,6 +186,19 @@ router.patch('/:id', async (req, res) => {
       actorUserId: req.userId, entityType: 'task', entityId: task.id,
       action: 'task_updated', payload: { status, priority, assigned_to }
     });
+
+    // Notify the new assignee when assignment changes (and they're not the actor)
+    const newAssigned = assigned_to !== undefined ? assigned_to : existing.assigned_to;
+    if (newAssigned && newAssigned !== existing.assigned_to && newAssigned !== req.userId) {
+      const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+      const actorName = actor?.full_name || 'Someone';
+      pushNotification({
+        userId: newAssigned, type: 'task_assigned',
+        title: `${actorName} assigned you a task`,
+        body: task.title, url: '/tasks.html',
+        payload: { task_id: task.id, actor_user_id: req.userId }
+      });
+    }
 
     res.json(task);
   } catch (err) {
@@ -334,6 +360,24 @@ router.post('/:id/comments', async (req, res) => {
         `INSERT INTO task_mentions (comment_id, mentioned_user_id, task_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
         [comment.id, uid, req.params.id]
       );
+    }
+
+    // Notify mentioned users (skip self-mention)
+    if (mentionedIds.length) {
+      const [{ rows: [actor] }, { rows: [taskRow] }] = await Promise.all([
+        query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]),
+        query(`SELECT title FROM tasks WHERE id = $1`, [req.params.id])
+      ]);
+      const actorName = actor?.full_name || 'Someone';
+      for (const uid of mentionedIds) {
+        if (uid === req.userId) continue;
+        pushNotification({
+          userId: uid, type: 'task_mention',
+          title: `${actorName} mentioned you in a task`,
+          body: taskRow?.title || 'Task comment', url: '/tasks.html',
+          payload: { task_id: req.params.id, comment_id: comment.id, actor_user_id: req.userId }
+        });
+      }
     }
 
     const { rows: [withUser] } = await query(`
