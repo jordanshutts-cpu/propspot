@@ -3,6 +3,7 @@ const { query } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { attachCrud } = require('../lib/crud');
 const { logActivity } = require('../lib/activity');
+const { notifyOwners } = require('../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -43,6 +44,26 @@ router.post('/:id/status', async (req, res) => {
       actorUserId: req.userId, entityType: 'project', entityId: req.params.id,
       action: 'status_changed', payload: { status }
     });
+
+    // Notify owners on meaningful project transitions (listed/sold/rented)
+    if (['sold','rented','listed_for_sale','listed_for_rent'].includes(status)) {
+      const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+      const { rows: [prop] }  = await query(`SELECT address_line1 FROM properties WHERE id = $1`, [rows[0].property_id]);
+      const label = ({
+        sold: 'marked a property sold',
+        rented: 'marked a property rented',
+        listed_for_sale: 'listed a property for sale',
+        listed_for_rent: 'listed a property for rent'
+      })[status];
+      notifyOwners({
+        excludeUserId: req.userId, type: 'pipeline_promotion',
+        title: `${actor?.full_name || 'Someone'} ${label}`,
+        body: prop?.address_line1 || 'Project updated',
+        url: '/projects.html',
+        payload: { stage: status, project_id: req.params.id }
+      });
+    }
+
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update status' });

@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const { query } = require('../../db');
 const { requireAuth, requireMaintenanceGrant } = require('../../middleware/auth');
 const { scopedPropertyIds } = require('../../lib/maintenance-scope');
+const { pushNotification } = require('../../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -161,6 +162,18 @@ router.post('/', async (req, res) => {
       notes?.trim() || null,
       req.userId
     ]);
+
+    // Notify the assigned user (skip self-assignment)
+    if (rows[0].assigned_user_id && rows[0].assigned_user_id !== req.userId) {
+      const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+      pushNotification({
+        userId: rows[0].assigned_user_id, type: 'work_order_assigned',
+        title: `${actor?.full_name || 'Someone'} assigned you a work order`,
+        body: rows[0].title, url: '/maintenance.html',
+        payload: { work_order_id: rows[0].id, actor_user_id: req.userId }
+      });
+    }
+
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -192,11 +205,13 @@ router.patch('/:id', async (req, res) => {
   if (!sets.length) return res.status(400).json({ error: 'no fields to update' });
   vals.push(req.params.id);
   try {
-    // Read the previous assignee so we can detect a real change.
+    // Read the previous state so we can detect real changes.
     const { rows: priorRows } = await query(
-      `SELECT assigned_user_id FROM work_orders WHERE id = $1`, [req.params.id]
+      `SELECT assigned_user_id, status, created_by, title FROM work_orders WHERE id = $1`, [req.params.id]
     );
     const previousAssignee = priorRows[0]?.assigned_user_id || null;
+    const previousStatus   = priorRows[0]?.status || null;
+    const previousCreator  = priorRows[0]?.created_by || null;
 
     const { rows } = await query(
       `UPDATE work_orders SET ${sets.join(', ')}, updated_at = NOW()
@@ -217,6 +232,28 @@ router.patch('/:id', async (req, res) => {
         assigneeId: newAssignee,
         inviterId: req.userId
       }).catch(e => console.error('notifyAssignment failed:', e));
+
+      // In-app notification for the new assignee
+      const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+      pushNotification({
+        userId: newAssignee, type: 'work_order_assigned',
+        title: `${actor?.full_name || 'Someone'} assigned you a work order`,
+        body: rows[0].title, url: '/maintenance.html',
+        payload: { work_order_id: rows[0].id, actor_user_id: req.userId }
+      });
+    }
+
+    // Status change → notify the creator (if not the actor)
+    if (req.body.status && req.body.status !== previousStatus
+        && previousCreator && previousCreator !== req.userId) {
+      const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+      pushNotification({
+        userId: previousCreator, type: 'work_order_status',
+        title: `${actor?.full_name || 'Someone'} updated a work order`,
+        body: `${rows[0].title} — now ${rows[0].status}`,
+        url: '/maintenance.html',
+        payload: { work_order_id: rows[0].id, status: rows[0].status, actor_user_id: req.userId }
+      });
     }
 
     res.json(rows[0]);

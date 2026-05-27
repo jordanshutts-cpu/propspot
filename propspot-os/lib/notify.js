@@ -28,4 +28,22 @@ async function pushNotification({ userId, type, title, body, url, payload }) {
   }
 }
 
-module.exports = { pushNotification };
+/**
+ * Fan out a notification to every active workspace owner (excluding the actor).
+ * Used by pipeline promotions where the whole leadership team should see it.
+ */
+async function notifyOwners({ excludeUserId, type, title, body, url, payload }) {
+  try {
+    const { rows: owners } = await query(
+      `SELECT id FROM users WHERE is_owner = TRUE AND removed_at IS NULL`
+    );
+    for (const o of owners) {
+      if (o.id === excludeUserId) continue;
+      await pushNotification({ userId: o.id, type, title, body, url, payload });
+    }
+  } catch (err) {
+    console.error('notifyOwners error:', err.message);
+  }
+}
+
+module.exports = { pushNotification, notifyOwners };
