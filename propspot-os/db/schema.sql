@@ -1295,6 +1295,20 @@ DO $$ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS chat_messages_reply_to_idx ON chat_messages(reply_to_id);
 
+-- ── Slack migration linkage ──────────────────────────────────────────────────
+-- Lets the Slack importer resume safely if interrupted (and skip
+-- already-migrated rows on re-run). All nullable so non-migrated rows
+-- are unaffected.
+ALTER TABLE chat_channels    ADD COLUMN IF NOT EXISTS slack_channel_id  TEXT;
+ALTER TABLE chat_messages    ADD COLUMN IF NOT EXISTS slack_message_ts  TEXT;
+ALTER TABLE chat_attachments ADD COLUMN IF NOT EXISTS slack_file_id     TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_channels_slack_uniq
+  ON chat_channels (slack_channel_id) WHERE slack_channel_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_messages_slack_uniq
+  ON chat_messages (slack_message_ts) WHERE slack_message_ts IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_attachments_slack_uniq
+  ON chat_attachments (slack_file_id) WHERE slack_file_id IS NOT NULL;
+
 -- ── Tasks (To-Do Tracker) ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tasks (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

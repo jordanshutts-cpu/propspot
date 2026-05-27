@@ -14,7 +14,8 @@
     "bulk-invite-users": "node scripts/bulk-invite-users.js",
     "import-companycam": "node scripts/import-companycam-projects.js",
     "import-companycam-photos": "node scripts/import-companycam-photos.js",
-    "import-master-tracker": "node scripts/import-master-tracker.js"
+    "import-master-tracker": "node scripts/import-master-tracker.js",
+    "import-slack": "node scripts/import-slack.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
