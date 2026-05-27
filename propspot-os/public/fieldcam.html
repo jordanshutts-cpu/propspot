@@ -848,9 +848,10 @@
       projectMap = L.map('fc-project-map', {
         zoomControl: true,
         scrollWheelZoom: true,
-        zoomSnap: 0.25,
-        zoomDelta: 0.25,
-        wheelPxPerZoomLevel: 40
+        zoomSnap: 0,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 80,
+        wheelDebounceTime: 20
       }).setView([34.0, -81.0], 7);
       applyTileLayer();
       // Apply stored height preference immediately
