@@ -142,6 +142,65 @@
 
     .fc-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     .fc-empty-icon { font-size: 3rem; opacity: .35; margin-bottom: 10px; }
+
+    /* ── Select / Share mode ───────────────────────────────────── */
+    .fc-select-btn {
+      padding: 6px 14px; border-radius: 100px;
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text-muted); font-size: .8rem; font-weight: 600;
+      cursor: pointer; transition: all .12s;
+    }
+    .fc-select-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .fc-select-btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+    .fc-thumb.selectable { cursor: pointer; }
+    .fc-thumb.selectable::after {
+      content: ''; position: absolute; inset: 0;
+      border: 3px solid transparent; border-radius: 12px;
+      pointer-events: none; transition: border-color .1s;
+    }
+    .fc-thumb.selectable:hover::after { border-color: rgba(97,183,70,.4); }
+    .fc-thumb.selected::after { border-color: var(--brand); }
+    .fc-thumb-check {
+      position: absolute; top: 8px; left: 8px; z-index: 2;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(255,255,255,.85); border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: transparent; font-size: .8rem; font-weight: 800;
+      transition: all .12s;
+    }
+    .fc-thumb.selected .fc-thumb-check {
+      background: var(--brand); border-color: var(--brand); color: #fff;
+    }
+
+    .fc-bulk-bar {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      display: none; align-items: center; gap: 10px;
+      background: var(--text); color: var(--surface);
+      padding: 10px 16px; border-radius: 100px;
+      box-shadow: 0 10px 32px rgba(0,0,0,.25); z-index: 150;
+      font-size: .88rem; font-weight: 600;
+    }
+    .fc-bulk-bar.open { display: inline-flex; }
+    .fc-bulk-count { padding: 0 8px; }
+    .fc-bulk-bar .btn { padding: 6px 14px; font-size: .82rem; font-weight: 600; }
+
+    /* Share-link result modal */
+    .fc-share-modal {
+      display: none; position: fixed; inset: 0; z-index: 250;
+      background: rgba(0,0,0,.5); align-items: center; justify-content: center; padding: 20px;
+    }
+    .fc-share-modal.open { display: flex; }
+    .fc-share-modal-box {
+      background: var(--surface); border-radius: 12px; padding: 20px;
+      width: 100%; max-width: 460px; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    }
+    .fc-share-url {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: .85rem; font-family: monospace;
+      background: var(--bg); color: var(--text); margin: 12px 0;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 <body class="os-newlayout" data-page="fieldcam-property">
@@ -157,10 +216,13 @@
   // FAB on a property page should pre-select that property in the camera.
   (function () {
     const id = new URLSearchParams(location.search).get('id');
-    const fab = document.getElementById('fc-fab');
-    if (fab) fab.href = id
+    const cameraHref = id
       ? `/fieldcam-camera.html?property_id=${encodeURIComponent(id)}&return=${encodeURIComponent(location.pathname + location.search)}`
       : '/fieldcam-camera.html';
+    const fab = document.getElementById('fc-fab');
+    if (fab) fab.href = cameraHref;
+    const takeBtn = document.getElementById('fc-take-photo');
+    if (takeBtn) takeBtn.href = cameraHref;
   })();
 </script>
 
@@ -180,14 +242,18 @@
         <div class="fc-stat"><div class="fc-stat-num" id="stat-last">—</div><div class="fc-stat-label">Last upload</div></div>
       </div>
       <div class="fc-hero-actions">
+        <a class="btn btn-primary" id="fc-take-photo" href="#">📷 Take Photo</a>
+        <button class="btn btn-secondary" onclick="document.getElementById('fc-upload-input').click()">⬆ Upload</button>
+        <input type="file" id="fc-upload-input" multiple accept="image/*,video/*" style="display:none;" onchange="uploadPhotos(this.files)">
         <a class="btn btn-secondary" id="fc-link-property" href="#" style="display:none;">View property page →</a>
       </div>
     </div>
   </section>
 
-  <!-- Folder tabs -->
-  <div class="fc-tabs-wrap">
-    <div class="fc-tabs" id="fc-tabs"></div>
+  <!-- Folder tabs + Select toggle -->
+  <div class="fc-tabs-wrap" style="display:flex;align-items:center;gap:10px;">
+    <div class="fc-tabs" id="fc-tabs" style="flex:1;"></div>
+    <button class="fc-select-btn" id="fc-select-btn" onclick="toggleSelect()" title="Select photos to share">Select</button>
   </div>
 
   <!-- Photo grid (grouped by date) -->
@@ -195,6 +261,27 @@
     <p class="text-muted text-sm" style="padding:14px 0;">Loading…</p>
   </div>
 </main>
+
+<!-- Bulk action bar (Select mode) -->
+<div class="fc-bulk-bar" id="fc-bulk-bar">
+  <span class="fc-bulk-count" id="fc-bulk-count">0 selected</span>
+  <button class="btn btn-primary" onclick="shareSelected()" id="fc-bulk-share" disabled>Share link</button>
+  <button class="btn btn-secondary" onclick="downloadSelected()" id="fc-bulk-download" disabled>⬇ Download</button>
+  <button class="btn btn-secondary" onclick="exitSelect()">Cancel</button>
+</div>
+
+<!-- Share link result modal -->
+<div class="fc-share-modal" id="fc-share-modal" onclick="if(event.target===this)closeShareModal()">
+  <div class="fc-share-modal-box">
+    <h3 style="margin:0 0 4px;font-size:1.05rem;">Share link created</h3>
+    <p class="text-muted text-sm" style="margin:0;">Anyone with this URL can view the selected photos.</p>
+    <input class="fc-share-url" id="fc-share-url" readonly onclick="this.select()">
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeShareModal()">Close</button>
+      <button class="btn btn-primary" onclick="copyShareUrl()">Copy link</button>
+    </div>
+  </div>
+</div>
 
 <!-- Lightbox -->
 <div class="fc-lb" id="fc-lb">
@@ -217,6 +304,7 @@
   const params  = new URLSearchParams(location.search);
   const PROP_ID = params.get('id');
   let allPhotos = [], folders = [], currentFolder = null, lbIdx = -1, lbPhotos = [];
+  let selectMode = false, selectedPhotoIds = new Set();
 
   function goBack() {
     // Prefer the FieldCam map page if it's the referrer; else use history.
@@ -364,13 +452,148 @@
     const media    = isVideo
       ? `<video src="${escHtml(p.url)}" muted playsinline></video><span class="fc-video-badge">▶ Video</span>`
       : `<img src="${escHtml(p.url)}" alt="" loading="lazy">`;
-    return `<div class="fc-thumb" onclick="openLb(${i})">
+    const selectableCls = selectMode ? ' selectable' : '';
+    const selectedCls   = selectedPhotoIds.has(p.id) ? ' selected' : '';
+    const clickHandler  = selectMode
+      ? `toggleSelectPhoto('${p.id}', this)`
+      : `openLb(${i})`;
+    const check = selectMode ? `<div class="fc-thumb-check">✓</div>` : '';
+    return `<div class="fc-thumb${selectableCls}${selectedCls}" onclick="${clickHandler}">
+      ${check}
       ${media}
       <div class="fc-thumb-overlay">
         ${time ? escHtml(time) : ''}
         ${uploader ? `<div class="fc-thumb-uploader">${escHtml(uploader)}</div>` : ''}
       </div>
     </div>`;
+  }
+
+  // ── Select / Share mode ──────────────────────────────────────────
+  function toggleSelect() {
+    selectMode ? exitSelect() : enterSelect();
+  }
+  function enterSelect() {
+    selectMode = true;
+    selectedPhotoIds.clear();
+    document.getElementById('fc-select-btn').classList.add('active');
+    document.getElementById('fc-select-btn').textContent = 'Selecting…';
+    document.getElementById('fc-bulk-bar').classList.add('open');
+    updateBulkBar();
+    renderGroupedGrid();
+  }
+  function exitSelect() {
+    selectMode = false;
+    selectedPhotoIds.clear();
+    document.getElementById('fc-select-btn').classList.remove('active');
+    document.getElementById('fc-select-btn').textContent = 'Select';
+    document.getElementById('fc-bulk-bar').classList.remove('open');
+    renderGroupedGrid();
+  }
+  function toggleSelectPhoto(id, el) {
+    if (selectedPhotoIds.has(id)) {
+      selectedPhotoIds.delete(id);
+      el.classList.remove('selected');
+    } else {
+      selectedPhotoIds.add(id);
+      el.classList.add('selected');
+    }
+    updateBulkBar();
+  }
+  function updateBulkBar() {
+    const n = selectedPhotoIds.size;
+    document.getElementById('fc-bulk-count').textContent =
+      n === 0 ? 'Tap photos to select' : `${n} selected`;
+    document.getElementById('fc-bulk-share').disabled    = n === 0;
+    document.getElementById('fc-bulk-download').disabled = n === 0;
+  }
+
+  // ── Upload photos / videos from a file picker ───────────────────
+  async function uploadPhotos(fileList) {
+    const files = [...(fileList || [])];
+    if (!files.length) return;
+    const btnUpload = document.querySelector('.fc-hero-actions .btn-secondary');
+    const origLabel = btnUpload?.textContent;
+    let ok = 0, fail = 0;
+    for (let i = 0; i < files.length; i++) {
+      if (btnUpload) btnUpload.textContent = `Uploading ${i + 1}/${files.length}…`;
+      const form = new FormData();
+      form.append('photo', files[i]);
+      if (currentFolder) form.append('folder_id', currentFolder);
+      try {
+        await satelliteApiFetch('fieldcam', `/api/photos/${PROP_ID}`,
+          { method: 'POST', body: form });
+        ok++;
+      } catch (e) { fail++; console.error('upload failed', files[i].name, e); }
+    }
+    if (btnUpload) btnUpload.textContent = origLabel || '⬆ Upload';
+    document.getElementById('fc-upload-input').value = '';
+    showToast?.(
+      fail === 0 ? `Uploaded ${ok} ${ok === 1 ? 'file' : 'files'}` :
+                   `Uploaded ${ok}, ${fail} failed`,
+      fail === 0 ? 'success' : 'error'
+    );
+    await loadPhotos();
+  }
+
+  // ── Download selected photos (one save dialog per file) ─────────
+  // Inserts Cloudinary's fl_attachment flag so the browser saves
+  // instead of navigating. For larger batches, the user will see N
+  // download prompts — server-side zip is its own follow-up.
+  function downloadSelected() {
+    if (!selectedPhotoIds.size) return;
+    const picks = allPhotos.filter(p => selectedPhotoIds.has(p.id));
+    picks.forEach((p, i) => {
+      const url = p.url.includes('/upload/')
+        ? p.url.replace('/upload/', '/upload/fl_attachment/')
+        : p.url;
+      // Stagger slightly so Chrome doesn't block as "multiple downloads".
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }, i * 250);
+    });
+    showToast?.(`Downloading ${picks.length} ${picks.length === 1 ? 'file' : 'files'}…`);
+  }
+  async function shareSelected() {
+    if (!selectedPhotoIds.size) return;
+    try {
+      const r = await satelliteApiFetch('fieldcam', '/api/share', {
+        method: 'POST',
+        body: JSON.stringify({
+          propertyId: PROP_ID,
+          photoIds: [...selectedPhotoIds],
+          label: `${selectedPhotoIds.size} photos`
+        })
+      });
+      const url = location.origin + '/share.html?token=' + encodeURIComponent(r.token);
+      document.getElementById('fc-share-url').value = url;
+      document.getElementById('fc-share-modal').classList.add('open');
+      exitSelect();
+    } catch (e) {
+      showToast?.(e.message || 'Failed to create share link', 'error');
+      alert('Failed to create share link: ' + (e.message || e));
+    }
+  }
+  function closeShareModal() {
+    document.getElementById('fc-share-modal').classList.remove('open');
+  }
+  async function copyShareUrl() {
+    const url = document.getElementById('fc-share-url').value;
+    try {
+      await navigator.clipboard.writeText(url);
+      const btn = document.querySelector('#fc-share-modal .btn-primary');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1400);
+    } catch (_) {
+      document.getElementById('fc-share-url').select();
+      document.execCommand?.('copy');
+    }
   }
 
   // ── Lightbox ────────────────────────────────────────────────────

@@ -44,9 +44,20 @@ router.get('/:token', async (req, res) => {
       ORDER BY f.sort_order ASC, f.created_at ASC
     `, [link.property_id]);
 
-    // Fetch photos — filtered by folder if the link has a folder_id
+    // Fetch photos — three scopes: specific photo_ids[], folder_id, or all.
+    // photo_ids takes precedence so a per-photo share link doesn't accidentally
+    // expose the rest of a folder.
     let photoQuery, photoParams;
-    if (link.folder_id) {
+    if (link.photo_ids && link.photo_ids.length) {
+      photoQuery = `
+        SELECT ph.*, f.name AS folder_name
+        FROM photos ph
+        LEFT JOIN folders f ON f.id = ph.folder_id
+        WHERE ph.property_id = $1 AND ph.id = ANY($2::uuid[]) AND ph.deleted_at IS NULL
+        ORDER BY ph.taken_at DESC
+      `;
+      photoParams = [link.property_id, link.photo_ids];
+    } else if (link.folder_id) {
       photoQuery = `
         SELECT ph.*, f.name AS folder_name
         FROM photos ph
@@ -111,18 +122,27 @@ router.get('/', async (req, res) => {
 });
 
 // ── POST /api/share ──────────────────────────────────────────────
-// Create a new share link; body: { propertyId, folderId?, label? }
+// Create a new share link.
+// Body: { propertyId, folderId?, photoIds?, label? }
+//   - propertyId is always required.
+//   - photoIds (UUID[]) — when set, the share link renders only those
+//     specific photos (still scoped to propertyId). Takes precedence
+//     over folderId.
+//   - folderId — when set without photoIds, link shows all photos in
+//     that folder.
+//   - Neither photoIds nor folderId — link shows all property photos.
 router.post('/', async (req, res) => {
-  const { propertyId, folderId, label } = req.body;
+  const { propertyId, folderId, label, photoIds } = req.body;
   if (!propertyId) return res.status(400).json({ error: 'propertyId is required' });
+  const photoIdsParam = Array.isArray(photoIds) && photoIds.length ? photoIds : null;
 
   try {
     const token = crypto.randomBytes(16).toString('hex');
     const { rows } = await query(`
-      INSERT INTO share_links (token, property_id, folder_id, label, created_by)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO share_links (token, property_id, folder_id, label, created_by, photo_ids)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [token, propertyId, folderId || null, label || null, req.userId]);
+    `, [token, propertyId, folderId || null, label || null, req.userId, photoIdsParam]);
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error(err);
