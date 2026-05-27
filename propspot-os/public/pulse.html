@@ -953,6 +953,7 @@
     const svgDots   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>`;
     const svgCopy   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
     const svgTask   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
+    const svgCal    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
     const quickEmojis = ['👍','❤️','😂','🎉','🔥'];
     const quickBtns = quickEmojis.map(em =>
@@ -963,6 +964,7 @@
       <button class="ps-more-item" onclick="copyMsgText('${mid}')">${svgCopy} Copy text</button>
       <button class="ps-more-item" onclick="startReply('${mid}','${esc1(senderName)}');closeMoreMenu('${mid}')">${svgReply} Reply to message</button>
       <button class="ps-more-item" onclick="createTaskFromMsg('${mid}');closeMoreMenu('${mid}')">${svgTask} Create task from this</button>
+      <button class="ps-more-item" onclick="createEventFromMsg('${mid}');closeMoreMenu('${mid}')">${svgCal} Create event from this</button>
       ${isOwn ? `<div class="ps-more-divider"></div>
       <button class="ps-more-item" onclick="editMsg('${mid}');closeMoreMenu('${mid}')">${svgEdit} Edit message</button>
       <button class="ps-more-item danger" onclick="deleteMsg('${mid}')">${svgDel} Delete message</button>` : ''}
@@ -1219,6 +1221,26 @@
         if (el) el.innerHTML = `<div class="ps-empty" style="height:100%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="40" height="40"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><p>No messages yet — say hello!</p></div>`;
       }
     } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Create Event from message ─────────────────────────────────
+  // Opens /calendar.html with the New Event modal pre-filled so the user
+  // picks the date/time. We don't auto-create with a guessed time —
+  // that just makes clutter the user has to delete.
+  function createEventFromMsg(msgId) {
+    const m = messages.find(msg => msg.id === msgId);
+    if (!m) return;
+    const body = (m.body || m.content || '').replace(/<[^>]+>/g, '').trim();
+    const channel = activeScope?.name || 'Pulse';
+    const sender = m.sender_name || m.sender_email || 'Unknown';
+    const title = body.substring(0, 60) + (body.length > 60 ? '…' : '');
+    const description = `From ${sender} in ${channel}:\n\n${body}`;
+    const qs = new URLSearchParams({
+      new_event: '1',
+      title,
+      description
+    }).toString();
+    window.location.href = '/calendar.html?' + qs;
   }
 
   // ── Create Task from message ──────────────────────────────────
