@@ -649,19 +649,20 @@
     catch { return 'voyager'; }
   })();
 
-  // ── Status metadata (color + display label) ──────────────────────
+  // ── Status metadata — colors and labels match database.html / app.js ─
+  // Column-accent colors (vivid, used for kanban column headers and map pins)
   const STATUS_META = {
-    prospect:             { color: '#3b82f6', label: 'Prospect' },
+    prospect:             { color: '#94a3b8', label: 'Prospect' },
     purchasing:           { color: '#f59e0b', label: 'Purchasing' },
-    under_contract_buyer: { color: '#f97316', label: 'UC Buyer' },
-    renovating:           { color: '#eab308', label: 'Renovating' },
-    assigned:             { color: '#f97316', label: 'Assigned' },
-    listed_for_rent:      { color: '#06b6d4', label: 'Listed/Rent' },
-    renting:              { color: '#06b6d4', label: 'For Rent' },
-    rented:               { color: '#22c55e', label: 'Rented' },
-    listed_for_sale:      { color: '#a855f7', label: 'For Sale' },
+    renovating:           { color: '#2563eb', label: 'Renovating' },
+    renting:              { color: '#0284c7', label: 'Renting' },
+    rented:               { color: '#16a34a', label: 'Rented' },
+    listed_for_rent:      { color: '#0284c7', label: 'Listed for Rent' },
     selling:              { color: '#a855f7', label: 'Selling' },
-    sold:                 { color: '#6b7280', label: 'Sold' },
+    listed_for_sale:      { color: '#9333ea', label: 'Listed on MLS' },
+    under_contract_buyer: { color: '#db2777', label: 'UC with Buyer' },
+    sold:                 { color: '#475569', label: 'Sold' },
+    assigned:             { color: '#334155', label: 'Assigned' },
     dropped:              { color: '#9ca3af', label: 'Dropped' },
   };
   function statusMeta(s) {
