@@ -1,23 +1,21 @@
-#!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────────
 //  holdings-reminders.js
-//  Daily cron: scans holdings_items for upcoming due dates and pushes
-//  a notification to every owner. Idempotent — re-running on the same
+//  Scans holdings_items for upcoming due dates and pushes a
+//  notification to every owner. Idempotent — re-running on the same
 //  day won't duplicate notifications (deduped by item_id + due_date).
 //
-//  Wire it on Railway with a separate cron service:
-//    railway run node scripts/holdings-reminders.js   (manual)
-//    or set up a daily cron schedule via Railway dashboard.
+//  Two modes:
+//    1. CLI:   `node scripts/holdings-reminders.js`  (opens own pool, ends it)
+//    2. Module: `require('./scripts/holdings-reminders')()` (in-process, no end)
+//
+//  In-process mode is what server.js uses on its 6-hour timer.
 // ─────────────────────────────────────────────────────────────────
-require('dotenv').config();
-const { query, pool } = require('../db');
+const { query } = require('../db');
 const { pushNotification } = require('../lib/notify');
 
-async function run() {
-  console.log('[holdings-reminders] starting…');
+async function runHoldingsReminders() {
+  const startedAt = Date.now();
 
-  // Find every active holdings item whose next_due_date falls inside its
-  // own reminder window (defaults if columns are null: 14 days for active).
   const { rows: dueItems } = await query(`
     SELECT i.id, i.property_id, i.item_type, i.label,
            i.next_due_date, i.reminder_days_before,
@@ -32,12 +30,10 @@ async function run() {
   `);
 
   if (!dueItems.length) {
-    console.log('[holdings-reminders] nothing due — exiting.');
-    await pool.end();
-    return;
+    console.log(`[holdings-reminders] nothing due (${Date.now() - startedAt}ms)`);
+    return { pushed: 0, skipped: 0, items: 0 };
   }
 
-  // Active workspace owners only.
   const { rows: owners } = await query(
     `SELECT id FROM users WHERE is_owner = TRUE AND removed_at IS NULL`
   );
@@ -55,8 +51,7 @@ async function run() {
                  `due in ${daysOut} days`;
 
     for (const o of owners) {
-      // Dedupe: if a holdings_due notification already exists for this
-      // (user, item, due_date), skip.
+      // Dedupe: notification for this (user, item, due_date) already exists?
       const { rows: exists } = await query(`
         SELECT 1 FROM notifications
          WHERE user_id = $1
@@ -78,11 +73,17 @@ async function run() {
     }
   }
 
-  console.log(`[holdings-reminders] done. pushed=${pushed} skipped=${skipped} items=${dueItems.length} owners=${owners.length}`);
-  await pool.end();
+  console.log(`[holdings-reminders] pushed=${pushed} skipped=${skipped} items=${dueItems.length} owners=${owners.length} (${Date.now() - startedAt}ms)`);
+  return { pushed, skipped, items: dueItems.length };
 }
 
-run().catch(err => {
-  console.error('[holdings-reminders] failed:', err);
-  process.exit(1);
-});
+module.exports = runHoldingsReminders;
+
+// CLI mode — load env, run, close the pool.
+if (require.main === module) {
+  require('dotenv').config();
+  const { pool } = require('../db');
+  runHoldingsReminders()
+    .then(() => pool.end())
+    .catch(err => { console.error('[holdings-reminders] failed:', err); pool.end(); process.exit(1); });
+}

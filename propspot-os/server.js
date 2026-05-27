@@ -198,6 +198,21 @@ initDb()
         console.error('[inbox-sync] failed to start:', e.message);
       }
     }
+
+    // Holdings due-soon reminders. Idempotent (dedupes by item_id+due_date),
+    // so the 6-hour cadence is safe — duplicate runs are a no-op.
+    // Skip with HOLDINGS_REMINDERS_ENABLED=0.
+    if (process.env.HOLDINGS_REMINDERS_ENABLED !== '0') {
+      const runHoldingsReminders = require('./scripts/holdings-reminders');
+      const HOLDINGS_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
+      // First run 60s after boot — gives DB schema migrations time to settle.
+      setTimeout(() => {
+        runHoldingsReminders().catch(e => console.error('[holdings-reminders] tick failed:', e.message));
+        setInterval(() => {
+          runHoldingsReminders().catch(e => console.error('[holdings-reminders] tick failed:', e.message));
+        }, HOLDINGS_INTERVAL_MS);
+      }, 60 * 1000);
+    }
   })
   .catch(err => {
     console.error('Failed to initialize database:', err);
