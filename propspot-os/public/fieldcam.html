@@ -10,6 +10,28 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <script>
+  // If a property scope is active (either via ?property_id= or the global
+  // "Now viewing" chip backed by sessionStorage), jump straight to that
+  // property's FieldCam view. Runs before any page content renders so
+  // there's no dashboard flash.
+  (function () {
+    try {
+      const url = new URL(location.href);
+      let id = url.searchParams.get('property_id');
+      if (!id) {
+        try { id = sessionStorage.getItem('propspot_scoped_property'); } catch (e) {}
+      }
+      if (id) {
+        const dest = new URL('/fieldcam-property.html', location.origin);
+        dest.searchParams.set('id', id);
+        const token = url.searchParams.get('token');
+        if (token) dest.searchParams.set('token', token);
+        location.replace(dest.toString());
+      }
+    } catch (e) {}
+  })();
+  </script>
   <style>
     /* ── "Open camera" launch button on the dashboard hero ─────── */
     .fc-cam-launch {
