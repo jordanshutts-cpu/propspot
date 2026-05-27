@@ -89,6 +89,12 @@
       if (this.mode === 'voice') {
         return await navigator.mediaDevices.getUserMedia({ audio: true });
       }
+      if (this.mode === 'webcam') {
+        return await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+      }
       throw new Error(`Mode ${this.mode} not yet implemented`);
     }
 
@@ -202,17 +208,25 @@
         return;
       }
       if (s === 'recording') {
+        const previewTag = (this.mode === 'voice')
+          ? `<span class="ps-recorder-meter" id="ps-rec-meter"></span>`
+          : `<video id="ps-rec-preview" autoplay muted playsinline class="ps-recorder-live-preview"></video>`;
         this.root.innerHTML = `
           <div class="ps-recorder-body">
             <span class="ps-recorder-dot"></span>
             <span class="ps-recorder-mode">${this._modeLabel()}</span>
-            <span class="ps-recorder-meter" id="ps-rec-meter"></span>
+            ${previewTag}
             <span class="ps-recorder-timer" id="ps-rec-timer">0:00</span>
             <button class="ps-recorder-btn ps-recorder-stop" data-action="stop">Stop</button>
             <button class="ps-recorder-btn ps-recorder-cancel" data-action="discard">Cancel</button>
           </div>`;
         this._wire();
-        this._startMeter();
+        if (this.mode === 'voice') {
+          this._startMeter();
+        } else {
+          const v = this.root.querySelector('#ps-rec-preview');
+          if (v && this.mediaStream) v.srcObject = this.mediaStream;
+        }
         return;
       }
       if (s === 'previewing') {
