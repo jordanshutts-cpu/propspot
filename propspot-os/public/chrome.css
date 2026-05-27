@@ -332,29 +332,10 @@ html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
   position: relative;
 }
 
-/* Collapsed-sidebar hover tooltip — pops the row's label out to the
-   right of the icon so users can identify icons without expanding the
-   sidebar. Driven by the existing title="" attribute that row() sets. */
-html.sidebar-collapsed .os-newchrome-row[title]:hover::after {
-  content: attr(title);
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 6px 10px;
-  background: #1f2937;
-  color: #fff;
-  font-size: .78rem;
-  font-weight: 600;
-  border-radius: 6px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 1200;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-}
-html.theme-dark.sidebar-collapsed .os-newchrome-row[title]:hover::after {
-  background: #4b5563;
-}
+/* Collapsed-sidebar tooltip lives in #os-sidebar-tooltip (created by
+   setupCollapsedTooltip in sidebar.js) so it can use position:fixed
+   and escape the sidebar's overflow clip. The old ::after approach
+   got cut off at the right edge of the scrolling container. */
 .os-newchrome-row:not([data-section]):hover { background: var(--brand-light); color: var(--brand-dark); }
 .os-newchrome-row.active {
   background: var(--brand-light);
