@@ -56,16 +56,24 @@ router.post('/', upload.single('file'), async (req, res) => {
     const pdfDoc = await PDFDocument.load(req.file.buffer, { ignoreEncryption: true });
     const pageCount = pdfDoc.getPageCount();
 
-    // Upload PDFs as 'raw' resources (binary passthrough). The earlier 'auto'
-    // value caused Cloudinary to classify PDFs as 'image' resources, and then
-    // its default "PDF and ZIP files delivery" security policy blocked browser
-    // fetches with a 401 — so the editor stage couldn't load the saved PDF
-    // back. 'raw' resources bypass that policy entirely and serve the file
-    // as-is, the same way an S3 bucket would.
+    // Force resource_type: 'raw' + explicit public access. PR #186 switched
+    // from 'auto' to 'raw' to bypass the PDF security policy, but the result
+    // still returned 401 — confirmed via direct curl, with the `cache-control:
+    // private` header in the response. That means the Cloudinary account is
+    // marking new uploads as authenticated (signed-URL required) by default.
+    //
+    // type: 'upload' + access_mode: 'public' override that default and force
+    // the asset to be anonymously accessible via the secure_url we store.
     stage = 'cloudinary-upload';
     const cloud = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
-        { resource_type: 'raw', folder: 'propspot/inkd/templates', format: 'pdf' },
+        {
+          resource_type: 'raw',
+          type:          'upload',
+          access_mode:   'public',
+          folder:        'propspot/inkd/templates',
+          format:        'pdf',
+        },
         (err, out) => err ? reject(err) : resolve(out)
       ).end(req.file.buffer);
     });

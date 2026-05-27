@@ -129,7 +129,13 @@ async function finalizeEnvelope(envelopeId) {
 
   const cloud = await new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
-      { resource_type: 'raw', folder: 'propspot/inkd/signed', format: 'pdf' },
+      {
+        resource_type: 'raw',
+        type:          'upload',
+        access_mode:   'public',
+        folder:        'propspot/inkd/signed',
+        format:        'pdf',
+      },
       (e, out) => e ? reject(e) : resolve(out)
     ).end(Buffer.from(bytes));
   });
