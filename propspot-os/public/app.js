@@ -128,9 +128,6 @@
     try { url = new URL(a.href, location.origin); } catch { return; }
     if (url.origin !== location.origin) return;
     if (url.pathname === location.pathname && url.search === location.search) return;
-    // FieldCam pages skip the loading curtain — they render instantly from
-    // the sidebar cache and feel faster without the overlay.
-    if (url.pathname.startsWith('/fieldcam')) return;
     show();
   });
 
