@@ -24,3 +24,43 @@
 .card .actions .file:hover { background: var(--brand-dark, #4a9337); color: #fff; }
 .card .actions .void { background: #fef2f2; color: #ef4444; border-color: rgba(239,68,68,.4); }
 .card .actions .void:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+
+/* "Send document" button is rendered as a <button> not <a>, so it needs explicit
+   inkd-dash-header styling for cursor + border. */
+.inkd-dash-header button.primary { border: 0; cursor: pointer; font-family: inherit; }
+
+/* ── New-envelope modal ─────────────────────────────────────── */
+.new-env-box { width: min(480px, 92vw); }
+.new-env-label { display: block; font-size: .78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; margin: 16px 0 6px; }
+.new-env-label select,
+.new-env-label input[type=text] {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: .95rem;
+  box-sizing: border-box;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.new-env-label select:focus,
+.new-env-label input[type=text]:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
+.new-env-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.new-env-actions button { padding: 9px 18px; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); }
+.new-env-actions button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+.new-env-actions button.primary:hover { background: var(--brand-dark, #4a9337); }
+.new-env-actions button.secondary:hover { border-color: var(--text-muted); }
+
+.ne-property-results { background: var(--surface); border: 1.5px solid var(--border); border-top: 0; border-radius: 0 0 8px 8px; max-height: 240px; overflow-y: auto; margin-top: -1px; }
+.ne-property-results .row { padding: 9px 12px; cursor: pointer; font-size: .9rem; border-bottom: 1px solid var(--border); }
+.ne-property-results .row:last-child { border-bottom: 0; }
+.ne-property-results .row:hover { background: var(--brand-light, rgba(97,183,70,.08)); color: var(--brand); }
+.ne-property-results .row .sub { display: block; font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
+.ne-property-results .empty { padding: 12px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+
+.ne-property-selected { margin-top: 6px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--brand-light, rgba(97,183,70,.12)); color: var(--brand); border-radius: 8px; font-size: .9rem; font-weight: 500; }
+.ne-property-selected button { margin-left: auto; background: transparent; border: 0; color: var(--brand); cursor: pointer; font-size: 1.4rem; line-height: 1; padding: 0 4px; }
+.ne-property-selected button:hover { color: #ef4444; }

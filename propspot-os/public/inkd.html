@@ -19,6 +19,7 @@
   <div class="inkd-page">
     <div class="inkd-dash-header">
       <h1>Ink'd</h1>
+      <button class="primary" id="btn-new-envelope">+ Send document</button>
       <a class="primary" href="/inkd-template-editor.html">+ New template</a>
       <a class="secondary" href="/inkd-templates.html">Templates</a>
     </div>
@@ -31,6 +32,32 @@
     </div>
   </div>
 </main>
+
+<!-- New envelope modal: pick a template + (optionally) a property -->
+<div class="modal-overlay" id="new-env-modal" hidden>
+  <div class="modal-box new-env-box" role="dialog" aria-modal="true">
+    <h2 style="margin-top:0;">Send a document</h2>
+    <p class="text-muted text-sm" style="margin-top:-4px;">Pick a template, then attach it to a property. The composer will pre-fill any autofilled fields and let you add recipients.</p>
+
+    <label class="new-env-label">Template
+      <select id="ne-template"><option value="">Loading…</option></select>
+    </label>
+
+    <label class="new-env-label">Property (optional)
+      <input type="text" id="ne-property-search" placeholder="Start typing an address…" autocomplete="off">
+      <div id="ne-property-results" class="ne-property-results" hidden></div>
+      <div id="ne-property-selected" class="ne-property-selected" hidden>
+        <span id="ne-property-selected-label"></span>
+        <button type="button" id="ne-property-clear" aria-label="Clear">×</button>
+      </div>
+    </label>
+
+    <div class="new-env-actions">
+      <button type="button" class="secondary" id="ne-cancel">Cancel</button>
+      <button type="button" class="primary"   id="ne-continue">Continue</button>
+    </div>
+  </div>
+</div>
 
 <script>window.NAV_CURRENT = 'inkd';</script>
 <script src="config.js"></script>
