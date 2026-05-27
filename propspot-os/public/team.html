@@ -84,6 +84,72 @@
       letter-spacing: .04em; color: var(--text-muted);
     }
     .badge.badge-external { background: #dbeafe; color: #1e40af; font-size: .65rem; }
+
+    /* ── Row action buttons (Resend / Uninvite / Team↔External) ────
+       Premium pill-buttons with semantic color cues:
+         resend   → brand-green (positive)
+         uninvite → soft red    (destructive)
+         shift    → neutral     (organizational)
+       Icons are inline SVGs (currentColor) so they pick up the variant
+       color automatically. Buttons sit in a right-aligned flex strip
+       with consistent gap. Hover lifts subtly + intensifies tint. */
+    .col-actions .row-actions {
+      display: inline-flex; align-items: center; gap: 6px;
+      justify-content: flex-end;
+    }
+    .row-action {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 10px; border-radius: 7px;
+      font-size: .72rem; font-weight: 600; letter-spacing: .005em;
+      border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+      background: transparent; color: var(--text-muted);
+      transition: background .12s, color .12s, border-color .12s, transform .08s;
+      line-height: 1;
+    }
+    .row-action svg { width: 12px; height: 12px; flex-shrink: 0; }
+    .row-action:hover { transform: translateY(-1px); }
+    .row-action:active { transform: translateY(0); }
+
+    .row-action.resend {
+      background: rgba(97,183,70,0.08);
+      color: #2f7d20;
+      border-color: rgba(97,183,70,0.22);
+    }
+    .row-action.resend:hover {
+      background: rgba(97,183,70,0.16);
+      border-color: rgba(97,183,70,0.40);
+      color: #1f5d14;
+    }
+
+    .row-action.uninvite {
+      background: rgba(220,38,38,0.06);
+      color: #b91c1c;
+      border-color: rgba(220,38,38,0.18);
+    }
+    .row-action.uninvite:hover {
+      background: rgba(220,38,38,0.12);
+      border-color: rgba(220,38,38,0.36);
+      color: #991b1b;
+    }
+
+    .row-action.shift {
+      background: var(--bg);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+    .row-action.shift:hover {
+      background: var(--surface);
+      color: var(--text);
+      border-color: #cbd2d9;
+    }
+
+    /* Dark mode parity for the row actions */
+    html.theme-dark .row-action.resend   { background: rgba(110,208,87,.10); color: #8fd97a; border-color: rgba(110,208,87,.25); }
+    html.theme-dark .row-action.resend:hover { background: rgba(110,208,87,.18); border-color: rgba(110,208,87,.45); color: #a6e394; }
+    html.theme-dark .row-action.uninvite { background: rgba(248,113,113,.10); color: #f87171; border-color: rgba(248,113,113,.25); }
+    html.theme-dark .row-action.uninvite:hover { background: rgba(248,113,113,.18); border-color: rgba(248,113,113,.45); color: #fca5a5; }
+    html.theme-dark .row-action.shift    { background: var(--d-bg); color: var(--d-text-muted); border-color: var(--d-border); }
+    html.theme-dark .row-action.shift:hover { background: var(--d-surface); color: var(--d-text); border-color: var(--d-border-strong, #3a3a3a); }
   </style>
 </head>
 <body class="os-newlayout">
@@ -249,9 +315,13 @@
           ${cells}
           <td class="col-status"><span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span></td>
           <td class="col-actions">
-            ${canResend ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;margin-right:4px;" onclick="resendOne('${u.id}','${escHtml(u.email).replace(/'/g, "\\'")}')" title="Resend the invitation email">↻ Resend</button>` : ''}
-            ${canUninvite ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;margin-right:4px;" onclick="uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation">× Uninvite</button>` : ''}
-            ${me.is_owner && !u.is_owner && !isYou ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;" onclick="toggleUserType('${u.id}','${isExternal ? 'team' : 'external_worker'}')" title="${isExternal ? 'Move back to the team section' : 'Mark this user as external'}">${isExternal ? '↑ Team' : '↓ External'}</button>` : ''}
+            <div class="row-actions">
+              ${canResend ? `<button class="row-action resend" onclick="resendOne('${u.id}','${escHtml(u.email).replace(/'/g, "\\'")}')" title="Resend the invitation email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Resend</button>` : ''}
+              ${canUninvite ? `<button class="row-action uninvite" onclick="uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Uninvite</button>` : ''}
+              ${me.is_owner && !u.is_owner && !isYou ? `<button class="row-action shift" onclick="toggleUserType('${u.id}','${isExternal ? 'team' : 'external_worker'}')" title="${isExternal ? 'Move back to the team section' : 'Mark this user as external'}">${isExternal
+                ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>Team'
+                : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>External'}</button>` : ''}
+            </div>
           </td>
         </tr>
       `;
