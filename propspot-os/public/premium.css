@@ -25,17 +25,19 @@ html.theme-premium body {
 }
 
 /* ── Sidebar ────────────────────────────────────────────────── */
-html.theme-premium #apps-rail,
-html.theme-premium .os-newchrome-sidebar {
+/* :not(.theme-dark) ensures these light-mode rules never conflict with
+   dark.css — prevents any cascade/load-order fight between the two themes. */
+html.theme-premium:not(.theme-dark) #apps-rail,
+html.theme-premium:not(.theme-dark) .os-newchrome-sidebar {
   background: #ffffff;
   border-right: 1px solid #e8eaed;
 }
 
-html.theme-premium .os-newchrome-workspace {
+html.theme-premium:not(.theme-dark) .os-newchrome-workspace {
   background: #fff;
   border-bottom: 1px solid #e8eaed;
 }
-html.theme-premium .os-newchrome-workspace:hover { background: #f9fafb; }
+html.theme-premium:not(.theme-dark) .os-newchrome-workspace:hover { background: #f9fafb; }
 
 html.theme-premium .os-newchrome-workspace-logo {
   border-radius: 8px;

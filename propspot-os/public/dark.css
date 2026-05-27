@@ -104,16 +104,23 @@ html.theme-dark .os-newchrome-ai-btn:hover { background: rgba(110,208,87,0.12); 
 html.theme-dark .os-newchrome-ai-btn svg { color: var(--d-brand); }
 
 /* ── Sidebar (apps-rail) ─────────────────────────────────────── */
-/* !important ensures these win over chrome.css (loaded last by sidebar.js)
-   and premium.css (same specificity, load-order-sensitive) at all times. */
+/* premium.css now uses :not(.theme-dark) so its white rules never apply
+   in dark mode — no cascade conflict, no !important needed. */
 html.theme-dark #apps-rail,
 html.theme-dark .os-newchrome-sidebar {
-  background: var(--d-surface) !important;
-  border-right: 1px solid var(--d-border) !important;
+  background: var(--d-surface);
+  border-right: 1px solid var(--d-border);
+}
+/* workspace-row is the wrapper div that holds the workspace link +
+   collapse button. It has background:#fff in chrome.css with no
+   dark override — this is what was causing the white top-sidebar glitch. */
+html.theme-dark .os-newchrome-workspace-row {
+  background: var(--d-surface);
+  border-bottom: 1px solid var(--d-border);
 }
 html.theme-dark .os-newchrome-brand-bar {
-  background: linear-gradient(180deg, rgba(110,208,87,0.06) 0%, transparent 100%) !important;
-  border-bottom: 1px solid var(--d-border) !important;
+  background: linear-gradient(180deg, rgba(110,208,87,0.06) 0%, var(--d-surface) 100%);
+  border-bottom: 1px solid var(--d-border);
 }
 html.theme-dark .os-newchrome-brand-text { color: var(--d-text-strong); }
 html.theme-dark .os-newchrome-brand-suffix { color: var(--d-brand); }
@@ -140,15 +147,15 @@ html.theme-dark .os-newchrome-collapse-btn { color: var(--d-text-dim); }
 html.theme-dark .os-newchrome-collapse-btn:hover { background: rgba(255,255,255,0.05); color: var(--d-text); }
 
 html.theme-dark .os-newchrome-workspace {
-  background: linear-gradient(180deg, var(--d-surface) 0%, var(--d-surface-2) 100%) !important;
-  border-bottom: 1px solid var(--d-border) !important;
+  background: var(--d-surface);
+  border-bottom: 1px solid var(--d-border);
   color: var(--d-text);
 }
 html.theme-dark .os-newchrome-workspace:hover {
-  background: linear-gradient(180deg, rgba(110,208,87,0.05) 0%, var(--d-surface-2) 100%) !important;
+  background: var(--d-surface-2);
 }
 html.theme-dark .os-newchrome-workspace.active {
-  background: linear-gradient(90deg, rgba(110,208,87,0.10), transparent 80%) !important;
+  background: linear-gradient(90deg, rgba(110,208,87,0.10), var(--d-surface) 80%);
 }
 html.theme-dark .os-newchrome-workspace.active::before { background: var(--d-brand); }
 html.theme-dark .os-newchrome-workspace-name { color: var(--d-text-strong); }
