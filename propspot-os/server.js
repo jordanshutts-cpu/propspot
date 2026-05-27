@@ -201,6 +201,10 @@ initDb()
         console.error('[inbox-sync] failed to start:', e.message);
       }
     }
+    if (process.env.TIMESHEETS_WORKER_ENABLED !== '0') {
+      try { require('./workers/timesheets').start(); }
+      catch (e) { console.error('[timesheets-worker] failed to start:', e.message); }
+    }
   })
   .catch(err => {
     console.error('Failed to initialize database:', err);
