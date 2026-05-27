@@ -636,6 +636,7 @@
   let mapTileLayer = null;
   let mapMarkerCluster = null;
   let mapBounds = [];
+  let markerByPropId = {};   // prop.id → L.Marker, used for ?focus= deep-links
   // Tile providers — CartoDB Voyager is clean and brand-friendly; Esri
   // satellite is a polished aerial view. User toggles between them.
   const TILE_STYLES = {
@@ -929,6 +930,7 @@
     });
 
     mapBounds = [];
+    markerByPropId = {};
     const seenStatuses = new Map(); // status key → meta, preserving insertion order
     for (const { prop, coord } of withGps) {
       mapBounds.push(coord);
@@ -953,9 +955,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><polyline points="9 18 15 12 9 6"/></svg>
           </a>
         </div>`;
-      L.marker(coord, { icon: statusDivIcon(prop.status), statusKey: prop.status })
-        .bindPopup(html, { maxWidth: 260, closeButton: false })
-        .addTo(mapMarkerCluster);
+      const m = L.marker(coord, { icon: statusDivIcon(prop.status), statusKey: prop.status })
+        .bindPopup(html, { maxWidth: 260, closeButton: false });
+      m.addTo(mapMarkerCluster);
+      markerByPropId[prop.id] = m;
     }
     projectMap.addLayer(mapMarkerCluster);
 
@@ -977,6 +980,19 @@
 
     if (mapBounds.length) projectMap.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 13 });
     setTimeout(() => projectMap.invalidateSize(), 100);
+
+    // Deep-link: ?focus=<propId> — zoom to the property and open its popup
+    const focusId = new URLSearchParams(location.search).get('focus');
+    if (focusId && markerByPropId[focusId]) {
+      const target = markerByPropId[focusId];
+      // zoomToShowLayer handles the case where the marker is inside a cluster —
+      // it zooms until the cluster bursts open, then fires the callback.
+      setTimeout(() => {
+        mapMarkerCluster.zoomToShowLayer(target, () => {
+          target.openPopup();
+        });
+      }, 400);
+    }
   }
 
   // Map action handlers (exposed for inline onclick)
