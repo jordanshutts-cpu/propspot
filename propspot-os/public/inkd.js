@@ -63,8 +63,8 @@ async function voidEnv(id) {
 
 async function saveToFiles(id) {
   const r = await api(`/api/inkd/envelopes/${id}/save-to-files`, { method: 'POST' });
-  if (!r.ok) { const j = await r.json().catch(()=>({})); alert('Save failed: ' + (j.error || r.statusText)); return; }
-  alert('Saved to property Files');
+  if (!r.ok) { const j = await r.json().catch(()=>({})); showToast('Save failed: ' + (j.error || r.statusText), 'error'); return; }
+  showToast('Saved to property Files');
   load();
 }
 

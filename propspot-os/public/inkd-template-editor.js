@@ -55,7 +55,7 @@ async function init() {
 
   if (templateId) {
     const r = await api(`/api/inkd/templates/${templateId}`);
-    if (!r.ok) { alert('Template not found'); return; }
+    if (!r.ok) { showToast('Template not found', 'error'); return; }
     state.template = await r.json();
     document.getElementById('tpl-name').value = state.template.name;
     document.getElementById('tpl-category').value = state.template.category || '';
@@ -330,11 +330,11 @@ function deleteSelectedField() {
 async function save() {
   const name = document.getElementById('tpl-name').value.trim();
   const category = document.getElementById('tpl-category').value;
-  if (!name) { alert('Template name is required'); return; }
+  if (!name) { showToast('Template name is required', 'error'); return; }
 
   // Step A: if new template, upload the PDF + create the template
   if (!state.template) {
-    if (!state.pdfBytes) { alert('Upload a PDF first'); return; }
+    if (!state.pdfBytes) { showToast('Upload a PDF first', 'error'); return; }
     const fd = new FormData();
     fd.append('file', new Blob([state.pdfBytes], { type: 'application/pdf' }), 'template.pdf');
     fd.append('name', name);
@@ -342,8 +342,8 @@ async function save() {
     const r = await api('/api/inkd/templates', { method: 'POST', body: fd });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
-      const where = j.stage ? ` (stage: ${j.stage})` : '';
-      alert('Failed to upload PDF' + where + ':\n\n' + (j.detail || j.error || r.statusText));
+      const where = j.stage ? ` (${j.stage})` : '';
+      showToast('Upload failed' + where + ': ' + (j.detail || j.error || r.statusText), 'error');
       return;
     }
     state.template = await r.json();
@@ -364,10 +364,10 @@ async function save() {
   });
   if (!r2.ok) {
     const j = await r2.json().catch(() => ({}));
-    alert('Failed to save fields:\n\n' + (j.detail || j.error || r2.statusText));
+    showToast('Failed to save fields: ' + (j.detail || j.error || r2.statusText), 'error');
     return;
   }
-  alert('Template saved');
+  showToast('Template saved');
 }
 
 init();

@@ -29,13 +29,13 @@ async function init() {
       opportunity_id:params.get('opportunity_id'),
       contact_id:    params.get('contact_id'),
     };
-    if (!body.template_id) { alert('Missing template_id'); return; }
+    if (!body.template_id) { showToast('Missing template_id', 'error'); return; }
     const r = await api('/api/inkd/envelopes', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!r.ok) { alert('Failed to create envelope'); return; }
+    if (!r.ok) { showToast('Failed to create envelope', 'error'); return; }
     const env = await r.json();
     envId = env.id;
     history.replaceState({}, '', `?envelope_id=${envId}`);
@@ -54,7 +54,7 @@ async function init() {
 
 async function loadEnvelope(id) {
   const r = await api(`/api/inkd/envelopes/${id}`);
-  if (!r.ok) { alert('Envelope not found'); return; }
+  if (!r.ok) { showToast('Envelope not found', 'error'); return; }
   const e = await r.json();
   state.envelope = e;
   state.recipients = e.recipients || [];
@@ -151,7 +151,7 @@ async function addRecipient() {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ role: 'buyer', full_name: '', email: '', signing_order: state.recipients.length + 1 }),
   });
-  if (!r.ok) return alert('Failed');
+  if (!r.ok) return showToast('Failed', 'error');
   const created = await r.json();
   state.recipients.push(created);
   renderRecipients();
@@ -188,15 +188,15 @@ async function toggleReminders() {
   });
 }
 async function saveDraft() {
-  alert('Draft saved');
+  showToast('Draft saved');
 }
 async function send() {
-  if (!state.recipients.length) return alert('Add at least one recipient before sending');
+  if (!state.recipients.length) return showToast('Add at least one recipient before sending', 'error');
   const missing = state.recipients.find(r => !r.email || !r.full_name);
-  if (missing) return alert('Every recipient needs a name + email');
+  if (missing) return showToast('Every recipient needs a name + email', 'error');
   const r = await api(`/api/inkd/envelopes/${state.envelope.id}/send`, { method: 'POST' });
-  if (!r.ok) { const j = await r.json().catch(()=>({})); return alert('Send failed: ' + (j.error || r.statusText)); }
-  alert('Envelope sent');
+  if (!r.ok) { const j = await r.json().catch(()=>({})); return showToast('Send failed: ' + (j.error || r.statusText), 'error'); }
+  showToast('Envelope sent');
   location.href = `/inkd.html?lane=out`;
 }
 
