@@ -1728,12 +1728,13 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 14px;
+  gap: 12px;             /* tighter gap so logo never crowds the collapse btn */
+  padding: 10px 12px 10px 14px;
   height: 64px;
   border-bottom: 1px solid #e8eaed;
   background: linear-gradient(180deg, rgba(97,183,70,0.06) 0%, transparent 100%);
   flex-shrink: 0;
+  overflow: hidden;      /* prevents any child from bleeding outside the bar */
 }
 /* Slim variant — only the collapse button lives in this bar now that the
    PropSpot wordmark moved out (the workspace row below covers branding). */
@@ -1749,17 +1750,21 @@ body.os-newchrome.has-scope-chip main.inbox-3col {
   align-items: center;
   gap: 10px;
   min-width: 0;          /* allows wordmark to ellipsize on a narrow sidebar */
-  flex: 0 1 auto;        /* natural width — does NOT grow into the button */
+  flex: 1 1 0;           /* grows to fill available space, leaving room for btn */
+  max-width: calc(100% - 42px); /* never wider than bar minus collapse-btn */
   text-decoration: none;
   color: inherit;
   border-radius: 8px;
   padding: 3px 6px;
+  overflow: hidden;      /* clips wordmark cleanly before hitting the button */
 }
 .os-newchrome-brand-logo:hover { background: rgba(97,183,70,0.06); }
 .os-newchrome-brand-logo img {
-  width: 40px; height: 40px;
+  width: 36px; height: 36px;  /* slightly smaller for more breathing room */
   object-fit: contain;
+  border-radius: 8px;          /* match the dark-mode badge radius */
   flex-shrink: 0;
+  overflow: hidden;
 }
 .os-newchrome-brand-text {
   font-size: 16px;

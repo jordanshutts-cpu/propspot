@@ -104,26 +104,31 @@ html.theme-dark .os-newchrome-ai-btn:hover { background: rgba(110,208,87,0.12); 
 html.theme-dark .os-newchrome-ai-btn svg { color: var(--d-brand); }
 
 /* ── Sidebar (apps-rail) ─────────────────────────────────────── */
+/* !important ensures these win over chrome.css (loaded last by sidebar.js)
+   and premium.css (same specificity, load-order-sensitive) at all times. */
 html.theme-dark #apps-rail,
 html.theme-dark .os-newchrome-sidebar {
-  background: var(--d-surface);
-  border-right: 1px solid var(--d-border);
+  background: var(--d-surface) !important;
+  border-right: 1px solid var(--d-border) !important;
 }
 html.theme-dark .os-newchrome-brand-bar {
-  background: linear-gradient(180deg, rgba(110,208,87,0.08) 0%, transparent 100%);
-  border-bottom: 1px solid var(--d-border);
+  background: linear-gradient(180deg, rgba(110,208,87,0.06) 0%, transparent 100%) !important;
+  border-bottom: 1px solid var(--d-border) !important;
 }
 html.theme-dark .os-newchrome-brand-text { color: var(--d-text-strong); }
 html.theme-dark .os-newchrome-brand-suffix { color: var(--d-brand); }
 html.theme-dark .os-newchrome-brand-logo:hover { background: rgba(110,208,87,0.06); }
 /* The logo PNG has a white plate baked in. On dark mode multiply-blend
    would make the dark glyph disappear; instead wrap it as an intentional
-   white chip with a brand glow so it reads as branded, not glitchy. */
+   white chip with a brand glow so it reads as branded, not glitchy.
+   overflow:hidden ensures the rounded chip never clips into the collapse btn. */
 html.theme-dark .os-newchrome-brand-logo img {
-  width: 36px; height: 36px;
+  width: 36px; height: 36px;  /* matches base size — no layout shift on theme switch */
   background: #fff;
   border-radius: 8px;
   padding: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
   box-shadow:
     0 0 0 1px rgba(110,208,87,0.40),
     0 0 14px rgba(110,208,87,0.30),
@@ -135,21 +140,24 @@ html.theme-dark .os-newchrome-collapse-btn { color: var(--d-text-dim); }
 html.theme-dark .os-newchrome-collapse-btn:hover { background: rgba(255,255,255,0.05); color: var(--d-text); }
 
 html.theme-dark .os-newchrome-workspace {
-  background: var(--d-surface);
-  border-bottom: 1px solid var(--d-border);
+  background: linear-gradient(180deg, var(--d-surface) 0%, var(--d-surface-2) 100%) !important;
+  border-bottom: 1px solid var(--d-border) !important;
   color: var(--d-text);
 }
-html.theme-dark .os-newchrome-workspace:hover { background: var(--d-surface-2); }
+html.theme-dark .os-newchrome-workspace:hover {
+  background: linear-gradient(180deg, rgba(110,208,87,0.05) 0%, var(--d-surface-2) 100%) !important;
+}
 html.theme-dark .os-newchrome-workspace.active {
-  background: linear-gradient(90deg, rgba(110,208,87,0.10), transparent 80%);
+  background: linear-gradient(90deg, rgba(110,208,87,0.10), transparent 80%) !important;
 }
 html.theme-dark .os-newchrome-workspace.active::before { background: var(--d-brand); }
 html.theme-dark .os-newchrome-workspace-name { color: var(--d-text-strong); }
 html.theme-dark .os-newchrome-workspace-user { color: var(--d-text-muted); }
 html.theme-dark .os-newchrome-workspace-logo {
-  background: var(--d-brand);
+  background: linear-gradient(135deg, var(--d-brand) 0%, #15803d 100%);
   color: #0a0e14;
-  box-shadow: 0 0 0 1px rgba(110,208,87,0.40), 0 0 12px rgba(110,208,87,0.30);
+  box-shadow: 0 2px 6px -2px rgba(110,208,87,0.55),
+              inset 0 1px 0 rgba(255,255,255,0.10);
 }
 
 html.theme-dark .os-newchrome-section-label { color: var(--d-text-dim); }
@@ -257,22 +265,10 @@ html.theme-dark .os-newchrome-all-link { color: var(--d-text-muted); }
 html.theme-dark .os-newchrome-all-link:hover { color: var(--d-brand); }
 
 /* ── Premium sidebar polish — dark overrides ─────────────────── */
-html.theme-dark .os-newchrome-sidebar { background: var(--d-surface); }
-html.theme-dark .os-newchrome-brand-bar {
-  background: linear-gradient(180deg, rgba(110,208,87,0.05) 0%, transparent 100%);
-}
-html.theme-dark .os-newchrome-workspace {
-  background: linear-gradient(180deg, var(--d-surface) 0%, var(--d-surface-2) 100%);
-}
-html.theme-dark .os-newchrome-workspace:hover {
-  background: linear-gradient(180deg, rgba(110,208,87,0.05) 0%, var(--d-surface-2) 100%);
-}
-html.theme-dark .os-newchrome-workspace-logo {
-  background: linear-gradient(135deg, var(--d-brand) 0%, #15803d 100%);
-  color: #0a0e14;
-  box-shadow: 0 2px 6px -2px rgba(110,208,87,0.55),
-              inset 0 1px 0 rgba(255,255,255,0.10);
-}
+/* Sidebar/workspace/brand-bar rules are consolidated in the Sidebar block
+   above (with !important) to guarantee they override chrome.css and
+   premium.css regardless of dynamic CSS load order. Only non-duplicate
+   rules live here. */
 /* Section-scoped hover backgrounds defined in the palette block above
    take precedence for sectioned rows. Rows without a section (e.g.,
    pinned/recent properties) still need the brand-green hover. */
