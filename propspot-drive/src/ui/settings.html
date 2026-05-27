@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PropSpot Drive — Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      padding: 24px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #6e6e73;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+    .row + .row { border-top: 1px solid #f0f0f0; }
+    .row label {
+      font-size: 14px;
+      color: #1d1d1f;
+    }
+    .row .value {
+      font-size: 14px;
+      color: #86868b;
+      max-width: 250px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .row button {
+      padding: 6px 14px;
+      background: #f5f5f7;
+      border: 1px solid #d2d2d7;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #1d1d1f;
+    }
+    .row button:hover { background: #e8e8ed; }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .status-dot.idle { background: #34c759; }
+    .status-dot.syncing { background: #ff9f0a; }
+    .status-dot.error { background: #ff3b30; }
+    .status-dot.disconnected { background: #86868b; }
+    select {
+      padding: 6px 10px;
+      border: 1px solid #d2d2d7;
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <h2>PropSpot Drive Settings</h2>
+
+  <div class="section">
+    <h3>Sync Status</h3>
+    <div class="row">
+      <label>Status</label>
+      <div class="value">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Loading...</span>
+      </div>
+    </div>
+    <div class="row">
+      <label>Files synced</label>
+      <div class="value" id="fileCount">—</div>
+    </div>
+    <div class="row">
+      <label>Last sync</label>
+      <div class="value" id="lastSync">—</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Sync Folder</h3>
+    <div class="row">
+      <label id="folderPath">Loading...</label>
+      <button id="changeFolder">Change</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Sync Interval</h3>
+    <div class="row">
+      <label>Check for changes every</label>
+      <select id="syncInterval">
+        <option value="10000">10 seconds</option>
+        <option value="30000">30 seconds</option>
+        <option value="60000">1 minute</option>
+        <option value="300000">5 minutes</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Account</h3>
+    <div class="row">
+      <label>Connected to</label>
+      <div class="value" id="serverUrl">—</div>
+    </div>
+    <div class="row">
+      <label>Device ID</label>
+      <div class="value" id="deviceId">—</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadSettings() {
+      const settings = await window.propspot.getSettings();
+      document.getElementById('folderPath').textContent = settings.syncFolder;
+      document.getElementById('serverUrl').textContent = settings.serverUrl;
+      document.getElementById('deviceId').textContent = settings.deviceId || '—';
+      document.getElementById('syncInterval').value = String(settings.syncInterval || 30000);
+
+      const status = await window.propspot.getSyncStatus();
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      dot.className = `status-dot ${status.status || 'disconnected'}`;
+      text.textContent = status.status || 'Disconnected';
+      document.getElementById('fileCount').textContent = status.filesTracked || 0;
+      document.getElementById('lastSync').textContent = status.lastSync
+        ? new Date(status.lastSync).toLocaleString()
+        : 'Never';
+    }
+
+    document.getElementById('changeFolder').addEventListener('click', async () => {
+      const folder = await window.propspot.chooseFolder();
+      if (folder) {
+        await window.propspot.updateSettings({ syncFolder: folder });
+        document.getElementById('folderPath').textContent = folder;
+      }
+    });
+
+    document.getElementById('syncInterval').addEventListener('change', async (e) => {
+      await window.propspot.updateSettings({ syncInterval: parseInt(e.target.value) });
+    });
+
+    loadSettings();
+    setInterval(loadSettings, 5000);
+  </script>
+</body>
+</html>
