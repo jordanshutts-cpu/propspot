@@ -30,7 +30,45 @@ router.get('/', async (req, res) => {
 // GET /api/inkd/templates/autofill-sources  — return the dropdown list
 router.get('/autofill-sources', (_req, res) => res.json(SOURCES));
 
-// GET /api/inkd/templates/:id  — full template with fields
+// GET /api/inkd/templates/:id/pdf  — server-side proxy for the template PDF.
+//
+// Why this exists: this Cloudinary account's ACL denies anonymous AND signed
+// delivery of raw PDFs (curl confirmed 'x-cld-error: deny or ACL failure'
+// even on /raw/upload/s--XXX--/... URLs). The Admin API endpoint accepts
+// api_key+api_secret as Basic Auth and serves the binary, bypassing
+// delivery rules. We stream the bytes through here so the browser never
+// touches res.cloudinary.com for PDFs.
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    const t = await query('SELECT source_pdf_id FROM inkd_templates WHERE id=$1', [req.params.id]);
+    const publicId = t.rows[0]?.source_pdf_id;
+    if (!publicId) return res.status(404).json({ error: 'Template has no PDF' });
+
+    // Fetch with api_key:api_secret as HTTP Basic Auth against the Admin
+    // resources delivery endpoint. This is the documented way to download
+    // a raw asset server-side regardless of public/authenticated mode.
+    const cfg = cloudinary.config();
+    const adminUrl = `https://${cfg.api_key}:${cfg.api_secret}` +
+                     `@res.cloudinary.com/${cfg.cloud_name}/raw/upload/${encodeURI(publicId)}`;
+    const upstream = await fetch(adminUrl);
+    if (!upstream.ok) {
+      console.error('[inkd] template PDF proxy upstream failed', upstream.status, await upstream.text().catch(() => ''));
+      return res.status(502).json({ error: 'Cloudinary fetch failed', status: upstream.status });
+    }
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(buf);
+  } catch (err) {
+    console.error('[inkd] template PDF proxy error', err);
+    res.status(500).json({ error: 'PDF proxy failed', detail: err?.message });
+  }
+});
+
+// GET /api/inkd/templates/:id  — full template with fields. Returns the
+// proxy URL above as source_pdf_url so the editor never tries to fetch
+// from res.cloudinary.com directly.
 router.get('/:id', async (req, res) => {
   try {
     const t = await query('SELECT * FROM inkd_templates WHERE id=$1', [req.params.id]);
@@ -39,7 +77,9 @@ router.get('/:id', async (req, res) => {
       `SELECT * FROM inkd_template_fields
         WHERE template_id=$1
         ORDER BY page_number, display_order`, [req.params.id]);
-    res.json({ ...signTemplateUrls(t.rows[0]), fields: f.rows });
+    const tpl = t.rows[0];
+    if (tpl.source_pdf_id) tpl.source_pdf_url = `/api/inkd/templates/${tpl.id}/pdf`;
+    res.json({ ...tpl, fields: f.rows });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to load template' }); }
 });
 

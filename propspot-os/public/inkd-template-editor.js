@@ -135,7 +135,16 @@ async function renderPdfFromUrl(url) {
   stage.querySelectorAll('.pdf-page').forEach(n => n.remove());
   state.pages = [];
 
-  const pdf = await pdfjsLib.getDocument(url).promise;
+  // When url points at our own /api/ proxy, attach the PropSpot
+  // Authorization header so requireAuth lets the request through.
+  // Same-origin Blob/data URLs (used for fresh uploads pre-save) and
+  // external URLs are passed without the header.
+  const docOpts = { url };
+  const token = localStorage.getItem('ros_token');
+  if (token && url.startsWith('/api/')) {
+    docOpts.httpHeaders = { Authorization: `Bearer ${token}` };
+  }
+  const pdf = await pdfjsLib.getDocument(docOpts).promise;
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const viewport = page.getViewport({ scale: 1.5 });
