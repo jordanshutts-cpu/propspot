@@ -1,35 +1,85 @@
-/* Ink'd dashboard — renders inside <main class="page"> with PropSpot chrome. */
+/* Ink'd — SignNow-style two-column layout inside <main class="page page-inkd-twocol">. */
 
-.inkd-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+/* ── Secondary sidebar ────────────────────────────────────── */
+.inkd-side { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 
-.inkd-dash-header { display: flex; gap: 12px; align-items: center; padding: 12px 0 16px; }
-.inkd-dash-header h1 { margin: 0; flex: 1; font-size: 1.4rem; color: var(--text); }
-.inkd-dash-header a { text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: .88rem; font-weight: 600; }
-.inkd-dash-header a.primary   { background: var(--brand); color: #fff; }
-.inkd-dash-header a.primary:hover   { background: var(--brand-dark, #4a9337); }
-.inkd-dash-header a.secondary { background: var(--surface); color: var(--text); border: 1.5px solid var(--border); }
-.inkd-dash-header a.secondary:hover { border-color: var(--brand); color: var(--brand); }
+.inkd-create-wrap { position: relative; margin-bottom: 16px; }
+.inkd-create-btn { width: 100%; padding: 11px 14px; background: var(--brand); color: #fff; border: 0; border-radius: 10px; font-size: .95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; justify-content: center; }
+.inkd-create-btn:hover { background: var(--brand-dark, #4a9337); }
+.inkd-create-btn .ic { font-size: 1rem; line-height: 1; }
+.inkd-create-btn .caret { margin-left: auto; font-size: .7rem; opacity: .85; }
 
-.lanes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; flex: 1; min-height: 0; }
-.lane { background: var(--surface-muted, #f3f4f6); border-radius: var(--radius, 8px); padding: 12px; overflow-y: auto; min-width: 0; }
-.lane h2 { margin: 0 0 12px; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 700; }
+.inkd-create-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 4px; z-index: 100; }
+.inkd-create-menu button { width: 100%; display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; background: transparent; border: 0; border-radius: 6px; cursor: pointer; text-align: left; }
+.inkd-create-menu button:hover { background: var(--brand-light, rgba(97,183,70,.08)); }
+.inkd-create-menu button .ic { flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--brand-light, rgba(97,183,70,.12)); border-radius: 6px; font-size: 1rem; }
+.inkd-create-menu button strong { display: block; font-size: .88rem; color: var(--text); font-weight: 600; }
+.inkd-create-menu button span { display: block; font-size: .76rem; color: var(--text-muted); margin-top: 2px; }
 
-.card { background: var(--surface); border-radius: 6px; padding: 10px; margin-bottom: 8px; box-shadow: var(--shadow, 0 1px 2px rgba(0,0,0,.06)); border: 1px solid var(--border); }
-.card h3 { margin: 0 0 4px; font-size: .92rem; color: var(--text); }
-.card p { margin: 2px 0; font-size: .78rem; color: var(--text-muted); }
-.card .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.card .actions button, .card .actions a { font-size: .72rem; padding: 4px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: var(--text); cursor: pointer; font-weight: 500; }
-.card .actions button:hover, .card .actions a:hover { border-color: var(--brand); color: var(--brand); }
-.card .actions .file { background: var(--brand); color: #fff; border-color: var(--brand); }
-.card .actions .file:hover { background: var(--brand-dark, #4a9337); color: #fff; }
-.card .actions .void { background: #fef2f2; color: #ef4444; border-color: rgba(239,68,68,.4); }
-.card .actions .void:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+.inkd-side-section { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; padding: 14px 12px 6px; }
 
-/* "Send document" button is rendered as a <button> not <a>, so it needs explicit
-   inkd-dash-header styling for cursor + border. */
-.inkd-dash-header button.primary { border: 0; cursor: pointer; font-family: inherit; }
+.inkd-side-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; text-decoration: none; color: var(--text-muted); font-size: .9rem; cursor: pointer; transition: background .1s, color .1s; }
+.inkd-side-item:hover { background: var(--brand-light, rgba(97,183,70,.08)); color: var(--text); }
+.inkd-side-item.active { background: var(--brand-light, rgba(97,183,70,.12)); color: var(--brand); font-weight: 600; }
+.inkd-side-item .ic { width: 18px; text-align: center; }
+.inkd-side-item .label { flex: 1; }
+.inkd-side-item .count { background: var(--surface-muted, #f3f4f6); color: var(--text-muted); border-radius: 100px; font-size: .7rem; font-weight: 600; padding: 1px 8px; min-width: 18px; text-align: center; }
+.inkd-side-item.active .count { background: var(--brand); color: #fff; }
 
-/* ── New-envelope modal ─────────────────────────────────────── */
+/* ── Main content area ────────────────────────────────────── */
+.inkd-main { padding: 20px 28px; overflow-y: auto; display: flex; flex-direction: column; }
+
+.inkd-main-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.inkd-main-header h1 { margin: 0; font-size: 1.5rem; color: var(--text); }
+.inkd-main-header .muted { color: var(--text-muted); font-size: .88rem; }
+.inkd-main-header .spacer { flex: 1; }
+.inkd-main-header #inkd-search { padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: .88rem; width: 240px; }
+.inkd-main-header #inkd-search:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
+
+/* ── Status filter chips ──────────────────────────────────── */
+.inkd-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.inkd-filter-chips .chip { padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 100px; background: var(--surface); color: var(--text-muted); font-size: .78rem; font-weight: 500; cursor: pointer; transition: all .12s; }
+.inkd-filter-chips .chip:hover { border-color: var(--brand); color: var(--brand); }
+.inkd-filter-chips .chip.active { background: var(--brand); color: #fff; border-color: var(--brand); font-weight: 600; }
+
+/* ── List view (replaces kanban) ──────────────────────────── */
+.inkd-list { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.inkd-row { display: grid; grid-template-columns: 1fr 200px 160px 140px auto; gap: 16px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: .88rem; cursor: pointer; transition: background .1s; }
+.inkd-row:last-child { border-bottom: 0; }
+.inkd-row:hover { background: var(--brand-light, rgba(97,183,70,.05)); }
+.inkd-row .col-name { display: flex; flex-direction: column; min-width: 0; }
+.inkd-row .col-name .name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inkd-row .col-name .sub { font-size: .76rem; color: var(--text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inkd-row .col-prop { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inkd-row .col-status .badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: .72rem; font-weight: 600; }
+.inkd-row .col-date { color: var(--text-muted); font-size: .82rem; }
+.inkd-row .col-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.inkd-row .col-actions button, .inkd-row .col-actions a { font-size: .72rem; padding: 5px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 5px; text-decoration: none; color: var(--text); cursor: pointer; font-weight: 500; }
+.inkd-row .col-actions button:hover, .inkd-row .col-actions a:hover { border-color: var(--brand); color: var(--brand); }
+.inkd-row .col-actions .file { background: var(--brand); color: #fff; border-color: var(--brand); }
+.inkd-row .col-actions .file:hover { background: var(--brand-dark, #4a9337); color: #fff; }
+.inkd-row .col-actions .void { background: #fef2f2; color: #ef4444; border-color: rgba(239,68,68,.4); }
+.inkd-row .col-actions .void:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+
+/* Badge colors per status */
+.badge-draft  { background: #f3f4f6; color: #6b7280; }
+.badge-sent   { background: #dbeafe; color: #1d4ed8; }
+.badge-partial{ background: #fef3c7; color: #b45309; }
+.badge-action { background: #fee2e2; color: #b91c1c; }
+.badge-review { background: rgba(97,183,70,.15); color: #15803d; }
+.badge-filed  { background: var(--brand-light, rgba(97,183,70,.12)); color: var(--brand); }
+.badge-voided { background: #f3f4f6; color: #9ca3af; }
+.badge-expired{ background: #f3f4f6; color: #9ca3af; }
+
+/* ── Empty state ──────────────────────────────────────────── */
+.inkd-empty { text-align: center; padding: 64px 24px; color: var(--text-muted); }
+.inkd-empty .empty-art { width: 320px; max-width: 100%; height: auto; margin-bottom: 20px; color: var(--text-muted); }
+.inkd-empty h2 { font-size: 1.2rem; color: var(--text); margin: 8px 0; font-weight: 600; }
+.inkd-empty p { max-width: 460px; margin: 0 auto 20px; font-size: .9rem; }
+.inkd-empty .primary { padding: 10px 22px; background: var(--brand); color: #fff; border: 0; border-radius: 8px; font-size: .92rem; font-weight: 600; cursor: pointer; }
+.inkd-empty .primary:hover { background: var(--brand-dark, #4a9337); }
+
+/* ── New-envelope modal ───────────────────────────────────── */
 .new-env-box { width: min(480px, 92vw); }
 .new-env-label { display: block; font-size: .78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; margin: 16px 0 6px; }
 .new-env-label select,
@@ -49,7 +99,7 @@
 .new-env-label select:focus,
 .new-env-label input[type=text]:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
 .new-env-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
-.new-env-actions button { padding: 9px 18px; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); }
+.new-env-actions button { padding: 9px 18px; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; }
 .new-env-actions button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
 .new-env-actions button.primary:hover { background: var(--brand-dark, #4a9337); }
 .new-env-actions button.secondary:hover { border-color: var(--text-muted); }
