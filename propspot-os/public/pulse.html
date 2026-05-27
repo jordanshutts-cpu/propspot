@@ -337,6 +337,15 @@
     .ps-recorder-preview-aud, .ps-recorder-preview-vid { flex: 1 1 200px; max-width: 360px; }
     .ps-recorder-live-preview { width: 160px; height: 90px; object-fit: cover; border-radius: 6px; background: #000; }
     .ps-recorder-bubble-toggle { display: flex; align-items: center; gap: 6px; }
+    .ps-recorder-mic {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: .75rem; color: var(--text-muted); padding: 2px 8px;
+      border-radius: 999px; background: var(--brand-light);
+    }
+    .ps-recorder-mic-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--brand);
+      transform-origin: center; transition: transform 80ms linear, opacity 80ms linear;
+    }
 
     .ps-composer-tools { display: flex; gap: 4px; align-items: center; }
     .ps-tool-btn { background: transparent; border: 0; cursor: pointer; padding: 6px; color: var(--text-muted); border-radius: 6px; }
