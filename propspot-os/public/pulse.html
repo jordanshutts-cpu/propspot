@@ -103,7 +103,11 @@
     .ps-act-btn:hover { background:var(--brand-light); color:var(--text); }
     .ps-act-btn.active { background:var(--brand-light); color:var(--brand); }
 
-    /* More options dropdown */
+    /* More options dropdown — wrapper provides the positioning context so
+       the dropdown anchors to the more-button (it can't live inside the
+       button itself because the dropdown contains <button> children, and
+       button-in-button is invalid HTML that browsers silently un-nest). */
+    .ps-more-wrap { position:relative; display:inline-flex; }
     .ps-more-menu {
       position:absolute; top:calc(100% + 4px); right:0;
       background:var(--surface); border:1px solid var(--border);
@@ -823,7 +827,10 @@
       <button class="ps-act-btn" title="Add reaction" onclick="openEmojiPicker('${mid}',event,this)">${svgSmile}</button>
       <div class="ps-act-sep"></div>
       <button class="ps-act-btn" title="Reply" onclick="startReply('${mid}','${esc1(senderName)}')">${svgReply}</button>
-      <button class="ps-act-btn" title="More options" onclick="toggleMoreMenu('${mid}',this)">${svgDots}${moreMenu}</button>
+      <div class="ps-more-wrap">
+        <button class="ps-act-btn" title="More options" onclick="toggleMoreMenu('${mid}',this)">${svgDots}</button>
+        ${moreMenu}
+      </div>
     </div>`;
 
     // Reply-to quote block
@@ -1160,7 +1167,8 @@
     if (menu) {
       menu.classList.remove('open');
       actBar?.classList.remove('visible');
-      menu.closest('.ps-act-btn')?.classList.remove('active');
+      // The more-button is the sibling .ps-act-btn inside the same .ps-more-wrap.
+      menu.parentElement?.querySelector('.ps-act-btn')?.classList.remove('active');
     }
   }
 
