@@ -223,6 +223,14 @@
         <input type="checkbox" id="e-allday"> All day event
       </label>
     </div>
+    <div class="form-group">
+      <label class="form-label">Mention people <span style="font-weight:400;color:var(--text-muted);">(they get an email)</span></label>
+      <div id="e-mentions-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;"></div>
+      <input class="form-input" id="e-mentions-search" type="text" autocomplete="off"
+             placeholder="Type a name…" oninput="filterMentionList(this.value)"
+             onfocus="openMentionList()" onblur="setTimeout(closeMentionList, 150)">
+      <div id="e-mentions-list" style="display:none;position:relative;"></div>
+    </div>
     <div class="form-group" id="e-meet-row" style="display:none;">
       <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;">
         <input type="checkbox" id="e-meet"> Add Google Meet link
@@ -249,6 +257,7 @@
     <div id="event-detail-content"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" style="padding:8px 14px;font-size:.8rem;color:#dc2626;" id="ed-delete" onclick="deleteEvent()">Delete</button>
+      <button class="btn btn-secondary" style="padding:8px 14px;font-size:.8rem;" id="ed-edit" onclick="editViewingEvent()">Edit</button>
       <button class="btn btn-secondary" style="padding:8px 14px;font-size:.8rem;" onclick="closeDetailModal()">Close</button>
     </div>
   </div>
@@ -262,7 +271,11 @@ var TYPE_LABELS = {closing:'Closing',purchase:'Purchase',inspection:'Inspection'
 var DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-var currentYear, currentMonth;
+var currentYear, currentMonth, currentUserId = null;
+var orgUsers = [];
+// Map of user_id → full_name for the mention picker. selectedMentions
+// holds the chip list while the New/Edit modal is open.
+var selectedMentions = []; // [{ id, name }]
 // Anchor date for Week view — always a Sunday at 00:00 local. Reset in init()
 // and on goToday(). Month view ignores it and uses currentYear/currentMonth.
 var currentWeekStart = null;
@@ -279,10 +292,12 @@ var personalCalendarConnected = false;
 async function init() {
   var user = await requireAuth();
   if (!user) return;
+  currentUserId = user.id;
   var now = new Date();
   currentYear = now.getFullYear();
   currentMonth = now.getMonth();
   currentWeekStart = startOfWeek(now);
+  try { orgUsers = await apiFetch('/api/users'); } catch(_) { orgUsers = []; }
   try {
     propsCache = await apiFetch('/api/properties');
     var EXCLUDED = { prospect: 1, dropped: 1 };
@@ -638,6 +653,10 @@ function openWeekSlot(dateStr, evt) {
 // ── New/Edit Event
 function openNewEvent(dateStr, hour) {
   editingEventId = null;
+  selectedMentions = [];
+  renderMentionChips();
+  document.getElementById('e-mentions-search').value = '';
+  document.getElementById('e-mentions-list').style.display = 'none';
   document.getElementById('e-title').value = '';
   document.getElementById('e-desc').value = '';
   document.getElementById('e-type').value = 'general';
@@ -696,7 +715,8 @@ async function saveEvent() {
     end_at: document.getElementById('e-end').value || null,
     all_day: document.getElementById('e-allday').checked,
     property_id: document.getElementById('e-property').value || null,
-    create_meet: wantMeet
+    create_meet: wantMeet,
+    mentioned_user_ids: selectedMentions.map(m => m.id)
   };
   try {
     document.getElementById('e-save').disabled = true;
@@ -742,13 +762,25 @@ function viewEvent(id) {
       '<div class="event-detail-meta">' + timeStr + sourceTag + '</div>' +
       (e.property_address ? '<div class="event-detail-meta" style="margin-top:4px;">Property: ' + esc(e.property_address) + '</div>' : '') +
       (e.description ? '<div style="margin-top:8px;font-size:.88rem;">' + esc(e.description) + '</div>' : '') +
+      (Array.isArray(e.mentioned_user_ids) && e.mentioned_user_ids.length
+        ? '<div class="event-detail-meta" style="margin-top:8px;">Mentioned: ' +
+          e.mentioned_user_ids
+            .map(function(uid) {
+              var u = orgUsers.find(function(x) { return x.id === uid; });
+              return u ? esc('@' + (u.full_name || u.email)) : '@unknown';
+            }).join(', ') +
+          '</div>'
+        : '') +
       meetLink +
       googleLink +
       '<div class="event-detail-meta" style="margin-top:8px;">Created by ' + esc(e.created_by_name || 'Unknown') + '</div>' +
     '</div>';
   // Google-sourced events live in Google Calendar, not our DB — hide
   // the Delete button (we'd need a DELETE-to-Google flow for those).
+  // Edit on a Google event jumps to Google Calendar instead of trying
+  // to edit our copy (handled by editViewingEvent itself).
   document.getElementById('ed-delete').style.display = (e.source === 'google') ? 'none' : '';
+  document.getElementById('ed-edit').textContent = (e.source === 'google') ? 'Open in Google' : 'Edit';
   document.getElementById('modal-event-detail').classList.add('open');
 }
 function closeDetailModal() { document.getElementById('modal-event-detail').classList.remove('open'); }
@@ -762,6 +794,99 @@ async function deleteEvent() {
     closeDetailModal();
     await loadMonth();
   } catch(err) { alert(err.message); }
+}
+
+// ── Edit an existing event ──────────────────────────────────────
+// Opens the same New Event modal pre-filled with the current row,
+// flips the title + button labels into "edit" mode, and lets the
+// existing saveEvent() PATCH the row.
+function editViewingEvent() {
+  if (!viewingEventId) return;
+  var ev = events.find(function(e) { return e.id === viewingEventId; });
+  if (!ev) return;
+  // Google-sourced events round-trip through Google; editing them here
+  // would diverge from the source of truth. Open the Google link instead.
+  if (ev.source === 'google') {
+    if (ev.html_link) window.open(ev.html_link, '_blank', 'noopener');
+    return;
+  }
+  closeDetailModal();
+  editingEventId = ev.id;
+  document.getElementById('e-title').value      = ev.title || '';
+  document.getElementById('e-desc').value       = ev.description || '';
+  document.getElementById('e-type').value       = ev.event_type || 'general';
+  document.getElementById('e-property').value   = ev.property_id || '';
+  document.getElementById('e-allday').checked   = !!ev.all_day;
+  document.getElementById('e-meet').checked     = false;
+  document.getElementById('e-meet-row').style.display =
+    (calView === 'personal' && personalCalendarConnected) ? '' : 'none';
+  document.getElementById('e-err').style.display = 'none';
+  document.getElementById('event-modal-title').textContent = 'Edit Event';
+  document.getElementById('e-save').textContent = 'Save changes';
+  // datetime-local needs YYYY-MM-DDTHH:MM (no Z, local). Strip the trailing
+  // Z if present and trim to 16 chars.
+  document.getElementById('e-start').value = (ev.start_at || '').slice(0, 16);
+  document.getElementById('e-end').value   = ev.end_at ? ev.end_at.slice(0, 16) : '';
+  selectedMentions = (ev.mentioned_user_ids || [])
+    .map(function(uid) {
+      var u = orgUsers.find(function(x) { return x.id === uid; });
+      return u ? { id: u.id, name: u.full_name || u.email } : null;
+    })
+    .filter(Boolean);
+  renderMentionChips();
+  document.getElementById('e-mentions-search').value = '';
+  document.getElementById('e-mentions-list').style.display = 'none';
+  document.getElementById('modal-event').classList.add('open');
+}
+
+// ── Mention picker (chip-input with typeahead) ──────────────────
+function renderMentionChips() {
+  var el = document.getElementById('e-mentions-chips');
+  if (!selectedMentions.length) { el.innerHTML = ''; return; }
+  el.innerHTML = selectedMentions.map(function(m) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 6px 2px 8px;border-radius:100px;background:var(--brand-light);font-size:.78rem;font-weight:600;color:var(--text);">'
+      + esc(m.name)
+      + '<button type="button" onclick="removeMention(\'' + esc(m.id) + '\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.85rem;line-height:1;padding:0 2px;">×</button>'
+      + '</span>';
+  }).join('');
+}
+function removeMention(id) {
+  selectedMentions = selectedMentions.filter(function(m) { return m.id !== id; });
+  renderMentionChips();
+}
+function openMentionList() { filterMentionList(document.getElementById('e-mentions-search').value); }
+function closeMentionList() { document.getElementById('e-mentions-list').style.display = 'none'; }
+function filterMentionList(q) {
+  var needle = (q || '').toLowerCase();
+  var taken = new Set(selectedMentions.map(function(m) { return m.id; }));
+  var matches = orgUsers
+    .filter(function(u) { return u.id !== currentUserId && !taken.has(u.id); })
+    .filter(function(u) {
+      if (!needle) return true;
+      var hay = ((u.full_name || '') + ' ' + (u.email || '')).toLowerCase();
+      return hay.indexOf(needle) >= 0;
+    })
+    .slice(0, 8);
+  var list = document.getElementById('e-mentions-list');
+  if (!matches.length) { list.style.display = 'none'; return; }
+  list.style.cssText = 'position:absolute;left:0;right:0;top:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:50;max-height:200px;overflow-y:auto;';
+  list.innerHTML = matches.map(function(u) {
+    return '<div onmousedown="addMention(\'' + esc(u.id) + '\', \'' + esc((u.full_name || u.email).replace(/'/g,"\\'")) + '\')" '
+      + 'style="padding:7px 10px;cursor:pointer;font-size:.85rem;" '
+      + 'onmouseover="this.style.background=\'var(--brand-light)\'" '
+      + 'onmouseout="this.style.background=\'\'">'
+      + esc(u.full_name || u.email)
+      + (u.email && u.full_name ? '<span style="color:var(--text-muted);font-size:.72rem;margin-left:6px;">' + esc(u.email) + '</span>' : '')
+      + '</div>';
+  }).join('');
+  list.style.display = 'block';
+}
+function addMention(id, name) {
+  if (selectedMentions.some(function(m) { return m.id === id; })) return;
+  selectedMentions.push({ id: id, name: name });
+  renderMentionChips();
+  document.getElementById('e-mentions-search').value = '';
+  filterMentionList('');
 }
 
 function esc(s) { return escHtml ? escHtml(String(s || '')) : String(s || '').replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }

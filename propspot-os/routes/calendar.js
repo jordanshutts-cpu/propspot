@@ -180,9 +180,12 @@ router.post('/', async (req, res) => {
       }
     }
 
+    const mentionedIds = Array.isArray(req.body.mentioned_user_ids) && req.body.mentioned_user_ids.length
+      ? req.body.mentioned_user_ids : null;
+
     const { rows: [event] } = await query(`
-      INSERT INTO calendar_events (title, description, event_type, visibility, start_at, end_at, all_day, property_id, created_by, google_event_id, meet_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO calendar_events (title, description, event_type, visibility, start_at, end_at, all_day, property_id, created_by, google_event_id, meet_url, mentioned_user_ids)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `, [
       title.trim(),
@@ -195,8 +198,19 @@ router.post('/', async (req, res) => {
       property_id || null,
       req.userId,
       googleEventId,
-      meetUrl
+      meetUrl,
+      mentionedIds
     ]);
+
+    // Fire-and-forget mention emails. Skip self-mentions.
+    if (mentionedIds && mentionedIds.length) {
+      const fresh = mentionedIds.filter(uid => uid !== req.userId);
+      if (fresh.length) {
+        notifyCalendarMentions(event.id, fresh, req.userId).catch(e =>
+          console.error('Calendar mention notify failed:', e));
+      }
+    }
+
     res.status(201).json(event);
   } catch (err) {
     console.error(err);
@@ -208,6 +222,18 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { title, description, event_type, start_at, end_at, all_day, property_id } = req.body;
+
+    // Read prior mentions so we can email only the NEW ones (don't spam
+    // an already-mentioned user just because the title changed).
+    const { rows: priorRows } = await query(
+      `SELECT mentioned_user_ids FROM calendar_events WHERE id = $1`, [req.params.id]
+    );
+    const prior = new Set(priorRows[0]?.mentioned_user_ids || []);
+    const nextMentioned = req.body.mentioned_user_ids !== undefined
+      ? (Array.isArray(req.body.mentioned_user_ids) && req.body.mentioned_user_ids.length
+          ? req.body.mentioned_user_ids : null)
+      : undefined; // not provided → don't touch column
+
     const { rows: [event] } = await query(`
       UPDATE calendar_events SET
         title = COALESCE($2, title),
@@ -216,10 +242,31 @@ router.patch('/:id', async (req, res) => {
         start_at = COALESCE($5, start_at),
         end_at = $6,
         all_day = COALESCE($7, all_day),
-        property_id = $8
+        property_id = $8,
+        mentioned_user_ids = CASE WHEN $9::boolean THEN $10::uuid[] ELSE mentioned_user_ids END
       WHERE id = $1 RETURNING *
-    `, [req.params.id, title || null, description !== undefined ? description : null, event_type || null, start_at || null, end_at !== undefined ? end_at : null, all_day !== undefined ? all_day : null, property_id !== undefined ? property_id : null]);
+    `, [
+      req.params.id, title || null,
+      description !== undefined ? description : null,
+      event_type || null, start_at || null,
+      end_at !== undefined ? end_at : null,
+      all_day !== undefined ? all_day : null,
+      property_id !== undefined ? property_id : null,
+      nextMentioned !== undefined,
+      nextMentioned || null
+    ]);
     if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    // Fire-and-forget — email only mentions that are NEW since last save.
+    if (Array.isArray(event.mentioned_user_ids) && event.mentioned_user_ids.length) {
+      const fresh = event.mentioned_user_ids
+        .filter(uid => uid !== req.userId && !prior.has(uid));
+      if (fresh.length) {
+        notifyCalendarMentions(event.id, fresh, req.userId).catch(e =>
+          console.error('Calendar mention notify failed:', e));
+      }
+    }
+
     res.json(event);
   } catch (err) {
     console.error(err);
@@ -240,5 +287,45 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete event' });
   }
 });
+
+// ── Mention notifications ────────────────────────────────────────
+// Email each newly-mentioned user. Failures are logged but never throw
+// back to the user — the event save already committed.
+const { sendCalendarMentionEmail } = require('../lib/email');
+
+async function notifyCalendarMentions(eventId, userIds, inviterId) {
+  const { rows } = await query(`
+    SELECT u.id, u.email, u.full_name AS recipient_name,
+           inv.full_name AS inviter_name,
+           e.title, e.start_at, e.end_at, e.all_day,
+           p.address_line1, p.city, p.state
+      FROM users u
+      JOIN calendar_events e ON e.id = $1
+      JOIN users inv ON inv.id = $3
+      LEFT JOIN properties p ON p.id = e.property_id
+     WHERE u.id = ANY($2::uuid[])
+  `, [eventId, userIds, inviterId]);
+  if (!rows.length) return;
+
+  const e = rows[0]; // event fields are identical across all rows
+  const start = new Date(e.start_at);
+  const when = e.all_day
+    ? start.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric', year:'numeric' })
+    : start.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  const where = [e.address_line1, e.city, e.state].filter(Boolean).join(', ') || null;
+  const link = (process.env.APP_URL || 'https://os.propspot.io') + '/calendar.html';
+
+  for (const r of rows) {
+    try {
+      await sendCalendarMentionEmail({
+        to: r.email, recipientName: r.recipient_name,
+        inviterName: e.inviter_name || r.inviter_name,
+        eventTitle: e.title, when, where, link
+      });
+    } catch (err) {
+      console.error('mention email failed for', r.email, err);
+    }
+  }
+}
 
 module.exports = router;
