@@ -51,7 +51,7 @@ router.post('/', async (req, res) => {
     if (!t.rows[0]) return res.status(404).json({ error: 'Template not found' });
     const tpl = t.rows[0];
 
-    const ctx = await buildAutofillContext({ property_id, opportunity_id, contact_id, userId: req.user.id });
+    const ctx = await buildAutofillContext({ property_id, opportunity_id, contact_id, userId: req.userId });
     const fields = (await query('SELECT * FROM inkd_template_fields WHERE template_id=$1', [template_id])).rows;
 
     let envName = name;
@@ -66,7 +66,7 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
       [template_id, tpl.source_pdf_url, tpl.source_pdf_id, tpl.page_count, envName,
-       property_id || null, opportunity_id || null, contact_id || null, req.user.id])).rows[0];
+       property_id || null, opportunity_id || null, contact_id || null, req.userId])).rows[0];
 
     for (const f of fields) {
       const value = f.autofill_source ? resolvePath(f.autofill_source, ctx) : null;
@@ -79,10 +79,10 @@ router.post('/', async (req, res) => {
         [env.id, f.id, f.page_number,
          f.x_pct, f.y_pct, f.width_pct, f.height_pct,
          f.field_type, f.label,
-         value, value ? new Date() : null, value ? req.user.id : null, !!value]);
+         value, value ? new Date() : null, value ? req.userId : null, !!value]);
     }
 
-    await logAudit({ envelopeId: env.id, eventType: 'created', req, userId: req.user.id });
+    await logAudit({ envelopeId: env.id, eventType: 'created', req, userId: req.userId });
     res.status(201).json(env);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create envelope' }); }
 });
@@ -120,7 +120,7 @@ router.put('/:id/field-values', async (req, res) => {
         `UPDATE inkd_field_values
             SET value=$2, value_filled_at=now(), value_filled_by=$3, autofilled=FALSE
           WHERE id=$1 AND envelope_id=$4`,
-        [it.id, it.value ?? null, req.user.id, req.params.id]);
+        [it.id, it.value ?? null, req.userId, req.params.id]);
     }
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update field values' }); }
@@ -130,7 +130,7 @@ router.put('/:id/field-values', async (req, res) => {
 router.post('/:id/void', async (req, res) => {
   try {
     await query(`UPDATE inkd_envelopes SET status='voided' WHERE id=$1`, [req.params.id]);
-    await logAudit({ envelopeId: req.params.id, eventType: 'voided', req, userId: req.user.id, details: { reason: req.body?.reason || null } });
+    await logAudit({ envelopeId: req.params.id, eventType: 'voided', req, userId: req.userId, details: { reason: req.body?.reason || null } });
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to void' }); }
 });
@@ -236,7 +236,7 @@ router.post('/:id/send', async (req, res) => {
     await query(`UPDATE inkd_envelopes SET status='sent', sent_at=now(),
                   expires_at=COALESCE(expires_at, now() + interval '30 days') WHERE id=$1`,
       [req.params.id]);
-    await logAudit({ envelopeId: req.params.id, eventType: 'sent', req, userId: req.user.id });
+    await logAudit({ envelopeId: req.params.id, eventType: 'sent', req, userId: req.userId });
 
     const firstOrder = recipients[0].signing_order;
     const firstBatch = recipients.filter(r => r.signing_order === firstOrder);

@@ -27,11 +27,11 @@ router.post('/:id/save-to-files', async (req, res) => {
          (property_id, filename, url, cloudinary_id, mime_type, size_bytes, uploaded_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
-      [env.property_id, filename, env.final_pdf_url, env.final_pdf_id, 'application/pdf', buf.length, req.user.id])).rows[0];
+      [env.property_id, filename, env.final_pdf_url, env.final_pdf_id, 'application/pdf', buf.length, req.userId])).rows[0];
 
     await query(`UPDATE inkd_envelopes SET filed_at=now(), filed_property_file_id=$2 WHERE id=$1`,
       [req.params.id, pf.id]);
-    await logAudit({ envelopeId: req.params.id, eventType: 'filed_to_property', req, userId: req.user.id, details: { property_file_id: pf.id } });
+    await logAudit({ envelopeId: req.params.id, eventType: 'filed_to_property', req, userId: req.userId, details: { property_file_id: pf.id } });
     res.json({ ok: true, property_file: pf });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Save to Files failed' }); }
 });
