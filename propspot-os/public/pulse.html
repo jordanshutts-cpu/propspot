@@ -543,6 +543,20 @@
   </div>
 </div>
 
+<!-- ── New / Rename Section modal ─────────────────────────────── -->
+<div class="ps-backdrop" id="section-modal" onclick="closeModal('section-modal')">
+  <div class="ps-modal" onclick="event.stopPropagation()">
+    <h3 id="section-modal-title">New section</h3>
+    <label>Section name</label>
+    <input type="text" id="section-name-input" placeholder="e.g. Acquisitions" maxlength="80"
+           onkeydown="if(event.key==='Enter')submitSectionModal()">
+    <div class="ps-modal-foot">
+      <button class="ps-btn-cancel" onclick="closeModal('section-modal')">Cancel</button>
+      <button class="btn btn-primary" id="section-modal-submit" onclick="submitSectionModal()">Create</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── New DM modal ───────────────────────────────────────────── -->
 <div class="ps-backdrop" id="new-dm-modal" onclick="closeModal('new-dm-modal')">
   <div class="ps-modal" onclick="event.stopPropagation()">
@@ -820,25 +834,46 @@
   }
 
   // ── Sections: create / rename / delete / collapse ─────────────────
-  async function newSection() {
-    const name = (prompt('Section name?') || '').trim();
-    if (!name) return;
-    try {
-      await satelliteApiFetch('pulse', '/api/pulse/sections', {
-        method: 'POST', body: JSON.stringify({ name })
-      });
-      await loadSidebar();
-    } catch (e) { showToast(e.message, 'error'); }
+  // Section modal state — `null` = creating new, otherwise `{ id, name }` for rename.
+  let sectionModalTarget = null;
+  function newSection() {
+    sectionModalTarget = null;
+    document.getElementById('section-modal-title').textContent = 'New section';
+    document.getElementById('section-modal-submit').textContent = 'Create';
+    document.getElementById('section-name-input').value = '';
+    document.getElementById('section-modal').classList.add('open');
+    setTimeout(() => document.getElementById('section-name-input').focus(), 30);
   }
-  async function renameSection(id) {
+  function renameSection(id) {
     const sec = mySections.find(s => s.id === id);
     if (!sec) return;
-    const name = (prompt('Rename section', sec.name) || '').trim();
-    if (!name || name === sec.name) return;
+    sectionModalTarget = { id: sec.id, prevName: sec.name };
+    document.getElementById('section-modal-title').textContent = 'Rename section';
+    document.getElementById('section-modal-submit').textContent = 'Save';
+    document.getElementById('section-name-input').value = sec.name;
+    document.getElementById('section-modal').classList.add('open');
+    setTimeout(() => {
+      const i = document.getElementById('section-name-input');
+      i.focus(); i.select();
+    }, 30);
+  }
+  async function submitSectionModal() {
+    const name = document.getElementById('section-name-input').value.trim();
+    if (!name) return;
     try {
-      await satelliteApiFetch('pulse', `/api/pulse/sections/${id}`, {
-        method: 'PATCH', body: JSON.stringify({ name })
-      });
+      if (sectionModalTarget) {
+        if (name === sectionModalTarget.prevName) {
+          closeModal('section-modal'); return;
+        }
+        await satelliteApiFetch('pulse', `/api/pulse/sections/${sectionModalTarget.id}`, {
+          method: 'PATCH', body: JSON.stringify({ name })
+        });
+      } else {
+        await satelliteApiFetch('pulse', '/api/pulse/sections', {
+          method: 'POST', body: JSON.stringify({ name })
+        });
+      }
+      closeModal('section-modal');
       await loadSidebar();
     } catch (e) { showToast(e.message, 'error'); }
   }
