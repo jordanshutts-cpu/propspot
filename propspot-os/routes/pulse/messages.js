@@ -2,8 +2,11 @@ const express = require('express');
 const { query } = require('../../db');
 const { requireAuth, requirePulseGrant } = require('../../middleware/auth');
 const hub = require('../../lib/hub');
+const { isAllowedMime } = require('./attachments');
 
 const router = express.Router();
+
+const SAFE_ATTACHMENT_URL = /^https:\/\/[^\s"'<>]+$/;
 router.use(requireAuth);
 router.use(requirePulseGrant);
 
@@ -350,10 +353,15 @@ router.post('/', async (req, res) => {
 
     const row = ins.rows[0];
 
-    // Persist attachments (if any)
+    // Persist attachments (if any). Reject anything that doesn't look like a
+    // Cloudinary URL or whose declared mime isn't in the upload allowlist —
+    // we don't want client-supplied attachment metadata to become a render-time
+    // XSS or content-type confusion vector.
     if (Array.isArray(attachments) && attachments.length) {
       for (const a of attachments.slice(0, 10)) {
-        if (!a || !a.url) continue;
+        if (!a || typeof a.url !== 'string') continue;
+        if (!SAFE_ATTACHMENT_URL.test(a.url)) continue;
+        if (a.mime_type && !isAllowedMime(a.mime_type)) continue;
         await query(`
           INSERT INTO chat_attachments
             (message_id, url, cloudinary_id, mime_type, size_bytes, filename)

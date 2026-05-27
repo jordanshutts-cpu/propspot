@@ -7,12 +7,13 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requirePulseGrant);
 
-// 25 MB cap. Cloudinary's free tier is 100MB max anyway; 25MB keeps things snappy.
-const MAX_BYTES = 25 * 1024 * 1024;
+// 200 MB cap — 10-min screen recordings at modest bitrate ≈ 120 MB.
+const MAX_BYTES = 200 * 1024 * 1024;
 
 // Allowed mime types. `image/*` covers JPEG/PNG/HEIC/WebP/GIF.
+// `audio/*` and `video/*` were added for Pulse voice memos + screen recordings.
 // Office types covered via prefix matching below.
-const ALLOWED_PREFIXES = ['image/'];
+const ALLOWED_PREFIXES = ['image/', 'audio/', 'video/'];
 const ALLOWED_EXACT = new Set([
   'application/pdf',
   'application/msword',
@@ -45,7 +46,7 @@ router.post('/', (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: 'File too large (max 25MB)' });
+        return res.status(413).json({ error: 'File too large (max 200MB)' });
       }
       return res.status(400).json({ error: err.message || 'Upload failed' });
     }
@@ -63,10 +64,16 @@ router.post('/', (req, res, next) => {
       folder: `propspot/chat/uploads/${req.userId}`,
       mimeType: file.mimetype
     });
+    // Trust Cloudinary's parsed resource_type + format rather than the
+    // client-controlled multipart Content-Type. Falls back to the client
+    // value only when Cloudinary didn't return enough metadata.
+    const derivedMime = (result.resource_type && result.format)
+      ? `${result.resource_type === 'raw' ? 'application' : result.resource_type}/${result.format}`
+      : file.mimetype;
     return res.json({
       url: result.url,
       cloudinary_id: result.cloudinary_id,
-      mime_type: file.mimetype,
+      mime_type: derivedMime,
       size_bytes: file.size,
       filename: file.originalname || 'file'
     });
@@ -77,3 +84,4 @@ router.post('/', (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.isAllowedMime = isAllowedMime;
