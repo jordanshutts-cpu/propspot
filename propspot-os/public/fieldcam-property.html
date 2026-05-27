@@ -7,8 +7,15 @@
   <title>Prop Spot — Photos</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
-  <script>try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <script>try{var _c=document.documentElement.classList;_c.add('page-loading');if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
+    /* Suppress loader overlay and camera FAB during initial page load.
+       page-loading hides <main> via style.css; these rules extend that
+       coverage to elements outside <main> so nothing flashes before
+       chrome is fully painted. */
+    html.page-loading .os-page-loader { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
+    html.page-loading .fc-mobile-camera-fab { display: none !important; }
+
     /* ── Hero card ─────────────────────────────────────────────── */
     .fc-hero {
       position: relative;
