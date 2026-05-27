@@ -407,7 +407,7 @@
     const selected = routed?.shared_inbox_id || '';
     const opts = ['<option value="">Choose shared inbox…</option>']
       .concat(teamInboxes.map(t =>
-        `<option value="${t.id}" ${t.id === selected ? 'selected' : ''}>${escHtml(t.icon || '📨')} ${escHtml(t.name)}</option>`))
+        `<option value="${t.id}" ${t.id === selected ? 'selected' : ''}>${escHtml(t.name)}</option>`))
       .join('');
     const idAttr = routed ? `data-route-id="${routed.id}"` : '';
     // Routed rows get Unroute. Unrouted rows get Dismiss (×) so the owner
