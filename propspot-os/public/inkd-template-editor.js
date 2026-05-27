@@ -60,8 +60,39 @@ async function init() {
     document.getElementById('tpl-name').value = state.template.name;
     document.getElementById('tpl-category').value = state.template.category || '';
     state.fields = state.template.fields || [];
-    await loadAndRenderPdf(state.template.source_pdf_url);
+
+    if (!state.template.source_pdf_url) {
+      showPdfError("This template doesn't have a PDF attached. Archive it and create a new one.", null);
+    } else {
+      await loadAndRenderPdf(state.template.source_pdf_url);
+    }
   }
+}
+
+// Render a friendly error in the PDF stage instead of leaving it blank
+// when getDocument() throws (404, CORS, bad URL, malformed file, etc.).
+function showPdfError(message, err) {
+  const stage = document.getElementById('pdf-stage');
+  stage.querySelectorAll('.pdf-page').forEach(n => n.remove());
+  document.querySelector('#upload-prompt')?.remove();
+  document.querySelector('#pdf-error')?.remove();
+
+  const wrap = document.createElement('div');
+  wrap.id = 'pdf-error';
+  wrap.style.cssText = 'max-width:520px;margin:80px auto;text-align:center;padding:24px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;color:var(--text);';
+  const url = state.template?.source_pdf_url || '';
+  wrap.innerHTML = `
+    <div style="font-size:2rem;margin-bottom:8px;">📄</div>
+    <h2 style="margin:8px 0;font-size:1.05rem;">Couldn't load the template PDF</h2>
+    <p style="color:var(--text-muted);font-size:.88rem;margin:0 0 12px;">${escapeHtml(message)}</p>
+    ${err ? `<p style="color:var(--text-muted);font-size:.78rem;font-family:monospace;background:var(--surface-muted,#f3f4f6);padding:8px 12px;border-radius:6px;margin:0 0 12px;text-align:left;white-space:pre-wrap;word-break:break-word;">${escapeHtml(String(err.message || err))}</p>` : ''}
+    ${url ? `<p style="font-size:.78rem;margin:0;"><a href="${escapeHtml(url)}" target="_blank" style="color:var(--brand);">Open PDF URL directly</a> to verify the file itself is reachable.</p>` : ''}
+  `;
+  stage.appendChild(wrap);
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
 function populateAutofillDropdown() {
@@ -90,7 +121,13 @@ async function onPdfPicked(e) {
 
 async function loadAndRenderPdf(url) {
   document.querySelector('#upload-prompt')?.remove();
-  await renderPdfFromUrl(url);
+  document.querySelector('#pdf-error')?.remove();
+  try {
+    await renderPdfFromUrl(url);
+  } catch (err) {
+    console.error('PDF render failed', err);
+    showPdfError('The stored PDF URL is unreachable or not a valid PDF.', err);
+  }
 }
 
 async function renderPdfFromUrl(url) {
