@@ -29,13 +29,19 @@ router.patch('/', async (req, res) => {
     const { rows: [user] } = await query(`SELECT is_owner FROM users WHERE id = $1`, [req.userId]);
     if (!user || !user.is_owner) return res.status(403).json({ error: 'Only owners can update org settings' });
 
-    const { company_name } = req.body;
+    const { company_name, company_address } = req.body;
+    // company_address: pass '' (empty string) to explicitly clear it.
+    const addrParam =
+      company_address === undefined ? null
+      : company_address === ''      ? ''
+      : company_address.trim();
     const { rows: [org] } = await query(`
       UPDATE org_settings SET
-        company_name = COALESCE($1, company_name),
+        company_name    = COALESCE($1, company_name),
+        company_address = CASE WHEN $2::text IS NULL THEN company_address ELSE NULLIF($2, '') END,
         updated_at = NOW()
       WHERE id = 1 RETURNING *
-    `, [company_name || null]);
+    `, [company_name || null, addrParam]);
     res.json(org);
   } catch (err) {
     console.error(err);

@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS org_settings (
   company_logo_cloud_id TEXT,
   updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
+-- The company's own street address. Stored so the inbox auto-property
+-- detector can ignore matches inside the user's own letterhead, invoices
+-- the company sent, etc. — otherwise the company HQ pretends to be a
+-- portfolio property and floats to the top of every picker.
+ALTER TABLE org_settings ADD COLUMN IF NOT EXISTS company_address TEXT;
 INSERT INTO org_settings (id, company_name) VALUES (1, 'My Company') ON CONFLICT DO NOTHING;
 
 -- ── Calendar Events ──────────────────────────────────────────────────

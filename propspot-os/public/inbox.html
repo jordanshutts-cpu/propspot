@@ -2202,11 +2202,13 @@ async function markUnread() {
 // Lazy-loaded reference data shared by both modals.
 let INBOX_USERS_CACHE = null;
 let INBOX_PROPS_CACHE = null;
+let INBOX_ORG_CACHE   = null;
 
 async function ensureUsersAndProps() {
   const jobs = [];
   if (!INBOX_USERS_CACHE) jobs.push(getUsers().then(u => INBOX_USERS_CACHE = u).catch(() => INBOX_USERS_CACHE = []));
   if (!INBOX_PROPS_CACHE) jobs.push(apiFetch('/api/properties').then(p => INBOX_PROPS_CACHE = p).catch(() => INBOX_PROPS_CACHE = []));
+  if (!INBOX_ORG_CACHE)   jobs.push(apiFetch('/api/org').then(o => INBOX_ORG_CACHE = o).catch(() => INBOX_ORG_CACHE = {}));
   if (jobs.length) await Promise.all(jobs);
 }
 
@@ -2493,8 +2495,18 @@ function detectThreadProperty(thread, properties) {
                        (m.body_html || '').replace(/<[^>]+>/g, ' '));
     for (const a of m.attachments || []) haystackParts.push(a.filename || '');
   }
-  const haystack = haystackParts.join(' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+  let haystack = haystackParts.join(' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').toLowerCase();
   if (!haystack.trim()) return null;
+  // Strip the company's own address out of the scan so invoices/letterhead
+  // from the company itself don't trick the detector into nominating the
+  // company HQ as one of the user's portfolio properties. Each comma-
+  // separated chunk is stripped too in case only part of it appears.
+  const orgAddr = (INBOX_ORG_CACHE && INBOX_ORG_CACHE.company_address || '').trim().toLowerCase();
+  if (orgAddr) {
+    const chunks = [orgAddr].concat(orgAddr.split(',').map(s => s.trim())).filter(s => s.length > 3);
+    for (const ch of chunks) haystack = haystack.split(ch).join(' ');
+    haystack = haystack.replace(/\s+/g, ' ');
+  }
   let best = null;
   let bestScore = 0;
   for (const p of properties) {
