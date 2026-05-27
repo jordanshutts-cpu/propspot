@@ -323,6 +323,32 @@
     .ps-send { padding:9px 18px; font-size:.88rem; border-radius:10px; align-self:flex-end; white-space:nowrap; flex-shrink:0; }
     .ps-composer-hint { font-size:.72rem; color:var(--text-muted); padding:0 12px 8px; }
 
+    /* ── Recorder panel + capture buttons ──────────────────────────── */
+    .ps-recorder { border-top: 1px solid var(--border); padding: 8px 12px; background: var(--surface); }
+    .ps-recorder-body { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: .85rem; }
+    .ps-recorder-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: ps-rec-pulse 1s infinite; }
+    @keyframes ps-rec-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .4 } }
+    .ps-recorder-mode { font-weight: 600; color: var(--text); }
+    .ps-recorder-timer { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+    .ps-recorder-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-size: .82rem; }
+    .ps-recorder-btn:hover { border-color: var(--brand); }
+    .ps-recorder-btn.primary { background: var(--brand); color: white; border-color: var(--brand); }
+    .ps-recorder-cancel { color: var(--text-muted); }
+    .ps-recorder-preview-aud, .ps-recorder-preview-vid { flex: 1 1 200px; max-width: 360px; }
+    .ps-recorder-live-preview { width: 160px; height: 90px; object-fit: cover; border-radius: 6px; background: #000; }
+    .ps-recorder-bubble-toggle { display: flex; align-items: center; gap: 6px; }
+
+    .ps-composer-tools { display: flex; gap: 4px; align-items: center; }
+    .ps-tool-btn { background: transparent; border: 0; cursor: pointer; padding: 6px; color: var(--text-muted); border-radius: 6px; }
+    .ps-tool-btn:hover { background: var(--brand-light); color: var(--brand); }
+    .ps-tool-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* Inline attachment players in messages */
+    .ps-msg-attachment { margin-top: 6px; max-width: 360px; }
+    .ps-msg-attachment video, .ps-msg-attachment audio { max-width: 100%; border-radius: 8px; }
+    .ps-msg-attachment img { max-width: 100%; border-radius: 8px; }
+    .ps-msg-attachment.file a { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); font-size: .85rem; }
+
     /* @mention picker */
     .ps-mention-picker { position:absolute; bottom:100%; left:12px; right:12px; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 -8px 32px -4px rgba(0,0,0,.12); max-height:260px; overflow-y:auto; z-index:300; display:none; margin-bottom:4px; }
     .ps-mention-picker.open { display:block; }
@@ -605,6 +631,9 @@
 <script>window.NAV_CURRENT = 'pulse';</script>
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="pulse-recorder-state.js"></script>
+<script src="pulse-recorder-compositor.js"></script>
+<script src="pulse-recorder.js"></script>
 <script>
   // ── State ──────────────────────────────────────────────────────
   let myId = null, isOwner = false;
@@ -1155,13 +1184,27 @@
           <button class="ps-reply-bar-close" onclick="cancelReply()" title="Cancel reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div id="ps-mention-picker" class="ps-mention-picker"></div>
+        <div id="ps-recorder-host"></div>
         <div class="ps-composer">
+          <div class="ps-composer-tools">
+            <button class="ps-tool-btn" id="ps-tool-voice"  title="Voice memo"      onclick="startPulseRecording('voice')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
+            <button class="ps-tool-btn" id="ps-tool-webcam" title="Webcam video"    onclick="startPulseRecording('webcam')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </button>
+            <button class="ps-tool-btn" id="ps-tool-screen" title="Screen recording" onclick="startPulseRecording('screen')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </button>
+          </div>
           <textarea id="ps-textarea" placeholder="Message ${escHtml(activeScope.name)}… (type @ to mention someone)" rows="1"
             onkeydown="handleKey(event)" oninput="onComposerInput(this)"></textarea>
           <button class="btn btn-primary ps-send" onclick="sendMsg()">Send</button>
         </div>
         <div class="ps-composer-hint">Shift+Enter for new line · @ to mention</div>
       </div>`;
+
+    hideUnsupportedRecorderButtons();
 
     try {
       const qp = scope.channel_id ? `?channel_id=${scope.channel_id}` : `?dm_id=${scope.dm_id}`;
@@ -1797,6 +1840,47 @@
   }
 
   // ── Send message ───────────────────────────────────────────────
+  // ── Pulse Recorder integration ──────────────────────────────────
+  let pendingAttachments = [];
+  let activeRecorder = null;
+
+  function isRecorderEnabled() {
+    if (new URLSearchParams(location.search).get('pulse_recorder') === '1') return true;
+    try { return localStorage.getItem('pulse_recorder') === '1'; } catch (_) { return false; }
+  }
+
+  function hideUnsupportedRecorderButtons() {
+    if (!isRecorderEnabled()) {
+      ['ps-tool-voice','ps-tool-webcam','ps-tool-screen'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.display = 'none';
+      });
+      return;
+    }
+    const noMedia = !navigator.mediaDevices?.getUserMedia;
+    const noScreen = !navigator.mediaDevices?.getDisplayMedia;
+    if (noMedia) {
+      ['ps-tool-voice','ps-tool-webcam'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.display = 'none';
+      });
+    }
+    if (noScreen) {
+      const el = document.getElementById('ps-tool-screen'); if (el) el.style.display = 'none';
+    }
+  }
+
+  function startPulseRecording(mode) {
+    if (activeRecorder) { activeRecorder.destroy(); activeRecorder = null; }
+    const host = document.getElementById('ps-recorder-host');
+    if (!host) return;
+    activeRecorder = new PulseRecorder({ mode, mountInto: host });
+    host.addEventListener('pulse-recorder:done', (e) => {
+      pendingAttachments.push(e.detail);
+      sendMsg();
+      activeRecorder = null;
+    }, { once: true });
+    activeRecorder.start();
+  }
+
   async function sendMsg() {
     if (!activeScope) return;
     const ta = document.getElementById('ps-textarea');
