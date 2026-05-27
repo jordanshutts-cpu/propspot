@@ -28,6 +28,7 @@
     'reply':          S('<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>'),
     'forward':        S('<polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>'),
     'pencil':         S('<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>'),
+    'pen-line':       S('<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/>'),
     'link':           S('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
     'rotate-ccw':     S('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>'),
     'expand':         S('<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>'),
@@ -190,6 +191,12 @@
     '↪':       'forward',        // ↪ (no VS16)
     '✏️': 'pencil',         // ✏️
     '✏':       'pencil',         // ✏ (no VS16)
+    '🖋️': 'pen-line',       // 🖋️ Fountain pen (Ink'd app)
+    '🖋':       'pen-line',       // 🖋 (no VS16)
+    '🖊️': 'pen-line',       // 🖊️ Ballpoint pen
+    '🖊':       'pen-line',       // 🖊 (no VS16)
+    '✒️':       'pen-line',       // ✒️ Black nib
+    '✒':       'pen-line',       // ✒ (no VS16)
     '🔗': 'link',           // 🔗
     '↻':       'rotate-ccw',     // ↻
     '⤢':       'expand',         // ⤢
