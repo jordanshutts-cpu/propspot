@@ -1622,4 +1622,18 @@ a.os-kpi:hover {
 .ts-modal { padding: 1.5rem; border: 0; border-radius: 0.75rem; min-width: 400px; }
 .ts-modal label { display: block; margin-bottom: 1rem; }
 .ts-modal input, .ts-modal select, .ts-modal textarea { width: 100%; padding: 0.5rem; }
+
+.ts-live-strip { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 0.75rem 0; }
+.ts-live-chip  { background: #16a34a; color: white; padding: 0.25rem 0.75rem;
+                 border-radius: 999px; font-size: 0.875rem; }
+.ts-live-empty { color: var(--muted); padding: 0.75rem 0; }
+.ts-table      { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.ts-table th, .ts-table td { padding: 0.5rem; border-bottom: 1px solid var(--border);
+                              text-align: left; }
+.ts-primary    { background: var(--accent); color: white; padding: 0.75rem 1.5rem;
+                 border: 0; border-radius: 0.5rem; cursor: pointer; }
+.ts-approve    { background: #16a34a; color: white; padding: 0.25rem 0.75rem;
+                 border: 0; border-radius: 0.25rem; cursor: pointer; }
+.ts-anomaly    { background: #f59e0b; color: white; padding: 0.125rem 0.5rem;
+                 border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
 .ts-modal menu { display: flex; gap: 0.5rem; justify-content: flex-end; padding: 0; }

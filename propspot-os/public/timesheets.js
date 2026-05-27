@@ -158,10 +158,117 @@
     await refreshEntries();
   });
 
+  function setupTabs(role) {
+    if (role === 'approver' || role === 'admin') {
+      document.querySelector('[data-tab="approvals"]').hidden = false;
+      document.querySelector('[data-tab="history"]').hidden = false;
+    }
+    if (role === 'admin') {
+      document.querySelector('[data-tab="settings"]').hidden = false;
+    }
+    document.querySelectorAll('#ts-tabs .tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#ts-tabs .tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(p => p.hidden = true);
+        $('tab-' + btn.dataset.tab).hidden = false;
+        if (btn.dataset.tab === 'approvals') loadApprovals();
+        if (btn.dataset.tab === 'history')   loadHistory();
+      });
+    });
+  }
+
+  async function getMyRole() {
+    try {
+      const r = await authFetch('/api/os/grants?app=timesheets');
+      return r.role || 'member';
+    } catch { return 'member'; }
+  }
+
+  function minSince(iso) {
+    const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    return m < 60 ? `${m}m` : `${Math.floor(m/60)}h ${m%60}m`;
+  }
+
+  async function loadApprovals() {
+    const panel = $('tab-approvals');
+    panel.innerHTML = '<p>Loading…</p>';
+
+    const live = await authFetch('/api/timesheets/live').catch(() => []);
+    const liveHtml = live.length
+      ? '<div class="ts-live-strip">' + live.map(l => `
+          <span class="ts-live-chip">${l.full_name} · ${l.category || 'untagged'} ·
+            ${minSince(l.started_at)}</span>`).join('') + '</div>'
+      : '<div class="ts-live-empty">Nobody clocked in right now.</div>';
+
+    const periods = await authFetch('/api/timesheets/pay-periods');
+    const current = periods.find(p => p.status === 'open') || periods[0];
+    if (!current) {
+      panel.innerHTML = liveHtml + '<p>No pay periods yet. Connect Gusto in Settings.</p>';
+      return;
+    }
+    const workers = (current.workers || []).filter(w => w && w.minutes != null);
+    const workerRowsHtml = workers.map(w => `
+      <tr data-user="${w.user_id}">
+        <td>${w.full_name}</td>
+        <td>${(w.minutes/60).toFixed(1)} hrs</td>
+        <td>${w.anomaly_count > 0
+                ? `<span class="ts-anomaly">${w.anomaly_count}</span>`
+                : '—'}</td>
+        <td>${(w.statuses || []).join(', ')}</td>
+        <td><button class="ts-approve" data-user="${w.user_id}">Approve</button></td>
+      </tr>
+    `).join('');
+
+    panel.innerHTML = `
+      ${liveHtml}
+      <h3>Pay period ${current.starts_on} – ${current.ends_on}
+          <small>(payday ${current.payday})</small></h3>
+      <table class="ts-table">
+        <thead><tr><th>Worker</th><th>Hours</th><th>Anomalies</th><th>Status</th><th></th></tr></thead>
+        <tbody>${workerRowsHtml}</tbody>
+      </table>
+      <button id="ts-push-gusto" class="ts-primary">Push approved hours to Gusto</button>
+    `;
+
+    panel.querySelectorAll('.ts-approve').forEach(b => b.addEventListener('click', async () => {
+      await authFetch(
+        `/api/timesheets/pay-periods/${current.id}/workers/${b.dataset.user}/approve`,
+        { method: 'POST' });
+      loadApprovals();
+    }));
+    $('ts-push-gusto').addEventListener('click', async () => {
+      const r = await authFetch(
+        `/api/timesheets/gusto/pay-periods/${current.id}/push`,
+        { method: 'POST' }).catch(e => e);
+      alert(r.results ? `Pushed: ${r.results.filter(x=>x.status==='pushed').length}; failed: ${r.results.filter(x=>x.status==='failed').length}` : 'Push failed: ' + (r.error || 'unknown'));
+      loadApprovals();
+    });
+  }
+
+  async function loadHistory() {
+    const panel = $('tab-history');
+    const periods = await authFetch('/api/timesheets/pay-periods');
+    panel.innerHTML = `
+      <table class="ts-table">
+        <thead><tr><th>Period</th><th>Status</th><th>CSV</th></tr></thead>
+        <tbody>${periods.map(p => `
+          <tr>
+            <td>${p.starts_on} – ${p.ends_on}</td>
+            <td>${p.status}</td>
+            <td><a href="/api/timesheets/pay-periods/${p.id}/csv?token=${localStorage.getItem('token')}">Download</a></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
   async function init() {
     $('ts-clock-btn').addEventListener('click', onClockClick);
     $('ts-switch-btn').addEventListener('click', onSwitchClick);
     $('ts-add-manual').addEventListener('click', openManualModal);
+    const role = await getMyRole();
+    setupTabs(role);
     await populateTagDropdowns();
     const open = await authFetch('/api/timesheets/me/current');
     setClockState(open);
