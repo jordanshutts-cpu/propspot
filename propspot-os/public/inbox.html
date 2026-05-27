@@ -915,6 +915,24 @@
     /* Bigger icons inside the mobile-only buttons */
     .ib-icon-btn.ib-mobile-only { width: 36px; height: 36px; border-radius: 10px; }
     .ib-icon-btn.ib-mobile-only svg { width: 20px; height: 20px; }
+
+    /* Property-scope filter pill (shown when /inbox.html?property_id=... is used). */
+    .ib-property-filter {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; margin: 8px 8px 4px;
+      background: var(--brand-light, rgba(97,183,70,.12));
+      border: 1px solid rgba(97,183,70,.3);
+      border-radius: 8px;
+      font-size: .82rem; color: var(--brand-dark, #15803d); font-weight: 500;
+    }
+    .ib-property-filter .ib-pf-icon { font-size: .9rem; }
+    .ib-property-filter .ib-pf-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ib-property-filter button {
+      margin-left: auto; background: transparent; border: 0;
+      color: var(--brand-dark, #15803d); cursor: pointer;
+      font-size: 1.2rem; line-height: 1; padding: 0 4px;
+    }
+    .ib-property-filter button:hover { color: #ef4444; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -1020,6 +1038,11 @@
         <button class="inbox-tab" data-tab="trash">Trash</button>
         <button class="inbox-tab" data-tab="spam">Spam</button>
       </nav>
+      <div id="ib-property-filter-pill" class="ib-property-filter" hidden>
+        <span class="ib-pf-icon">🏠</span>
+        <span class="ib-pf-label" id="ib-pf-label">Filtered by property</span>
+        <button type="button" id="ib-pf-clear" aria-label="Clear property filter" title="Clear filter">×</button>
+      </div>
       <div class="thread-list" id="threads">
         <p class="text-muted text-sm" style="padding:14px;">Loading threads…</p>
       </div>
@@ -1360,7 +1383,10 @@ const STATE = {
   activeThreadId:  null,
   activeThread:    null,
   composeAliases:  [],
-  sharedInboxes:   null
+  sharedInboxes:   null,
+  // Set from ?property_id=... in the URL. When non-null, threads are
+  // filtered to those linked to this property and the filter pill is shown.
+  propertyFilter:  null,   // { id, address }
 };
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -1377,12 +1403,57 @@ async function init() {
   attachSearchHandler();
   await loadInboxes();
   loadPersonalSyncStatus();
+  await applyPropertyFilterFromUrl();
   await refreshThreads();
 
   const initialThread = new URLSearchParams(location.search).get('thread');
   if (initialThread) selectThread(initialThread);
 
   window.addEventListener('focus', refreshUnreadCounts);
+}
+
+// Reads ?property_id=<UUID> from the URL, fetches the property's address,
+// and stashes it on STATE.propertyFilter so refreshThreads() narrows results
+// and the filter pill renders above the thread list.
+async function applyPropertyFilterFromUrl() {
+  const propertyId = new URLSearchParams(location.search).get('property_id');
+  if (!propertyId) return;
+  try {
+    const p = await apiFetch('/api/properties/' + propertyId);
+    const address = [p.address_line1, p.city, p.state, p.zip].filter(Boolean).join(', ');
+    STATE.propertyFilter = { id: propertyId, address: address || '(no address)' };
+  } catch (err) {
+    STATE.propertyFilter = { id: propertyId, address: 'Selected property' };
+  }
+  renderPropertyFilterPill();
+  // Wire the clear button once.
+  const clearBtn = document.getElementById('ib-pf-clear');
+  if (clearBtn && !clearBtn.dataset.wired) {
+    clearBtn.dataset.wired = '1';
+    clearBtn.addEventListener('click', clearPropertyFilter);
+  }
+}
+
+function renderPropertyFilterPill() {
+  const pill  = document.getElementById('ib-property-filter-pill');
+  const label = document.getElementById('ib-pf-label');
+  if (!pill || !label) return;
+  if (STATE.propertyFilter) {
+    label.textContent = 'Filtered by property: ' + STATE.propertyFilter.address;
+    pill.hidden = false;
+  } else {
+    pill.hidden = true;
+  }
+}
+
+async function clearPropertyFilter() {
+  STATE.propertyFilter = null;
+  renderPropertyFilterPill();
+  // Strip property_id from the URL so a refresh keeps the cleared state.
+  const u = new URL(location.href);
+  u.searchParams.delete('property_id');
+  history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
+  await refreshThreads();
 }
 
 // ── Column resizers ───────────────────────────────────────────────
@@ -1666,6 +1737,12 @@ async function refreshThreads() {
     return;
   } else {
     params.status = 'open';
+  }
+  // Layer on the property scope when the page was opened via
+  // /inbox.html?property_id=<UUID> (e.g. from a property page's
+  // "Open Inbox" button). Backend supports ?property_id= already.
+  if (STATE.propertyFilter) {
+    params.property_id = STATE.propertyFilter.id;
   }
   try {
     const result = await listThreads(params);
