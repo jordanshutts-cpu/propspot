@@ -1668,3 +1668,10 @@ CREATE TABLE IF NOT EXISTS inkd_audit_events (
   details       JSONB
 );
 CREATE INDEX IF NOT EXISTS idx_inkd_audit_envelope ON inkd_audit_events(envelope_id, event_at);
+
+-- ── FieldCam: per-photo share links (2026-05-27) ────────────────────────────
+-- share_links already supports whole-property and whole-folder shares.
+-- photo_ids[] adds support for "share these specific photos" — when set,
+-- the public share page renders only photos whose ID is in this array
+-- (still scoped to share_links.property_id).
+ALTER TABLE share_links ADD COLUMN IF NOT EXISTS photo_ids UUID[];

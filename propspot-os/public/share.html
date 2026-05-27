@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>FieldCam — Shared Photos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f7;
+      color: #1c1c1e;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .share-header {
+      background: #fff;
+      padding: 14px 16px env(safe-area-inset-top, 0);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #e5e5ea;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .share-logo {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #61B746;
+      letter-spacing: -.5px;
+    }
+    .share-prop-name {
+      flex: 1;
+      font-weight: 700;
+      font-size: .95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Property info card ── */
+    .info-card {
+      background: #fff;
+      border-radius: 14px;
+      margin: 16px 16px 8px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .info-card-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .info-card-address {
+      color: #636366;
+      font-size: .85rem;
+      margin-bottom: 4px;
+    }
+    .info-card-notes {
+      color: #8e8e93;
+      font-size: .82rem;
+    }
+
+    /* ── Folder tab bar ── */
+    .folder-tabs-outer {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 0 16px;
+    }
+    .folder-tabs-outer::-webkit-scrollbar { display: none; }
+    .folder-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      width: max-content;
+      min-width: 100%;
+      padding: 8px 0;
+    }
+    .folder-tab {
+      flex-shrink: 0;
+      padding: 7px 14px;
+      border-radius: 100px;
+      border: 1.5px solid #e0e0e0;
+      background: #fff;
+      color: #555;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .folder-tab.active {
+      background: #61B746;
+      border-color: #61B746;
+      color: #fff;
+    }
+
+    /* ── Section header ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 16px 8px;
+    }
+    .section-title {
+      font-size: .9rem;
+      font-weight: 700;
+      color: #1c1c1e;
+    }
+    .photo-count {
+      font-size: .8rem;
+      color: #8e8e93;
+    }
+
+    /* ── Photo grid ── */
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+      padding: 0 16px;
+    }
+    .photo-thumb-wrap {
+      position: relative;
+      aspect-ratio: 1;
+      overflow: hidden;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #e5e5ea;
+    }
+    .photo-thumb-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+    }
+    .photo-thumb-overlay {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,.6));
+      padding: 14px 5px 4px;
+      color: #fff;
+      font-size: .63rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .video-grid-thumb {
+      width: 100%; height: 100%;
+      background: #111;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #fff; gap: 4px;
+    }
+    .video-grid-thumb .vgt-icon  { font-size: 1.8rem; }
+    .video-grid-thumb .vgt-label { font-size: .65rem; opacity: .55; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #8e8e93;
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* ── Lightbox ── */
+    .lightbox {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.92);
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox-close {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 0px) + 14px);
+      right: 16px;
+      background: rgba(255,255,255,.15);
+      border: none; color: #fff;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lightbox-img {
+      max-width: 100%; max-height: 75dvh;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+    .lightbox-video {
+      max-width: 100%; max-height: 75dvh;
+      display: none; border-radius: 8px;
+    }
+    .lightbox-meta {
+      color: rgba(255,255,255,.75);
+      font-size: .83rem;
+      text-align: center;
+      padding: 10px 20px 6px;
+      line-height: 1.5;
+    }
+
+    /* ── Footer ── */
+    .share-footer {
+      margin-top: auto;
+      padding: 24px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+      text-align: center;
+      color: #aeaeb2;
+      font-size: .78rem;
+    }
+    .share-footer a { color: #61B746; text-decoration: none; }
+
+    /* ── Loading / Error ── */
+    .full-center {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; padding: 32px;
+      text-align: center; color: #8e8e93;
+    }
+    .full-center .err-icon { font-size: 3rem; }
+    .full-center .err-text { font-size: .9rem; }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(97,183,70,.2);
+      border-top-color: #61B746;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+  </style>
+</head>
+<body>
+
+<header class="share-header">
+  <span class="share-logo">📸 FieldCam</span>
+  <span class="share-prop-name" id="header-prop-name">Loading…</span>
+</header>
+
+<div id="loading-state" class="full-center">
+  <div class="spinner"></div>
+  <span class="err-text">Loading shared photos…</span>
+</div>
+
+<div id="error-state" class="full-center" style="display:none;">
+  <div class="err-icon">🔒</div>
+  <span class="err-text" id="error-msg">This share link is invalid or has been revoked.</span>
+</div>
+
+<div id="content" style="display:none;">
+  <!-- Property info -->
+  <div class="info-card">
+    <div class="info-card-name" id="prop-name"></div>
+    <div class="info-card-address" id="prop-address"></div>
+    <div class="info-card-notes"  id="prop-notes"></div>
+  </div>
+
+  <!-- Folder tabs (only shown if whole property shared and folders exist) -->
+  <div class="folder-tabs-outer" id="folder-tabs-outer" style="display:none;">
+    <div class="folder-tabs" id="folder-tabs"></div>
+  </div>
+
+  <!-- Section header -->
+  <div class="section-header">
+    <span class="section-title" id="section-title">All Photos</span>
+    <span class="photo-count"   id="photo-count">0 photos</span>
+  </div>
+
+  <!-- Photo grid -->
+  <div id="photo-grid-wrap">
+    <div class="empty-state">
+      <div class="empty-icon">📷</div>
+      <p>No photos shared yet.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox (view only) -->
+<div class="lightbox" id="lightbox" onclick="closeLightboxOutside(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img class="lightbox-img"   id="lightbox-img"   src="" alt="Photo">
+  <video class="lightbox-video" id="lightbox-video" controls playsinline></video>
+  <div class="lightbox-meta" id="lightbox-meta"></div>
+</div>
+
+<div class="share-footer">
+  Powered by <a href="https://fieldcam.app" target="_blank">FieldCam</a>
+</div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const TOKEN  = params.get('t');
+
+  let shareData     = null;
+  let displayPhotos = [];
+  let currentFolder = null;  // null = all (for whole-property share)
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+    );
+  }
+  function formatDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    });
+  }
+  function fmtShort(iso) {
+    return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  }
+
+  // ── Fetch share data (no auth) ────────────────────────────────────
+  async function init() {
+    if (!TOKEN) { showError('No share token provided.'); return; }
+
+    try {
+      const res = await fetch(`/api/fieldcam/share/${TOKEN}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showError(data.error || 'This share link is invalid or has been revoked.');
+        return;
+      }
+      shareData = await res.json();
+      render();
+    } catch (err) {
+      showError('Failed to load shared photos. Please try again.');
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('error-msg').textContent = msg;
+    document.getElementById('error-state').style.display = '';
+  }
+
+  function render() {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('content').style.display = '';
+
+    const { property, folder, folders, photos, label } = shareData;
+
+    // Header
+    document.title = `FieldCam — ${property.name}`;
+    document.getElementById('header-prop-name').textContent = property.name;
+
+    // Property info
+    document.getElementById('prop-name').textContent    = property.name;
+    document.getElementById('prop-address').textContent = property.address || '';
+    document.getElementById('prop-notes').textContent   = property.notes   || '';
+
+    // Folder tabs — only for whole-property shares with folders
+    if (!folder && folders && folders.length > 0) {
+      renderFolderTabs(folders, photos);
+      document.getElementById('folder-tabs-outer').style.display = '';
+    }
+
+    // If it's a folder-specific share, show folder name as title
+    if (folder) {
+      document.getElementById('section-title').textContent = folder.name;
+    }
+
+    displayPhotos = photos;
+    renderGrid(photos);
+  }
+
+  function renderFolderTabs(folders, allPhotos) {
+    const tabsEl = document.getElementById('folder-tabs');
+    const tabs = [`
+      <button class="folder-tab active" onclick="filterByFolder(null)">
+        All (${allPhotos.length})
+      </button>`];
+
+    folders.forEach(f => {
+      const count = allPhotos.filter(p => p.folder_id === f.id).length;
+      tabs.push(`
+        <button class="folder-tab" id="stab-${f.id}" onclick="filterByFolder('${f.id}')">
+          ${escHtml(f.name)} (${count})
+        </button>`);
+    });
+
+    tabsEl.innerHTML = tabs.join('');
+  }
+
+  function filterByFolder(folderId) {
+    currentFolder = folderId;
+
+    // Update tab highlight
+    document.querySelectorAll('.folder-tab').forEach(btn => btn.classList.remove('active'));
+    if (folderId) {
+      document.getElementById(`stab-${folderId}`)?.classList.add('active');
+    } else {
+      document.querySelector('.folder-tab')?.classList.add('active');
+    }
+
+    const allPhotos = shareData.photos;
+    const filtered  = folderId ? allPhotos.filter(p => p.folder_id === folderId) : allPhotos;
+    const folderObj = shareData.folders.find(f => f.id === folderId);
+    document.getElementById('section-title').textContent =
+      folderId ? (folderObj ? folderObj.name : 'Folder') : 'All Photos';
+
+    displayPhotos = filtered;
+    renderGrid(filtered);
+  }
+
+  function renderGrid(photos) {
+    document.getElementById('photo-count').textContent =
+      `${photos.length} photo${photos.length !== 1 ? 's' : ''}`;
+
+    const wrap = document.getElementById('photo-grid-wrap');
+    wrap._photos = photos;
+
+    if (!photos.length) {
+      wrap.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">📷</div>
+        <p>No photos here yet.</p>
+      </div>`;
+      return;
+    }
+
+    wrap.innerHTML = `<div class="photo-grid">${photos.map((p, i) => `
+      <div class="photo-thumb-wrap" onclick="openLightbox(${i})">
+        ${p.media_type === 'video'
+          ? `<div class="video-grid-thumb"><span class="vgt-icon">▶</span><span class="vgt-label">Video</span></div>`
+          : `<img src="${escHtml(p.url)}" alt="Photo" loading="lazy">`
+        }
+        <div class="photo-thumb-overlay">
+          <div>${fmtShort(p.taken_at)}</div>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+
+  // ── Lightbox (view only) ──────────────────────────────────────────
+  function openLightbox(idx) {
+    const photos = document.getElementById('photo-grid-wrap')._photos || displayPhotos;
+    const photo  = photos[idx];
+    if (!photo) return;
+
+    const isVideo = photo.media_type === 'video';
+    const imgEl   = document.getElementById('lightbox-img');
+    const vidEl   = document.getElementById('lightbox-video');
+
+    if (isVideo) {
+      imgEl.style.display = 'none';
+      vidEl.style.display = 'block';
+      vidEl.src = photo.url;
+    } else {
+      vidEl.style.display = 'none'; vidEl.pause?.(); vidEl.src = '';
+      imgEl.style.display = '';     imgEl.src = photo.url;
+    }
+
+    document.getElementById('lightbox-meta').innerHTML = `
+      ${formatDate(photo.taken_at)}
+      ${photo.folder_name ? `<br>📁 ${escHtml(photo.folder_name)}` : ''}
+      ${photo.notes ? `<br><em>${escHtml(photo.notes)}</em>` : ''}`;
+
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    const vidEl = document.getElementById('lightbox-video');
+    vidEl.pause?.(); vidEl.src = '';
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function closeLightboxOutside(e) {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+  init();
+</script>
+</body>
+</html>
