@@ -214,10 +214,19 @@
           <div class="cs-form">
             <div class="form-group">
               <label class="form-label">Company name</label>
-              <div class="cs-save-row">
-                <input class="form-input" id="cs-name" value="${escHtml(org.company_name || '')}" placeholder="Your company name" style="flex:1;">
-                <button class="btn btn-primary" id="cs-save">Save</button>
+              <input class="form-input" id="cs-name" value="${escHtml(org.company_name || '')}" placeholder="Your company name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Company address</label>
+              <input class="form-input" id="cs-address" value="${escHtml(org.company_address || '')}" placeholder="e.g. 1870 The Exchange SE, Atlanta GA 30077">
+              <div class="text-muted text-xs" style="margin-top:4px;">
+                Used to keep your own letterhead out of inbox auto-detection — when
+                an invoice or email contains this address, Prop Spot won't suggest
+                it as one of your properties.
               </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button class="btn btn-primary" id="cs-save">Save</button>
             </div>
           </div>
         </div>
@@ -226,13 +235,17 @@
 
   function wire() {
     document.getElementById('cs-save').addEventListener('click', async () => {
-      const name = document.getElementById('cs-name').value.trim();
+      const name    = document.getElementById('cs-name').value.trim();
+      const address = document.getElementById('cs-address').value.trim();
       if (!name) return;
       const btn = document.getElementById('cs-save');
       btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
       try {
-        await apiFetch('/api/org', { method: 'PATCH', body: JSON.stringify({ company_name: name }) });
-        showToast('Company name saved');
+        await apiFetch('/api/org', { method: 'PATCH', body: JSON.stringify({
+          company_name:    name,
+          company_address: address  // '' clears, omitted leaves unchanged
+        })});
+        showToast('Settings saved');
       } catch (err) {
         showToast(err.message, 'error');
       } finally {
