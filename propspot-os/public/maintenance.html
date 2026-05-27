@@ -335,6 +335,7 @@
   async function init() {
     currentUser = await requireAuth(); if (!currentUser) return;
     await Promise.all([loadOrders(), loadProps(), loadAssignableUsers()]);
+    consumePendingWO();
     // Only filter pills under #pills (the WO-status row) drive currentFilter —
     // the "Work Orders / Lawn Mowing" row above is plain links, not pills.
     document.getElementById('pills').addEventListener('click', e => {
@@ -656,14 +657,39 @@
     }
   }
 
-  function openCreate() {
+  function openCreate(prefill) {
     ['c-search','c-title','c-desc','c-sched'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('c-cat').value = '';
     document.getElementById('c-priority').value = 'normal';
     document.getElementById('c-err').style.display = 'none';
     setAssigneeDisplay('c', '');
     renderPropOpts(propsCache);
+    // Accept an optional { property_id, title, description } prefill so
+    // upstream apps (Inbox, Pulse) can hand off "Create work order" without
+    // duplicating the form.
+    if (prefill) {
+      if (prefill.title)       document.getElementById('c-title').value = prefill.title;
+      if (prefill.description) document.getElementById('c-desc').value  = prefill.description;
+      if (prefill.property_id) document.getElementById('c-prop').value  = prefill.property_id;
+    }
     document.getElementById('modal-create').classList.add('open');
+  }
+
+  // If we landed here with a pending work-order prefill from another app
+  // (Inbox "Create work order", Pulse "+"), open the modal pre-populated.
+  function consumePendingWO() {
+    let pending = null;
+    try { pending = sessionStorage.getItem('propspot_pending_wo'); } catch (e) {}
+    if (!pending) return;
+    try { sessionStorage.removeItem('propspot_pending_wo'); } catch (e) {}
+    let parsed;
+    try { parsed = JSON.parse(pending); } catch (e) { return; }
+    // Defer until propsCache populates so the property select can match.
+    const tryOpen = () => {
+      if (!propsCache || !propsCache.length) return setTimeout(tryOpen, 100);
+      openCreate(parsed);
+    };
+    tryOpen();
   }
   function closeCreate() { document.getElementById('modal-create').classList.remove('open'); }
   document.getElementById('modal-create').addEventListener('click', e => { if(e.target===e.currentTarget) closeCreate(); });

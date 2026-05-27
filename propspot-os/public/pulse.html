@@ -176,6 +176,20 @@
     }
     .ps-act-emoji:hover { background:var(--brand-light); transform:scale(1.15); }
 
+    /* Quick-reaction popover — only visible on hover of the smile icon
+       (or while the popover itself is hovered). Click the icon to open
+       the full emoji picker. */
+    .ps-react-wrap { position:relative; display:inline-flex; }
+    .ps-react-quick {
+      position:absolute; bottom:calc(100% + 4px); left:0;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:9px; padding:2px; gap:1px;
+      box-shadow:0 6px 18px -4px rgba(0,0,0,.18);
+      display:none; align-items:center; white-space:nowrap; z-index:30;
+    }
+    .ps-react-wrap:hover .ps-react-quick,
+    .ps-react-quick:hover { display:flex; }
+
     .ps-act-sep { width:1px; height:14px; background:var(--border); margin:0 4px; flex-shrink:0; }
 
     .ps-act-btn {
@@ -1206,25 +1220,42 @@
     const svgCal    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
     const quickEmojis = ['👍','❤️','😂','🎉','🔥'];
-    const quickBtns = quickEmojis.map(em =>
+    const quickPopover = quickEmojis.map(em =>
       `<button class="ps-act-emoji" title="React with ${em}" onclick="reactMsg('${mid}','${em}',event)">${em}</button>`
     ).join('');
 
+    const svgPlus = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+    const svgUnread = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
+    const svgWrench = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+
+    // "+" menu — create actions only (mirrors the Inbox + dropdown).
+    const plusMenu = `<div class="ps-more-menu" id="plus-menu-${mid}">
+      <button class="ps-more-item" onclick="createWorkOrderFromMsg('${mid}');closePlusMenu('${mid}')">${svgWrench} Create work order</button>
+      <button class="ps-more-item" onclick="createEventFromMsg('${mid}');closePlusMenu('${mid}')">${svgCal} Create event</button>
+      <button class="ps-more-item" onclick="createTaskFromMsg('${mid}');closePlusMenu('${mid}')">${svgTask} Create task</button>
+    </div>`;
+
+    // Kebab — message-level utilities only. Edit/Delete gated to own
+    // messages; Copy + Mark unread available on every message.
     const moreMenu = `<div class="ps-more-menu" id="more-menu-${mid}">
-      <button class="ps-more-item" onclick="copyMsgText('${mid}')">${svgCopy} Copy text</button>
-      <button class="ps-more-item" onclick="startReply('${mid}','${esc1(senderName)}');closeMoreMenu('${mid}')">${svgReply} Reply to message</button>
-      <button class="ps-more-item" onclick="createTaskFromMsg('${mid}');closeMoreMenu('${mid}')">${svgTask} Create task from this</button>
-      <button class="ps-more-item" onclick="createEventFromMsg('${mid}');closeMoreMenu('${mid}')">${svgCal} Create event from this</button>
+      ${isOwn ? `<button class="ps-more-item" onclick="editMsg('${mid}');closeMoreMenu('${mid}')">${svgEdit} Edit message</button>` : ''}
+      <button class="ps-more-item" onclick="markMessageUnread('${mid}');closeMoreMenu('${mid}')">${svgUnread} Mark unread</button>
+      <button class="ps-more-item" onclick="copyMsgText('${mid}');closeMoreMenu('${mid}')">${svgCopy} Copy message</button>
       ${isOwn ? `<div class="ps-more-divider"></div>
-      <button class="ps-more-item" onclick="editMsg('${mid}');closeMoreMenu('${mid}')">${svgEdit} Edit message</button>
       <button class="ps-more-item danger" onclick="deleteMsg('${mid}')">${svgDel} Delete message</button>` : ''}
     </div>`;
 
     const actionBar = `<div class="ps-msg-actions" id="act-${mid}">
-      ${quickBtns}
-      <button class="ps-act-btn" title="Add reaction" onclick="openEmojiPicker('${mid}',event,this)">${svgSmile}</button>
+      <div class="ps-react-wrap">
+        <button class="ps-act-btn" title="Add reaction" onclick="openEmojiPicker('${mid}',event,this)">${svgSmile}</button>
+        <div class="ps-react-quick" role="menu">${quickPopover}</div>
+      </div>
       <div class="ps-act-sep"></div>
       <button class="ps-act-btn" title="Reply" onclick="startReply('${mid}','${esc1(senderName)}')">${svgReply}</button>
+      <div class="ps-more-wrap">
+        <button class="ps-act-btn" title="Create…" onclick="togglePlusMenu('${mid}',this)">${svgPlus}</button>
+        ${plusMenu}
+      </div>
       <div class="ps-more-wrap">
         <button class="ps-act-btn" title="More options" onclick="toggleMoreMenu('${mid}',this)">${svgDots}</button>
         ${moreMenu}
@@ -1592,9 +1623,65 @@
 
   function closeAllMoreMenus() {
     document.querySelectorAll('.ps-more-menu.open').forEach(m => {
-      const msgId = m.id.replace('more-menu-', '');
-      closeMoreMenu(msgId);
+      const id = m.id;
+      if (id.startsWith('more-menu-')) closeMoreMenu(id.replace('more-menu-', ''));
+      else if (id.startsWith('plus-menu-')) closePlusMenu(id.replace('plus-menu-', ''));
     });
+  }
+
+  function togglePlusMenu(msgId, btn) {
+    const menu   = document.getElementById(`plus-menu-${msgId}`);
+    const actBar = document.getElementById(`act-${msgId}`);
+    if (!menu) return;
+    const isOpen = menu.classList.contains('open');
+    closeAllMoreMenus();
+    if (!isOpen) {
+      menu.classList.add('open');
+      btn.classList.add('active');
+      if (actBar) actBar.classList.add('visible');
+    }
+  }
+  function closePlusMenu(msgId) {
+    const menu   = document.getElementById(`plus-menu-${msgId}`);
+    const actBar = document.getElementById(`act-${msgId}`);
+    if (menu) {
+      menu.classList.remove('open');
+      actBar?.classList.remove('visible');
+      menu.parentElement?.querySelector('.ps-act-btn')?.classList.remove('active');
+    }
+  }
+
+  // Stash prefill in sessionStorage and hand off to Work Orders, which
+  // opens its "New Work Order" modal with the title/description filled in.
+  function createWorkOrderFromMsg(msgId) {
+    const m = messages.find(msg => msg.id === msgId);
+    if (!m) return;
+    const body    = (m.body || m.content || '').replace(/<[^>]+>/g, '').trim();
+    const channel = activeScope?.name || 'Pulse';
+    const sender  = m.sender_name || m.sender_email || 'Unknown';
+    const title   = body.substring(0, 60) + (body.length > 60 ? '…' : '');
+    try {
+      sessionStorage.setItem('propspot_pending_wo', JSON.stringify({
+        title,
+        description: `From ${sender} in ${channel}:\n\n${body}`
+      }));
+    } catch (e) {}
+    location.href = '/maintenance.html';
+  }
+
+  // Mark this message (and everything after it) as unread by rewinding the
+  // channel member's last_read_at to just before this message's timestamp.
+  async function markMessageUnread(msgId) {
+    if (!activeScope?.id) { showToast('Open a channel first', 'error'); return; }
+    try {
+      await apiFetch(`/api/pulse/channels/${activeScope.id}/mark-unread-from`, {
+        method: 'POST',
+        body: JSON.stringify({ message_id: msgId })
+      });
+      showToast('Marked unread');
+    } catch (e) {
+      showToast(e.message || 'Could not mark unread', 'error');
+    }
   }
 
   async function copyMsgText(msgId) {

@@ -2053,6 +2053,7 @@ async function renderThreadMenu(kind) {
   if (kind === 'plus') {
     return `
       <div class="th-dropdown-item" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Add to property'}</div>
+      <div class="th-dropdown-item" onclick="createWorkOrderFromThread()">🔧 Create work order</div>
       <div class="th-dropdown-item" onclick="createCalendarEvent()">📅 Create event</div>
       <div class="th-dropdown-item" onclick="createTaskFromThread()">✓ Create task</div>
     `;
@@ -2142,6 +2143,21 @@ function propertyLabel(p) {
   if (p.unit) parts[0] += ' #' + p.unit;
   if (p.city) parts.push(p.city);
   return parts.filter(Boolean).join(', ') || p.display_name || '(no address)';
+}
+
+// Hand off to the Work Orders page with prefill in sessionStorage so its
+// own "New Work Order" modal opens with subject/body/property pre-filled.
+function createWorkOrderFromThread() {
+  const t = STATE.activeThread;
+  if (!t) return;
+  try {
+    sessionStorage.setItem('propspot_pending_wo', JSON.stringify({
+      property_id: t.property_id || null,
+      title:       t.subject || '',
+      description: `From email: ${t.subject || '(no subject)'}\n\n${inboxThreadSnippet(t)}`.trim()
+    }));
+  } catch (e) {}
+  location.href = '/maintenance.html';
 }
 
 async function createTaskFromThread() {
