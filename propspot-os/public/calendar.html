@@ -579,8 +579,14 @@ function renderWeek() {
   }
   events.forEach(function(ev) {
     if (!ev.start_at) return;
-    var dt = new Date(ev.start_at);
-    var key = ymd(dt);
+    // All-day events come from Google as bare dates and the server
+    // appends T00:00:00Z (UTC midnight). new Date() then shifts to
+    // the local zone — May 29 UTC becomes May 28 8 PM EDT — which
+    // puts the chip on the wrong day. Bucket by the raw date portion
+    // for all-day events; only timed events go through Date parsing.
+    var key = ev.all_day
+      ? String(ev.start_at).slice(0, 10)
+      : ymd(new Date(ev.start_at));
     for (var j = 0; j < 7; j++) {
       if (days[j].ymd === key) {
         if (ev.all_day) days[j].allDay.push(ev);
