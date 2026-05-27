@@ -109,6 +109,9 @@ app.use('/api/inbox/attachments',    require('./routes/inbox/attachments'));
 app.use('/api/inbox/contacts',       require('./routes/inbox/contacts'));
 app.use('/api/inbox/properties',     require('./routes/inbox/properties'));
 
+// ── Timesheets ────────────────────────────────────────────────────
+app.use('/api/timesheets', require('./routes/timesheets/entries'));
+
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', service: 'propspot-os', timestamp: new Date().toISOString() })
