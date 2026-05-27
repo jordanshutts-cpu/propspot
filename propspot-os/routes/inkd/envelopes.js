@@ -3,6 +3,7 @@ const { query } = require('../../db');
 const { requireAuth } = require('../../middleware/auth');
 const { resolvePath } = require('../../lib/inkd-autofill');
 const { logAudit } = require('../../lib/inkd-audit');
+const { signEnvelopeUrls } = require('../../lib/inkd-cloudinary-urls');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -26,6 +27,7 @@ router.get('/', async (req, res) => {
         ORDER BY e.created_at DESC
         LIMIT 200`,
       args);
+    rows.forEach(signEnvelopeUrls);
     res.json(rows);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to list envelopes' }); }
 });
@@ -37,7 +39,7 @@ router.get('/:id', async (req, res) => {
     if (!e.rows[0]) return res.status(404).json({ error: 'Envelope not found' });
     const r = await query('SELECT id, role, full_name, email, phone, contact_id, signing_order, status, notified_at, viewed_at, signed_at FROM inkd_recipients WHERE envelope_id=$1 ORDER BY signing_order', [req.params.id]);
     const v = await query('SELECT * FROM inkd_field_values WHERE envelope_id=$1', [req.params.id]);
-    res.json({ ...e.rows[0], recipients: r.rows, field_values: v.rows });
+    res.json({ ...signEnvelopeUrls(e.rows[0]), recipients: r.rows, field_values: v.rows });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to load envelope' }); }
 });
 

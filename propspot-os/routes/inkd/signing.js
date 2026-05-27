@@ -5,6 +5,7 @@ const { query } = require('../../db');
 const { verifyToken } = require('../../lib/inkd-tokens');
 const { logAudit } = require('../../lib/inkd-audit');
 const envelopesRouter = require('./envelopes');
+const { signedRawPdfUrl } = require('../../lib/inkd-cloudinary-urls');
 
 const router = express.Router();
 
@@ -32,7 +33,8 @@ router.get('/:token', async (req, res) => {
     await query('UPDATE inkd_recipients SET viewed_at=now(), status=$2 WHERE id=$1', [rec.id, 'viewed']);
     await logAudit({ envelopeId: rec.envelope_id, recipientId: rec.id, eventType: 'viewed', req });
   }
-  const env = (await query('SELECT id, name, source_pdf_url, page_count, status FROM inkd_envelopes WHERE id=$1', [rec.envelope_id])).rows[0];
+  const env = (await query('SELECT id, name, source_pdf_url, source_pdf_id, page_count, status FROM inkd_envelopes WHERE id=$1', [rec.envelope_id])).rows[0];
+  if (env?.source_pdf_id) env.source_pdf_url = signedRawPdfUrl(env.source_pdf_id);
   const allRecips = (await query('SELECT id, role, full_name, signing_order FROM inkd_recipients WHERE envelope_id=$1 ORDER BY signing_order', [rec.envelope_id])).rows;
   const fields = (await query('SELECT * FROM inkd_field_values WHERE envelope_id=$1 ORDER BY page_number', [rec.envelope_id])).rows;
   res.json({
@@ -122,8 +124,11 @@ async function finalizeEnvelope(envelopeId) {
   const events    = (await query('SELECT * FROM inkd_audit_events WHERE envelope_id=$1 ORDER BY event_at', [envelopeId])).rows;
   const sender    = (await query('SELECT full_name, email FROM users WHERE id=$1', [env.created_by])).rows[0];
 
+  // The stored source_pdf_url is unsigned and blocked by Cloudinary's ACL.
+  // Sign it on the fly so pdf-lib's fetch can actually read the bytes.
+  const sourcePdfUrl = env.source_pdf_id ? signedRawPdfUrl(env.source_pdf_id) : env.source_pdf_url;
   const { bytes, hash } = await buildSignedPdf({
-    sourcePdfUrl: env.source_pdf_url,
+    sourcePdfUrl,
     envelope: env, recipients: recips, fieldValues: fvs, auditEvents: events,
   });
 
