@@ -15,11 +15,11 @@
 .inkd-editor-toolbox h3:not(:first-child) { margin-top: 20px; }
 .inkd-editor-toolbox p { font-size: .78rem; color: var(--text-muted); margin: 0 0 12px; }
 
-.field-btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 4px; background: var(--surface-muted, #f3f4f6); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-align: left; font-size: .88rem; color: var(--text); font-weight: 500; }
+.field-btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-align: left; font-size: .88rem; color: var(--text); font-weight: 500; }
 .field-btn:hover { border-color: var(--brand); color: var(--brand); }
 .field-btn.active { background: var(--brand-light, rgba(97,183,70,.12)); border-color: var(--brand); color: var(--brand); }
 
-#pdf-stage { overflow: auto; background: var(--surface-muted, #f5f6f8); padding: 24px; position: relative; }
+#pdf-stage { overflow: auto; background: var(--bg); padding: 24px; position: relative; }
 
 .pdf-page { position: relative; margin: 0 auto 16px; background: white; box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,.1)); }
 .pdf-page canvas { display: block; }

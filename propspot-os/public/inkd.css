@@ -23,7 +23,7 @@
 .inkd-side-item.active { background: var(--brand-light, rgba(97,183,70,.12)); color: var(--brand); font-weight: 600; }
 .inkd-side-item .ic { width: 18px; text-align: center; }
 .inkd-side-item .label { flex: 1; }
-.inkd-side-item .count { background: var(--surface-muted, #f3f4f6); color: var(--text-muted); border-radius: 100px; font-size: .7rem; font-weight: 600; padding: 1px 8px; min-width: 18px; text-align: center; }
+.inkd-side-item .count { background: var(--bg); color: var(--text-muted); border-radius: 100px; font-size: .7rem; font-weight: 600; padding: 1px 8px; min-width: 18px; text-align: center; }
 .inkd-side-item.active .count { background: var(--brand); color: #fff; }
 
 /* ── Main content area ────────────────────────────────────── */
