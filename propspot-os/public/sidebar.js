@@ -895,8 +895,55 @@
   // Run now if DOM is ready, else wait for it.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', renderNewSidebar);
+    document.addEventListener('DOMContentLoaded', setupCollapsedTooltip);
   } else {
     renderNewSidebar();
+    setupCollapsedTooltip();
+  }
+
+  // ── Collapsed-sidebar tooltip ─────────────────────────────────────
+  // The CSS ::after tooltip was getting clipped by the sidebar's
+  // overflow-y:auto container (browsers force overflow-x:auto in that
+  // case, so anything positioned past the right edge is cut off).
+  // Use a single position:fixed element appended to <body> so it
+  // escapes any ancestor clipping.
+  function setupCollapsedTooltip() {
+    let tip = document.getElementById('os-sidebar-tooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'os-sidebar-tooltip';
+      tip.style.cssText = [
+        'position:fixed','z-index:9999','padding:6px 10px',
+        'background:#1f2937','color:#fff','font-size:.78rem','font-weight:600',
+        'border-radius:6px','white-space:nowrap','pointer-events:none',
+        'box-shadow:0 4px 12px rgba(0,0,0,0.25)','opacity:0',
+        'transition:opacity .08s ease','left:-9999px','top:-9999px'
+      ].join(';');
+      document.body.appendChild(tip);
+    }
+
+    // Use event delegation so dynamically-rendered rows are covered.
+    document.body.addEventListener('mouseover', (e) => {
+      if (!document.documentElement.classList.contains('sidebar-collapsed')) return;
+      const row = e.target.closest('.os-newchrome-row');
+      if (!row) return;
+      const label = row.getAttribute('title') || row.getAttribute('aria-label');
+      if (!label) return;
+      const r = row.getBoundingClientRect();
+      tip.textContent = label;
+      tip.style.left = (r.right + 8) + 'px';
+      tip.style.top  = (r.top + r.height / 2) + 'px';
+      tip.style.transform = 'translateY(-50%)';
+      tip.style.opacity = '1';
+    });
+    document.body.addEventListener('mouseout', (e) => {
+      const row = e.target.closest?.('.os-newchrome-row');
+      if (!row) return;
+      // Hide only when leaving the row entirely (not when moving to a child).
+      if (row.contains(e.relatedTarget)) return;
+      tip.style.opacity = '0';
+      tip.style.left = '-9999px';
+    });
   }
 
   // ── Auto-poll sidebar counts for real-time notifications ────────
