@@ -211,32 +211,99 @@ function envelopeRow(e) {
 
 function templateRow(t) {
   const div = document.createElement('div');
-  div.className = 'inkd-row';
-  const date = new Date(t.updated_at || t.created_at).toLocaleDateString();
+  div.className = 'tpl-row';
+  const dateStr = new Date(t.updated_at || t.created_at).toLocaleDateString(
+    'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const signers = Number(t.signer_count || 0);
+  const pages   = Number(t.page_count || 0);
   div.innerHTML = `
-    <div class="col-name">
-      <span class="name">${escapeHtml(t.name)}</span>
-      ${t.category ? `<span class="sub">${escapeHtml(t.category)}</span>` : ''}
+    <div class="icon">📄</div>
+    <div class="body">
+      <div class="name">${escapeHtml(t.name)}</div>
+      <div class="meta">Updated ${dateStr} · Signers: ${signers} · ${pages} ${pages === 1 ? 'page' : 'pages'}</div>
     </div>
-    <div class="col-prop">${t.page_count} ${t.page_count === 1 ? 'page' : 'pages'}</div>
-    <div class="col-status"></div>
-    <div class="col-date">${date}</div>
-    <div class="col-actions">
-      <a href="/inkd-template-editor.html?id=${t.id}">Edit</a>
-      <button class="void" type="button">Archive</button>
+    <div class="actions">
+      <button class="send" type="button">Send for signature</button>
+      <button class="menu-trigger" type="button" aria-label="More actions">⋯</button>
     </div>
   `;
-  div.querySelector('a').addEventListener('click', (ev) => ev.stopPropagation());
-  div.querySelector('.void').addEventListener('click', async (ev) => {
-    ev.stopPropagation();
-    if (!confirm('Archive this template?')) return;
-    await api(`/api/inkd/templates/${t.id}`, { method: 'DELETE' });
-    state.templates = state.templates.filter(x => x.id !== t.id);
-    updateCounts();
-    render();
+  div.addEventListener('click', () => {
+    location.href = `/inkd-template-editor.html?id=${t.id}`;
   });
-  div.addEventListener('click', () => location.href = `/inkd-template-editor.html?id=${t.id}`);
+  div.querySelector('.send').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    openNewEnvelope(t.id);
+  });
+  div.querySelector('.menu-trigger').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    openTemplateMenu(ev.currentTarget, t);
+  });
   return div;
+}
+
+// Open the "⋯" overflow menu next to a template row's trigger button.
+// Positioned absolutely under the trigger using its bounding rect so we
+// don't have to make the row a positioned ancestor. A one-shot document
+// click listener closes the menu when the user clicks anywhere else,
+// including another row's trigger (whose own onclick fires first and
+// opens its own menu — net effect: switching rows swaps menus cleanly).
+let _openTplMenu = null;
+function openTemplateMenu(trigger, t) {
+  if (_openTplMenu) { _openTplMenu.remove(); _openTplMenu = null; }
+  const menu = document.createElement('div');
+  menu.className = 'tpl-menu';
+  menu.innerHTML = `
+    <button type="button" data-act="edit">Edit template</button>
+    <button type="button" data-act="duplicate">Duplicate</button>
+    <button type="button" data-act="archive" class="danger">Archive</button>
+  `;
+  const rect = trigger.getBoundingClientRect();
+  menu.style.top  = (window.scrollY + rect.bottom + 4) + 'px';
+  menu.style.left = (window.scrollX + rect.right - 160) + 'px';
+  document.body.appendChild(menu);
+  _openTplMenu = menu;
+
+  menu.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('[data-act]');
+    if (!btn) return;
+    ev.stopPropagation();
+    menu.remove(); _openTplMenu = null;
+    if (btn.dataset.act === 'edit') {
+      location.href = `/inkd-template-editor.html?id=${t.id}`;
+    } else if (btn.dataset.act === 'duplicate') {
+      await duplicateTemplate(t.id);
+    } else if (btn.dataset.act === 'archive') {
+      if (!confirm('Archive this template?')) return;
+      await api(`/api/inkd/templates/${t.id}`, { method: 'DELETE' });
+      state.templates = state.templates.filter(x => x.id !== t.id);
+      updateCounts();
+      render();
+    }
+  });
+
+  // Close on outside click. setTimeout + capture lets the current click
+  // event finish bubbling before we register the listener — otherwise the
+  // same click that opened the menu would also close it.
+  setTimeout(() => {
+    document.addEventListener('click', function onDoc(ev) {
+      if (menu.contains(ev.target)) return;
+      menu.remove();
+      _openTplMenu = null;
+      document.removeEventListener('click', onDoc);
+    });
+  }, 0);
+}
+
+async function duplicateTemplate(id) {
+  const r = await api(`/api/inkd/templates/${id}/duplicate`, { method: 'POST' });
+  if (!r.ok) { showToast('Duplicate failed', 'error'); return; }
+  const dup = await r.json();
+  state.templates.unshift(dup);
+  updateCounts();
+  render();
+  // Take the user straight to the editor so they can rename "X (copy)" —
+  // matches SignNow's flow and avoids "I duplicated it, now where is it?"
+  location.href = `/inkd-template-editor.html?id=${dup.id}`;
 }
 
 // ── Actions ───────────────────────────────────────────────────
