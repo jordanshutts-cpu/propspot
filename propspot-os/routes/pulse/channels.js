@@ -216,6 +216,32 @@ router.post('/:id/read', async (req, res) => {
   }
 });
 
+// POST /api/pulse/channels/:id/mark-unread-from — rewind the caller's
+// last_read_at to just before the given message, so that message and
+// everything after it counts as unread again. Body: { message_id }.
+router.post('/:id/mark-unread-from', async (req, res) => {
+  const channelId = req.params.id;
+  const { message_id } = req.body;
+  if (!message_id) return res.status(400).json({ error: 'message_id required' });
+  try {
+    const upd = await query(
+      `UPDATE chat_channel_members
+          SET last_read_at = COALESCE(
+            (SELECT created_at - INTERVAL '1 millisecond'
+               FROM chat_messages WHERE id = $1 AND channel_id = $2),
+            last_read_at
+          )
+        WHERE channel_id = $2 AND user_id = $3`,
+      [message_id, channelId, req.userId]
+    );
+    if (upd.rowCount === 0) return res.json({ ok: true, noop: true });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to mark unread' });
+  }
+});
+
 // GET /api/pulse/channels/:id/members — list members with display names.
 router.get('/:id/members', async (req, res) => {
   const channelId = req.params.id;
