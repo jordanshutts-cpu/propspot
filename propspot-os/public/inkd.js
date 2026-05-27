@@ -45,7 +45,13 @@ function laneFor(e) {
 async function init() {
   state.view = parseView();
   highlightSideItem();
-  wireEvents();
+  // wireEvents in its own try/catch so a single missing element doesn't
+  // silently leave ALL event handlers unattached. Without this, a broken
+  // ID lookup partway through means earlier handlers (like the Create
+  // dropdown) work but later ones (like ne-cancel) throw and we'd never
+  // know — and vice-versa.
+  try { wireEvents(); }
+  catch (err) { console.error('[inkd] wireEvents failed:', err); }
 
   const [envRes, tplRes] = await Promise.all([
     api('/api/inkd/envelopes'),
@@ -296,12 +302,18 @@ function wireEvents() {
   document.addEventListener('click', (e) => {
     if (!createMenu.contains(e.target) && e.target !== createBtn) createMenu.hidden = true;
   });
-  createMenu.querySelector('[data-create="document"]').addEventListener('click', () => {
+  // Event delegation on the menu itself — more robust than two separate
+  // querySelector-and-attach calls, and handles clicks on the inner <div>,
+  // <strong>, or <span> inside each button (which can happen if the user
+  // clicks on the icon or sub-label rather than empty button area).
+  createMenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-create]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
     createMenu.hidden = true;
-    openNewEnvelope();
-  });
-  createMenu.querySelector('[data-create="template"]').addEventListener('click', () => {
-    location.href = '/inkd-template-editor.html';
+    if (btn.dataset.create === 'document') openNewEnvelope();
+    else if (btn.dataset.create === 'template') location.href = '/inkd-template-editor.html';
   });
 
   document.getElementById('empty-cta').addEventListener('click', () => {
@@ -328,28 +340,49 @@ function wireEvents() {
 const modal = { selectedProperty: null };
 
 async function openNewEnvelope() {
-  if (!state.templates.length) {
-    if (confirm("No templates yet. Open the template editor?")) location.href = '/inkd-template-editor.html';
-    return;
-  }
-  const el = document.getElementById('new-env-modal');
-  el.hidden = false;
+  try {
+    // Templates not yet loaded? init()'s parallel fetch may still be in
+    // flight on a fast click. Fall through to the modal anyway and let
+    // the user see an empty dropdown; alternative is a confirm prompt
+    // that's surprising on slow networks.
+    const templates = Array.isArray(state.templates) ? state.templates : [];
+    if (!templates.length) {
+      if (confirm("No templates yet. Open the template editor?")) {
+        location.href = '/inkd-template-editor.html';
+      }
+      return;
+    }
 
-  modal.selectedProperty = null;
-  document.getElementById('ne-property-selected').hidden = true;
-  document.getElementById('ne-property-search').value = '';
-  document.getElementById('ne-property-search').hidden = false;
-  document.getElementById('ne-property-results').hidden = true;
+    const el = document.getElementById('new-env-modal');
+    if (!el) { console.error('[inkd] #new-env-modal missing'); return; }
+    el.hidden = false;
 
-  const tplSel = document.getElementById('ne-template');
-  tplSel.innerHTML = '<option value="">Pick a template…</option>' +
-    state.templates.map(t =>
-      `<option value="${t.id}">${escapeHtml(t.name)}${t.category ? ' — ' + escapeHtml(t.category) : ''}</option>`
-    ).join('');
+    modal.selectedProperty = null;
+    const selectedRow = document.getElementById('ne-property-selected');
+    if (selectedRow) selectedRow.hidden = true;
+    const searchInput  = document.getElementById('ne-property-search');
+    if (searchInput) { searchInput.value = ''; searchInput.hidden = false; }
+    const resultsBox   = document.getElementById('ne-property-results');
+    if (resultsBox) resultsBox.hidden = true;
 
-  if (!state.properties.length) {
-    const r = await api('/api/properties');
-    if (r.ok) state.properties = await r.json();
+    const tplSel = document.getElementById('ne-template');
+    if (tplSel) {
+      tplSel.innerHTML = '<option value="">Pick a template…</option>' +
+        templates.map(t =>
+          `<option value="${t.id}">${escapeHtml(t.name)}${t.category ? ' — ' + escapeHtml(t.category) : ''}</option>`
+        ).join('');
+    }
+
+    if (!state.properties.length) {
+      try {
+        const r = await api('/api/properties');
+        if (r.ok) state.properties = await r.json();
+      } catch (propErr) {
+        console.error('[inkd] property list fetch failed', propErr);
+      }
+    }
+  } catch (err) {
+    console.error('[inkd] openNewEnvelope failed:', err);
   }
 }
 
