@@ -250,7 +250,8 @@
           <td class="col-status"><span class="badge ${u.is_active ? 'badge-green' : 'badge-red'}">${u.is_active ? 'Active' : 'Invited'}</span></td>
           <td class="col-actions">
             ${canResend ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;margin-right:4px;" onclick="resendOne('${u.id}','${escHtml(u.email).replace(/'/g, "\\'")}')" title="Resend the invitation email">↻ Resend</button>` : ''}
-            ${canUninvite ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;" onclick="uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation">× Uninvite</button>` : ''}
+            ${canUninvite ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;margin-right:4px;" onclick="uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation">× Uninvite</button>` : ''}
+            ${me.is_owner && !u.is_owner && !isYou ? `<button class="btn btn-secondary" style="padding:4px 10px;font-size:.72rem;" onclick="toggleUserType('${u.id}','${isExternal ? 'team' : 'external_worker'}')" title="${isExternal ? 'Move back to the team section' : 'Mark this user as external'}">${isExternal ? '↑ Team' : '↓ External'}</button>` : ''}
           </td>
         </tr>
       `;
@@ -272,6 +273,20 @@
     const body = `<tbody>${teamMembers.map(renderRow).join('')}${divider}${externals.map(renderRow).join('')}</tbody>`;
 
     el.innerHTML = `<div class="team-table-wrap"><table class="team-table">${head}${body}</table></div>`;
+  }
+
+  // Flip a user between the salaried-team and external-worker sections.
+  // Owner-only; the button isn't rendered for anyone else.
+  async function toggleUserType(userId, nextType) {
+    try {
+      await apiFetch('/api/users/' + userId, {
+        method: 'PATCH',
+        body: JSON.stringify({ user_type: nextType })
+      });
+      await reloadUsers();
+    } catch (err) {
+      alert('Could not update: ' + err.message);
+    }
   }
 
   async function toggleAccessCell(cellEl, userId, appId) {

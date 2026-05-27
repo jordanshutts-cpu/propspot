@@ -190,17 +190,26 @@ router.post('/resend-all-pending', requireOwner, async (req, res) => {
   }
 });
 
-// PATCH /api/users/:id  (owner only — change is_owner / full_name)
+// PATCH /api/users/:id  (owner only — change is_owner / full_name / user_type)
 router.patch('/:id', requireOwner, async (req, res) => {
-  const { full_name, is_owner } = req.body;
+  const { full_name, is_owner, user_type } = req.body;
+  if (user_type !== undefined && user_type !== 'team' && user_type !== 'external_worker') {
+    return res.status(400).json({ error: 'user_type must be "team" or "external_worker"' });
+  }
   try {
     const { rows } = await query(
       `UPDATE users
           SET full_name = COALESCE($1, full_name),
-              is_owner  = COALESCE($2, is_owner)
-        WHERE id = $3
-        RETURNING id, email, full_name, is_owner, created_at`,
-      [full_name ?? null, typeof is_owner === 'boolean' ? is_owner : null, req.params.id]
+              is_owner  = COALESCE($2, is_owner),
+              user_type = COALESCE($3, user_type)
+        WHERE id = $4
+        RETURNING id, email, full_name, is_owner, user_type, created_at`,
+      [
+        full_name ?? null,
+        typeof is_owner === 'boolean' ? is_owner : null,
+        user_type ?? null,
+        req.params.id
+      ]
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
     res.json(rows[0]);
