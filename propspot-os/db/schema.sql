@@ -60,6 +60,14 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url           TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_cloudinary_id TEXT;
 
+-- Soft-remove flag for the Members page. When set, the user is hidden from
+-- the team list and login is rejected (both password + Google flows), but
+-- their FK references stay intact so attribution on past photos / comments
+-- / tasks isn't lost.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS users_removed_at_idx
+  ON users (removed_at) WHERE removed_at IS NOT NULL;
+
 -- Google Workspace SSO linkage. google_sub is Google's stable user ID
 -- (the `sub` claim). google_email is captured at link time so users
 -- can see which Workspace account they linked. Partial unique indexes

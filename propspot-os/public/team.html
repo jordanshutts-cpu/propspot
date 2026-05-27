@@ -286,6 +286,10 @@
       const granted = userGrantedAppIds(u);
       const canUninvite = me.is_owner && !u.is_active && !u.is_owner && !isYou;
       const canResend   = canUninvite;
+      // Owner-only: remove an *active* member from the workspace. Pending
+      // members use the existing Uninvite flow above; owners cannot be
+      // removed (you must demote them first); you cannot remove yourself.
+      const canRemove   = me.is_owner && u.is_active && !u.is_owner && !isYou;
 
       const cells = allApps.map(a => {
         const has = granted.has(a.id);
@@ -318,6 +322,7 @@
             <div class="row-actions">
               ${canResend ? `<button class="row-action resend" onclick="resendOne('${u.id}','${escHtml(u.email).replace(/'/g, "\\'")}')" title="Resend the invitation email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Resend</button>` : ''}
               ${canUninvite ? `<button class="row-action uninvite" onclick="uninvite('${u.id}','${escHtml(name).replace(/'/g, "\\'")}')" title="Cancel this pending invitation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Uninvite</button>` : ''}
+              ${canRemove ? `<button class="row-action uninvite" onclick="removeMember('${u.id}','${escHtml(name).replace(/'/g, "\\'")}','${escHtml(u.email).replace(/'/g, "\\'")}')" title="Remove this member from the workspace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Remove</button>` : ''}
               ${me.is_owner && !u.is_owner && !isYou ? `<button class="row-action shift" onclick="toggleUserType('${u.id}','${isExternal ? 'team' : 'external_worker'}')" title="${isExternal ? 'Move back to the team section' : 'Mark this user as external'}">${isExternal
                 ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>Team'
                 : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>External'}</button>` : ''}
@@ -431,6 +436,27 @@
       await reloadUsers();
     } catch (err) {
       alert('Could not uninvite: ' + err.message);
+    }
+  }
+
+  // ── Remove (kick an active member out of the workspace) ──────
+  // Soft-removes the user (sets users.removed_at, deletes all their
+  // app_grants). Their attribution on past photos / comments / tasks
+  // stays intact. Owner-only on the server side too.
+  async function removeMember(userId, displayName, email) {
+    const ok = confirm(
+      `Remove ${displayName} (${email}) from the workspace?\n\n` +
+      `They will lose access to every app immediately and won't be able ` +
+      `to sign in. Their past photos, comments, and activity stay attached ` +
+      `to their name for the historical record. This action can be undone ` +
+      `by an admin from the database, but not from this page.`
+    );
+    if (!ok) return;
+    try {
+      await apiFetch(`/api/users/${userId}/remove`, { method: 'POST' });
+      await reloadUsers();
+    } catch (err) {
+      alert('Could not remove: ' + err.message);
     }
   }
 

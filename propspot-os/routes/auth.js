@@ -126,6 +126,11 @@ router.post('/login', async (req, res) => {
     if (!user || !user.password_hash) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+    if (user.removed_at) {
+      // Removed users get the same generic error as bad creds — no signal
+      // to a former member that their account still technically exists.
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -185,6 +190,13 @@ router.post('/google', async (req, res) => {
     if (!user) {
       return res.status(403).json({
         error: `No Prop Spot account for ${claims.email}. Ask an admin to add you, or sign in with your existing password and link Google from Edit Profile.`
+      });
+    }
+    if (user.removed_at) {
+      // Match the password-login behavior: removed users get a generic
+      // not-found-style rejection rather than confirming their old account.
+      return res.status(403).json({
+        error: `No Prop Spot account for ${claims.email}.`
       });
     }
 
