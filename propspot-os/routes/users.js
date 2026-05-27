@@ -11,7 +11,7 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   try {
     const { rows } = await query(`
-      SELECT u.id, u.email, u.full_name, u.is_owner, u.created_at,
+      SELECT u.id, u.email, u.full_name, u.is_owner, u.user_type, u.created_at,
              (u.password_hash IS NOT NULL OR u.google_sub IS NOT NULL) AS is_active,
              COALESCE(json_agg(
                json_build_object(
