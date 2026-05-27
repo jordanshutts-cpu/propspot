@@ -698,7 +698,19 @@
   // Bumped to v3 — workspace tile is now the Home button (anchor +
   // chevron removed + Home row removed). Old v2 cache would briefly
   // re-show the old structure before fresh render replaces it.
-  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v7';
+  const SIDEBAR_CACHE_KEY = 'propspot_sidebar_cache_v8';
+
+  // Per-app gate for sidebar rows. Owners always pass. If the user's
+  // cached grants array is missing (very stale cache from before the
+  // grants field shipped), we err on the side of showing — the
+  // server-side gate is the real authority. Otherwise show iff the
+  // user has a row in app_grants for that slug.
+  function hasAppGrant(u, slug) {
+    if (!u) return false;
+    if (u.is_owner) return true;
+    if (!Array.isArray(u.grants)) return true;
+    return u.grants.some(g => g && g.slug === slug);
+  }
 
   function saveSidebarCache(html) {
     try { sessionStorage.setItem(SIDEBAR_CACHE_KEY, html); } catch (e) {}
@@ -817,8 +829,8 @@
           ${row({ section: 'tools', icon: ICONS.barChart, label: 'Underwriting', osnav: 'underwriting', href: '/underwriting.html' })}
 
           ${sectionLabel('Workspace')}
-          ${row({ section: 'workspace', icon: ICONS.database, label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' })}
-          ${row({ section: 'workspace', icon: ICONS.activity, label: 'Activity', osnav: 'activity', href: '/activity.html' })}
+          ${hasAppGrant(user, 'database') ? row({ section: 'workspace', icon: ICONS.database, label: 'Database', osnav: 'database', href: '/database.html', badge: total, badgeClass: 'muted' }) : ''}
+          ${hasAppGrant(user, 'activity') ? row({ section: 'workspace', icon: ICONS.activity, label: 'Activity', osnav: 'activity', href: '/activity.html' }) : ''}
 
           ${sectionLabel('Soon')}
           ${row({ section: 'soon', icon: ICONS.globe,   label: 'Listings',         soon: true })}
