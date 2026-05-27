@@ -1887,18 +1887,7 @@
   // ── Pulse Recorder integration ──────────────────────────────────
   let activeRecorder = null;
 
-  function isRecorderEnabled() {
-    if (new URLSearchParams(location.search).get('pulse_recorder') === '1') return true;
-    try { return localStorage.getItem('pulse_recorder') === '1'; } catch (_) { return false; }
-  }
-
   function hideUnsupportedRecorderButtons() {
-    if (!isRecorderEnabled()) {
-      ['ps-tool-voice','ps-tool-webcam','ps-tool-screen'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.style.display = 'none';
-      });
-      return;
-    }
     const noMedia = !navigator.mediaDevices?.getUserMedia;
     const noScreen = !navigator.mediaDevices?.getDisplayMedia;
     const noRecorder = typeof window.MediaRecorder === 'undefined';
