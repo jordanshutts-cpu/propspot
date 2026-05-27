@@ -32,7 +32,9 @@
       overflow: auto;
       max-height: calc(100vh - 200px);
       -webkit-overflow-scrolling: touch;
+      cursor: grab;
     }
+    .team-table-wrap:active { cursor: grabbing; }
     .team-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; }
     .team-table th, .team-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
     .team-table thead th {
@@ -365,18 +367,30 @@
 
     el.innerHTML = `<div class="team-table-wrap"><table class="team-table">${head}${body}</table></div>`;
 
-    // Convert vertical wheel events into horizontal scroll so a regular mouse
-    // wheel pans the table left/right without needing shift+scroll.
+    // Drag-to-scroll: click and drag left/right to pan the table.
     const wrap = el.querySelector('.team-table-wrap');
-    wrap.addEventListener('wheel', (e) => {
-      // Only hijack when there's actually overflow to scroll horizontally and
-      // the user isn't making a purely vertical scroll on a trackpad (where
-      // deltaX will already be non-zero).
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // trackpad horizontal swipe — leave alone
-      if (wrap.scrollWidth <= wrap.clientWidth) return;     // no overflow — don't interfere
-      e.preventDefault();
-      wrap.scrollLeft += e.deltaY;
-    }, { passive: false });
+    let isDragging = false, startX = 0, startScrollLeft = 0;
+
+    wrap.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isDragging = true;
+      startX = e.pageX;
+      startScrollLeft = wrap.scrollLeft;
+      wrap.style.cursor = 'grabbing';
+      wrap.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      wrap.scrollLeft = startScrollLeft - (e.pageX - startX);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      wrap.style.cursor = '';
+      wrap.style.userSelect = '';
+    });
   }
 
   // Flip a user between the salaried-team and external-worker sections.
