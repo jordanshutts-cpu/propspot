@@ -23,7 +23,7 @@
 .inkd-side-item.active { background: var(--brand-light, rgba(97,183,70,.12)); color: var(--brand); font-weight: 600; }
 .inkd-side-item .ic { width: 18px; text-align: center; }
 .inkd-side-item .label { flex: 1; }
-.inkd-side-item .count { background: var(--surface-muted, #f3f4f6); color: var(--text-muted); border-radius: 100px; font-size: .7rem; font-weight: 600; padding: 1px 8px; min-width: 18px; text-align: center; }
+.inkd-side-item .count { background: var(--bg); color: var(--text-muted); border-radius: 100px; font-size: .7rem; font-weight: 600; padding: 1px 8px; min-width: 18px; text-align: center; }
 .inkd-side-item.active .count { background: var(--brand); color: #fff; }
 
 /* ── Main content area ────────────────────────────────────── */
@@ -80,6 +80,31 @@
 .inkd-empty .primary:hover { background: var(--brand-dark, #4a9337); }
 
 /* ── New-envelope modal ───────────────────────────────────── */
+/* Other PropSpot pages define .modal-overlay/.modal-box inline in their
+   <style>; Ink'd uses inkd.css instead, so we declare them here. The
+   selector is :not([hidden]) because inkd.js toggles the hidden property,
+   not an .open class — without these rules the modal renders as a plain
+   block below <main> and appears invisible. */
+.modal-overlay:not([hidden]) {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-box {
+  background: var(--surface);
+  border-radius: var(--radius, 12px);
+  box-shadow: 0 8px 40px rgba(0,0,0,.2);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+}
 .new-env-box { width: min(480px, 92vw); }
 .new-env-label { display: block; font-size: .78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; margin: 16px 0 6px; }
 .new-env-label select,

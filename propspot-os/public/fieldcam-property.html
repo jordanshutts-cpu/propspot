@@ -7,8 +7,14 @@
   <title>Prop Spot — Photos</title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="style.css">
-  <script>try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <script>try{var _c=document.documentElement.classList;_c.add('page-loading');if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
+    /* While page-loading is active, hide the FAB (it's outside <main> so
+       the main opacity:0 rule doesn't cover it). The PropSpot.OS loader
+       overlay sits on top at z-index 99999, but the FAB is fixed at
+       z-index 900 — keep it hidden until chrome is ready. */
+    html.page-loading .fc-mobile-camera-fab { display: none !important; }
+
     /* ── Hero card ─────────────────────────────────────────────── */
     .fc-hero {
       position: relative;

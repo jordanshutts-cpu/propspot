@@ -67,7 +67,16 @@ async function renderPdf() {
   const stage = document.getElementById('pdf-stage');
   stage.innerHTML = '';
   state.pages = [];
-  const pdf = await pdfjsLib.getDocument(state.envelope.source_pdf_url).promise;
+  // /api/ URLs are our own proxy and need the PropSpot auth header; mirrors
+  // the pattern inkd-template-editor.js uses for the same Cloudinary ACL
+  // workaround.
+  const url = state.envelope.source_pdf_url;
+  const docOpts = { url };
+  const token = localStorage.getItem('ros_token');
+  if (token && url.startsWith('/api/')) {
+    docOpts.httpHeaders = { Authorization: `Bearer ${token}` };
+  }
+  const pdf = await pdfjsLib.getDocument(docOpts).promise;
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const viewport = page.getViewport({ scale: 1.5 });

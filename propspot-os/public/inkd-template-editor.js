@@ -85,7 +85,7 @@ function showPdfError(message, err) {
     <div style="font-size:2rem;margin-bottom:8px;">📄</div>
     <h2 style="margin:8px 0;font-size:1.05rem;">Couldn't load the template PDF</h2>
     <p style="color:var(--text-muted);font-size:.88rem;margin:0 0 12px;">${escapeHtml(message)}</p>
-    ${err ? `<p style="color:var(--text-muted);font-size:.78rem;font-family:monospace;background:var(--surface-muted,#f3f4f6);padding:8px 12px;border-radius:6px;margin:0 0 12px;text-align:left;white-space:pre-wrap;word-break:break-word;">${escapeHtml(String(err.message || err))}</p>` : ''}
+    ${err ? `<p style="color:var(--text-muted);font-size:.78rem;font-family:monospace;background:var(--bg);padding:8px 12px;border-radius:6px;margin:0 0 12px;text-align:left;white-space:pre-wrap;word-break:break-word;">${escapeHtml(String(err.message || err))}</p>` : ''}
     ${url ? `<p style="font-size:.78rem;margin:0;"><a href="${escapeHtml(url)}" target="_blank" style="color:var(--brand);">Open PDF URL directly</a> to verify the file itself is reachable.</p>` : ''}
   `;
   stage.appendChild(wrap);
