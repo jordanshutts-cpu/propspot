@@ -565,10 +565,61 @@
       border-bottom: 1px solid var(--border);
       background: var(--surface);
       flex: 0 0 auto;
+      position: relative; /* for dropdowns */
     }
-    .thread-head h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 700; }
-    .thread-head .thread-head-meta { font-size: .78rem; color: var(--text-muted); }
-    .thread-head-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .thread-head h2 { margin: 0; font-size: 1.05rem; font-weight: 700; flex: 1; min-width: 0; }
+    .th-row-1 { display: flex; align-items: center; gap: 8px; }
+    .th-row-1 .th-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
+    .th-row-2 {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      margin-top: 8px; font-size: .82rem;
+    }
+    .th-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 9px; border-radius: 6px; background: var(--bg);
+      color: var(--text); font-size: .78rem;
+    }
+    .th-chip.assigned { background: #ede9fe; color: #6d28d9; }
+    .th-chip.property { background: #dcfce7; color: #166534; cursor: pointer; }
+    .th-chip-icon-btn {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: transparent; border: 1px dashed var(--border);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text-muted); font-size: .9rem;
+      padding: 0;
+    }
+    .th-chip-icon-btn:hover { background: var(--bg); color: var(--text); border-style: solid; }
+    .th-icon-btn {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: transparent; border: 1px solid var(--border);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text); font-size: 1rem; padding: 0;
+    }
+    .th-icon-btn:hover { background: var(--bg); }
+    .th-pill-btn {
+      padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); cursor: pointer; font-size: .82rem; color: var(--text);
+      display: inline-flex; align-items: center; gap: 6px; line-height: 1;
+    }
+    .th-pill-btn:hover { background: var(--bg); }
+    .th-pill-btn .caret { color: var(--text-muted); font-size: .7rem; }
+
+    .th-dropdown {
+      position: absolute; z-index: 50;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      min-width: 200px; max-height: 320px; overflow-y: auto;
+      padding: 4px; display: none;
+    }
+    .th-dropdown.open { display: block; }
+    .th-dropdown-item {
+      padding: 8px 12px; border-radius: 6px; cursor: pointer;
+      font-size: .85rem; display: flex; align-items: center; gap: 8px;
+      color: var(--text);
+    }
+    .th-dropdown-item:hover { background: var(--bg); }
+    .th-dropdown-item.danger { color: #b91c1c; }
+    .th-dropdown-divider { border-top: 1px solid var(--border); margin: 4px 0; }
 
     .messages-scroll { flex: 1; overflow-y: auto; padding: 14px 18px; }
     .msg {
@@ -578,9 +629,29 @@
     .msg-head {
       display: flex; gap: 10px; padding: 10px 14px;
       border-bottom: 1px solid var(--border); font-size: .82rem;
+      align-items: flex-start;
     }
+    .msg-avatar {
+      width: 32px; height: 32px; border-radius: 6px;
+      background: var(--bg); display: inline-flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 600; color: var(--text-muted); flex-shrink: 0;
+    }
+    .msg-head-info { flex: 1; min-width: 0; }
+    .msg-head-from {
+      display: inline-block; font-weight: 600; cursor: pointer; padding: 1px 2px;
+      border-radius: 4px;
+    }
+    .msg-head-from:hover { background: var(--bg); color: var(--brand); }
+    .msg-head-details {
+      display: none; margin-top: 6px; padding: 8px 10px;
+      background: var(--bg); border-radius: 6px; font-size: .76rem; line-height: 1.6;
+    }
+    .msg-head-details .label { color: var(--text-muted); margin-right: 4px; }
+    .msg.show-details .msg-head-details { display: block; }
     .msg-head .who { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .msg-head .when { color: var(--text-muted); flex-shrink: 0; }
+    .msg-head .when { color: var(--text-muted); flex-shrink: 0; font-size: .76rem; white-space: nowrap; }
+    .msg-head-meta { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    .msg-paperclip { color: var(--text-muted); font-size: .9rem; }
     .msg-body { padding: 12px 18px; font-size: .92rem; line-height: 1.6; }
     .msg-body iframe { width: 100%; border: 0; min-height: 500px; background: #fff; }
     .msg-body pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; }
@@ -592,7 +663,8 @@
     .msg.collapsed .msg-snippet { display: block; cursor: pointer; }
     .msg.collapsed .msg-snippet:hover { background: var(--bg); }
     .msg-toggle { font-size: .75rem; color: var(--text-muted); margin-right: 6px; user-select: none; }
-    .msg-atts { padding: 0 14px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .msg-atts { padding: 10px 14px 0; display: flex; gap: 6px; flex-wrap: wrap; }
+    .msg-atts-header { font-size: .76rem; color: var(--text-muted); font-weight: 600; padding: 0 14px; margin-top: 10px; }
     .att-chip {
       display: inline-flex; gap: 6px; align-items: center;
       padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px;
@@ -642,8 +714,12 @@
     .reply-box-icon-btn:hover { background: var(--bg); color: var(--text); }
     .reply-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
-    .pulse-slot { flex: 0 0 auto; max-height: 50%; overflow-y: auto;
-                  border-top: 1px solid var(--border); background: var(--bg); }
+    .pulse-slot {
+      flex: 0 0 auto; max-height: 220px; overflow-y: auto;
+      border-top: 1px solid var(--border); background: var(--bg);
+    }
+    .pulse-slot .comments-empty { padding: 6px 12px; font-size: .78rem; }
+    .pulse-slot textarea { min-height: 32px !important; max-height: 80px; }
 
     /* ── Rich-text composer ──────────────────────────────────────── */
     .rt-composer { border: 1px solid var(--border); border-radius: 8px;
@@ -1693,12 +1769,6 @@ window.addEventListener('popstate', () => {
 function renderThreadDetail() {
   const t = STATE.activeThread;
   if (!t) return;
-  const headParts = [];
-  if (t.inbox_name) headParts.push(`<span><span class="ib-inbox-icon" data-inbox-slug="${escapeHtml(t.inbox_slug || '')}">${escapeHtml(t.inbox_icon || '📨')}</span> ${escapeHtml(t.inbox_name)}</span>`);
-  headParts.push(`<span>${t.message_count} message${t.message_count === 1 ? '' : 's'}</span>`);
-  if (t.assigned_name) headParts.push(`<span>👤 ${escapeHtml(t.assigned_name)}</span>`);
-  if (t.address_line1) headParts.push(`<span class="property-tag">🏠 ${escapeHtml(t.address_line1)}, ${escapeHtml(t.city || '')}</span>`);
-
   const lastInbound = [...(t.messages || [])].reverse().find(m => !m.is_outbound);
   const replyTo = lastInbound
     ? (lastInbound.from_name ? `${lastInbound.from_name} <${lastInbound.from_email}>` : lastInbound.from_email)
@@ -1707,25 +1777,45 @@ function renderThreadDetail() {
   const lastIdx = (t.messages || []).length - 1;
   const messagesHtml = (t.messages || []).map((m, i) => messageHtml(m, i === lastIdx)).join('');
 
+  const inboxLabel = t.inbox_name ? `${t.inbox_icon || '📨'} ${escapeHtml(t.inbox_name)}` : '📨 Inbox';
+  const archiveLabel = t.status === 'archived' ? 'Unarchive' : `Archive in ${escapeHtml(t.inbox_name || 'inbox')}`;
+  const snoozeIcon = t.status === 'snoozed' ? '⏰' : '⏰';
+  const snoozeTitle = t.status === 'snoozed' ? 'Wake up' : 'Snooze';
+  const propertyChip = t.address_line1
+    ? `<span class="th-chip property" onclick="openLinkPropertyDialog()" title="Change property">🏠 ${escapeHtml(t.address_line1)}${t.city ? ', ' + escapeHtml(t.city) : ''}</span>`
+    : '';
+  const assignedChip = t.assigned_name
+    ? `<span class="th-chip assigned">👤 ${escapeHtml(t.assigned_name)}</span>`
+    : '';
+
   document.getElementById('thread-detail').innerHTML = `
     <div class="thread-head">
-      <div style="display:flex;align-items:flex-start;gap:8px;">
-        <button class="ib-icon-btn ib-mobile-only" onclick="backToMobileList()" title="Back to list" aria-label="Back" style="flex-shrink:0;margin-top:2px;">
+      <div class="th-row-1">
+        <button class="ib-icon-btn ib-mobile-only" onclick="backToMobileList()" title="Back to list" aria-label="Back" style="flex-shrink:0;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-        <h2 style="flex:1;min-width:0;">${escapeHtml(t.subject || '(no subject)')}</h2>
+        <h2>${escapeHtml(t.subject || '(no subject)')}</h2>
+        <div class="th-actions">
+          <button class="th-icon-btn" onclick="toggleThreadMenu(event, 'kebab')" title="More actions">⋮</button>
+          <button class="th-icon-btn" onclick="toggleStatus('snoozed')" title="${snoozeTitle}">${snoozeIcon}</button>
+          <button class="th-pill-btn" onclick="toggleThreadMenu(event, 'assign')" title="Assign to a teammate">
+            ${t.assigned_name ? '👤 ' + escapeHtml(t.assigned_name.split(' ')[0]) : 'Assign'} <span class="caret">▾</span>
+          </button>
+          <button class="th-pill-btn" onclick="toggleStatus('archived')" title="${archiveLabel}">
+            📁 ${archiveLabel}
+          </button>
+        </div>
       </div>
-      <div class="thread-head-meta">${headParts.join(' • ')}</div>
-      <div class="thread-head-actions">
-        <button class="btn btn-secondary btn-sm" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</button>
-        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('snoozed')">${t.status === 'snoozed' ? '⏰ Wake up' : '😴 Snooze'}</button>
-        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('archived')">${t.status === 'archived' ? '📥 Unarchive' : '📁 Archive'}</button>
-        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore' : '🗑 Trash'}</button>
-        <button class="btn btn-secondary btn-sm" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Spam'}</button>
-        <button class="btn btn-secondary btn-sm" onclick="markUnread()">📩 Mark unread</button>
-        <button class="btn btn-secondary btn-sm" onclick="createTaskFromThread()" style="border-color:var(--brand);color:var(--brand);">&#10003; Create Task</button>
-        <button class="btn btn-secondary btn-sm" onclick="createCalendarEvent()" style="border-color:#2563eb;color:#2563eb;">&#128197; Calendar Event</button>
+      <div class="th-row-2">
+        <span class="th-chip"><span class="ib-inbox-icon" data-inbox-slug="${escapeHtml(t.inbox_slug || '')}">${inboxLabel}</span></span>
+        ${propertyChip}
+        ${assignedChip}
+        <span class="th-chip">${t.message_count} msg${t.message_count === 1 ? '' : 's'}</span>
+        <button class="th-chip-icon-btn" onclick="toggleThreadMenu(event, 'plus')" title="Add to property / Create task / Create event">+</button>
       </div>
+      <div class="th-dropdown" id="th-dropdown-kebab"></div>
+      <div class="th-dropdown" id="th-dropdown-assign"></div>
+      <div class="th-dropdown" id="th-dropdown-plus"></div>
     </div>
     <div class="messages-scroll" id="messages-scroll">${messagesHtml}</div>
     <div class="reply-cta" id="reply-cta">
@@ -1783,13 +1873,18 @@ function autoSizeIframe(iframe) {
 }
 
 function messageHtml(m, isExpanded) {
-  const who = m.is_outbound
-    ? `<strong>${escapeHtml(m.sent_by_name || 'You')}</strong> <span class="text-muted">via ${escapeHtml(m.delivered_to_alias || m.from_email)}</span>`
-    : `<strong>${escapeHtml(m.from_name || m.from_email)}</strong> <span class="text-muted">&lt;${escapeHtml(m.from_email)}&gt;</span>`;
-  const when = new Date(m.received_at).toLocaleString();
+  const fromName  = m.is_outbound ? (m.sent_by_name || 'You')      : (m.from_name || m.from_email);
+  const fromEmail = m.is_outbound ? (m.delivered_to_alias || m.from_email) : m.from_email;
+  const toEmail   = m.is_outbound ? '' : (m.delivered_to_alias || '');
+  const initials  = (fromName || fromEmail || '?').trim()
+    .split(/\s+/).map(s => s[0] || '').slice(0, 2).join('').toUpperCase() || '?';
+  const whenAbs = new Date(m.received_at);
+  const whenRel = relTimeShort(whenAbs);
+  const whenFull = whenAbs.toLocaleString();
   const body = m.body_html
     ? `<iframe srcdoc="${escapeHtml(m.body_html)}" sandbox="allow-same-origin"></iframe>`
     : `<pre>${escapeHtml(m.body_text || m.snippet || '(empty)')}</pre>`;
+  const attCount = (m.attachments || []).length;
   const atts = (m.attachments || []).map(a => {
     const safeName = escapeHtml(a.filename).replace(/'/g, '&#39;');
     return `
@@ -1802,19 +1897,47 @@ function messageHtml(m, isExpanded) {
   }).join('');
   const snippet = (m.snippet || m.body_text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
   const stateClass = isExpanded ? 'expanded' : 'collapsed';
-  const toggleIcon = isExpanded ? '▾' : '▸';
   return `
     <div class="msg ${stateClass}">
-      <div class="msg-head" onclick="toggleMsg(this)">
-        <span class="msg-toggle">${toggleIcon}</span>
-        <span class="who">${who}</span>
-        <span class="when">${when}</span>
+      <div class="msg-head">
+        <div class="msg-avatar" onclick="toggleMsg(this.parentElement)">${escapeHtml(initials)}</div>
+        <div class="msg-head-info">
+          <span class="msg-head-from" onclick="toggleSenderDetails(this)">${escapeHtml(fromName)}</span>
+          <span class="text-muted" style="font-size:.78rem;"> &lt;${escapeHtml(fromEmail)}&gt;</span>
+          <div class="msg-head-details">
+            <div><span class="label">From:</span>${escapeHtml(fromName)} &lt;${escapeHtml(fromEmail)}&gt;</div>
+            ${toEmail ? `<div><span class="label">To:</span>${escapeHtml(toEmail)}</div>` : ''}
+            <div><span class="label">Date:</span>${escapeHtml(whenFull)}</div>
+          </div>
+        </div>
+        <div class="msg-head-meta">
+          ${attCount ? `<span class="msg-paperclip" title="${attCount} attachment${attCount === 1 ? '' : 's'}">📎</span>` : ''}
+          <span class="when" title="${escapeHtml(whenFull)}">${escapeHtml(whenRel)}</span>
+        </div>
       </div>
       <div class="msg-snippet" onclick="toggleMsg(this)">${escapeHtml(snippet)}</div>
+      ${atts ? `<div class="msg-atts-header">${attCount} Attachment${attCount === 1 ? '' : 's'}</div><div class="msg-atts">${atts}</div>` : ''}
       <div class="msg-body">${body}</div>
-      ${atts ? `<div class="msg-atts">${atts}</div>` : ''}
     </div>
   `;
+}
+
+function relTimeShort(d) {
+  const ms = Date.now() - d.getTime();
+  if (ms < 60_000) return 'now';
+  const m = Math.floor(ms / 60_000);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const days = Math.floor(h / 24);
+  if (days < 7)  return `${days}d`;
+  if (days < 30) return `${Math.floor(days / 7)}w`;
+  return d.toLocaleDateString();
+}
+
+function toggleSenderDetails(el) {
+  const msg = el.closest('.msg');
+  if (msg) msg.classList.toggle('show-details');
 }
 
 // ── Reply panel ───────────────────────────────────────────────────
@@ -1874,6 +1997,81 @@ async function submitReply() {
     showToast(err.message, 'error');
   }
 }
+// ── Thread-head dropdowns (kebab / assign / +) ──────────────────────
+// Toggles a dropdown anchored under the clicked button. Only one open at a
+// time. Click outside closes. Each dropdown is populated lazily so the
+// assign list always reflects current users.
+let _userCache = null;
+async function getCachedUsers() {
+  if (!_userCache) _userCache = await getUsers();
+  return _userCache;
+}
+
+async function toggleThreadMenu(ev, kind) {
+  ev.stopPropagation();
+  const dd = document.getElementById('th-dropdown-' + kind);
+  if (!dd) return;
+  const others = ['kebab', 'assign', 'plus'].filter(k => k !== kind);
+  others.forEach(k => document.getElementById('th-dropdown-' + k)?.classList.remove('open'));
+  if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+  dd.innerHTML = await renderThreadMenu(kind);
+  const btn = ev.currentTarget.getBoundingClientRect();
+  const head = ev.currentTarget.closest('.thread-head').getBoundingClientRect();
+  dd.style.top   = (btn.bottom - head.top + 4) + 'px';
+  dd.style.right = (head.right - btn.right) + 'px';
+  dd.style.left  = 'auto';
+  dd.classList.add('open');
+  setTimeout(() => document.addEventListener('click', _closeThreadMenusOnce, { once: true }), 0);
+}
+function _closeThreadMenusOnce() {
+  ['kebab', 'assign', 'plus'].forEach(k => document.getElementById('th-dropdown-' + k)?.classList.remove('open'));
+}
+
+async function renderThreadMenu(kind) {
+  const t = STATE.activeThread;
+  if (kind === 'kebab') {
+    return `
+      <div class="th-dropdown-item" onclick="markUnread()">📩 Mark unread</div>
+      <div class="th-dropdown-item" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</div>
+      <div class="th-dropdown-divider"></div>
+      <div class="th-dropdown-item" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore from trash' : '🗑 Move to trash'}</div>
+      <div class="th-dropdown-item danger" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Mark as spam'}</div>
+    `;
+  }
+  if (kind === 'plus') {
+    return `
+      <div class="th-dropdown-item" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Add to property'}</div>
+      <div class="th-dropdown-item" onclick="createCalendarEvent()">📅 Create event</div>
+      <div class="th-dropdown-item" onclick="createTaskFromThread()">✓ Create task</div>
+    `;
+  }
+  if (kind === 'assign') {
+    let users = [];
+    try { users = await getCachedUsers(); }
+    catch (e) { return '<div class="th-dropdown-item">Couldn\'t load users</div>'; }
+    const items = users
+      .filter(u => u.is_active !== false)
+      .map(u => `<div class="th-dropdown-item" onclick="assignThread('${u.id}')">${escapeHtml(u.full_name || u.email)}</div>`)
+      .join('');
+    const unassign = t.assigned_to_user_id
+      ? `<div class="th-dropdown-divider"></div><div class="th-dropdown-item danger" onclick="assignThread('')">Unassign</div>`
+      : '';
+    return (items || '<div class="th-dropdown-item">No teammates</div>') + unassign;
+  }
+  return '';
+}
+
+async function assignThread(userId) {
+  try {
+    await patchThread(STATE.activeThreadId, { assigned_to_user_id: userId || null });
+    showToast(userId ? 'Assigned' : 'Unassigned');
+    await refreshThreads();
+    selectThread(STATE.activeThreadId);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 async function toggleStatus(target) {
   const next = STATE.activeThread.status === target ? 'open' : target;
   const TOAST = { open: 'Reopened', archived: 'Archived', snoozed: 'Snoozed', trash: 'Moved to trash', spam: 'Marked as spam' };
