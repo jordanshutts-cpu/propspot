@@ -430,13 +430,20 @@
         if (baseHref) a.href = baseHref;
         return;
       }
-      // Append/replace property_id query param.
       try {
-        const u = new URL(baseHref, location.origin);
-        u.searchParams.set('property_id', scoped);
-        // Preserve the original token if present
         const orig = new URL(a.dataset.scopeBase, location.origin);
         const token = orig.searchParams.get('token');
+        // FieldCam has a dedicated per-property view; jump straight there
+        // when a scope is active instead of routing through the dashboard.
+        if (app === 'fieldcam') {
+          const u = new URL('/fieldcam-property.html', location.origin);
+          u.searchParams.set('id', scoped);
+          if (token) u.searchParams.set('token', token);
+          a.href = u.toString();
+          return;
+        }
+        const u = new URL(baseHref, location.origin);
+        u.searchParams.set('property_id', scoped);
         if (token) u.searchParams.set('token', token);
         a.href = u.toString();
       } catch (e) { /* leave href alone */ }
