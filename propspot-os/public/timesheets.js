@@ -174,6 +174,7 @@
         $('tab-' + btn.dataset.tab).hidden = false;
         if (btn.dataset.tab === 'approvals') loadApprovals();
         if (btn.dataset.tab === 'history')   loadHistory();
+        if (btn.dataset.tab === 'settings')  loadSettings();
       });
     });
   }
@@ -261,6 +262,131 @@
         </tbody>
       </table>
     `;
+  }
+
+  async function loadSettings() {
+    const panel = $('tab-settings');
+    panel.innerHTML = '<p>Loading…</p>';
+    const [settings, users] = await Promise.all([
+      authFetch('/api/timesheets/settings'),
+      authFetch('/api/timesheets/users'),
+    ]);
+
+    const gustoBlock = settings.gusto_connected
+      ? `<p>Gusto connected ${new Date(settings.gusto_connected_at).toLocaleDateString()}.
+           <button id="ts-gusto-disconnect">Disconnect</button>
+           <button id="ts-gusto-map">Review employee mapping</button></p>`
+      : `<button id="ts-gusto-connect" class="ts-primary">Connect Gusto</button>`;
+
+    const usersHtml = users.map(u => `
+      <tr>
+        <td>${u.full_name || u.email}</td>
+        <td>
+          <select class="ts-role-select" data-user="${u.id}">
+            <option value=""        ${!u.role ? 'selected' : ''}>No access</option>
+            <option value="member"  ${u.role === 'member'   ? 'selected' : ''}>Member</option>
+            <option value="approver"${u.role === 'approver' ? 'selected' : ''}>Approver</option>
+            <option value="admin"   ${u.role === 'admin'    ? 'selected' : ''}>Admin</option>
+          </select>
+        </td>
+      </tr>
+    `).join('');
+
+    panel.innerHTML = `
+      <h3>Gusto</h3>
+      ${gustoBlock}
+
+      <h3>Categories</h3>
+      <textarea id="ts-categories" rows="6">${(settings.category_options||[]).join('\n')}</textarea>
+      <button id="ts-save-cats" class="ts-primary">Save categories</button>
+
+      <h3>Who can use timesheets</h3>
+      <table class="ts-table">
+        <thead><tr><th>User</th><th>Role</th></tr></thead>
+        <tbody>${usersHtml}</tbody>
+      </table>
+    `;
+
+    $('ts-save-cats')?.addEventListener('click', async () => {
+      const list = $('ts-categories').value.split('\n').map(s => s.trim()).filter(Boolean);
+      await authFetch('/api/timesheets/settings', {
+        method: 'PATCH', body: JSON.stringify({ category_options: list }),
+      });
+      alert('Categories saved.');
+    });
+
+    $('ts-gusto-connect')?.addEventListener('click', async () => {
+      const { url } = await authFetch('/api/timesheets/gusto/connect');
+      window.location.href = url;
+    });
+
+    $('ts-gusto-disconnect')?.addEventListener('click', async () => {
+      if (!confirm('Disconnect Gusto? You can reconnect later.')) return;
+      await authFetch('/api/timesheets/gusto/disconnect', { method: 'POST' });
+      loadSettings();
+    });
+
+    $('ts-gusto-map')?.addEventListener('click', openEmployeeMappingModal);
+
+    panel.querySelectorAll('.ts-role-select').forEach(sel => sel.addEventListener('change', async () => {
+      const role = sel.value;
+      if (!role) {
+        await authFetch(`/api/timesheets/users/${sel.dataset.user}/role`, { method: 'DELETE' });
+      } else {
+        await authFetch(`/api/timesheets/users/${sel.dataset.user}/role`, {
+          method: 'PUT', body: JSON.stringify({ role }),
+        });
+      }
+    }));
+  }
+
+  async function openEmployeeMappingModal() {
+    const employees = await authFetch('/api/timesheets/gusto/employees');
+    const html = `
+      <dialog id="ts-map-modal" class="ts-modal" open>
+        <h3>Map Gusto employees to PropSpot users</h3>
+        <form method="dialog" id="ts-map-form">
+          <table>
+            <thead><tr><th>Gusto employee</th><th>PropSpot user</th></tr></thead>
+            <tbody>${employees.map(e => `
+              <tr>
+                <td>${e.full_name} (${e.email})</td>
+                <td>
+                  <input type="hidden" name="emp_${e.gusto_employee_uuid}" value="${e.gusto_employee_uuid}">
+                  <select name="usr_${e.gusto_employee_uuid}">
+                    <option value="">— skip —</option>
+                    ${e.suggested_user
+                      ? `<option value="${e.suggested_user.id}" ${e.linked_user_id === e.suggested_user.id || !e.linked_user_id ? 'selected' : ''}>${e.suggested_user.full_name}</option>`
+                      : ''}
+                  </select>
+                </td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+          <menu>
+            <button value="cancel">Cancel</button>
+            <button value="save" class="ts-primary">Save</button>
+          </menu>
+        </form>
+      </dialog>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+    document.getElementById('ts-map-modal').addEventListener('close', async (e) => {
+      const modal = document.getElementById('ts-map-modal');
+      if (modal.returnValue === 'save') {
+        const fd = new FormData(modal.querySelector('form'));
+        const links = [];
+        for (const [k, v] of fd.entries()) {
+          if (!k.startsWith('usr_') || !v) continue;
+          const uuid = k.slice(4);
+          links.push({ user_id: v, gusto_employee_uuid: uuid });
+        }
+        await authFetch('/api/timesheets/gusto/links', {
+          method: 'PUT', body: JSON.stringify(links),
+        });
+      }
+      modal.remove();
+    });
   }
 
   async function init() {

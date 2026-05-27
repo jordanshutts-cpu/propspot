@@ -113,6 +113,7 @@ app.use('/api/inbox/properties',     require('./routes/inbox/properties'));
 app.use('/api/timesheets', require('./routes/timesheets/entries'));
 app.use('/api/timesheets', require('./routes/timesheets/admin'));
 app.use('/api/timesheets/gusto', require('./routes/timesheets/gusto'));
+app.use('/api/timesheets', require('./routes/timesheets/settings'));
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
