@@ -659,6 +659,18 @@
   const ICON_PHOTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
   const ICON_HOME  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
 
+  // Cloudinary URL transform — see fieldcam-property.html for full notes.
+  // Drops thumbnails from ~2-4MB to ~30-60KB by serving WebP/AVIF at the
+  // actual displayed size, eliminating scroll lag on heavy properties.
+  function cldUrl(url, variant) {
+    if (!url || typeof url !== 'string') return url;
+    if (!url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) return url;
+    const params = variant === 'full'
+      ? 'c_limit,w_2400,q_auto,f_auto'
+      : 'c_fill,w_360,h_360,q_auto,f_auto';
+    return url.replace('/image/upload/', `/image/upload/${params}/`);
+  }
+
   let allProps = [], recentLoaded = false, showWithPhotosOnly = true;
   let projectMap = null;
   let mapTileLayer = null;
@@ -965,7 +977,7 @@
       const name  = prop.display_name || prop.name || prop.address_line1 || 'Property';
       const addr  = prop.address || [prop.address_line1, prop.city, prop.state].filter(Boolean).join(', ');
       const thumb = prop.latest_photo_url
-        ? `<img class="fc-popup-thumb" src="${escHtml(prop.latest_photo_url)}" alt="" loading="lazy">`
+        ? `<img class="fc-popup-thumb" src="${escHtml(cldUrl(prop.latest_photo_url, 'thumb'))}" alt="" loading="lazy">`
         : '';
       const sm = statusMeta(prop.status);
       if (prop.status && !seenStatuses.has(prop.status)) seenStatuses.set(prop.status, sm);
@@ -1089,7 +1101,7 @@
       const name = p.display_name || p.name || p.address_line1 || 'Property';
       const addr = p.address || [p.address_line1, p.city, p.state].filter(Boolean).join(', ');
       const thumb = p.latest_photo_url
-        ? `<img class="prop-thumb" src="${escHtml(p.latest_photo_url)}" alt="" loading="lazy" decoding="async">`
+        ? `<img class="prop-thumb" src="${escHtml(cldUrl(p.latest_photo_url, 'thumb'))}" alt="" loading="lazy" decoding="async">`
         : `<div class="prop-no-photo">${ICON_PHOTO}</div>`;
       const sm = statusMeta(p.status);
       const statusBadge = p.status
@@ -1140,7 +1152,7 @@
         const taken = ph.taken_at ? new Date(ph.taken_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
         const media = ph.media_type==='video'
           ? `<video src="${escHtml(ph.url)}" muted playsinline></video>`
-          : `<img src="${escHtml(ph.url)}" alt="" loading="lazy" decoding="async">`;
+          : `<img src="${escHtml(cldUrl(ph.url, 'thumb'))}" alt="" loading="lazy" decoding="async">`;
         return `<div class="photo-tile" onclick="openProp('${ph.property_id}')">
           ${media}
           <div class="photo-overlay">${escHtml(propLabel)}${taken?' · '+taken:''}</div>

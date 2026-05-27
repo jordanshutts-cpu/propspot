@@ -105,6 +105,13 @@
       cursor: pointer; background: var(--bg);
       box-shadow: 0 1px 2px rgba(0,0,0,.04);
       transition: transform .15s, box-shadow .15s;
+      /* Scroll-perf: skip layout + paint for off-screen thumbs. With 200-400+
+         photos on a property page this is the difference between buttery
+         scrolling and dropped frames. contain-intrinsic-size reserves the
+         thumb's footprint so the scrollbar doesn't jitter as offscreen
+         items get virtualized in/out. */
+      content-visibility: auto;
+      contain-intrinsic-size: 180px 180px;
     }
     .fc-thumb:hover {
       transform: translateY(-2px);
@@ -597,6 +604,20 @@
   const PROP_ID = params.get('id');
   const TRASH_KEY = '__trash__';
 
+  // Cloudinary URL transform — injects size/quality/format params so
+  // thumbnails download as ~30-60KB WebP/AVIF instead of the original
+  // 2-4MB JPEG. Non-Cloudinary URLs pass through unchanged.
+  //   thumb → 360x360 cover crop for the grid (2x for retina @180px)
+  //   full  → max 2400px wide for the lightbox, auto format/quality
+  function cldUrl(url, variant) {
+    if (!url || typeof url !== 'string') return url;
+    if (!url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) return url;
+    const params = variant === 'full'
+      ? 'c_limit,w_2400,q_auto,f_auto'
+      : 'c_fill,w_360,h_360,q_auto,f_auto';
+    return url.replace('/image/upload/', `/image/upload/${params}/`);
+  }
+
   let allPhotos = [], folders = [], currentFolder = null, lbIdx = -1, lbPhotos = [];
   let selectMode = false, selectedPhotoIds = new Set();
   let trashCount = 0;
@@ -830,7 +851,7 @@
     const isVideo  = p.media_type === 'video';
     const media    = isVideo
       ? `<video src="${escHtml(p.url)}" muted playsinline></video><span class="fc-video-badge">▶ Video</span>`
-      : `<img src="${escHtml(p.url)}" alt="" loading="lazy">`;
+      : `<img src="${escHtml(cldUrl(p.url, 'thumb'))}" alt="" loading="lazy" decoding="async">`;
     const selectableCls = selectMode ? ' selectable' : '';
     const selectedCls   = selectedPhotoIds.has(p.id) ? ' selected' : '';
     const clickHandler  = selectMode
@@ -999,7 +1020,7 @@
     } else {
       vid.pause?.(); vid.style.display = 'none'; vid.src = '';
       img.style.display = '';
-      img.src = p?.url || '';
+      img.src = cldUrl(p?.url, 'full') || '';
     }
     const time = p?.taken_at ? new Date(p.taken_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
     const total = lbPhotos.length;
