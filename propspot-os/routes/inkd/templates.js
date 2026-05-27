@@ -44,16 +44,23 @@ router.get('/:id/pdf', async (req, res) => {
     const publicId = t.rows[0]?.source_pdf_id;
     if (!publicId) return res.status(404).json({ error: 'Template has no PDF' });
 
-    // Fetch with api_key:api_secret as HTTP Basic Auth against the Admin
-    // resources delivery endpoint. This is the documented way to download
-    // a raw asset server-side regardless of public/authenticated mode.
-    const cfg = cloudinary.config();
-    const adminUrl = `https://${cfg.api_key}:${cfg.api_secret}` +
-                     `@res.cloudinary.com/${cfg.cloud_name}/raw/upload/${encodeURI(publicId)}`;
-    const upstream = await fetch(adminUrl);
+    // private_download_url generates a signed Admin-API download URL of the
+    // form  https://api.cloudinary.com/v1_1/<cloud>/raw/download?api_key=…&
+    // signature=…&public_id=…&expires_at=…  — credentials as query params,
+    // host is api.cloudinary.com (not res.cloudinary.com), so it bypasses
+    // delivery ACLs entirely. The previous attempt embedded creds in the
+    // URL as user:pass@host, which Node's fetch rejects for security.
+    const downloadUrl = cloudinary.utils.private_download_url(publicId, 'pdf', {
+      resource_type: 'raw',
+      type:          'upload',
+      expires_at:    Math.floor(Date.now() / 1000) + 300,  // 5 minutes
+    });
+
+    const upstream = await fetch(downloadUrl);
     if (!upstream.ok) {
-      console.error('[inkd] template PDF proxy upstream failed', upstream.status, await upstream.text().catch(() => ''));
-      return res.status(502).json({ error: 'Cloudinary fetch failed', status: upstream.status });
+      const body = await upstream.text().catch(() => '');
+      console.error('[inkd] template PDF proxy upstream failed', upstream.status, body);
+      return res.status(502).json({ error: 'Cloudinary fetch failed', status: upstream.status, detail: body.slice(0, 500) });
     }
     const buf = Buffer.from(await upstream.arrayBuffer());
     res.setHeader('Content-Type', 'application/pdf');
