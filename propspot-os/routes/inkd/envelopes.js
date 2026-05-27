@@ -37,14 +37,21 @@ router.get('/', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to list envelopes' }); }
 });
 
-// GET /api/inkd/envelopes/:id  — full envelope with recipients + field_values
+// GET /api/inkd/envelopes/:id  — full envelope with recipients + field_values.
+// source_pdf_url is rewritten to the template proxy so the composer can fetch
+// it: this Cloudinary account denies browser delivery even of signed raw PDFs,
+// and the envelope's source PDF is byte-identical to its template's (we copy
+// source_pdf_id at envelope creation), so /api/inkd/templates/:tid/pdf is the
+// right proxy. final_pdf_url stays as-is — that's a different signed asset.
 router.get('/:id', async (req, res) => {
   try {
     const e = await query('SELECT * FROM inkd_envelopes WHERE id=$1', [req.params.id]);
     if (!e.rows[0]) return res.status(404).json({ error: 'Envelope not found' });
     const r = await query('SELECT id, role, full_name, email, phone, contact_id, signing_order, status, notified_at, viewed_at, signed_at FROM inkd_recipients WHERE envelope_id=$1 ORDER BY signing_order', [req.params.id]);
     const v = await query('SELECT * FROM inkd_field_values WHERE envelope_id=$1', [req.params.id]);
-    res.json({ ...signEnvelopeUrls(e.rows[0]), recipients: r.rows, field_values: v.rows });
+    const env = signEnvelopeUrls(e.rows[0]);
+    if (env.template_id) env.source_pdf_url = `/api/inkd/templates/${env.template_id}/pdf`;
+    res.json({ ...env, recipients: r.rows, field_values: v.rows });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to load envelope' }); }
 });
 
