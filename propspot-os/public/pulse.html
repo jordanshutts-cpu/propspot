@@ -1232,6 +1232,32 @@
   }
 
   // ── Message HTML ───────────────────────────────────────────────
+  function cloudinaryPoster(url) {
+    return url
+      .replace('/video/upload/', '/video/upload/so_auto/')
+      .replace(/\.(webm|mp4|mov|quicktime)$/i, '.jpg');
+  }
+
+  function attachmentsHtml(atts) {
+    if (!Array.isArray(atts) || !atts.length) return '';
+    return atts.map(a => {
+      const mime = a.mime_type || '';
+      const url  = a.url;
+      const safeFn = escHtml(a.filename || 'file');
+      if (mime.startsWith('image/')) {
+        return `<div class="ps-msg-attachment"><a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${safeFn}" loading="lazy" /></a></div>`;
+      }
+      if (mime.startsWith('audio/')) {
+        return `<div class="ps-msg-attachment"><audio controls preload="metadata" src="${url}"></audio></div>`;
+      }
+      if (mime.startsWith('video/')) {
+        const poster = cloudinaryPoster(url);
+        return `<div class="ps-msg-attachment"><video controls preload="metadata" poster="${poster}" src="${url}"></video></div>`;
+      }
+      return `<div class="ps-msg-attachment file"><a href="${url}" target="_blank" rel="noopener">📎 ${safeFn}</a></div>`;
+    }).join('');
+  }
+
   function msgHtml(m) {
     const dateStr = new Date(m.created_at).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
     let out = '';
@@ -1330,6 +1356,7 @@
         </div>
         ${replyQuote}
         <div class="ps-msg-text" id="msgt-${mid}">${textOut}${edited}</div>
+        ${attachmentsHtml(m.attachments || [])}
         ${actionBar}
         <div class="ps-reactions" id="rxc-${mid}">${rxHtml}</div>
       </div>
