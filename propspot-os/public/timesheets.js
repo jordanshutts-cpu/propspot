@@ -103,9 +103,66 @@
     renderEntries(entries);
   }
 
+  async function populateTagDropdowns() {
+    // Projects
+    try {
+      const projects = await authFetch('/api/projects');
+      $('ts-project').innerHTML = '<option value="">Project…</option>' +
+        projects.map(p => `<option value="${p.id}">${p.name || p.address || p.id}</option>`).join('');
+    } catch {}
+    // Properties
+    try {
+      const props = await authFetch('/api/properties?limit=100');
+      $('ts-property').innerHTML = '<option value="">Property…</option>' +
+        (props.items || props).map(p => `<option value="${p.id}">${p.address_line1}, ${p.city}</option>`).join('');
+    } catch {}
+    // Work orders (assigned to me)
+    try {
+      const wos = await authFetch('/api/my-work-orders');
+      $('ts-workorder').innerHTML = '<option value="">Work order…</option>' +
+        (wos.items || wos).map(w => `<option value="${w.id}">${w.title || w.id}</option>`).join('');
+    } catch {}
+    // Categories from settings (may not exist yet)
+    try {
+      const settings = await authFetch('/api/timesheets/settings');
+      $('ts-category').innerHTML = '<option value="">Category…</option>' +
+        (settings.category_options || []).map(c => `<option value="${c}">${c}</option>`).join('');
+    } catch {}
+  }
+
+  async function openManualModal() {
+    const modal = $('ts-manual-modal');
+    const settings = await authFetch('/api/timesheets/settings').catch(() => ({}));
+    $('ts-manual-category').innerHTML = '<option value="">Category…</option>' +
+      (settings.category_options || []).map(c => `<option value="${c}">${c}</option>`).join('');
+    modal.showModal();
+  }
+
+  document.addEventListener('submit', async (e) => {
+    if (e.target.id !== 'ts-manual-form') return;
+    const submitter = e.submitter && e.submitter.value;
+    if (submitter !== 'save') return;
+    const fd = new FormData(e.target);
+    const date = fd.get('date'), start = fd.get('start'), end = fd.get('end');
+    const startedAt = new Date(`${date}T${start}:00`).toISOString();
+    const endedAt   = new Date(`${date}T${end}:00`).toISOString();
+    await authFetch('/api/timesheets/entries', {
+      method: 'POST',
+      body: JSON.stringify({
+        started_at: startedAt, ended_at: endedAt,
+        category: fd.get('category') || null,
+        notes: fd.get('notes') || null,
+      }),
+    });
+    $('ts-manual-modal').close();
+    await refreshEntries();
+  });
+
   async function init() {
     $('ts-clock-btn').addEventListener('click', onClockClick);
     $('ts-switch-btn').addEventListener('click', onSwitchClick);
+    $('ts-add-manual').addEventListener('click', openManualModal);
+    await populateTagDropdowns();
     const open = await authFetch('/api/timesheets/me/current');
     setClockState(open);
     await refreshEntries();

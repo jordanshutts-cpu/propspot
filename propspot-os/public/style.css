@@ -1618,3 +1618,8 @@ a.os-kpi:hover {
 .ts-empty      { color: var(--muted); padding: 1rem 0; }
 .ts-secondary  { background: transparent; border: 1px dashed var(--border);
                  padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; }
+
+.ts-modal { padding: 1.5rem; border: 0; border-radius: 0.75rem; min-width: 400px; }
+.ts-modal label { display: block; margin-bottom: 1rem; }
+.ts-modal input, .ts-modal select, .ts-modal textarea { width: 100%; padding: 0.5rem; }
+.ts-modal menu { display: flex; gap: 0.5rem; justify-content: flex-end; padding: 0; }

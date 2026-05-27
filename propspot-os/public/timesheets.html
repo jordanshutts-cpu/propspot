@@ -56,5 +56,20 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="/timesheets.js"></script>
+
+<dialog id="ts-manual-modal" class="ts-modal">
+  <form method="dialog" id="ts-manual-form">
+    <h3>Add manual entry</h3>
+    <label>Date <input type="date" name="date" required></label>
+    <label>Start <input type="time" name="start" required></label>
+    <label>End <input type="time" name="end" required></label>
+    <label>Category <select name="category" id="ts-manual-category"></select></label>
+    <label>Notes <textarea name="notes"></textarea></label>
+    <menu>
+      <button value="cancel">Cancel</button>
+      <button value="save" id="ts-manual-save">Save</button>
+    </menu>
+  </form>
+</dialog>
 </body>
 </html>
