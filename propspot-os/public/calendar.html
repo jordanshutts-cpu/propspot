@@ -818,6 +818,25 @@ function localDateTimeToIso(value) {
   return isNaN(d) ? null : d.toISOString();
 }
 
+// Inverse of the above: take an ISO-with-timezone returned from the API
+// and produce the "YYYY-MM-DDTHH:MM" string a <input type="datetime-local">
+// expects in the user's LOCAL timezone. Slicing the raw ISO leaves the
+// UTC time visible, which would shift by the user's offset.
+//
+// For all-day events the value is stored as a date-only string with no
+// timezone. We return just the YYYY-MM-DD portion verbatim — running it
+// through new Date() would shift by the local offset (e.g. EDT users
+// would see the previous day).
+function isoToLocalInput(iso, allDay) {
+  if (!iso) return '';
+  if (allDay) return String(iso).slice(0, 10);
+  var d = new Date(iso);
+  if (isNaN(d)) return '';
+  var pad = function(n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+       + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
 // Swap the start/end inputs between datetime-local and date based on
 // the All day checkbox. browsers don't let us hide just the time half
 // of a datetime-local input, so we switch input types and adjust the
@@ -966,8 +985,8 @@ function editViewingEvent() {
   document.getElementById('e-save').textContent = 'Save changes';
   // datetime-local needs YYYY-MM-DDTHH:MM (no Z, local). Strip the trailing
   // Z if present and trim to 16 chars.
-  document.getElementById('e-start').value = (ev.start_at || '').slice(0, 16);
-  document.getElementById('e-end').value   = ev.end_at ? ev.end_at.slice(0, 16) : '';
+  document.getElementById('e-start').value = isoToLocalInput(ev.start_at, ev.all_day);
+  document.getElementById('e-end').value   = isoToLocalInput(ev.end_at,   ev.all_day);
   selectedMentions = (ev.mentioned_user_ids || [])
     .map(function(uid) {
       var u = orgUsers.find(function(x) { return x.id === uid; });
