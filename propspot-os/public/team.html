@@ -364,6 +364,19 @@
     const body = `<tbody>${teamMembers.map(renderRow).join('')}${divider}${externals.map(renderRow).join('')}</tbody>`;
 
     el.innerHTML = `<div class="team-table-wrap"><table class="team-table">${head}${body}</table></div>`;
+
+    // Convert vertical wheel events into horizontal scroll so a regular mouse
+    // wheel pans the table left/right without needing shift+scroll.
+    const wrap = el.querySelector('.team-table-wrap');
+    wrap.addEventListener('wheel', (e) => {
+      // Only hijack when there's actually overflow to scroll horizontally and
+      // the user isn't making a purely vertical scroll on a trackpad (where
+      // deltaX will already be non-zero).
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // trackpad horizontal swipe — leave alone
+      if (wrap.scrollWidth <= wrap.clientWidth) return;     // no overflow — don't interfere
+      e.preventDefault();
+      wrap.scrollLeft += e.deltaY;
+    }, { passive: false });
   }
 
   // Flip a user between the salaried-team and external-worker sections.
