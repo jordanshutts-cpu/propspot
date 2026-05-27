@@ -17,7 +17,8 @@
     }
     .app-toggle:hover { border-color: var(--brand); }
     .app-toggle.checked { border-color: var(--brand); background: var(--brand-light); }
-    .app-toggle .app-icon { font-size: 1.3rem; }
+    .app-toggle .app-icon { font-size: 1.3rem; line-height: 1; }
+    .app-toggle .app-icon svg { width: 1.3rem; height: 1.3rem; display: block; }
     .app-toggle .app-name { flex: 1; font-weight: 600; font-size: .9rem; }
     .app-toggle .app-desc { font-size: .7rem; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
     .app-toggle input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; }
@@ -43,7 +44,9 @@
     }
     .team-table .col-app { text-align: center; min-width: 96px; }
     .team-table .col-app .app-head { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .team-table .col-app .app-head .app-icon { font-size: 1.1rem; }
+    .team-table .col-app .app-head .app-icon { font-size: 1.1rem; line-height: 1; }
+    .team-table .col-app .app-head .app-icon svg { width: 1.2rem; height: 1.2rem; display: block; }
+    .access-cell svg { width: 14px; height: 14px; display: block; }
     .team-table .col-member { min-width: 220px; position: sticky; left: 0; background: var(--surface); z-index: 1; }
     .team-table thead th.col-member { z-index: 4; }
     .team-table tbody tr:hover .col-member { background: var(--brand-light); }
@@ -209,6 +212,19 @@
 <script>
   let me = null;
   let allApps = [];
+
+  const APP_ICONS = {
+    fieldcam:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    database:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`,
+    activity:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+    holdings:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>`,
+    inbox:        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>`,
+    inkd:         `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
+    maintenance:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+    pulse:        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    underwriting: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+  };
+  const CHECK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
   let allUsers = [];
 
   async function init(){
@@ -269,7 +285,7 @@
           ${allApps.map(a => `
             <th class="col-app" title="${escHtml(a.description || a.slug)}">
               <div class="app-head">
-                <span class="app-icon">${escHtml(a.icon || '🧩')}</span>
+                <span class="app-icon">${APP_ICONS[a.slug] || escHtml(a.icon || '🧩')}</span>
                 <span>${escHtml(a.name)}</span>
               </div>
             </th>
@@ -297,7 +313,7 @@
         const cls = `access-cell ${has ? 'granted' : 'empty'}${lockedSelfOwner ? ' locked' : ''}`;
         const label = has ? `Revoke ${a.name} access` : `Grant ${a.name} access`;
         const onclick = lockedSelfOwner ? '' : `onclick="toggleAccessCell(this,'${u.id}','${a.id}')"`;
-        return `<td class="col-app"><span class="${cls}" ${onclick} title="${escHtml(label)}" data-has="${has ? '1' : '0'}">${has ? '✓' : ''}</span></td>`;
+        return `<td class="col-app"><span class="${cls}" ${onclick} title="${escHtml(label)}" data-has="${has ? '1' : '0'}">${has ? CHECK_SVG : ''}</span></td>`;
       }).join('');
 
       return `
@@ -470,7 +486,7 @@
     wrap.innerHTML = allApps.length ? allApps.map(a => `
       <label class="app-toggle" data-app-id="${a.id}">
         <input type="checkbox" data-app-id="${a.id}" onchange="this.closest('.app-toggle').classList.toggle('checked', this.checked)">
-        <span class="app-icon">${escHtml(a.icon || '🧩')}</span>
+        <span class="app-icon">${APP_ICONS[a.slug] || escHtml(a.icon || '🧩')}</span>
         <div style="flex:1;">
           <div class="app-name">${escHtml(a.name)}</div>
           <div class="app-desc">${escHtml(a.description || a.slug)}</div>
