@@ -671,11 +671,18 @@
     return STATUS_META[s] || { color: '#61B746', label: s ? s.replace(/_/g, ' ') : 'Unknown' };
   }
   // Darken a hex color for the gradient lower stop on pins
-  function darkenHex(hex) {
+  function darkenHex(hex, amt = 40) {
     const n = parseInt(hex.replace('#', ''), 16);
-    const r = Math.max(0, (n >> 16) - 40);
-    const g = Math.max(0, ((n >> 8) & 0xff) - 40);
-    const b = Math.max(0, (n & 0xff) - 40);
+    const r = Math.max(0, (n >> 16) - amt);
+    const g = Math.max(0, ((n >> 8) & 0xff) - amt);
+    const b = Math.max(0, (n & 0xff) - amt);
+    return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+  }
+  function lightenHex(hex, amt = 40) {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const r = Math.min(255, (n >> 16) + amt);
+    const g = Math.min(255, ((n >> 8) & 0xff) + amt);
+    const b = Math.min(255, (n & 0xff) + amt);
     return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
   }
 
@@ -792,10 +799,14 @@
   // scannable on the map.
   function statusDivIcon(status) {
     const { color } = statusMeta(status);
-    const dark = darkenHex(color);
+    const light = lightenHex(color, 30);
+    const dark  = darkenHex(color, 44);
     return L.divIcon({
       className: 'fc-marker',
-      html: `<div class="fc-marker-pin" style="background:linear-gradient(135deg,${color},${dark});box-shadow:0 4px 10px -2px ${color}88,0 0 0 1px rgba(0,0,0,0.05);"></div>`,
+      html: `<div class="fc-marker-pin" style="
+        background: radial-gradient(circle at 38% 30%, ${light}, ${color} 55%, ${dark});
+        box-shadow: 0 5px 14px -3px ${color}bb, 0 0 0 1px rgba(0,0,0,0.06);
+      "></div>`,
       iconSize: [28, 36],
       iconAnchor: [14, 32],
       popupAnchor: [0, -30]
@@ -869,24 +880,44 @@
           if (c > topCount) { topCount = c; topStatus = s; }
         }
         const { color } = statusMeta(topStatus);
-        const dark = darkenHex(color);
-        const n = cluster.getChildCount();
-        // Size scales with how many properties are in the cluster
-        const sz = n < 10 ? 34 : n < 100 ? 42 : 52;
-        const fs = n < 100 ? 13 : 11;
+        const light = lightenHex(color, 36);
+        const dark  = darkenHex(color, 44);
+        const n  = cluster.getChildCount();
+        // Size and font scale with count
+        const sz = n < 10 ? 40 : n < 100 ? 50 : 62;
+        const fs = n < 10 ? 16 : n < 100 ? 14 : 13;
+        // Outer ring slightly larger than the sphere for the glow halo
+        const wrap = sz + 14;
         return L.divIcon({
-          html: `<div style="
-            width:${sz}px;height:${sz}px;line-height:${sz}px;text-align:center;
-            background:linear-gradient(135deg,${color},${dark});
-            border-radius:50%;
-            border:2.5px solid rgba(255,255,255,0.9);
-            box-shadow:0 4px 12px -3px ${color}aa;
-            color:#fff;font-weight:800;font-size:${fs}px;
-            font-family:inherit;
-          ">${n}</div>`,
+          html: `
+            <div style="
+              width:${wrap}px;height:${wrap}px;
+              display:flex;align-items:center;justify-content:center;
+              background:radial-gradient(circle at 50% 50%, ${color}22, transparent 70%);
+              border-radius:50%;
+            ">
+              <div style="
+                width:${sz}px;height:${sz}px;
+                display:flex;align-items:center;justify-content:center;
+                background: radial-gradient(circle at 36% 32%, ${light} 0%, ${color} 48%, ${dark} 100%);
+                border-radius: 50%;
+                border: 2.5px solid rgba(255,255,255,0.88);
+                box-shadow:
+                  inset 0 2px 4px rgba(255,255,255,0.22),
+                  inset 0 -2px 4px rgba(0,0,0,0.14),
+                  0 6px 20px -4px ${color}cc,
+                  0 2px 6px rgba(0,0,0,0.28);
+                color: #fff;
+                font-weight: 900;
+                font-size: ${fs}px;
+                letter-spacing: -0.4px;
+                text-shadow: 0 1px 3px rgba(0,0,0,0.28);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+              ">${n}</div>
+            </div>`,
           className: 'fc-cluster-icon',
-          iconSize:   [sz + 10, sz + 10],
-          iconAnchor: [(sz + 10) / 2, (sz + 10) / 2]
+          iconSize:   [wrap, wrap],
+          iconAnchor: [wrap / 2, wrap / 2]
         });
       }
     });
