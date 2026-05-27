@@ -1592,3 +1592,29 @@ a.os-kpi:hover {
   content: ''; width: 6px; height: 6px; border-radius: 50%;
   background: var(--brand);
 }
+
+/* ── Timesheets ─────────────────────────────────────────────────────── */
+.ts-clock-card { display: flex; flex-direction: column; align-items: center;
+                 gap: 1rem; padding: 2rem; background: var(--surface);
+                 border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.ts-tag-row    { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+.ts-tag        { padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+                 border: 1px solid var(--border); background: var(--bg); }
+.ts-clock-btn  { font-size: 1.25rem; font-weight: 600; padding: 1rem 3rem;
+                 border-radius: 999px; border: 0; color: white; cursor: pointer;
+                 transition: background 150ms; }
+.ts-clock-btn.idle   { background: #16a34a; }
+.ts-clock-btn.idle:hover   { background: #15803d; }
+.ts-clock-btn.active { background: #dc2626; }
+.ts-clock-btn.active:hover { background: #b91c1c; }
+.ts-timer      { font-family: monospace; font-size: 1.75rem; color: var(--muted); }
+.ts-switch     { background: transparent; color: var(--accent); border: 0;
+                 cursor: pointer; text-decoration: underline; }
+.ts-summary    { display: flex; justify-content: space-between;
+                 padding: 1rem; font-size: 1rem; color: var(--muted); }
+.ts-entry-list { list-style: none; padding: 0; }
+.ts-entry      { display: grid; grid-template-columns: 1fr auto auto;
+                 gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.ts-empty      { color: var(--muted); padding: 1rem 0; }
+.ts-secondary  { background: transparent; border: 1px dashed var(--border);
+                 padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; }
