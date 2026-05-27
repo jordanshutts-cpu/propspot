@@ -9,31 +9,104 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="/inkd.css">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+  <style>
+    body.os-newlayout main.page.page-inkd-twocol { padding: 0 !important; max-width: none !important; height: calc(100vh - 56px); display: grid; grid-template-columns: 260px 1fr; }
+  </style>
 </head>
 <body class="os-newlayout">
 <aside class="apps-rail" id="apps-rail"></aside>
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
 
-<main class="page">
-  <div class="inkd-page">
-    <div class="inkd-dash-header">
-      <h1>Ink'd</h1>
-      <button class="primary" id="btn-new-envelope">+ Send document</button>
-      <a class="primary" href="/inkd-template-editor.html">+ New template</a>
-      <a class="secondary" href="/inkd-templates.html">Templates</a>
+<main class="page page-inkd-twocol">
+
+  <!-- ── Secondary sidebar (SignNow-style) ─────────────────────── -->
+  <aside class="inkd-side">
+    <div class="inkd-create-wrap">
+      <button class="inkd-create-btn" id="btn-create" type="button">
+        <span class="ic">+</span> Create
+        <span class="caret">▾</span>
+      </button>
+      <div class="inkd-create-menu" id="create-menu" hidden>
+        <button type="button" data-create="document">
+          <div class="ic ic-doc">📄</div>
+          <div>
+            <strong>Document</strong>
+            <span>Send a file for signature</span>
+          </div>
+        </button>
+        <button type="button" data-create="template">
+          <div class="ic ic-tpl">📋</div>
+          <div>
+            <strong>Template</strong>
+            <span>Upload a file to resend it multiple times</span>
+          </div>
+        </button>
+      </div>
     </div>
-    <div class="lanes">
-      <section class="lane" data-lane="draft">  <h2>Drafts</h2>             <div class="cards"></div></section>
-      <section class="lane" data-lane="out">    <h2>Out for Signature</h2>  <div class="cards"></div></section>
-      <section class="lane" data-lane="action"> <h2>Action Needed</h2>      <div class="cards"></div></section>
-      <section class="lane" data-lane="review"> <h2>Completed (review)</h2> <div class="cards"></div></section>
-      <section class="lane" data-lane="filed">  <h2>Filed</h2>              <div class="cards"></div></section>
+
+    <div class="inkd-side-section">Personal</div>
+    <a class="inkd-side-item" data-view="documents" href="?view=documents">
+      <span class="ic">📄</span>
+      <span class="label">Documents</span>
+      <span class="count" id="cnt-documents">0</span>
+    </a>
+    <a class="inkd-side-item" data-view="templates" href="?view=templates">
+      <span class="ic">📋</span>
+      <span class="label">Templates</span>
+      <span class="count" id="cnt-templates">0</span>
+    </a>
+    <a class="inkd-side-item" data-view="archive" href="?view=archive">
+      <span class="ic">🗄️</span>
+      <span class="label">Archive</span>
+      <span class="count" id="cnt-archive">0</span>
+    </a>
+  </aside>
+
+  <!-- ── Main content ──────────────────────────────────────────── -->
+  <section class="inkd-main">
+    <header class="inkd-main-header">
+      <h1 id="view-title">Documents</h1>
+      <span class="muted" id="view-count"></span>
+      <div class="spacer"></div>
+      <input type="search" id="inkd-search" placeholder="Search…">
+    </header>
+
+    <!-- Status filter chips (visible only on Documents view) -->
+    <div class="inkd-filter-chips" id="filter-chips">
+      <button class="chip active" type="button" data-status="all">All</button>
+      <button class="chip" type="button" data-status="draft">Drafts</button>
+      <button class="chip" type="button" data-status="out">Out for Signature</button>
+      <button class="chip" type="button" data-status="action">Action Needed</button>
+      <button class="chip" type="button" data-status="review">Completed (review)</button>
+      <button class="chip" type="button" data-status="filed">Filed</button>
     </div>
-  </div>
+
+    <!-- List of items (envelopes or templates) -->
+    <div class="inkd-list" id="inkd-list"></div>
+
+    <!-- Empty state -->
+    <div class="inkd-empty" id="empty-state" hidden>
+      <svg class="empty-art" viewBox="0 0 320 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.5" opacity=".5">
+          <rect x="20"  y="20" width="50" height="60" rx="4" stroke-dasharray="4 3"/>
+          <path d="M45 45 q5 5 0 10" stroke-width="2"/>
+          <text x="45" y="60" text-anchor="middle" font-size="14" fill="currentColor" stroke="none">👆</text>
+          <path d="M85 50 h30 m-6 -6 l6 6 -6 6"/>
+          <rect x="135" y="20" width="50" height="60" rx="4" stroke-dasharray="4 3"/>
+          <path d="M150 55 q3 -6 8 -3 t8 -2" stroke-width="2"/>
+          <path d="M200 50 h30 m-6 -6 l6 6 -6 6"/>
+          <path d="M260 30 l30 22 -32 4 5 -14 -10 5 z" stroke-linejoin="round"/>
+        </g>
+      </svg>
+      <h2 id="empty-title">Send your documents for signature</h2>
+      <p id="empty-sub" class="muted">Upload a PDF, drop fields, and send. Recipients sign in their browser — no account needed.</p>
+      <button class="primary" type="button" id="empty-cta">+ Send a document</button>
+    </div>
+  </section>
 </main>
 
-<!-- New envelope modal: pick a template + (optionally) a property -->
+<!-- ── New-envelope modal (template + property picker) ────────── -->
 <div class="modal-overlay" id="new-env-modal" hidden>
   <div class="modal-box new-env-box" role="dialog" aria-modal="true">
     <h2 style="margin-top:0;">Send a document</h2>
