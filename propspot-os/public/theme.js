@@ -1,26 +1,20 @@
 // ============================================================
-//  Prop Spot — Premium Theme Manager
-//  Toggles html.theme-premium class, loads premium.css and
-//  Inter font, and replaces emoji icons with clean SVGs.
+//  Prop Spot — Theme Manager
+//  Toggles html.theme-dark class and replaces emoji icons
+//  with clean inline SVGs across the entire app.
 //
-//  Classic mode (default): exact original UI, nothing changed.
-//  Premium mode:           visual upgrades + SVG icon replacement.
+//  Emoji → SVG replacement runs unconditionally for all users
+//  (including dynamically-rendered content via MutationObserver).
 //
 //  Toggle: window.toggleTheme()
-//  Persisted to localStorage.propspot_theme = 'classic' | 'premium'
+//  Persisted to localStorage.propspot_theme = 'premium' | 'dark'
 // ============================================================
 
 (function () {
 
   // ── Inline SVG icon library ────────────────────────────────
-  // Lucide-style icons (24×24 viewBox, stroke-based).
+  // Lucide-style icons (24×24 viewBox, stroke-based, 2px stroke).
   function S(d) {
-    // Default to 1em × 1em so the SVG inherits its size from the surrounding
-    // font-size — matching how an emoji rendered. CSS with explicit width/
-    // height (e.g. .premium-emoji-prefix svg) still overrides this attribute.
-    // Without this, replaceIconEl injects an unsized SVG into a parent like
-    // <div style="font-size:2rem;">📅</div> and the SVG fills 100% of the
-    // container width.
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
   }
 
@@ -38,6 +32,7 @@
     'rotate-ccw':     S('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>'),
     'expand':         S('<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>'),
     'x':              S('<line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>'),
+    'x-circle':       S('<circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/>'),
     'alarm-clock':    S('<circle cx="12" cy="13" r="8"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/><path d="m9 13 2 2 4-4"/>'),
     'settings':       S('<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'),
     'chevron-down':   S('<polyline points="6 9 12 15 18 9"/>'),
@@ -85,101 +80,188 @@
     'check-circle':   S('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
     'sparkles':       S('<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>'),
     'sun-moon':       S('<path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.3 17.7-1.4 1.4"/><path d="m19.1 4.9-1.4 1.4"/>'),
+    // ── Additional icons ───────────────────────────────────────
+    'hard-hat':       S('<path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a8 8 0 0 1 16 0v3"/>'),
+    'trees':          S('<path d="M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z"/><path d="M7 16v5"/><path d="M13 19v3"/><path d="M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5"/>'),
+    'droplets':       S('<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>'),
+    'zap':            S('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'),
+    'lightbulb':      S('<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>'),
+    'snowflake':      S('<line x1="2" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="22"/><path d="m20 16-4-4 4-4"/><path d="m4 8 4 4-4 4"/><path d="m16 4-4 4-4-4"/><path d="m8 20 4-4 4 4"/>'),
+    'brush':          S('<path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1 1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/>'),
+    'plug':           S('<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>'),
+    'bug':            S('<rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 7-3 2"/><path d="m5 7 3 2"/><path d="m19 19-3-2"/><path d="m5 19 3-2"/><path d="M20 13h-4"/><path d="M4 13h4"/><path d="m10 4 1 2"/><path d="m14 4-1 2"/>'),
+    'map-pin':        S('<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>'),
+    'map':            S('<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>'),
+    'printer':        S('<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect width="12" height="8" x="6" y="14" rx="1"/>'),
+    'video':          S('<path d="m22 8-6 4 6 4V8z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>'),
+    'shield':         S('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>'),
+    'landmark':       S('<line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/>'),
+    'lock':           S('<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
+    'alert-octagon':  S('<path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"/>'),
+    'star':           S('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'),
+    'award':          S('<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>'),
+    'navigation':     S('<polygon points="3 11 22 2 13 21 11 13 3 11"/>'),
+    'download':       S('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'),
+    'upload':         S('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>'),
+    'building':       S('<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>'),
+    'flame':          S('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'),
+    'party-popper':   S('<path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.7-.72 1.22-1.43 1.22H17"/><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.52 4.9 9 5.52 9 6.23V7"/><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2z"/>'),
+    'check':          S('<polyline points="20 6 9 17 4 12"/>'),
   };
 
   // ── Emoji → icon name map ──────────────────────────────────
   var EMOJI_MAP = {
-    // Dashboard pipeline
-    '\uD83D\uDCE5': 'inbox',          // 📥
-    '\uD83C\uDFAF': 'target',         // 🎯
-    '\uD83E\uDD1D': 'users',          // 🤝
-    '\uD83D\uDCDD': 'clipboard-list', // 📝
-    '\uD83D\uDD27': 'wrench',         // 🔧
-    '\uD83C\uDFF7\uFE0F': 'tag',      // 🏷️
-    // Dashboard holdings
-    '\uD83D\uDCB5': 'dollar-sign',    // 💵
-    '\uD83D\uDCC5': 'calendar',       // 📅
-    '\u26A0\uFE0F': 'triangle-alert', // ⚠️
-    '\uD83D\uDCC2': 'folder-open',    // 📂
-    // Sidebar - For you
-    '\uD83D\uDCE7': 'mail',           // 📧
+    // Navigation & pipeline
+    '📥': 'inbox',          // 📥 Prospects
+    '🎯': 'target',         // 🎯 Leads
+    '🤝': 'users',          // 🤝 Opportunities
+    '📝': 'clipboard-list', // 📝 Under Contract
+    '🔧': 'wrench',         // 🔧 Renovating
+    '🏷️': 'tag',      // 🏷️ Listed/Rented
+    '🏷':       'tag',      // 🏷 (no VS16)
+    // Holdings categories
+    '💵': 'dollar-sign',    // 💵 Income
+    '📅': 'calendar',       // 📅 Dates
+    '⚠️': 'triangle-alert', // ⚠️
+    '⚠':       'triangle-alert', // ⚠ (no VS16)
+    '📂': 'folder-open',    // 📂 Folders
+    '💰': 'banknote',       // 💰 Money
+    '💴': 'banknote',       // 💴
+    '💶': 'banknote',       // 💶
+    '🏦': 'landmark',       // 🏦 Bank
+    '👻': 'skull',          // 👻 → skull
+    '💀': 'skull',          // 💀
+    // Contact methods
+    '📧': 'mail',           // 📧 Email
     '@':            'at-sign',
-    '\u2713':       'check-circle',   // ✓
-    '\u2714':       'check-circle',   // ✔
-    // Sidebar - Pipeline
-    '\uD83D\uDCDE': 'phone',          // 📞
-    '\uD83D\uDCCB': 'clipboard-list', // 📋
-    '\uD83D\uDD28': 'hammer',         // 🔨
-    '\uD83D\uDCBC': 'briefcase',      // 💼
-    '\uD83D\uDCB0': 'banknote',       // 💰
-    '\uD83D\uDCE6': 'package',        // 📦
-    '\uD83D\uDC80': 'skull',          // 💀
-    // Sidebar - Tools
-    '\uD83D\uDCF8': 'camera',         // 📸
-    '\uD83D\uDEE0\uFE0F': 'wrench',   // 🛠️
-    '\uD83D\uDCAC': 'message-square', // 💬
-    '\uD83D\uDCCA': 'bar-chart-2',    // 📊
-    // Sidebar - Soon
-    '\uD83C\uDF10': 'globe',          // 🌐
-    '\uD83C\uDFDA\uFE0F': 'house',    // 🏚️
-    '\uD83E\uDDE7': 'receipt',        // 🧾 (memo)
-    '\uD83D\uDD04': 'refresh-cw',     // 🔄
+    '✓':       'check-circle',   // ✓
+    '✔':       'check-circle',   // ✔
+    '✅':       'check-circle',   // ✅
+    '❌':       'x-circle',       // ❌
+    '📞': 'phone',          // 📞 Phone
+    '📋': 'clipboard-list', // 📋 Clipboard
+    '🔨': 'hammer',         // 🔨
+    '💼': 'briefcase',      // 💼
+    '📦': 'package',        // 📦
+    // Tools navigation
+    '📸': 'camera',         // 📸 FieldCam
+    '🛠️': 'wrench',   // 🛠️ Maintenance
+    '🛠':       'wrench',   // 🛠 (no VS16)
+    '💬': 'message-square', // 💬 Pulse
+    '📊': 'bar-chart-2',    // 📊 Underwriting
+    '🌐': 'globe',          // 🌐 Website
+    '🏚️': 'house',    // 🏚️
+    '🏚':       'house',    // 🏚 (no VS16)
+    '🧧': 'receipt',        // 🧾
+    '🔄': 'refresh-cw',     // 🔄 Refresh/Optimize Route
     // Topbar
-    '\uD83D\uDD0D': 'search',         // 🔍
-    '\uD83D\uDD14': 'bell',           // 🔔
-    // QC menu / general
-    '\uD83C\uDFE0': 'house',          // 🏠
-    '\uD83C\uDFE1': 'house',          // 🏡
-    '\uD83E\uDDF9': 'puzzle',         // 🧩
-    '\uD83D\uDC64': 'user',           // 👤
-    '\uD83D\uDCC7': 'book-open',      // 📇
-    '\uD83C\uDFDB\uFE0F': 'book-open',// 🏛️
-    // Satellite tools (inbox / pulse / underwriting / fieldcam)
+    '🔍': 'search',         // 🔍 Search
+    '🔔': 'bell',           // 🔔 Notifications
+    // Real estate / properties
+    '🏠': 'house',          // 🏠
+    '🏡': 'house',          // 🏡
+    '🏘️': 'building', // 🏘️ Houses
+    '🏘':       'building', // 🏘 (no VS16)
+    '🏗️': 'hard-hat', // 🏗️ Construction
+    '🏗':       'hard-hat', // 🏗 (no VS16)
+    // People
+    '🧹': 'puzzle',         // 🧩
+    '👤': 'user',           // 👤
+    '👥': 'users',          // 👥
+    '📇': 'book-open',      // 📇 Contacts
+    '🏛️': 'landmark', // 🏛️
+    '🏛':       'landmark', // 🏛 (no VS16)
+    // Inbox / messaging
     '📬': 'inbox',          // 📬
-    '📨': 'mail',           // 📨
+    '📫': 'inbox',          // 📫
+    '📭': 'inbox',          // 📭 Empty mailbox
+    '📨': 'mail',           // 📨 Incoming mail
     '📁': 'folder-open',    // 📁
     '📎': 'paperclip',      // 📎
-    '🗑️': 'trash',    // trash with selector
-    '🗑': 'trash',          // trash no selector
-    '🚫': 'ban',            // ban
-    '😴': 'moon',           // sleeping face
-    '⏰':       'alarm-clock',    // alarm clock
-    '📩': 'arrow-down',     // envelope-with-arrow
-    '↩️': 'reply',          // reply with selector
-    '↩':       'reply',          // reply no selector
-    '↪️': 'forward',        // forward
-    '✏️': 'pencil',         // pencil with selector
-    '✏':       'pencil',         // pencil no selector
-    '🔗': 'link',           // link
-    '↻':       'rotate-ccw',     // rotate
-    '⤢':       'expand',         // NE-SW arrow
-    '✕':       'x',              // multiply
-    '✖':       'x',              // heavy multiply
-    '✖️': 'x',              // heavy multiply with selector
-    '⚙️': 'settings',       // gear with selector
-    '⚙':       'settings',       // gear no selector
-    '▾':       'chevron-down',   // small down triangle
-    '▸':       'chevron-right',  // small right triangle
-    '▴':       'chevron-up',     // small up triangle
-    '↓':       'arrow-down',     // down arrow
-    '→':       'arrow-right',    // right arrow
-    '📜': 'list',           // scroll
-    '📄': 'file-text',      // page facing up
-    '🖼️': 'image',    // framed picture
-    '📌': 'pin',            // round pushpin
-    '👁️': 'eye',      // eye
-    '📤': 'send',           // outbox tray
-    '🌱': 'sprout',         // 🌱 seedling
+    '🗑️': 'trash',    // 🗑️
+    '🗑':       'trash',    // 🗑 (no VS16)
+    '🚫': 'ban',            // 🚫
+    '😴': 'moon',           // 😴
+    '⏰':       'alarm-clock',    // ⏰
+    '📩': 'arrow-down',     // 📩 Envelope with arrow
+    '↩️': 'reply',          // ↩️
+    '↩':       'reply',          // ↩ (no VS16)
+    '↪️': 'forward',        // ↪️
+    '↪':       'forward',        // ↪ (no VS16)
+    '✏️': 'pencil',         // ✏️
+    '✏':       'pencil',         // ✏ (no VS16)
+    '🔗': 'link',           // 🔗
+    '↻':       'rotate-ccw',     // ↻
+    '⤢':       'expand',         // ⤢
+    '✕':       'x',              // ✕
+    '✖':       'x',              // ✖
+    '✖️': 'x',              // ✖️
+    '⚙️': 'settings',       // ⚙️
+    '⚙':       'settings',       // ⚙ (no VS16)
+    '▾':       'chevron-down',   // ▾
+    '▸':       'chevron-right',  // ▸
+    '▴':       'chevron-up',     // ▴
+    '↓':       'arrow-down',     // ↓
+    '→':       'arrow-right',    // →
+    '👋': 'user',           // 👋 Wave → user
+    // Files
+    '📜': 'list',           // 📜 Scroll
+    '📄': 'file-text',      // 📄 Document
+    '🖼️': 'image',    // 🖼️
+    '🖼':       'image',    // 🖼 (no VS16)
+    '📌': 'pin',            // 📌
+    '👁️': 'eye',      // 👁️
+    '👁':       'eye',      // 👁 (no VS16)
+    '📤': 'upload',         // 📤 Outbox
+    '🌱': 'sprout',         // 🌱 Seedling
+    // Maintenance categories
+    '🌳': 'trees',          // 🌳 Tree/Landscaping
+    '🌲': 'trees',          // 🌲 Tree
+    '🚿': 'droplets',       // 🚿 Shower/Plumbing
+    '💧': 'droplets',       // 💧 Water
+    '💡': 'lightbulb',      // 💡 Electrical
+    '⚡️': 'zap',            // ⚡️
+    '⚡':       'zap',            // ⚡ (no VS16)
+    '❄️': 'snowflake',      // ❄️ HVAC
+    '❄':       'snowflake',      // ❄ (no VS16)
+    '🧹': 'brush',          // 🧹 Cleaning (NOTE: reuses key - cleaned in map order)
+    '🧹': 'brush',          // 🧹
+    '🔌': 'plug',           // 🔌 Appliance
+    '🐜': 'bug',            // 🐜 Pest
+    '🐛': 'bug',            // 🐛 Bug
+    '😨': 'alert-octagon',  // 😨 → alert
+    '🚨': 'alert-octagon',  // 🚨 Urgent
+    // Location
+    '📍': 'map-pin',        // 📍 Location pin
+    '🗺️': 'map',      // 🗺️ Map
+    '🗺':       'map',      // 🗺 (no VS16)
+    // Celebration / empty states
+    '🎉': 'sparkles',       // 🎉 Party popper
+    '🔥': 'zap',            // 🔥 Fire (non-reaction context)
+    // Other UI chrome
+    '🖨️': 'printer',  // 🖨️
+    '🖨':       'printer',  // 🖨 (no VS16)
+    '📹': 'video',          // 📹 Video
+    '🎥': 'video',          // 🎥 Camera
+    '🛡️': 'shield',   // 🛡️ Shield/Insurance
+    '🛡':       'shield',   // 🛡 (no VS16)
+    '🔒': 'lock',           // 🔒 Lock
+    '🏆': 'award',          // 🏆 Trophy
+    '⭐':       'star',           // ⭐ Star
+    '🌟': 'star',           // 🌟 Star
+    '✨':       'sparkles',       // ✨ Sparkles
+    '🚀': 'navigation',     // 🚀 Rocket → navigation
+    '📣': 'bell',           // 📣 Megaphone → bell
+    '📢': 'bell',           // 📢 Loudspeaker → bell
+    '🌞': 'sun-moon',       // 🌞 Sun
+    '🗄️': 'archive',  // 🗄️ File cabinet/archive
+    '🗄':       'archive',  // 🗄 (no VS16)
+    '💸': 'banknote',       // 💸 Flying money
+    '💳': 'banknote',       // 💳 Credit card
+    '👍': 'check-circle',   // 👍 Thumbs up (in UI context)
   };
 
   // ── State helpers ──────────────────────────────────────────
-  // 'premium' (light) | 'dark'. 'dark' is a Palantir-style dark
-  // variant of premium — both classes (.theme-premium + .theme-dark)
-  // get applied so premium.css carries through and dark.css layers on
-  // top for surface/color overrides.
-  //
-  // Legacy 'classic' values from older sessions are silently migrated
-  // to 'premium' so no user is ever left without the chrome upgrades.
   function getTheme() {
     try {
       var t = localStorage.getItem('propspot_theme');
@@ -210,7 +292,6 @@
     link.href = '/dark.css';
     document.head.appendChild(link);
   }
-
   function ensureInterFont() {
     if (document.getElementById('inter-font-link')) return;
     var link = document.createElement('link');
@@ -222,13 +303,10 @@
 
   // ── Apply / remove theme ───────────────────────────────────
   function applyTheme() {
-    if (isPremium()) {
-      ensurePremiumCSS();
-      ensureInterFont();
-      document.documentElement.classList.add('theme-premium');
-    } else {
-      document.documentElement.classList.remove('theme-premium');
-    }
+    // Premium CSS + Inter always load (premium is the only theme).
+    ensurePremiumCSS();
+    ensureInterFont();
+    document.documentElement.classList.add('theme-premium');
     if (isDark()) {
       ensureDarkCSS();
       document.documentElement.classList.add('theme-dark');
@@ -239,8 +317,7 @@
   }
 
   // ── Emoji → SVG replacement ────────────────────────────────
-  // Replaces emoji text in specific containers with inline SVGs.
-  // Stores the original emoji in data-premium-emoji for restoration.
+  // Runs unconditionally — emojis are always replaced with SVGs.
 
   function iconForEmoji(text) {
     var trimmed = (text || '').trim();
@@ -249,7 +326,6 @@
   }
 
   function replaceIconEl(el) {
-    // Already replaced — skip.
     if (el.dataset.premiumEmoji !== undefined) return;
     var icon = iconForEmoji(el.textContent);
     if (!icon) return;
@@ -257,26 +333,22 @@
     el.innerHTML = icon;
   }
 
-  // Walk every leaf element under root and replace any element whose
-  // entire text content is a single recognized emoji. This is how we
-  // catch the dozens of emojis sprinkled through the satellite tools
-  // (inbox, pulse, underwriting) without needing to touch each HTML.
-  // Classes the scanner must NOT touch — premium.css already themes
-  // these via masked ::before pseudo-elements, so the scanner would
-  // only fight the CSS and render mismatched icons (e.g. tenant emoji
-  // 🔗 → 'link' SVG appearing on top of the masked inbox-tray icon).
-  var SCAN_SKIP_CLASSES = ['ib-inbox-icon', 'ib-filter-icon', 'user-menu-icon', 'os-newchrome-step-dot', 'pipe-row-del', 'premium-icon-skip'];
+  // Classes the scanner must NOT touch (these are styled separately
+  // or contain intentional emoji content like reaction buttons).
+  var SCAN_SKIP_CLASSES = [
+    'ib-inbox-icon', 'ib-filter-icon', 'user-menu-icon',
+    'os-newchrome-step-dot', 'pipe-row-del', 'premium-icon-skip',
+    'pulse-reaction-btn', 'pulse-reaction-emoji', 'emoji-picker-btn',
+    'pulse-quick-react', 'reaction-emoji', 'emoji-react',
+  ];
 
-  // ── Emoji-prefix scanner ────────────────────────────────────────
-  // For elements whose text reads like "🔨 Projects" — too common to
-  // wrap each in a span on every page. Walk text nodes and split the
-  // leading emoji + whitespace into a sibling <span class="premium-emoji-prefix">
-  // that holds an inline Lucide SVG.
+  // ── Emoji-prefix scanner ───────────────────────────────────
+  // Handles "🔨 Projects" style text nodes — splits the emoji off into
+  // a sibling <span class="premium-emoji-prefix"> with an inline SVG.
   function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
   var _emojiPrefixRegex = null;
   function emojiPrefixRegex() {
     if (_emojiPrefixRegex) return _emojiPrefixRegex;
-    // Longest first so multi-codepoint emojis (with VS16) win over shorter prefixes.
     var keys = Object.keys(EMOJI_MAP).sort(function (a, b) { return b.length - a.length; });
     _emojiPrefixRegex = new RegExp('^(' + keys.map(escapeRegExp).join('|') + ')(\\s+|$)');
     return _emojiPrefixRegex;
@@ -286,15 +358,21 @@
     if (!root || !root.querySelectorAll) return;
     var SKIP_TAGS = { SCRIPT:1, STYLE:1, NOSCRIPT:1, IFRAME:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1 };
     var regex = emojiPrefixRegex();
-    // Walk text nodes
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         var p = n.parentNode;
         if (!p || SKIP_TAGS[p.tagName]) return NodeFilter.FILTER_REJECT;
         if (p.dataset && p.dataset.premiumEmoji !== undefined) return NodeFilter.FILTER_REJECT;
-        // Skip if any skip-class is set on the parent
         for (var c = 0; c < SCAN_SKIP_CLASSES.length; c++) {
           if (p.classList && p.classList.contains(SCAN_SKIP_CLASSES[c])) return NodeFilter.FILTER_REJECT;
+        }
+        // Also skip if any ancestor has a skip class (for nested reaction components)
+        var anc = p.parentNode;
+        while (anc && anc !== root) {
+          for (var d = 0; d < SCAN_SKIP_CLASSES.length; d++) {
+            if (anc.classList && anc.classList.contains(SCAN_SKIP_CLASSES[d])) return NodeFilter.FILTER_REJECT;
+          }
+          anc = anc.parentNode;
         }
         if (!n.nodeValue || n.nodeValue.length < 2) return NodeFilter.FILTER_SKIP;
         if (!regex.test(n.nodeValue)) return NodeFilter.FILTER_SKIP;
@@ -310,24 +388,23 @@
       var emoji = m[1];
       var iconName = EMOJI_MAP[emoji];
       if (!iconName || !ICONS[iconName]) return;
-      // Trim the emoji + its trailing whitespace from the text
       textNode.nodeValue = textNode.nodeValue.slice(m[0].length);
-      // Insert an SVG span before the (now-trimmed) text
       var span = document.createElement('span');
       span.className = 'premium-emoji-prefix';
       span.dataset.premiumEmoji = emoji;
-      span.dataset.premiumPrefix = '1'; // flag so restoreEmojis knows to re-prepend
+      span.dataset.premiumPrefix = '1';
       span.innerHTML = ICONS[iconName];
       textNode.parentNode.insertBefore(span, textNode);
     });
   }
+
   function scanForEmojiLeaves(root) {
     if (!root || !root.querySelectorAll) return;
     var SKIP_TAGS = { SCRIPT:1, STYLE:1, NOSCRIPT:1, IFRAME:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1 };
-    var els = root.querySelectorAll('span, button, a, div, h1, h2, h3, h4, h5, li, td, th');
+    var els = root.querySelectorAll('span, button, a, div, h1, h2, h3, h4, h5, li, td, th, i');
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
-      if (el.children.length > 0) continue;             // not a leaf
+      if (el.children.length > 0) continue;
       if (SKIP_TAGS[el.tagName]) continue;
       if (el.dataset && el.dataset.premiumEmoji !== undefined) continue;
       var skipByClass = false;
@@ -342,16 +419,12 @@
   }
 
   function replaceEmojisIn(root) {
-    if (!isPremium()) return;
     root = root || document;
 
     // 1. Simple single-emoji containers (fast path)
     var simpleSelectors = [
-      '.stage-icon',
-      '.app-icon',
-      '.os-newchrome-row-icon',
-      '.os-newchrome-search-icon',
-      '.nav-icon'
+      '.stage-icon', '.app-icon', '.os-newchrome-row-icon',
+      '.os-newchrome-search-icon', '.nav-icon'
     ];
     simpleSelectors.forEach(function (sel) {
       root.querySelectorAll(sel).forEach(replaceIconEl);
@@ -360,70 +433,55 @@
     // 2. Quick-create menu item icon spans
     root.querySelectorAll('.os-newchrome-qc-item > span').forEach(replaceIconEl);
 
-    // 3. Catch-all: any leaf element on the page whose text is an
-    // emoji we know about (covers inbox, pulse, fieldcam, maintenance,
-    // underwriting buttons/badges/etc.).
+    // 3. Catch-all leaf scan
     scanForEmojiLeaves(root === document ? document.body : root);
 
-    // 3b. Inline "emoji + space + text" prefixes (e.g. <h3>💼 Holdings</h3>).
-    // Splits the leading emoji off and inserts a sibling SVG span.
+    // 4. Inline prefix scan ("💼 Holdings" → SVG + "Holdings")
     scanForEmojiPrefixes(root === document ? document.body : root);
 
-    // 4. Bell button — has a text node + badge child; handle separately
+    // 5. Bell button (mixed text node + badge child)
     var bellBtn = root.querySelector ? root.querySelector('.os-newchrome-bell') : null;
-    if (bellBtn) {
-      // Avoid re-processing
-      if (!bellBtn.dataset.premiumBell) {
-        var replaced = false;
-        bellBtn.childNodes.forEach(function (node) {
-          if (replaced) return;
-          if (node.nodeType === Node.TEXT_NODE) {
-            var icon = iconForEmoji(node.textContent);
-            if (icon) {
-              var span = document.createElement('span');
-              span.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;';
-              span.innerHTML = icon;
-              bellBtn.insertBefore(span, node);
-              node.textContent = '';
-              bellBtn.dataset.premiumBell = '1';
-              replaced = true;
-            }
+    if (bellBtn && !bellBtn.dataset.premiumBell) {
+      var replaced = false;
+      bellBtn.childNodes.forEach(function (node) {
+        if (replaced) return;
+        if (node.nodeType === Node.TEXT_NODE) {
+          var icon = iconForEmoji(node.textContent);
+          if (icon) {
+            var span = document.createElement('span');
+            span.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;';
+            span.innerHTML = icon;
+            bellBtn.insertBefore(span, node);
+            node.textContent = '';
+            bellBtn.dataset.premiumBell = '1';
+            replaced = true;
           }
-        });
-      }
+        }
+      });
     }
   }
 
-  // ── Restore emojis (classic → premium round-trip) ──────────
-  // Simply re-renders sidebar + topbar (they rebuild HTML from scratch).
-  // Static dashboard stage icons need manual restore via data-premium-emoji.
+  // ── Restore emojis (for dev/toggle use) ───────────────────
   function restoreEmojis() {
-    // 1. Prefix spans — re-prepend the emoji onto the following text node
-    //    and delete the span entirely (these were created from scratch
-    //    by scanForEmojiPrefixes, not in the original HTML).
     document.querySelectorAll('.premium-emoji-prefix[data-premium-prefix="1"]').forEach(function (el) {
       var emoji = el.dataset.premiumEmoji;
       var sibling = el.nextSibling;
       if (sibling && sibling.nodeType === Node.TEXT_NODE) {
         sibling.nodeValue = emoji + ' ' + sibling.nodeValue;
       } else {
-        // No text sibling — just put the emoji where the span was
         el.parentNode.insertBefore(document.createTextNode(emoji + ' '), el);
       }
       el.remove();
     });
-    // 2. Static leaf icons — restore inline emoji text
     document.querySelectorAll('[data-premium-emoji]').forEach(function (el) {
       el.textContent = el.dataset.premiumEmoji;
       delete el.dataset.premiumEmoji;
     });
-    // 3. Bell — re-render topbar to get fresh HTML
     var bellBtn = document.querySelector('.os-newchrome-bell');
     if (bellBtn && bellBtn.dataset.premiumBell) {
       delete bellBtn.dataset.premiumBell;
       if (typeof window.renderNewTopBar === 'function') window.renderNewTopBar();
     }
-    // 4. Sidebar — re-render to re-emit all nav rows with their emoji text
     if (typeof window.renderNewSidebar === 'function') window.renderNewSidebar();
   }
 
@@ -431,53 +489,49 @@
   function updateToggleButton() {
     var btn = document.getElementById('theme-toggle-btn');
     if (!btn) return;
-    if (isPremium()) {
-      btn.title = 'Switch to classic theme';
-      btn.style.opacity = '1';
-    } else {
-      btn.title = 'Switch to premium theme';
-      btn.style.opacity = '0.6';
-    }
+    btn.title = isDark() ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.style.opacity = '1';
   }
 
   // ── Public toggle / setter ─────────────────────────────────
-  // toggleTheme now flips Light ↔ Dark (classic was retired).
   function toggleTheme() {
     setTheme(isDark() ? 'premium' : 'dark');
   }
   function setTheme(next) {
-    // 'classic' is silently mapped to 'premium' to honor the retirement
-    // of the classic theme — older code paths or stale bookmarks still
-    // work, they just land on Light.
     if (next === 'classic') next = 'premium';
     if (!['premium','dark'].includes(next)) return;
     try { localStorage.setItem('propspot_theme', next); } catch (e) {}
     applyTheme();
-    // Always premium — re-run the emoji → SVG replacement so any new
-    // CSS is parsed before we inject icons. Idempotent thanks to the
-    // data-premium-emoji guard in replaceIconEl.
     setTimeout(function () { replaceEmojisIn(document); }, 60);
   }
 
-  // ── Observe sidebar / topbar re-renders ───────────────────
-  // sidebar.js and topbar.js inject new HTML into these containers.
-  // After each injection, re-apply icon replacement if premium is on.
+  // ── MutationObserver: watch the ENTIRE body ────────────────
+  // Catches dynamic content injected by any component, not just
+  // sidebar/topbar. Debounced to avoid thrashing on large renders.
   function observeChrome() {
-    var targets = ['apps-rail', 'top-header'].map(function (id) {
-      return document.getElementById(id);
-    }).filter(Boolean);
-
-    if (!targets.length) return;
+    var body = document.body;
+    if (!body) return;
 
     var debounce = null;
-    var obs = new MutationObserver(function () {
-      if (!isPremium()) return;
+    var obs = new MutationObserver(function (mutations) {
       clearTimeout(debounce);
-      debounce = setTimeout(function () { replaceEmojisIn(document); }, 80);
+      debounce = setTimeout(function () {
+        // Only scan the nodes that were actually added, not the whole document.
+        mutations.forEach(function (m) {
+          m.addedNodes.forEach(function (node) {
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            // Skip nodes that are inside skip-class ancestors
+            replaceEmojisIn(node);
+          });
+        });
+        // Also re-scan known chrome areas that do full re-renders
+        var rail = document.getElementById('apps-rail');
+        var topbar = document.getElementById('top-header');
+        if (rail)   replaceEmojisIn(rail);
+        if (topbar) replaceEmojisIn(topbar);
+      }, 80);
     });
-    targets.forEach(function (t) {
-      obs.observe(t, { childList: true, subtree: true });
-    });
+    obs.observe(body, { childList: true, subtree: true });
   }
 
   // ── Expose public API ──────────────────────────────────────
@@ -489,17 +543,16 @@
   window.__replaceEmojisIn = replaceEmojisIn;
 
   // ── Init ───────────────────────────────────────────────────
-  // Apply class immediately (before paint) to avoid flash.
   applyTheme();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
+      replaceEmojisIn(document);
       observeChrome();
-      if (isPremium()) replaceEmojisIn(document);
     });
   } else {
+    replaceEmojisIn(document);
     observeChrome();
-    if (isPremium()) replaceEmojisIn(document);
   }
 
 })();

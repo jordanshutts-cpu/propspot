@@ -64,10 +64,7 @@
     }
     .lawn-section-hint { font-size:.78rem; color:var(--text-muted); margin-left:auto; }
 
-    .lawn-section.section-route .lawn-section-title::before { content:'📋 '; }
-    .lawn-section.section-attention .lawn-section-title::before { content:'⚠️ '; }
     .lawn-section.section-attention .lawn-section-title { color:#b91c1c; }
-    .lawn-section.section-other .lawn-section-title::before { content:'🌳 '; }
 
     /* Drop-target highlight on tbody */
     .lawn-table tbody.drop-target { background: var(--brand-light); outline: 2px dashed var(--brand); outline-offset: -2px; }
@@ -102,16 +99,16 @@
 <main class="page">
 
   <div class="pill-row" style="margin-bottom:16px;">
-    <a class="pill" href="/maintenance.html" style="text-decoration:none;">🛠️ Work Orders</a>
-    <a class="pill active" href="/lawn.html" style="text-decoration:none;">🌳 Lawn Mowing</a>
+    <a class="pill" href="/maintenance.html" style="text-decoration:none;">Work Orders</a>
+    <a class="pill active" href="/lawn.html" style="text-decoration:none;">Lawn Mowing</a>
   </div>
 
   <div class="section-header">
     <span class="section-title">Lawn maintenance</span>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
       <button class="btn btn-primary btn-sm" onclick="openAddPropertyModal()" title="Add a property to the mowing schedule (e.g. a rented home where we still mow)">+ Add Property</button>
-      <button class="btn btn-secondary btn-sm" onclick="optimizeRoute()" title="Optimize stop order to minimize driving distance">🔄 Optimize Route</button>
-      <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open today's route in Google Maps">🗺️ Open Route in Maps</button>
+      <button class="btn btn-secondary btn-sm" onclick="optimizeRoute()" title="Optimize stop order to minimize driving distance">Optimize Route</button>
+      <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open today's route in Google Maps">Open Route in Maps</button>
     </div>
   </div>
 
