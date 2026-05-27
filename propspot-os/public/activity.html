@@ -788,7 +788,7 @@
               <span>${describeActivity(r)}</span>
               ${propLink}
             </div>
-            <div class="am-row-when" title="${escHtml(fullTime(r.created_at))}">${relativeTime(r.created_at)}</div>
+            <div class="am-row-when" title="${escHtml(relativeTime(r.created_at))}">${fullTime(r.created_at)}</div>
           </div>
         </div>`;
     }).join('');

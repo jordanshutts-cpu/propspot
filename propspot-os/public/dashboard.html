@@ -629,6 +629,14 @@
     return s;
   }
 
+  function formatDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+           ' · ' +
+           d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
   function describeActivity(r) {
     const action  = r.action || 'changed';
     const ent     = ENTITY_NOUN[r.entity_type] || r.entity_type || 'item';
@@ -713,7 +721,7 @@
                 <span class="activity-desc">${describeActivity(r)}</span>
                 ${propLink}
               </div>
-              <div class="activity-time">${formatDate(r.created_at)}</div>
+              <div class="activity-time">${formatDateTime(r.created_at)}</div>
             </div>
           </div>`;
       }).join('');
