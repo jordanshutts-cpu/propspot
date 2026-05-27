@@ -139,3 +139,46 @@
 .ne-property-selected { margin-top: 6px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--brand-light, rgba(97,183,70,.12)); color: var(--brand); border-radius: 8px; font-size: .9rem; font-weight: 500; }
 .ne-property-selected button { margin-left: auto; background: transparent; border: 0; color: var(--brand); cursor: pointer; font-size: 1.4rem; line-height: 1; padding: 0 4px; }
 .ne-property-selected button:hover { color: #ef4444; }
+
+/* ── Template rows (SignNow-style rich layout) ────────────── */
+.tpl-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 14px;
+           align-items: center; padding: 14px 18px;
+           border-bottom: 1px solid var(--border); cursor: pointer;
+           transition: background .1s; }
+.tpl-row:last-child { border-bottom: 0; }
+.tpl-row:hover { background: var(--brand-light, rgba(97,183,70,.05)); }
+.tpl-row .icon { width: 40px; height: 48px; display: flex; align-items: center;
+                 justify-content: center; background: var(--bg);
+                 border: 1px solid var(--border); border-radius: 4px;
+                 font-size: 1.4rem; color: var(--text-muted); }
+.tpl-row .body { min-width: 0; }
+.tpl-row .body .name { font-weight: 600; color: var(--text);
+                       overflow: hidden; text-overflow: ellipsis;
+                       white-space: nowrap; }
+.tpl-row .body .meta { font-size: .78rem; color: var(--text-muted);
+                       margin-top: 2px; overflow: hidden; text-overflow: ellipsis;
+                       white-space: nowrap; }
+.tpl-row .actions { display: flex; gap: 6px; align-items: center; }
+.tpl-row .actions .send { padding: 7px 14px; background: var(--brand);
+                          color: #fff; border: 0; border-radius: 6px;
+                          font-weight: 600; font-size: .82rem; cursor: pointer;
+                          font-family: inherit; }
+.tpl-row .actions .send:hover { background: var(--brand-dark, #4a9337); }
+.tpl-row .actions .menu-trigger { padding: 6px 9px; background: transparent;
+                                   border: 1px solid var(--border); border-radius: 6px;
+                                   color: var(--text-muted); cursor: pointer;
+                                   font-family: inherit; }
+.tpl-row .actions .menu-trigger:hover { border-color: var(--brand);
+                                         color: var(--brand); }
+
+/* ── Template row overflow menu ───────────────────────────── */
+.tpl-menu { position: absolute; min-width: 160px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 4px; z-index: 200; }
+.tpl-menu button { display: block; width: 100%; padding: 8px 12px;
+                   text-align: left; background: transparent; border: 0;
+                   border-radius: 4px; color: var(--text); font-size: .85rem;
+                   cursor: pointer; font-family: inherit; }
+.tpl-menu button:hover { background: var(--brand-light, rgba(97,183,70,.08)); }
+.tpl-menu button.danger { color: #ef4444; }
+.tpl-menu button.danger:hover { background: #fef2f2; }
