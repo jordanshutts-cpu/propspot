@@ -139,4 +139,38 @@ async function sendWorkOrderAssignmentEmail({ to, recipientName, inviterName, pr
   return true;
 }
 
-module.exports = { sendInviteEmail, sendPasswordResetEmail, sendExternalWorkerInviteEmail, sendWorkOrderAssignmentEmail };
+async function sendCalendarMentionEmail({ to, recipientName, inviterName, eventTitle, when, where, link }) {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+    console.log('No SMTP — calendar mention skipped for', to);
+    return false;
+  }
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+  });
+  await transporter.sendMail({
+    from: process.env.FROM_EMAIL || 'Prop Spot <noreply@propspot.io>',
+    to,
+    subject: `${inviterName} mentioned you in an event: ${eventTitle}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#111827;">
+        <h2 style="color:#61B746;">You were mentioned in a calendar event</h2>
+        <p>Hi ${recipientName || ''},</p>
+        <p>${inviterName} added you to <strong>${eventTitle}</strong>.</p>
+        ${when  ? `<p style="margin:6px 0;"><strong>When:</strong> ${when}</p>` : ''}
+        ${where ? `<p style="margin:6px 0;"><strong>Where:</strong> ${where}</p>` : ''}
+        <p>
+          <a href="${link}"
+             style="display:inline-block;background:#61B746;color:#fff;padding:12px 28px;
+                    border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0;">
+            Open the event
+          </a>
+        </p>
+      </div>`
+  });
+  return true;
+}
+
+module.exports = { sendInviteEmail, sendPasswordResetEmail, sendExternalWorkerInviteEmail, sendWorkOrderAssignmentEmail, sendCalendarMentionEmail };

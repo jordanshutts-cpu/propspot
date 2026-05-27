@@ -1675,3 +1675,8 @@ CREATE INDEX IF NOT EXISTS idx_inkd_audit_envelope ON inkd_audit_events(envelope
 -- the public share page renders only photos whose ID is in this array
 -- (still scoped to share_links.property_id).
 ALTER TABLE share_links ADD COLUMN IF NOT EXISTS photo_ids UUID[];
+
+-- ── Calendar: per-event @mentions (2026-05-27) ──────────────────────────────
+-- Users named here get an email notification when the event is created
+-- or saved with newly-added mentions. Additive, nullable.
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS mentioned_user_ids UUID[];
