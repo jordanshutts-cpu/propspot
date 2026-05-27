@@ -130,4 +130,16 @@ router.get('/properties/:id', async (req, res) => {
   }
 });
 
+// GET /grants?app=<slug> — returns { role } for current user on that app.
+router.get('/grants', async (req, res) => {
+  if (!req.query.app) return res.status(400).json({ error: 'app required' });
+  const { rows: [user] } = await query(`SELECT is_owner FROM users WHERE id = $1`, [req.userId]);
+  if (user?.is_owner) return res.json({ role: 'admin' });
+  const { rows } = await query(`
+    SELECT ag.role FROM app_grants ag JOIN apps a ON a.id = ag.app_id
+     WHERE ag.user_id = $1 AND a.slug = $2 LIMIT 1
+  `, [req.userId, req.query.app]);
+  res.json({ role: rows[0]?.role || null });
+});
+
 module.exports = router;
