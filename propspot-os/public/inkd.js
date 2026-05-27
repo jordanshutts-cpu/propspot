@@ -339,7 +339,7 @@ function wireEvents() {
 // ── New-envelope modal ────────────────────────────────────────
 const modal = { selectedProperty: null };
 
-async function openNewEnvelope() {
+async function openNewEnvelope(preSelectTemplateId) {
   try {
     // Templates not yet loaded? init()'s parallel fetch may still be in
     // flight on a fast click. Fall through to the modal anyway and let
@@ -371,6 +371,15 @@ async function openNewEnvelope() {
         templates.map(t =>
           `<option value="${t.id}">${escapeHtml(t.name)}${t.category ? ' — ' + escapeHtml(t.category) : ''}</option>`
         ).join('');
+      // When the modal is opened from a template row's "Send for signature"
+      // button, lock the dropdown so the user can only edit the property —
+      // they already picked a template by clicking that specific row.
+      if (preSelectTemplateId) {
+        tplSel.value = String(preSelectTemplateId);
+        tplSel.disabled = true;
+      } else {
+        tplSel.disabled = false;
+      }
     }
 
     if (!state.properties.length) {
@@ -389,6 +398,10 @@ async function openNewEnvelope() {
 function closeNewEnvelope() {
   const el = document.getElementById('new-env-modal');
   if (el) el.hidden = true;
+  // Reset the template select so the next "+ Create → Document" flow isn't
+  // stuck on the previous pre-selection.
+  const tplSel = document.getElementById('ne-template');
+  if (tplSel) tplSel.disabled = false;
 }
 
 function renderPropertyResults(query) {
