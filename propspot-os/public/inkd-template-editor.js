@@ -26,6 +26,11 @@ async function init() {
   ['f-label','f-role','f-autofill','f-required'].forEach(id =>
     document.getElementById(id).addEventListener('change', applySelectedFieldEdits));
 
+  // Document-level drag handlers so drags continue even if the cursor
+  // leaves the field while resizing/moving.
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup',   onDragEnd);
+
   // Now do the async work — load autofill sources for the dropdown.
   try {
     const ar = await fetch('/api/inkd/templates/autofill-sources');
@@ -172,14 +177,110 @@ function renderAllFields() {
     if (!page) return;
     const div = document.createElement('div');
     div.className = 'pdf-field' + (i === state.selectedFieldIndex ? ' selected' : '');
+    div.dataset.fieldIndex = String(i);
     div.style.left   = (f.x_pct * page.width) + 'px';
     div.style.top    = (f.y_pct * page.height) + 'px';
     div.style.width  = (f.width_pct * page.width) + 'px';
     div.style.height = (f.height_pct * page.height) + 'px';
-    div.textContent  = (f.label || f.field_type) + (f.recipient_role ? ` (${f.recipient_role})` : '');
-    div.addEventListener('click', (e) => { e.stopPropagation(); state.selectedFieldIndex = i; renderAllFields(); showSelectedForm(); });
+
+    const label = document.createElement('span');
+    label.className = 'pdf-field-label';
+    label.textContent = (f.label || f.field_type) + (f.recipient_role ? ` (${f.recipient_role})` : '');
+    div.appendChild(label);
+
+    // Resize handle in the bottom-right corner.
+    const handle = document.createElement('div');
+    handle.className = 'resize-handle';
+    handle.title = 'Drag to resize';
+    div.appendChild(handle);
+
+    // Click to select (suppressed after a real drag — see mouseup handler).
+    div.addEventListener('click', (e) => {
+      if (state._suppressNextClick) { state._suppressNextClick = false; return; }
+      if (e.target === handle) return;
+      e.stopPropagation();
+      state.selectedFieldIndex = i;
+      renderAllFields();
+      showSelectedForm();
+    });
+
+    // Start resize on handle mousedown.
+    handle.addEventListener('mousedown', (e) => beginDrag(e, 'resize', i, page));
+
+    // Start move on field-body mousedown (but not on the handle).
+    div.addEventListener('mousedown', (e) => {
+      if (e.target === handle) return;
+      beginDrag(e, 'move', i, page);
+    });
+
     page.container.appendChild(div);
   });
+}
+
+function beginDrag(e, kind, fieldIndex, page) {
+  e.stopPropagation();
+  e.preventDefault();
+  const f = state.fields[fieldIndex];
+  state.dragOp = {
+    kind,
+    startX: e.clientX,
+    startY: e.clientY,
+    fieldIndex,
+    page,
+    original: { x_pct: f.x_pct, y_pct: f.y_pct, width_pct: f.width_pct, height_pct: f.height_pct },
+    moved: false,
+  };
+  state.selectedFieldIndex = fieldIndex;
+}
+
+function onDragMove(e) {
+  const op = state.dragOp;
+  if (!op) return;
+  const dx = e.clientX - op.startX;
+  const dy = e.clientY - op.startY;
+  if (!op.moved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) op.moved = true;
+
+  const f = state.fields[op.fieldIndex];
+  const page = op.page;
+  const minW = 20, minH = 12;
+
+  if (op.kind === 'resize') {
+    let newW = op.original.width_pct * page.width + dx;
+    let newH = op.original.height_pct * page.height + dy;
+    newW = Math.max(minW, Math.min(newW, page.width  - f.x_pct * page.width));
+    newH = Math.max(minH, Math.min(newH, page.height - f.y_pct * page.height));
+    f.width_pct  = newW / page.width;
+    f.height_pct = newH / page.height;
+  } else {
+    let newX = op.original.x_pct * page.width  + dx;
+    let newY = op.original.y_pct * page.height + dy;
+    newX = Math.max(0, Math.min(newX, page.width  - f.width_pct  * page.width));
+    newY = Math.max(0, Math.min(newY, page.height - f.height_pct * page.height));
+    f.x_pct = newX / page.width;
+    f.y_pct = newY / page.height;
+  }
+
+  // Update just the affected element so the rest of the editor doesn't flicker.
+  const div = page.container.querySelector(`.pdf-field[data-field-index="${op.fieldIndex}"]`);
+  if (div) {
+    div.style.left   = (f.x_pct * page.width)  + 'px';
+    div.style.top    = (f.y_pct * page.height) + 'px';
+    div.style.width  = (f.width_pct  * page.width)  + 'px';
+    div.style.height = (f.height_pct * page.height) + 'px';
+  }
+}
+
+function onDragEnd() {
+  const op = state.dragOp;
+  if (!op) return;
+  state._suppressNextClick = op.moved;
+  state.dragOp = null;
+  if (op.moved) {
+    // Re-render to refresh the selected-field form (in case coords are shown there)
+    // and ensure z-order is consistent.
+    renderAllFields();
+    showSelectedForm();
+  }
 }
 
 function showSelectedForm() {

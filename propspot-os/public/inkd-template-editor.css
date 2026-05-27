@@ -24,9 +24,22 @@
 .pdf-page { position: relative; margin: 0 auto 16px; background: white; box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,.1)); }
 .pdf-page canvas { display: block; }
 
-.pdf-field { position: absolute; border: 2px solid var(--brand); background: rgba(97,183,70,.12); cursor: move; font-size: 11px; color: var(--brand-dark, #15803d); padding: 2px 4px; box-sizing: border-box; }
+.pdf-field { position: absolute; border: 2px solid var(--brand); background: rgba(97,183,70,.12); cursor: move; font-size: 11px; color: var(--brand-dark, #15803d); padding: 2px 4px; box-sizing: border-box; user-select: none; }
+.pdf-field .pdf-field-label { pointer-events: none; }
 .pdf-field.selected { outline: 2px solid #f59e0b; }
-.pdf-field .resize-handle { position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px; background: var(--brand); cursor: nwse-resize; }
+.pdf-field .resize-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--brand);
+  border: 2px solid #fff;
+  border-radius: 2px;
+  cursor: nwse-resize;
+  box-shadow: 0 0 0 1px var(--brand);
+}
+.pdf-field .resize-handle:hover { background: var(--brand-dark, #4a9337); }
 
 .muted { color: var(--text-muted); font-size: .78rem; }
 #selected-form label { display: block; margin: 8px 0; font-size: .78rem; color: var(--text); }
