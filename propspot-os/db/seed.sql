@@ -9,7 +9,8 @@ VALUES
   ('maintenance',  'Maintenance',   'Work-order tracking for properties',                 '🛠️',  'https://maintenance.propspot.io', TRUE),
   ('holdings',     'Holdings Desk', 'Per-property obligations: utilities, insurance, taxes, mortgages, licenses, HOA', '💼', 'https://holdings.propspot.io', TRUE),
   ('pulse',        'Pulse',         'Team messaging — channels, DMs, mentions',           '💬', 'https://pulse.propspot.io', TRUE),
-  ('inbox',        'Inbox',         'Shared team email tagged to properties',             '📧', 'https://inbox.propspot.io', TRUE)
+  ('inbox',        'Inbox',         'Shared team email tagged to properties',             '📧', 'https://inbox.propspot.io', TRUE),
+  ('inkd',         'Ink''d',        'In-PropSpot document signing — templates, audit trail, signed-doc queue', '🖋️', '/inkd.html', TRUE)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Underwriting is now a built-in OS page — always point to its internal path.
