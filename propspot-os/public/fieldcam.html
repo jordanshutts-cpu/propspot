@@ -408,6 +408,112 @@
       color: var(--text-muted);
     }
 
+    /* ── Map size controls (bottom-center overlay) ──────────── */
+    .fc-map-size-controls {
+      position: absolute;
+      bottom: 10px; left: 50%; transform: translateX(-50%);
+      z-index: 500;
+      display: flex;
+      gap: 2px;
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(10px);
+      padding: 4px;
+      border-radius: 100px;
+      box-shadow: 0 4px 14px -2px rgba(15,23,42,0.18);
+      border: 1px solid rgba(255,255,255,0.6);
+    }
+    .fc-map-size-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      width: 30px; height: 28px;
+      font-size: .7rem;
+      font-weight: 800;
+      color: var(--text);
+      border-radius: 100px;
+      letter-spacing: 0.02em;
+      transition: background 0.12s, color 0.12s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .fc-map-size-btn:hover { background: rgba(97,183,70,0.12); color: var(--brand-dark); }
+    .fc-map-size-btn.active { background: var(--brand); color: #fff; }
+
+    /* ── Status color legend (bottom-left overlay) ───────────── */
+    .fc-map-legend {
+      position: absolute;
+      bottom: 10px; left: 16px;
+      z-index: 500;
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(10px);
+      padding: 7px 10px;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px -2px rgba(15,23,42,0.18);
+      border: 1px solid rgba(255,255,255,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 108px;
+    }
+    .fc-map-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .67rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .fc-map-legend-dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 2px solid rgba(255,255,255,0.9);
+      box-shadow: 0 1px 4px rgba(0,0,0,.22);
+    }
+
+    /* ── Property card status badge ──────────────────────────── */
+    .prop-status {
+      display: inline-flex;
+      align-items: center;
+      font-size: .63rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 100px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Popup status chip ───────────────────────────────────── */
+    .fc-popup-status {
+      display: inline-flex;
+      align-items: center;
+      font-size: .63rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 100px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Dark mode: floating map UI ──────────────────────────── */
+    html.theme-dark .fc-map-actions,
+    html.theme-dark .fc-map-stat,
+    html.theme-dark .fc-map-size-controls,
+    html.theme-dark .fc-map-legend {
+      background: rgba(18,27,40,0.92);
+      border-color: rgba(255,255,255,0.10);
+    }
+    html.theme-dark .fc-map-action,
+    html.theme-dark .fc-map-size-btn,
+    html.theme-dark .fc-map-stat { color: #e2e8f0; }
+    html.theme-dark .fc-map-legend-item { color: #cbd5e1; }
+    html.theme-dark .fc-map-legend-dot { border-color: rgba(255,255,255,0.15); }
+
     /* Empty-state polish — no emoji icons */
     .empty-state {
       text-align: center;
@@ -461,6 +567,15 @@
         Style
       </button>
     </div>
+    <!-- Size presets — centered at the bottom of the map -->
+    <div class="fc-map-size-controls" id="fc-map-size-controls">
+      <button class="fc-map-size-btn" data-size="sm" onclick="setMapSize('sm')" title="Small">S</button>
+      <button class="fc-map-size-btn" data-size="md" onclick="setMapSize('md')" title="Medium">M</button>
+      <button class="fc-map-size-btn active" data-size="lg" onclick="setMapSize('lg')" title="Large">L</button>
+      <button class="fc-map-size-btn" data-size="xl" onclick="setMapSize('xl')" title="Extra large">XL</button>
+    </div>
+    <!-- Status color legend — bottom-left, only shown when map has pins -->
+    <div class="fc-map-legend" id="fc-map-legend" style="display:none;"></div>
   </div>
 
   <div class="tab-bar">
@@ -529,6 +644,50 @@
     try { return localStorage.getItem('propspot_fc_map_style') || 'voyager'; }
     catch { return 'voyager'; }
   })();
+
+  // ── Status metadata (color + display label) ──────────────────────
+  const STATUS_META = {
+    prospect:             { color: '#3b82f6', label: 'Prospect' },
+    purchasing:           { color: '#f59e0b', label: 'Purchasing' },
+    under_contract_buyer: { color: '#f97316', label: 'UC Buyer' },
+    renovating:           { color: '#eab308', label: 'Renovating' },
+    assigned:             { color: '#f97316', label: 'Assigned' },
+    listed_for_rent:      { color: '#06b6d4', label: 'Listed/Rent' },
+    renting:              { color: '#06b6d4', label: 'For Rent' },
+    rented:               { color: '#22c55e', label: 'Rented' },
+    listed_for_sale:      { color: '#a855f7', label: 'For Sale' },
+    selling:              { color: '#a855f7', label: 'Selling' },
+    sold:                 { color: '#6b7280', label: 'Sold' },
+    dropped:              { color: '#9ca3af', label: 'Dropped' },
+  };
+  function statusMeta(s) {
+    return STATUS_META[s] || { color: '#61B746', label: s ? s.replace(/_/g, ' ') : 'Unknown' };
+  }
+  // Darken a hex color for the gradient lower stop on pins
+  function darkenHex(hex) {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const r = Math.max(0, (n >> 16) - 40);
+    const g = Math.max(0, ((n >> 8) & 0xff) - 40);
+    const b = Math.max(0, (n & 0xff) - 40);
+    return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+  }
+
+  // ── Map height presets ───────────────────────────────────────────
+  const MAP_SIZES = { sm: 240, md: 360, lg: 520, xl: 740 };
+  let currentMapSize = (() => {
+    try { return localStorage.getItem('propspot_fc_map_size') || 'lg'; } catch { return 'lg'; }
+  })();
+  function setMapSize(size) {
+    if (!MAP_SIZES[size]) return;
+    currentMapSize = size;
+    try { localStorage.setItem('propspot_fc_map_size', size); } catch {}
+    const mapEl = document.getElementById('fc-project-map');
+    if (mapEl) mapEl.style.height = MAP_SIZES[size] + 'px';
+    document.querySelectorAll('.fc-map-size-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.size === size);
+    });
+    if (projectMap) setTimeout(() => projectMap.invalidateSize(), 60);
+  }
 
   function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
@@ -621,11 +780,15 @@
     if (btn) btn.classList.toggle('active', currentTileStyle === 'satellite');
   }
 
-  // Custom branded pin marker — green gradient with white stroke + dot.
-  function brandedDivIcon() {
+  // Status-colored pin — same shape as the branded pin but the gradient
+  // color reflects the property's pipeline status so pins are instantly
+  // scannable on the map.
+  function statusDivIcon(status) {
+    const { color } = statusMeta(status);
+    const dark = darkenHex(color);
     return L.divIcon({
       className: 'fc-marker',
-      html: '<div class="fc-marker-pin"></div>',
+      html: `<div class="fc-marker-pin" style="background:linear-gradient(135deg,${color},${dark});box-shadow:0 4px 10px -2px ${color}88,0 0 0 1px rgba(0,0,0,0.05);"></div>`,
       iconSize: [28, 36],
       iconAnchor: [14, 32],
       popupAnchor: [0, -30]
@@ -644,6 +807,7 @@
     const count       = document.getElementById('fc-map-count');
     const statBadge   = document.getElementById('fc-map-stat');
     const statText    = document.getElementById('fc-map-stat-text');
+    const legendEl    = document.getElementById('fc-map-legend');
     if (!withGps.length) {
       section.style.display = 'none';
       if (sectionHead) sectionHead.style.display = 'none';
@@ -666,6 +830,8 @@
         zoomDelta: 0.5
       }).setView([34.0, -81.0], 7);
       applyTileLayer();
+      // Apply stored height preference immediately
+      setMapSize(currentMapSize);
     }
 
     // Wipe existing markers / clusters so a re-render starts fresh.
@@ -683,6 +849,7 @@
     });
 
     mapBounds = [];
+    const seenStatuses = new Map(); // status key → meta, preserving insertion order
     for (const { prop, coord } of withGps) {
       mapBounds.push(coord);
       const name  = prop.display_name || prop.name || prop.address_line1 || 'Property';
@@ -690,9 +857,15 @@
       const thumb = prop.latest_photo_url
         ? `<img class="fc-popup-thumb" src="${escHtml(prop.latest_photo_url)}" alt="" loading="lazy">`
         : '';
+      const sm = statusMeta(prop.status);
+      if (prop.status && !seenStatuses.has(prop.status)) seenStatuses.set(prop.status, sm);
+      const statusChip = prop.status
+        ? `<span class="fc-popup-status" style="background:${sm.color}22;color:${sm.color};">${escHtml(sm.label)}</span>`
+        : '';
       const html = `
         ${thumb}
         <div class="fc-popup-inner">
+          ${statusChip}
           <div class="fc-popup-name">${escHtml(name)}</div>
           <div class="fc-popup-addr">${escHtml(addr)}</div>
           <a class="fc-popup-link" href="/fieldcam-property.html?id=${encodeURIComponent(prop.id)}">
@@ -700,11 +873,26 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><polyline points="9 18 15 12 9 6"/></svg>
           </a>
         </div>`;
-      L.marker(coord, { icon: brandedDivIcon() })
+      L.marker(coord, { icon: statusDivIcon(prop.status) })
         .bindPopup(html, { maxWidth: 260, closeButton: false })
         .addTo(mapMarkerCluster);
     }
     projectMap.addLayer(mapMarkerCluster);
+
+    // Render status legend from statuses actually present on the map
+    if (legendEl) {
+      if (seenStatuses.size > 0) {
+        legendEl.innerHTML = [...seenStatuses.entries()].map(([, sm]) =>
+          `<div class="fc-map-legend-item">
+            <span class="fc-map-legend-dot" style="background:${sm.color};"></span>
+            ${escHtml(sm.label)}
+          </div>`
+        ).join('');
+        legendEl.style.display = '';
+      } else {
+        legendEl.style.display = 'none';
+      }
+    }
 
     if (mapBounds.length) projectMap.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 13 });
     setTimeout(() => projectMap.invalidateSize(), 100);
@@ -753,12 +941,19 @@
       const thumb = p.latest_photo_url
         ? `<img class="prop-thumb" src="${escHtml(p.latest_photo_url)}" alt="" loading="lazy" decoding="async">`
         : `<div class="prop-no-photo">${ICON_PHOTO}</div>`;
-      return `<div class="prop-card" onclick="openProp('${p.id}')">
+      const sm = statusMeta(p.status);
+      const statusBadge = p.status
+        ? `<span class="prop-status" style="background:${sm.color}22;color:${sm.color};">${escHtml(sm.label)}</span>`
+        : '';
+      return `<div class="prop-card" onclick="openProp('${p.id}')" style="border-top:3px solid ${sm.color};">
         ${thumb}
         <div class="prop-info">
           <div class="prop-name" title="${escHtml(name)}">${escHtml(name)}</div>
           <div class="prop-addr">${escHtml(addr)}</div>
-          ${p.photo_count!=null?`<div class="prop-count">${ICON_PHOTO} ${p.photo_count} ${p.photo_count===1 ? 'photo' : 'photos'}</div>`:''}
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-top:6px;">
+            ${statusBadge}
+            ${p.photo_count!=null?`<div class="prop-count">${ICON_PHOTO} ${p.photo_count} ${p.photo_count===1 ? 'photo' : 'photos'}</div>`:''}
+          </div>
         </div>
       </div>`;
     }).join('');
