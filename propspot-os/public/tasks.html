@@ -789,6 +789,7 @@ async function submitCreate(e) {
         due_date: document.getElementById('c-due').value || null,
         assigned_to: document.getElementById('c-assign').value || null,
         property_id: document.getElementById('c-property').value || null,
+        project_id: document.getElementById('c-project').value || null,
         visibility: document.getElementById('c-visibility').value,
         items: items.map(i => ({ text: i.text }))
       })});
