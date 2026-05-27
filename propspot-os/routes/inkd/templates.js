@@ -49,19 +49,25 @@ router.post('/', upload.single('file'), async (req, res) => {
   const { name, category, description } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
 
+  let stage = 'parse-pdf';
   try {
     // Count pages from the PDF using pdf-lib (server-side, cheap)
     const { PDFDocument } = require('pdf-lib');
-    const pdfDoc = await PDFDocument.load(req.file.buffer);
+    const pdfDoc = await PDFDocument.load(req.file.buffer, { ignoreEncryption: true });
     const pageCount = pdfDoc.getPageCount();
 
+    // Match the property-files.js pattern (resource_type: 'auto'). On some Cloudinary
+    // plans 'raw' uploads of PDFs are restricted; 'auto' classifies PDFs as image
+    // resources, which always works for upload (we never request rendering, just storage).
+    stage = 'cloudinary-upload';
     const cloud = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
-        { resource_type: 'raw', folder: 'propspot/inkd/templates', format: 'pdf' },
+        { resource_type: 'auto', folder: 'propspot/inkd/templates' },
         (err, out) => err ? reject(err) : resolve(out)
       ).end(req.file.buffer);
     });
 
+    stage = 'db-insert';
     const { rows } = await query(
       `INSERT INTO inkd_templates
         (name, category, description, source_pdf_url, source_pdf_id, page_count, created_by)
@@ -71,8 +77,12 @@ router.post('/', upload.single('file'), async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to create template' });
+    console.error(`[inkd] template create failed at stage=${stage}:`, err);
+    res.status(500).json({
+      error: 'Failed to create template',
+      stage,
+      detail: err?.message || String(err),
+    });
   }
 });
 

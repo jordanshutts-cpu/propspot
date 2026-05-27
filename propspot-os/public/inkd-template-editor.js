@@ -327,7 +327,12 @@ async function save() {
     fd.append('name', name);
     fd.append('category', category);
     const r = await fetch('/api/inkd/templates', { method: 'POST', body: fd });
-    if (!r.ok) { alert('Failed to upload PDF'); return; }
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      const where = j.stage ? ` (stage: ${j.stage})` : '';
+      alert('Failed to upload PDF' + where + ':\n\n' + (j.detail || j.error || r.statusText));
+      return;
+    }
     state.template = await r.json();
     history.replaceState({}, '', `?id=${state.template.id}`);
   } else {
@@ -344,7 +349,11 @@ async function save() {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ fields: state.fields }),
   });
-  if (!r2.ok) { alert('Failed to save fields'); return; }
+  if (!r2.ok) {
+    const j = await r2.json().catch(() => ({}));
+    alert('Failed to save fields:\n\n' + (j.detail || j.error || r2.statusText));
+    return;
+  }
   alert('Template saved');
 }
 
