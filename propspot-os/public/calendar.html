@@ -33,12 +33,16 @@
     .cal-event.type-closing { background:#dc2626; }        /* legacy */
     .cal-event.type-purchase { background:#2563eb; }       /* legacy */
     .cal-event.type-inspection { background:#d97706; }     /* legacy */
+    .cal-event.type-home_inspection { background:#d97706; }/* legacy */
+    .cal-event.type-deadline { background:#0891b2; }       /* legacy */
+    .cal-event.type-general { background:#6b7280; }        /* legacy */
     .cal-event.type-purchase_closing { background:#2563eb; }
     .cal-event.type-sale_closing { background:#dc2626; }
-    .cal-event.type-home_inspection { background:#d97706; }
+    .cal-event.type-purchase_inspection { background:#d97706; }
+    .cal-event.type-dispo_inspection { background:#059669; }
+    .cal-event.type-listing_photos { background:#0891b2; }
     .cal-event.type-meeting { background:#7c3aed; }
-    .cal-event.type-deadline { background:#0891b2; }
-    .cal-event.type-general { background:#6b7280; }
+    .cal-event.type-other { background:#6b7280; }
     .cal-more { font-size:.65rem; color:var(--text-muted); padding:1px 4px; cursor:pointer; }
 
     /* Modal */
@@ -198,10 +202,11 @@
         <select class="form-input" id="e-type">
           <option value="purchase_closing">Purchase Closing</option>
           <option value="sale_closing">Sale Closing</option>
-          <option value="home_inspection">Home Inspection</option>
+          <option value="purchase_inspection">Purchase Inspection</option>
+          <option value="dispo_inspection">Dispo Inspection</option>
+          <option value="listing_photos">Listing Photos</option>
           <option value="meeting">Meeting</option>
-          <option value="deadline">Deadline</option>
-          <option value="general" selected>General</option>
+          <option value="other" selected>Other</option>
         </select>
       </div>
       <div class="form-group">
@@ -274,17 +279,20 @@
 <script>
 var TYPE_LABELS = {
   // Current real-estate-specific types
-  purchase_closing: 'Purchase Closing',
-  sale_closing:     'Sale Closing',
-  home_inspection:  'Home Inspection',
-  meeting:          'Meeting',
-  deadline:         'Deadline',
-  general:          'General',
-  // Legacy values from before the rename — keep so older events still
-  // render with a human label.
-  closing:    'Closing',
-  purchase:   'Purchase',
-  inspection: 'Inspection'
+  purchase_closing:    'Purchase Closing',
+  sale_closing:        'Sale Closing',
+  purchase_inspection: 'Purchase Inspection',
+  dispo_inspection:    'Dispo Inspection',
+  listing_photos:      'Listing Photos',
+  meeting:             'Meeting',
+  other:               'Other',
+  // Legacy values — keep so older events still render with a human label.
+  closing:         'Closing',
+  purchase:        'Purchase',
+  inspection:      'Inspection',
+  home_inspection: 'Home Inspection',
+  deadline:        'Deadline',
+  general:         'General'
 };
 var DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -641,18 +649,22 @@ function renderWeek() {
 
 function eventColor(e) {
   var palette = {
-    purchase_closing: '#2563eb',
-    sale_closing:     '#dc2626',
-    home_inspection:  '#d97706',
-    meeting:          '#7c3aed',
-    deadline:         '#0891b2',
-    general:          '#6b7280',
+    purchase_closing:    '#2563eb',
+    sale_closing:        '#dc2626',
+    purchase_inspection: '#d97706',
+    dispo_inspection:    '#059669',
+    listing_photos:      '#0891b2',
+    meeting:             '#7c3aed',
+    other:               '#6b7280',
     // Legacy values
-    closing:    '#dc2626',
-    purchase:   '#2563eb',
-    inspection: '#d97706'
+    closing:         '#dc2626',
+    purchase:        '#2563eb',
+    inspection:      '#d97706',
+    home_inspection: '#d97706',
+    deadline:        '#0891b2',
+    general:         '#6b7280'
   };
-  return palette[e.event_type] || palette.general;
+  return palette[e.event_type] || palette.other;
 }
 function formatHour(h) {
   if (h === 0) return '12 AM';
