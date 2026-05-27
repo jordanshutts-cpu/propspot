@@ -50,12 +50,16 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
 
     for (const table of SIMPLE_TABLES) {
+      await client.query(`SAVEPOINT sp_${table}`);
       try {
         const { rowCount } = await client.query(
           `UPDATE ${table} SET property_id = $1 WHERE property_id = $2`, [NEW, OLD]
         );
+        await client.query(`RELEASE SAVEPOINT sp_${table}`);
         if (rowCount > 0) log.push(`${table}: ${rowCount} row(s) moved`);
       } catch (e) {
+        await client.query(`ROLLBACK TO SAVEPOINT sp_${table}`);
+        await client.query(`RELEASE SAVEPOINT sp_${table}`);
         if (e.code === '42P01') log.push(`${table}: table not found, skipped`);
         else if (e.code === '42703') log.push(`${table}: no property_id column, skipped`);
         else throw e;
