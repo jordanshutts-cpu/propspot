@@ -226,10 +226,12 @@
     <div class="form-group">
       <label class="form-label">Mention people <span style="font-weight:400;color:var(--text-muted);">(they get an email)</span></label>
       <div id="e-mentions-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;"></div>
-      <input class="form-input" id="e-mentions-search" type="text" autocomplete="off"
-             placeholder="Type a name…" oninput="filterMentionList(this.value)"
-             onfocus="openMentionList()" onblur="setTimeout(closeMentionList, 150)">
-      <div id="e-mentions-list" style="display:none;position:relative;"></div>
+      <div style="position:relative;">
+        <input class="form-input" id="e-mentions-search" type="text" autocomplete="off"
+               placeholder="Type a name…" oninput="filterMentionList(this.value)"
+               onfocus="openMentionList()" onblur="setTimeout(closeMentionList, 150)">
+        <div id="e-mentions-list" style="display:none;"></div>
+      </div>
     </div>
     <div class="form-group" id="e-meet-row" style="display:none;">
       <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;">
@@ -880,7 +882,7 @@ function filterMentionList(q) {
     .slice(0, 8);
   var list = document.getElementById('e-mentions-list');
   if (!matches.length) { list.style.display = 'none'; return; }
-  list.style.cssText = 'position:absolute;left:0;right:0;top:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:50;max-height:200px;overflow-y:auto;';
+  list.style.cssText = 'position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);z-index:50;max-height:200px;overflow-y:auto;';
   list.innerHTML = matches.map(function(u) {
     return '<div onmousedown="addMention(\'' + esc(u.id) + '\', \'' + esc((u.full_name || u.email).replace(/'/g,"\\'")) + '\')" '
       + 'style="padding:7px 10px;cursor:pointer;font-size:.85rem;" '
