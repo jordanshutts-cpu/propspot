@@ -71,9 +71,16 @@ router.get('/', async (req, res) => {
     `;
     const params = [start, end];
 
+    // visibility shapes:
+    //   personal → just the caller's personal events (+ their Google later)
+    //   company  → just company events (no one's personals)
+    //   all      → company + the caller's personal events (+ their Google)
+    //   (none)   → legacy default: same as `all` for backwards compat
     if (visibility === 'personal') {
       params.push(req.userId);
       sql += ` AND e.visibility = 'personal' AND e.created_by = $${params.length}`;
+    } else if (visibility === 'company') {
+      sql += ` AND e.visibility = 'company'`;
     } else {
       params.push(req.userId);
       sql += ` AND (e.visibility = 'company' OR (e.visibility = 'personal' AND e.created_by = $${params.length}))`;
@@ -90,7 +97,7 @@ router.get('/', async (req, res) => {
     let merged = rows;
     let googleWarning = null;
     let googleEventCount = null;
-    if (visibility === 'personal') {
+    if (visibility === 'personal' || visibility === 'all' || !visibility) {
       try {
         const grant = await gcal.getUserGrant(req.userId);
         if (grant) {

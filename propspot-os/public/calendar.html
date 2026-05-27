@@ -155,8 +155,9 @@
       <button class="cal-range-btn" id="range-week" onclick="setCalRange('week')">Week</button>
     </div>
     <div class="cal-tabs">
-      <button class="cal-tab active" id="tab-company" onclick="setCalView('company')">Company</button>
-      <button class="cal-tab" id="tab-personal" onclick="setCalView('personal')">Personal</button>
+      <button class="cal-tab active" id="tab-all"      onclick="setCalView('all')">All</button>
+      <button class="cal-tab"        id="tab-company"  onclick="setCalView('company')">Company</button>
+      <button class="cal-tab"        id="tab-personal" onclick="setCalView('personal')">Personal</button>
     </div>
   </div>
 
@@ -287,7 +288,7 @@ var WEEK_START_HOUR = 6;
 var WEEK_END_HOUR   = 22;
 var WEEK_HOUR_PX    = 48; // matches .cal-week-slot height in the stylesheet
 var events = [], propsCache = [];
-var calView = 'company';
+var calView = 'all';
 var editingEventId = null, viewingEventId = null;
 var personalCalendarConnected = false;
 
@@ -337,10 +338,13 @@ async function init() {
 
 function setCalView(view) {
   calView = view;
-  document.getElementById('tab-company').classList.toggle('active', view === 'company');
+  document.getElementById('tab-all').classList.toggle('active',      view === 'all');
+  document.getElementById('tab-company').classList.toggle('active',  view === 'company');
   document.getElementById('tab-personal').classList.toggle('active', view === 'personal');
   var connectPanel = document.getElementById('personal-connect');
   var grid         = document.getElementById('cal-content');
+  // Only the dedicated Personal tab gates on the Google Calendar connection;
+  // All and Company can render without it.
   if (view === 'personal' && !personalCalendarConnected) {
     connectPanel.style.display = '';
     grid.style.display = 'none';
@@ -450,7 +454,10 @@ async function loadMonth() {
   }
   document.getElementById('cal-month-label').textContent = label;
   var qs = '?from=' + ymd(fromDate) + '&to=' + ymd(toExclusive);
+  // 'all' is the backend default (company + caller's personals + Google);
+  // 'company' and 'personal' narrow it.
   if (calView === 'personal') qs += '&visibility=personal';
+  else if (calView === 'company') qs += '&visibility=company';
   try {
     var resp = await apiFetch('/api/calendar' + qs);
     // API now returns { events, google_warning, google_event_count }.
@@ -466,7 +473,9 @@ async function loadMonth() {
 function renderGoogleBanner(resp) {
   var existing = document.getElementById('cal-google-banner');
   if (existing) existing.remove();
-  if (!resp || calView !== 'personal') return;
+  // Google events get merged on the Personal and All tabs — show the banner
+  // on both. The Company tab never includes Google.
+  if (!resp || (calView !== 'personal' && calView !== 'all')) return;
   var msg = null;
   var kind = 'info';
   if (resp.google_warning) {
@@ -590,7 +599,9 @@ function renderWeek() {
     for (var h = WEEK_START_HOUR; h < WEEK_END_HOUR; h++) {
       slotsHtml += '<div class="cal-week-slot" data-hour="' + h + '"></div>';
     }
-    var eventsHtml = d.timed.map(function(e) {
+    var laidOut = layoutDayEvents(d.timed);
+    var eventsHtml = laidOut.map(function(item) {
+      var e = item.event;
       var s = new Date(e.start_at);
       var en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60*60*1000);
       var startHour = s.getHours() + s.getMinutes() / 60;
@@ -600,9 +611,16 @@ function renderWeek() {
       if (vEnd <= vStart) return '';
       var top    = (vStart - WEEK_START_HOUR) * WEEK_HOUR_PX;
       var height = Math.max(20, (vEnd - vStart) * WEEK_HOUR_PX - 2);
+      // Side-by-side layout for overlapping events: each takes 1/totalCols
+      // of the column width, offset by its assigned column index.
+      var widthPct = 100 / item.totalCols;
+      var leftPct  = item.col * widthPct;
       var timeLabel = formatTimeRange(s, en);
       return '<div class="cal-week-event type-' + e.event_type + '" ' +
-             'style="top:' + top + 'px;height:' + height + 'px;background:' + eventColor(e) + ';" ' +
+             'style="top:' + top + 'px;height:' + height + 'px;' +
+                    'left:calc(' + leftPct + '% + 3px);' +
+                    'width:calc(' + widthPct + '% - 6px);' +
+                    'right:auto;background:' + eventColor(e) + ';" ' +
              'onclick="event.stopPropagation();viewEvent(\'' + e.id + '\')" ' +
              'title="' + esc(e.title) + ' (' + timeLabel + ')">' +
                '<span class="week-event-time">' + timeLabel + '</span>' +
@@ -621,6 +639,56 @@ function renderWeek() {
 
   var body = document.querySelector('.cal-week-body');
   if (body) body.scrollTop = Math.max(0, (8 - WEEK_START_HOUR) * WEEK_HOUR_PX);
+}
+
+// Lay out a day's timed events for the week view so overlapping events
+// render side-by-side instead of stacking on top of each other.
+//
+// Algorithm: sort by start; group into "clusters" where each event in a
+// cluster overlaps at least one other; within a cluster, greedily assign
+// each event to the leftmost column whose previous event ended before
+// this one starts. Every event in a cluster shares the same totalCols
+// (= max columns needed), so the slices tile cleanly.
+function layoutDayEvents(timed) {
+  var items = timed.slice().sort(function(a, b) {
+    return new Date(a.start_at) - new Date(b.start_at);
+  }).map(function(e) {
+    var s  = new Date(e.start_at);
+    var en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60*60*1000);
+    return { event: e, col: 0, totalCols: 1, startMs: s.getTime(), endMs: en.getTime() };
+  });
+  if (!items.length) return items;
+  // Cluster events that share any timeline overlap with the running set.
+  var clusters = [];
+  var current = [];
+  var currentMaxEnd = -Infinity;
+  items.forEach(function(it) {
+    if (it.startMs >= currentMaxEnd) {
+      if (current.length) clusters.push(current);
+      current = [it];
+      currentMaxEnd = it.endMs;
+    } else {
+      current.push(it);
+      currentMaxEnd = Math.max(currentMaxEnd, it.endMs);
+    }
+  });
+  if (current.length) clusters.push(current);
+  // Column assignment within each cluster.
+  clusters.forEach(function(cluster) {
+    var colsEnd = []; // colsEnd[i] = last endMs placed in column i
+    cluster.forEach(function(it) {
+      var found = -1;
+      for (var i = 0; i < colsEnd.length; i++) {
+        if (colsEnd[i] <= it.startMs) { found = i; break; }
+      }
+      if (found === -1) { found = colsEnd.length; colsEnd.push(it.endMs); }
+      else { colsEnd[found] = it.endMs; }
+      it.col = found;
+    });
+    var total = colsEnd.length;
+    cluster.forEach(function(it) { it.totalCols = total; });
+  });
+  return items;
 }
 
 function eventColor(e) {
