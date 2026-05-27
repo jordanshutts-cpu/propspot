@@ -201,9 +201,40 @@
       background: var(--bg); color: var(--text); margin: 12px 0;
       box-sizing: border-box;
     }
+
+    /* Drag-and-drop overlay — visible while the user is dragging a file
+       anywhere on the page. Click-through is disabled so it doesn't
+       block interactions, and the overlay self-removes on drop/leave. */
+    .fc-drop-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(97, 183, 70, 0.16);
+      border: 4px dashed var(--brand);
+      border-radius: 12px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .fc-drop-overlay.active { display: flex; }
+    .fc-drop-overlay .fc-drop-card {
+      background: var(--surface); border-radius: 16px; padding: 24px 32px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+      display: flex; align-items: center; gap: 14px;
+      font-size: 1.05rem; color: var(--text); font-weight: 600;
+    }
+    .fc-drop-overlay .fc-drop-icon { font-size: 1.8rem; }
   </style>
 </head>
 <body class="os-newlayout" data-page="fieldcam-property">
+<!-- Drag-and-drop overlay. Hidden by default; shown via JS when files are
+     being dragged over the window. Drop anywhere on the page to upload. -->
+<div class="fc-drop-overlay" id="fc-drop-overlay" aria-hidden="true">
+  <div class="fc-drop-card">
+    <span class="fc-drop-icon">📥</span>
+    <span>Drop files anywhere to upload</span>
+  </div>
+</div>
+
 <aside class="apps-rail" id="apps-rail"></aside>
 <header class="top-header" id="top-header"></header>
 <div class="user-menu" id="user-menu"></div>
@@ -317,6 +348,57 @@
     if (!PROP_ID) { location.href = '/fieldcam.html'; return; }
     await Promise.all([loadProp(), loadFolders()]);
     await loadPhotos();
+    wireDragAndDropUpload();
+  }
+
+  // Drag-and-drop file upload — drop anywhere on the page to upload via
+  // the same path as the Upload button. Uses a counter to handle dragleave
+  // firing on every nested child the cursor crosses; the overlay only
+  // hides when the counter returns to 0 (true page leave).
+  function wireDragAndDropUpload() {
+    const overlay = document.getElementById('fc-drop-overlay');
+    if (!overlay) return;
+    let depth = 0;
+
+    function isFileDrag(e) {
+      const types = e.dataTransfer && e.dataTransfer.types;
+      if (!types) return false;
+      // 'Files' appears in dataTransfer.types iff the OS is dragging real files
+      // (not just internal drags of DOM elements). On Firefox types is an array
+      // and on Chrome it's a DOMStringList — both expose .includes/.contains.
+      return Array.from(types).indexOf('Files') !== -1;
+    }
+
+    window.addEventListener('dragenter', (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      depth++;
+      overlay.classList.add('active');
+    });
+    window.addEventListener('dragover', (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();                       // required to allow drop
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    window.addEventListener('dragleave', (e) => {
+      if (!isFileDrag(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) overlay.classList.remove('active');
+    });
+    window.addEventListener('drop', async (e) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      depth = 0;
+      overlay.classList.remove('active');
+      const files = Array.from(e.dataTransfer.files || []).filter(f =>
+        f.type.startsWith('image/') || f.type.startsWith('video/')
+      );
+      if (!files.length) {
+        showToast?.('No images or videos in the drop', 'error');
+        return;
+      }
+      await uploadPhotos(files);
+    });
   }
 
   async function loadProp() {
