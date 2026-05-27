@@ -26,7 +26,8 @@
     .wo-row { display:flex; gap:14px; align-items:flex-start; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
     .wo-row:last-child { border-bottom:none; }
     .wo-row:hover { background:var(--brand-light); }
-    .wo-icon { font-size:1.5rem; flex-shrink:0; width:36px; text-align:center; margin-top:2px; }
+    .wo-icon { flex-shrink:0; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:var(--bg); color:var(--text-muted); margin-top:2px; }
+    .wo-icon svg { width:18px; height:18px; }
     .wo-body { flex:1; min-width:0; }
     .wo-title { font-weight:700; font-size:.95rem; margin-bottom:3px; }
     .wo-sub { font-size:.78rem; color:var(--text-muted); margin-bottom:6px; }
@@ -162,15 +163,15 @@
           <label class="form-label">Category</label>
           <select class="form-input" id="c-cat">
             <option value="">— none —</option>
-            <option value="plumbing">🚿 Plumbing</option>
-            <option value="electrical">💡 Electrical</option>
-            <option value="hvac">❄️ HVAC</option>
-            <option value="roofing">🏠 Roofing</option>
-            <option value="landscaping">🌳 Landscaping</option>
-            <option value="cleaning">🧹 Cleaning</option>
-            <option value="appliance">🔌 Appliance</option>
-            <option value="pest">🐜 Pest Control</option>
-            <option value="general">🛠️ General</option>
+            <option value="plumbing">Plumbing</option>
+            <option value="electrical">Electrical</option>
+            <option value="hvac">HVAC</option>
+            <option value="roofing">Roofing</option>
+            <option value="landscaping">Landscaping</option>
+            <option value="cleaning">Cleaning</option>
+            <option value="appliance">Appliance</option>
+            <option value="pest">Pest Control</option>
+            <option value="general">General</option>
           </select>
         </div>
         <div class="form-group">
@@ -179,7 +180,7 @@
             <option value="low">Low</option>
             <option value="normal" selected>Normal</option>
             <option value="high">High</option>
-            <option value="urgent">🚨 Urgent</option>
+            <option value="urgent">Urgent</option>
           </select>
         </div>
       </div>
@@ -225,15 +226,15 @@
           <label class="form-label">Category</label>
           <select class="form-input" id="e-cat">
             <option value="">— none —</option>
-            <option value="plumbing">🚿 Plumbing</option>
-            <option value="electrical">💡 Electrical</option>
-            <option value="hvac">❄️ HVAC</option>
-            <option value="roofing">🏠 Roofing</option>
-            <option value="landscaping">🌳 Landscaping</option>
-            <option value="cleaning">🧹 Cleaning</option>
-            <option value="appliance">🔌 Appliance</option>
-            <option value="pest">🐜 Pest Control</option>
-            <option value="general">🛠️ General</option>
+            <option value="plumbing">Plumbing</option>
+            <option value="electrical">Electrical</option>
+            <option value="hvac">HVAC</option>
+            <option value="roofing">Roofing</option>
+            <option value="landscaping">Landscaping</option>
+            <option value="cleaning">Cleaning</option>
+            <option value="appliance">Appliance</option>
+            <option value="pest">Pest Control</option>
+            <option value="general">General</option>
           </select>
         </div>
         <div class="form-group">
@@ -242,7 +243,7 @@
             <option value="low">Low</option>
             <option value="normal">Normal</option>
             <option value="high">High</option>
-            <option value="urgent">🚨 Urgent</option>
+            <option value="urgent">Urgent</option>
           </select>
         </div>
       </div>
@@ -317,7 +318,7 @@
     <input id="assignee-search" type="text" placeholder="Search by name or email…">
     <div id="assignee-results"></div>
     <button type="button" class="picker-action" onclick="openInviteExternalModal()">
-      ➕ Invite external worker…
+      + Invite external worker…
     </button>
   </div>
 </div>
@@ -326,7 +327,19 @@
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
-  const CAT_ICONS = {plumbing:'🚿',electrical:'💡',hvac:'❄️',roofing:'🏠',landscaping:'🌳',cleaning:'🧹',appliance:'🔌',pest:'🐜',general:'🛠️',other:'📋'};
+  const S = (d) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const CAT_ICONS = {
+    plumbing:    S('<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>'),
+    electrical:  S('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'),
+    hvac:        S('<line x1="2" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="22"/><path d="m20 16-4-4 4-4"/><path d="m4 8 4 4-4 4"/><path d="m16 4-4 4-4-4"/><path d="m8 20 4-4 4 4"/>'),
+    roofing:     S('<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'),
+    landscaping: S('<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>'),
+    cleaning:    S('<path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1 1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/>'),
+    appliance:   S('<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>'),
+    pest:        S('<rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 7-3 2"/><path d="m5 7 3 2"/><path d="m19 19-3-2"/><path d="m5 19 3-2"/><path d="M20 13h-4"/><path d="M4 13h4"/><path d="m10 4 1 2"/><path d="m14 4-1 2"/>'),
+    general:     S('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'),
+    other:       S('<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>'),
+  };
   const STATUS_LBL = {open:'Open',scheduled:'Scheduled',in_progress:'In Progress',completed:'Completed',cancelled:'Cancelled'};
   const PRI_LBL = {low:'Low',normal:'Normal',high:'High',urgent:'Urgent'};
   let allOrders = [], propsCache = [], currentFilter = 'active';
@@ -394,12 +407,12 @@
 
     const el = document.getElementById('list');
     if (!rows.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎉</div><p>Nothing here — all clear!</p></div>`;
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">${S('<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>')}</div><p>Nothing here — all clear!</p></div>`;
       return;
     }
     el.innerHTML = `<div class="wo-list">${rows.map(o => `
       <div class="wo-row pri-${o.priority}" onclick="openEdit('${o.id}')">
-        <div class="wo-icon">${CAT_ICONS[o.category]||'🛠️'}</div>
+        <div class="wo-icon">${CAT_ICONS[o.category]||CAT_ICONS.general}</div>
         <div class="wo-body">
           <div class="wo-title">${escHtml(o.title)}</div>
           <div class="wo-sub">${escHtml(o.display_name||o.address_line1||'')}${o.city?' · '+escHtml(o.city)+', '+escHtml(o.state||''):''}</div>
@@ -407,8 +420,8 @@
             <span class="badge-xs bdg-st-${o.status}">${STATUS_LBL[o.status]||o.status}</span>
             <span class="badge-xs bdg-pri-${o.priority}">${PRI_LBL[o.priority]||o.priority}</span>
             ${assigneeChipHtml(o)}
-            ${o.scheduled_for?`<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);">📅 ${new Date(o.scheduled_for).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`:''}
-            ${o.update_count>0?`<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);">💬 ${o.update_count}</span>`:''}
+            ${o.scheduled_for?`<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);display:inline-flex;align-items:center;gap:3px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>${new Date(o.scheduled_for).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`:''}
+            ${o.update_count>0?`<span class="badge-xs" style="background:var(--bg);color:var(--text-muted);display:inline-flex;align-items:center;gap:3px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${o.update_count}</span>`:''}
           </div>
         </div>
         <div style="color:var(--text-muted);font-size:1rem;flex-shrink:0;align-self:center;">›</div>
