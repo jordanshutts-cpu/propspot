@@ -2467,11 +2467,59 @@ async function doLpSearch(q) {
     sel.innerHTML = rows.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(propertyLabel(p))}</option>`).join('');
   } catch {}
 }
-function openLinkPropertyDialog() {
+async function openLinkPropertyDialog() {
   document.getElementById('modal-link-prop').classList.add('open');
   document.getElementById('lp-unlink-btn').style.display = STATE.activeThread.property_id ? '' : 'none';
-  document.getElementById('lp-search').value = '';
-  doLpSearch('');
+  // Try to auto-detect which property the thread is about by scanning
+  // subject + bodies for the property's street number and street name.
+  // If a guess lands, prefill the search so its row floats to the top.
+  await ensureUsersAndProps();
+  const guess = detectThreadProperty(STATE.activeThread, INBOX_PROPS_CACHE || []);
+  const initial = guess ? (guess.address_line1 || '') : '';
+  document.getElementById('lp-search').value = initial;
+  doLpSearch(initial);
+}
+
+// Best-effort: find the property whose street-number + first-word combo
+// appears in the thread subject or message bodies. Returns the matched
+// property record, or null. Newest messages are scanned first since
+// confirmations / forwarded contracts usually live there.
+function detectThreadProperty(thread, properties) {
+  if (!thread || !properties || !properties.length) return null;
+  const messages = [...(thread.messages || [])].reverse();
+  const haystackParts = [thread.subject || ''];
+  for (const m of messages) {
+    haystackParts.push(m.subject || '', m.snippet || '', m.body_text || '',
+                       (m.body_html || '').replace(/<[^>]+>/g, ' '));
+    for (const a of m.attachments || []) haystackParts.push(a.filename || '');
+  }
+  const haystack = haystackParts.join(' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+  if (!haystack.trim()) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const p of properties) {
+    const line = (p.address_line1 || '').trim();
+    if (!line) continue;
+    const m = line.match(/^(\d+\w?)\s+(.+)$/);
+    if (!m) continue;
+    const num = m[1].toLowerCase();
+    const rest = m[2].toLowerCase();
+    const firstWord = rest.split(/\s+/)[0];
+    // Need both the street number and the first street word in proximity.
+    // Pattern: number then up to 12 chars of street prefix words then the
+    // distinctive first word (e.g. "112 north trace", "1830 cupstid st").
+    const re = new RegExp('\\b' + num.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+                          '\\s+(?:[a-z]+\\s+){0,2}' +
+                          firstWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+    if (!re.test(haystack)) continue;
+    // Score: 3 for street-num + first-word match, +1 if city also appears,
+    // +1 if the full address_line1 appears verbatim (very strong signal).
+    let score = 3;
+    if (p.city && haystack.includes(p.city.toLowerCase())) score += 1;
+    if (haystack.includes(line.toLowerCase())) score += 1;
+    if (score > bestScore) { best = p; bestScore = score; }
+  }
+  return best;
 }
 function closeLinkPropertyDialog() { document.getElementById('modal-link-prop').classList.remove('open'); }
 async function confirmLinkProperty() {
