@@ -39,7 +39,26 @@
     };
   }
 
-  async function compositeScreenAndWebcam({ screenStream, webcamStream }) {
+  // Audio-only composite — no canvas, no bubble. Combines the screen video
+  // track with a mixed audio track of (mic + screen-share audio). Used when
+  // the user records the screen without enabling the webcam bubble.
+  function composeScreenWithMic({ screenStream, micStream }) {
+    const audio = mixAudio([screenStream, micStream]);
+    const screenVideoTrack = screenStream.getVideoTracks()[0];
+    const tracks = [screenVideoTrack];
+    if (audio.track) tracks.push(audio.track);
+    const composite = new MediaStream(tracks);
+    return {
+      stream: composite,
+      stop() {
+        audio.stop();
+        screenStream.getTracks().forEach(t => t.stop());
+        if (micStream) micStream.getTracks().forEach(t => t.stop());
+      }
+    };
+  }
+
+  async function compositeScreenAndWebcam({ screenStream, webcamStream, micStream }) {
     const screenVideo = await streamToVideo(screenStream);
     const webcamVideo = webcamStream ? await streamToVideo(webcamStream) : null;
 
@@ -81,7 +100,7 @@
     draw();
 
     const videoTrack = canvas.captureStream(FPS).getVideoTracks()[0];
-    const audio = mixAudio([screenStream, webcamStream]);
+    const audio = mixAudio([screenStream, webcamStream, micStream]);
     const tracks = [videoTrack];
     if (audio.track) tracks.push(audio.track);
     const composite = new MediaStream(tracks);
@@ -95,9 +114,10 @@
         videoTrack.stop();
         screenStream.getTracks().forEach(t => t.stop());
         if (webcamStream) webcamStream.getTracks().forEach(t => t.stop());
+        if (micStream)    micStream.getTracks().forEach(t => t.stop());
       }
     };
   }
 
-  window.PulseRecorderCompositor = { compositeScreenAndWebcam };
+  window.PulseRecorderCompositor = { compositeScreenAndWebcam, composeScreenWithMic };
 })();

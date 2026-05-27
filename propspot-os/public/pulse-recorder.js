@@ -122,6 +122,18 @@
         });
         const vTrack = screenStream.getVideoTracks()[0];
         if (vTrack) vTrack.addEventListener('ended', () => this.stopRecording());
+
+        // Always capture the mic separately so the user's voice is recorded
+        // regardless of whether they ticked "Share tab audio" in Chrome's
+        // picker (and on macOS Chrome, system audio is often unavailable
+        // entirely for Window/Entire-screen shares).
+        let micStream = null;
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+          console.warn('Mic denied for screen recording — proceeding without voice:', err);
+        }
+
         let webcamStream = null;
         if (this.includeBubble) {
           try {
@@ -133,11 +145,16 @@
             console.warn('Webcam bubble denied — proceeding screen-only:', err);
           }
         }
-        if (!webcamStream) return screenStream;
+
+        if (!webcamStream) {
+          this.composite = window.PulseRecorderCompositor.composeScreenWithMic({
+            screenStream, micStream
+          });
+          return this.composite.stream;
+        }
 
         this.composite = await window.PulseRecorderCompositor.compositeScreenAndWebcam({
-          screenStream,
-          webcamStream
+          screenStream, webcamStream, micStream
         });
         return this.composite.stream;
       }
