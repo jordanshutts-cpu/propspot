@@ -2421,6 +2421,17 @@ document.getElementById('cl-start').addEventListener('change', e => {
   _clPrevStart = e.target.value;
 });
 
+// <input type="datetime-local"> emits a naive string like "2026-05-28T11:30"
+// with no timezone. If we send it as-is, Postgres TIMESTAMPTZ treats it as
+// UTC and the event shifts by the browser's offset on read. Convert to a
+// proper ISO using the browser's local zone so the stored moment matches
+// what the user typed.
+function localDateTimeToIso(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d) ? null : d.toISOString();
+}
+
 async function submitCalendarFromInbox(e) {
   e.preventDefault();
   const btn = document.getElementById('cl-save'), err = document.getElementById('cl-err');
@@ -2432,8 +2443,8 @@ async function submitCalendarFromInbox(e) {
       description: document.getElementById('cl-desc').value.trim() || null,
       event_type:  document.getElementById('cl-type').value,
       visibility:  'company',
-      start_at:    document.getElementById('cl-start').value,
-      end_at:      document.getElementById('cl-end').value || null,
+      start_at:    localDateTimeToIso(document.getElementById('cl-start').value),
+      end_at:      localDateTimeToIso(document.getElementById('cl-end').value),
       all_day:     document.getElementById('cl-allday').checked,
       property_id: document.getElementById('cl-property').value || null
     })});

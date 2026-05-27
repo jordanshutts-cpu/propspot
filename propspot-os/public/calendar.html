@@ -700,6 +700,17 @@ document.getElementById('e-start').addEventListener('change', function(e) {
               + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 });
 
+// <input type="datetime-local"> emits a naive "2026-05-28T11:30" with no
+// timezone. Send it as-is and Postgres TIMESTAMPTZ treats it as UTC, so the
+// event shifts by the browser's offset on read. Convert to a real ISO
+// using the browser's local zone so the stored moment matches what the
+// user typed.
+function localDateTimeToIso(value) {
+  if (!value) return null;
+  var d = new Date(value);
+  return isNaN(d) ? null : d.toISOString();
+}
+
 async function saveEvent() {
   var title = document.getElementById('e-title').value.trim();
   if (!title) return;
@@ -711,8 +722,8 @@ async function saveEvent() {
     // Personal tab → personal visibility. Meet implies personal + write
     // to the user's Google Calendar.
     visibility: (calView === 'personal' || wantMeet) ? 'personal' : 'company',
-    start_at: document.getElementById('e-start').value,
-    end_at: document.getElementById('e-end').value || null,
+    start_at: localDateTimeToIso(document.getElementById('e-start').value),
+    end_at: localDateTimeToIso(document.getElementById('e-end').value),
     all_day: document.getElementById('e-allday').checked,
     property_id: document.getElementById('e-property').value || null,
     create_meet: wantMeet,
