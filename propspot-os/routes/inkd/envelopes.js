@@ -19,7 +19,12 @@ router.get('/', async (req, res) => {
   else if (filed === 'false'){                                 where.push(`filed_at IS NULL`); }
   try {
     const { rows } = await query(
-      `SELECT e.*, p.address AS property_address, t.name AS template_name
+      `SELECT e.*,
+              -- properties uses address_line1 (+ city/state/zip), not 'address'.
+              -- The original query referenced p.address which doesn't exist and
+              -- 500'd as soon as anyone had an envelope linked to a property.
+              TRIM(BOTH ', ' FROM CONCAT_WS(', ', p.address_line1, p.city, p.state)) AS property_address,
+              t.name AS template_name
          FROM inkd_envelopes e
     LEFT JOIN properties p ON p.id = e.property_id
     LEFT JOIN inkd_templates t ON t.id = e.template_id
