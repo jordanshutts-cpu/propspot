@@ -7,12 +7,13 @@ const router = express.Router();
 router.use(requireAuth);
 router.use(requirePulseGrant);
 
-// 25 MB cap. Cloudinary's free tier is 100MB max anyway; 25MB keeps things snappy.
-const MAX_BYTES = 25 * 1024 * 1024;
+// 200 MB cap — 10-min screen recordings at modest bitrate ≈ 120 MB.
+const MAX_BYTES = 200 * 1024 * 1024;
 
 // Allowed mime types. `image/*` covers JPEG/PNG/HEIC/WebP/GIF.
+// `audio/*` and `video/*` were added for Pulse voice memos + screen recordings.
 // Office types covered via prefix matching below.
-const ALLOWED_PREFIXES = ['image/'];
+const ALLOWED_PREFIXES = ['image/', 'audio/', 'video/'];
 const ALLOWED_EXACT = new Set([
   'application/pdf',
   'application/msword',
@@ -45,7 +46,7 @@ router.post('/', (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: 'File too large (max 25MB)' });
+        return res.status(413).json({ error: 'File too large (max 200MB)' });
       }
       return res.status(400).json({ error: err.message || 'Upload failed' });
     }
@@ -77,3 +78,4 @@ router.post('/', (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.isAllowedMime = isAllowedMime;
