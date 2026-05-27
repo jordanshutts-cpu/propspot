@@ -112,6 +112,7 @@ app.use('/api/inbox/properties',     require('./routes/inbox/properties'));
 // ── Timesheets ────────────────────────────────────────────────────
 app.use('/api/timesheets', require('./routes/timesheets/entries'));
 app.use('/api/timesheets', require('./routes/timesheets/admin'));
+app.use('/api/timesheets/gusto', require('./routes/timesheets/gusto'));
 
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
