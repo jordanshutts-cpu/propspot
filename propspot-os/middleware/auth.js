@@ -87,6 +87,50 @@ async function requireInboxGrant(req, res, next) {
   } catch (err) { res.status(500).json({ error: 'Authorization check failed' }); }
 }
 
+async function requireTimesheetsGrant(req, res, next) {
+  try {
+    const { rows: userRows } = await query(
+      `SELECT id, email, full_name, is_owner FROM users WHERE id = $1`,
+      [req.userId]
+    );
+    const user = userRows[0];
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    req.user = user;
+    if (user.is_owner) {
+      req.timesheetsGrant = { role: 'admin', scope: { all: true } };
+      return next();
+    }
+    const { rows } = await query(`
+      SELECT ag.role, ag.scope
+        FROM app_grants ag
+        JOIN apps a ON a.id = ag.app_id
+       WHERE ag.user_id = $1 AND a.slug = 'timesheets'
+       LIMIT 1
+    `, [req.userId]);
+    if (!rows[0]) return res.status(403).json({ error: 'No access to Timesheets' });
+    req.timesheetsGrant = {
+      role: rows[0].role,
+      scope: rows[0].scope || { all: true }
+    };
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Authorization check failed' });
+  }
+}
+
+function requireTimesheetsApprover(req, res, next) {
+  const role = req.timesheetsGrant?.role;
+  if (role === 'approver' || role === 'admin') return next();
+  return res.status(403).json({ error: 'Approver access required' });
+}
+
+function requireTimesheetsAdmin(req, res, next) {
+  if (req.timesheetsGrant?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
 // requireTeamUser: redirect external_worker users to /my-work.html on any HTML page.
 // JWT-protected pages typically read the token from localStorage, not cookies — so
 // we apply this guard server-side on the static-HTML routes by checking a
@@ -121,4 +165,4 @@ function redirectExternalToPortal(allowedPages) {
   };
 }
 
-module.exports = { requireAuth, requireOwner, requireMaintenanceGrant, requirePulseGrant, requireInboxGrant, redirectExternalToPortal };
+module.exports = { requireAuth, requireOwner, requireMaintenanceGrant, requirePulseGrant, requireInboxGrant, requireTimesheetsGrant, requireTimesheetsApprover, requireTimesheetsAdmin, redirectExternalToPortal };
