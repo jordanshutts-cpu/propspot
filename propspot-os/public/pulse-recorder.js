@@ -54,6 +54,7 @@
       this.recorder = null;
       this.previewUrl = null;
       this.blob = null;
+      this.includeBubble = (mode === 'screen');
 
       this._renderRoot();
       this.state.subscribe(() => this._render());
@@ -67,7 +68,27 @@
     }
 
     start() {
+      if (this.mode === 'screen') {
+        this._renderBubbleToggle();
+        return;
+      }
       this._beginAcquire();
+    }
+
+    _renderBubbleToggle() {
+      this.root.innerHTML = `
+        <div class="ps-recorder-body">
+          <label class="ps-recorder-bubble-toggle">
+            <input type="checkbox" id="ps-rec-bubble" checked /> Include webcam bubble
+          </label>
+          <button class="ps-recorder-btn primary" data-action="go">Start screen recording</button>
+          <button class="ps-recorder-btn ps-recorder-cancel" data-action="discard">Cancel</button>
+        </div>`;
+      this.root.querySelector('[data-action="go"]').onclick = () => {
+        this.includeBubble = this.root.querySelector('#ps-rec-bubble').checked;
+        this._beginAcquire();
+      };
+      this.root.querySelector('[data-action="discard"]').onclick = () => this.discard();
     }
 
     _beginAcquire() {
@@ -94,6 +115,29 @@
           audio: true,
           video: { width: { ideal: 1280 }, height: { ideal: 720 } }
         });
+      }
+      if (this.mode === 'screen') {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true, audio: true
+        });
+        let webcamStream = null;
+        if (this.includeBubble) {
+          try {
+            webcamStream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: { width: { ideal: 480 }, height: { ideal: 360 } }
+            });
+          } catch (err) {
+            console.warn('Webcam bubble denied — proceeding screen-only:', err);
+          }
+        }
+        if (!webcamStream) return screenStream;
+
+        this.composite = await window.PulseRecorderCompositor.compositeScreenAndWebcam({
+          screenStream,
+          webcamStream
+        });
+        return this.composite.stream;
       }
       throw new Error(`Mode ${this.mode} not yet implemented`);
     }
