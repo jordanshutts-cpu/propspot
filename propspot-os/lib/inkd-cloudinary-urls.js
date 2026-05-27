@@ -13,6 +13,16 @@ const cloudinary = require('cloudinary').v2;
 
 // Build a signed Cloudinary URL for a 'raw' PDF asset.
 // publicId is what we stored in source_pdf_id / final_pdf_id.
+//
+// force_version: false   — by default the SDK injects '/v1/' into the URL
+//   path as a placeholder when no real version is passed, but the signature
+//   is computed without it. Cloudinary then rejects the URL with 401 because
+//   the signature doesn't match the path. Setting force_version: false drops
+//   the '/v1/' segment entirely so the path and the signed payload align.
+//
+// analytics: false       — the SDK appends a '?_a=...' analytics tag after
+//   the signature is computed. Some Cloudinary plans validate the full query
+//   string against the signature and 401 on mismatch.
 function signedRawPdfUrl(publicId) {
   if (!publicId) return null;
   return cloudinary.url(publicId, {
@@ -20,6 +30,8 @@ function signedRawPdfUrl(publicId) {
     type:          'upload',
     sign_url:      true,
     secure:        true,
+    force_version: false,
+    analytics:     false,
   });
 }
 
