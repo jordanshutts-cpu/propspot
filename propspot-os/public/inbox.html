@@ -2017,9 +2017,17 @@ async function toggleThreadMenu(ev, kind) {
   dd.innerHTML = await renderThreadMenu(kind);
   const btn = ev.currentTarget.getBoundingClientRect();
   const head = ev.currentTarget.closest('.thread-head').getBoundingClientRect();
-  dd.style.top   = (btn.bottom - head.top + 4) + 'px';
-  dd.style.right = (head.right - btn.right) + 'px';
-  dd.style.left  = 'auto';
+  dd.style.top = (btn.bottom - head.top + 4) + 'px';
+  // Anchor to whichever side of the header the trigger sits on, so the
+  // dropdown opens INTO the header — not past its left edge for left-side
+  // triggers like the + button on the chip row.
+  if (btn.left + btn.width / 2 < head.left + head.width / 2) {
+    dd.style.left  = Math.max(0, btn.left - head.left) + 'px';
+    dd.style.right = 'auto';
+  } else {
+    dd.style.right = Math.max(0, head.right - btn.right) + 'px';
+    dd.style.left  = 'auto';
+  }
   dd.classList.add('open');
   setTimeout(() => document.addEventListener('click', _closeThreadMenusOnce, { once: true }), 0);
 }
