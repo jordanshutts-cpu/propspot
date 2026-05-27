@@ -61,9 +61,46 @@ router.get('/', requireOwner, async (req, res) => {
           WHERE pr.mailbox_id     = t.mailbox_id
             AND ps.owner_user_id IS NOT NULL
        )
+       AND NOT EXISTS (
+         SELECT 1 FROM inbox_alias_dismissals d
+          WHERE d.mailbox_id = t.mailbox_id
+            AND LOWER(d.alias_email) = LOWER(msg.delivered_to_alias)
+       )
   ORDER BY m.email, msg.delivered_to_alias
   `);
   res.json({ routed, unrouted });
+});
+
+// POST /api/alias-routes/dismiss — hide an unrouted alias from suggestions.
+// Mail still arrives in the mailbox; we just stop showing it as a candidate.
+// Idempotent on (mailbox_id, alias_email).
+router.post('/dismiss', requireOwner, async (req, res) => {
+  const { mailbox_id, alias_email } = req.body;
+  if (!mailbox_id || !alias_email?.trim()) {
+    return res.status(400).json({ error: 'mailbox_id and alias_email required' });
+  }
+  await query(
+    `INSERT INTO inbox_alias_dismissals (mailbox_id, alias_email, dismissed_by)
+     VALUES ($1, LOWER($2), $3)
+     ON CONFLICT (mailbox_id, alias_email) DO NOTHING`,
+    [mailbox_id, alias_email.trim(), req.userId]
+  );
+  res.status(201).json({ success: true });
+});
+
+// DELETE /api/alias-routes/dismiss — undo a dismissal so the alias can be
+// suggested again. body: { mailbox_id, alias_email }
+router.delete('/dismiss', requireOwner, async (req, res) => {
+  const { mailbox_id, alias_email } = req.body;
+  if (!mailbox_id || !alias_email?.trim()) {
+    return res.status(400).json({ error: 'mailbox_id and alias_email required' });
+  }
+  await query(
+    `DELETE FROM inbox_alias_dismissals
+      WHERE mailbox_id = $1 AND LOWER(alias_email) = LOWER($2)`,
+    [mailbox_id, alias_email.trim()]
+  );
+  res.json({ success: true });
 });
 
 // POST /api/alias-routes — create a mapping. body: { mailbox_id, alias_email, shared_inbox_id }

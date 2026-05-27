@@ -926,6 +926,19 @@ CREATE TABLE IF NOT EXISTS inbox_alias_routes (
 CREATE INDEX IF NOT EXISTS inbox_alias_routes_mailbox_idx ON inbox_alias_routes(mailbox_id);
 CREATE INDEX IF NOT EXISTS inbox_alias_routes_inbox_idx   ON inbox_alias_routes(shared_inbox_id);
 
+-- Aliases the owner has explicitly dismissed from the "Unrouted" suggestion
+-- list (e.g. one-off plus-addressed aliases like utilities+dave@). Mail still
+-- lands in the mailbox; we just stop nagging the admin to route it.
+CREATE TABLE IF NOT EXISTS inbox_alias_dismissals (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mailbox_id    UUID NOT NULL REFERENCES inbox_mailboxes(id) ON DELETE CASCADE,
+  alias_email   TEXT NOT NULL,
+  dismissed_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  dismissed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (mailbox_id, alias_email)
+);
+CREATE INDEX IF NOT EXISTS inbox_alias_dismissals_mailbox_idx ON inbox_alias_dismissals(mailbox_id);
+
 -- Normalized email thread (groups messages with the same provider thread id).
 CREATE TABLE IF NOT EXISTS inbox_threads (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),

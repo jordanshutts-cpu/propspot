@@ -410,9 +410,12 @@
         `<option value="${t.id}" ${t.id === selected ? 'selected' : ''}>${escHtml(t.icon || '📨')} ${escHtml(t.name)}</option>`))
       .join('');
     const idAttr = routed ? `data-route-id="${routed.id}"` : '';
+    // Routed rows get Unroute. Unrouted rows get Dismiss (×) so the owner
+    // can hide one-off / weird aliases (e.g. utilities+dave@) from the
+    // suggestion list without having to route them.
     const actionBtn = routed
       ? `<button class="btn btn-danger" style="padding:6px 12px;font-size:.8rem;" onclick="unrouteAlias('${routed.id}', this)">Unroute</button>`
-      : '';
+      : `<button class="btn btn-secondary" title="Dismiss — hide from suggestions" style="padding:6px 10px;font-size:.9rem;line-height:1;" onclick="dismissAlias('${item.mailbox_id}', '${escAttr(item.alias_email)}', this)">×</button>`;
     return `
       <div class="alias-row" ${idAttr}>
         <div>
@@ -425,6 +428,22 @@
         </select>
         <div>${actionBtn}</div>
       </div>`;
+  }
+
+  async function dismissAlias(mailboxId, aliasEmail, btn) {
+    if (!confirm(`Dismiss ${aliasEmail}? Mail still arrives in the mailbox — this just hides it from suggestions.`)) return;
+    btn.disabled = true;
+    try {
+      await apiFetch('/api/inbox/alias-routes/dismiss', {
+        method: 'POST',
+        body: JSON.stringify({ mailbox_id: mailboxId, alias_email: aliasEmail })
+      });
+      showToast('Alias dismissed');
+      await loadAliases();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false;
+    }
   }
 
   async function onAliasInboxChange(sel, mailboxId, aliasEmail) {
