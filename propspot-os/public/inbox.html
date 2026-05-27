@@ -2482,10 +2482,45 @@ async function openLinkPropertyDialog() {
   doLpSearch(initial);
 }
 
-// Best-effort: find the property whose street-number + first-word combo
-// appears in the thread subject or message bodies. Returns the matched
-// property record, or null. Newest messages are scanned first since
-// confirmations / forwarded contracts usually live there.
+// Street directionals and type suffixes that vary between abbreviated /
+// spelled-out forms across email contents and DB records. We strip them
+// from the property side so we can match the *distinctive* portion of the
+// street name regardless of how the email phrases it.
+const _ADDR_DIRECTIONALS = new Set([
+  'n','s','e','w','ne','nw','se','sw',
+  'north','south','east','west','northeast','northwest','southeast','southwest'
+]);
+const _ADDR_STREET_TYPES = new Set([
+  'st','street','dr','drive','rd','road','ave','avenue','av',
+  'ln','lane','blvd','boulevard','ct','court','cir','circle',
+  'pl','place','pkwy','parkway','way','trl','trail','ter','terrace',
+  'hwy','highway','sq','square','plz','plaza','run','crossing',
+  'xing','grove','grv','park','pk','heights','hts','hill','hl'
+]);
+
+// Pull a (number, distinctive-words[]) tuple out of a stored address_line1.
+// Drops leading directionals and trailing street-type suffixes so we match
+// "112 N Trace" against "112 North Trace Drive" (and vice versa).
+function _parsePropertyAddress(line) {
+  if (!line) return null;
+  const normalized = line.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
+  const tokens = normalized.split(' ');
+  if (tokens.length < 2) return null;
+  if (!/^\d+[a-z]?$/.test(tokens[0])) return null;
+  const number = tokens[0];
+  let rest = tokens.slice(1);
+  while (rest.length > 1 && _ADDR_DIRECTIONALS.has(rest[0])) rest.shift();
+  while (rest.length > 1 && _ADDR_STREET_TYPES.has(rest[rest.length - 1])) rest.pop();
+  return { number, distinctive: rest };
+}
+
+// Best-effort: find the property whose street-number + distinctive street
+// word(s) appear in the thread subject, message bodies, or attachment
+// filenames. Returns the matched property record, or null.
+//
+// Matching is proximity-based and ignores directional ("N" vs "North") and
+// street-type ("St" vs "Street") variations on the property side, so an
+// email phrased differently than the DB record still resolves.
 function detectThreadProperty(thread, properties) {
   if (!thread || !properties || !properties.length) return null;
   const messages = [...(thread.messages || [])].reverse();
@@ -2495,40 +2530,48 @@ function detectThreadProperty(thread, properties) {
                        (m.body_html || '').replace(/<[^>]+>/g, ' '));
     for (const a of m.attachments || []) haystackParts.push(a.filename || '');
   }
-  let haystack = haystackParts.join(' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+  let haystack = haystackParts.join(' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/[.,]/g, ' ')          // "N." → "N ", "1830, Cupstid" → "1830  Cupstid"
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
   if (!haystack.trim()) return null;
   // Strip the company's own address out of the scan so invoices/letterhead
   // from the company itself don't trick the detector into nominating the
-  // company HQ as one of the user's portfolio properties. Each comma-
-  // separated chunk is stripped too in case only part of it appears.
-  const orgAddr = (INBOX_ORG_CACHE && INBOX_ORG_CACHE.company_address || '').trim().toLowerCase();
+  // company HQ as one of the user's portfolio properties.
+  const orgAddr = (INBOX_ORG_CACHE && INBOX_ORG_CACHE.company_address || '')
+    .trim().toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ');
   if (orgAddr) {
     const chunks = [orgAddr].concat(orgAddr.split(',').map(s => s.trim())).filter(s => s.length > 3);
     for (const ch of chunks) haystack = haystack.split(ch).join(' ');
     haystack = haystack.replace(/\s+/g, ' ');
   }
+  const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   let best = null;
   let bestScore = 0;
   for (const p of properties) {
-    const line = (p.address_line1 || '').trim();
-    if (!line) continue;
-    const m = line.match(/^(\d+\w?)\s+(.+)$/);
-    if (!m) continue;
-    const num = m[1].toLowerCase();
-    const rest = m[2].toLowerCase();
-    const firstWord = rest.split(/\s+/)[0];
-    // Need both the street number and the first street word in proximity.
-    // Pattern: number then up to 12 chars of street prefix words then the
-    // distinctive first word (e.g. "112 north trace", "1830 cupstid st").
-    const re = new RegExp('\\b' + num.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
-                          '\\s+(?:[a-z]+\\s+){0,2}' +
-                          firstWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-    if (!re.test(haystack)) continue;
-    // Score: 3 for street-num + first-word match, +1 if city also appears,
-    // +1 if the full address_line1 appears verbatim (very strong signal).
-    let score = 3;
+    const fullLine = (p.address_line1 || '').trim();
+    const parsed = _parsePropertyAddress(fullLine);
+    if (!parsed) continue;
+    const { number, distinctive } = parsed;
+    const numPattern = '\\b' + escape(number) + '\\b';
+    if (!new RegExp(numPattern).test(haystack)) continue;
+    // 2 points for each distinctive word that lands within ~40 chars of the
+    // property's street number (in either order). Keeps "100" alone from
+    // matching anything; only number-plus-name-in-proximity counts.
+    let score = 0;
+    for (const word of distinctive) {
+      if (word.length < 3) continue;
+      const wordPattern = '\\b' + escape(word) + '\\b';
+      const proxRe = new RegExp(
+        numPattern + '[\\s\\S]{0,40}' + wordPattern + '|' +
+        wordPattern + '[\\s\\S]{0,40}' + numPattern
+      );
+      if (proxRe.test(haystack)) score += 2;
+    }
+    if (score === 0) continue;
     if (p.city && haystack.includes(p.city.toLowerCase())) score += 1;
-    if (haystack.includes(line.toLowerCase())) score += 1;
+    if (haystack.includes(fullLine.toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' '))) score += 2;
     if (score > bestScore) { best = p; bestScore = score; }
   }
   return best;

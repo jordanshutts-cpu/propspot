@@ -7,7 +7,9 @@ const { sendInviteToUser } = require('../lib/invites');
 const router = express.Router();
 router.use(requireAuth);
 
-// GET /api/users — list every user with their app grants summary
+// GET /api/users — list every user with their app grants summary.
+// Removed users (users.removed_at IS NOT NULL) are filtered out so the
+// Members page never shows former teammates.
 router.get('/', async (req, res) => {
   try {
     const { rows } = await query(`
@@ -22,6 +24,7 @@ router.get('/', async (req, res) => {
         FROM users u
         LEFT JOIN app_grants ag ON ag.user_id = u.id
         LEFT JOIN apps a        ON a.id = ag.app_id
+       WHERE u.removed_at IS NULL
        GROUP BY u.id
        ORDER BY u.full_name, u.email
     `);
@@ -81,6 +84,44 @@ router.delete('/:id', requireOwner, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to uninvite user' });
+  }
+});
+
+// POST /api/users/:id/remove  (owner only — soft-remove an active member)
+// Used when you want to kick someone off the workspace without destroying
+// their attribution on past photos / comments / tasks. We:
+//   1. Delete every app_grant they hold (immediate loss of access).
+//   2. Stamp users.removed_at so they're filtered out of GET /api/users
+//      and so the login flow rejects them.
+// Reversible by directly clearing removed_at in the DB.
+router.post('/:id/remove', requireOwner, async (req, res) => {
+  if (req.params.id === req.userId) {
+    return res.status(400).json({ error: 'Cannot remove yourself' });
+  }
+  try {
+    const { rows } = await query(
+      `SELECT id, email, full_name, is_owner, removed_at FROM users WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    if (rows[0].is_owner) {
+      return res.status(400).json({ error: 'Cannot remove another owner. Demote them first.' });
+    }
+    if (rows[0].removed_at) {
+      return res.status(400).json({ error: 'User is already removed' });
+    }
+
+    await query('DELETE FROM app_grants WHERE user_id = $1', [req.params.id]);
+    await query('UPDATE users SET removed_at = NOW() WHERE id = $1', [req.params.id]);
+
+    await logActivity({
+      actorUserId: req.userId, entityType: 'user', entityId: req.params.id,
+      action: 'removed', payload: { email: rows[0].email, full_name: rows[0].full_name }
+    });
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove user' });
   }
 });
 

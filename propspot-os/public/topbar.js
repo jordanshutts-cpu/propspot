@@ -8,8 +8,128 @@
 (function () {
   if (!window.__newChromeEnabled || !window.__newChromeEnabled()) return;
 
-  // Phase 1: notifications count is hardcoded. Phase 4 wires real data.
-  const PHASE1_NOTIF_COUNT = 7;
+  // ── Notification helpers ────────────────────────────────────────
+  let _notifCache = null;       // { notifications, unread_count }
+  let _notifLoaded = false;     // fetched at least once
+  let _notifEsOpen = false;     // SSE stream open
+
+  function notifTimeAgo(dateStr) {
+    const ms = Date.now() - new Date(dateStr).getTime();
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  function notifIcon(type) {
+    if (type === 'task_assigned')
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-3"/><path d="m9 12 2 2 4-4"/></svg>`;
+    if (type === 'task_mention' || type === 'pulse_mention')
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`;
+    if (type === 'work_order_assigned' || type === 'work_order_status' || type === 'work_order_comment')
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`;
+    if (type === 'pipeline_promotion')
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
+    if (type === 'holdings_due')
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+  }
+
+  function renderNotifItem(n) {
+    const cls = n.read_at ? 'notif-item read' : 'notif-item unread';
+    const safeId = (n.id || '').replace(/[^a-zA-Z0-9-]/g, '');
+    const safeUrl = (n.url || '').replace(/"/g, '');
+    // escHtml is defined in app.js and available globally
+    const esc = typeof escHtml === 'function' ? escHtml : (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    return `
+      <div class="${cls}" onclick="clickNotification('${safeId}','${safeUrl}')">
+        <div class="notif-item-icon">${notifIcon(n.type)}</div>
+        <div class="notif-item-content">
+          <div class="notif-item-title">${esc(n.title)}</div>
+          ${n.body ? `<div class="notif-item-body">${esc(n.body)}</div>` : ''}
+          <div class="notif-item-time">${notifTimeAgo(n.created_at)}</div>
+        </div>
+      </div>`;
+  }
+
+  function setNotifBadge(count) {
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function renderNotifPanel(data) {
+    const body = document.getElementById('notif-body');
+    if (!body) return;
+    if (!data || !data.notifications || data.notifications.length === 0) {
+      body.innerHTML = '<div class="os-newchrome-notif-empty">You\'re all caught up — no notifications yet.</div>';
+      return;
+    }
+    body.innerHTML = data.notifications.map(renderNotifItem).join('');
+  }
+
+  async function loadNotifications() {
+    try {
+      const data = await apiFetch('/api/notifications?limit=30');
+      _notifCache = data;
+      _notifLoaded = true;
+      renderNotifPanel(data);
+      setNotifBadge(data.unread_count || 0);
+    } catch (e) {
+      console.warn('notifications fetch failed:', e);
+    }
+  }
+
+  function initNotificationsSSE() {
+    if (_notifEsOpen) return;
+    const token = localStorage.getItem('ros_token');
+    if (!token) return;
+    _notifEsOpen = true;
+    const es = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`);
+    es.onmessage = (e) => {
+      try {
+        const evt = JSON.parse(e.data);
+        if (evt.type !== 'notification') return;
+        // Update badge
+        const badge = document.getElementById('notif-badge');
+        const current = parseInt(badge?.textContent || '0', 10);
+        setNotifBadge(isNaN(current) ? 1 : current + 1);
+        // Play chime if available
+        if (typeof window.__playNotifSound === 'function') {
+          window.__playNotifSound('mention');
+        }
+        // Prepend to panel if it's open
+        const body = document.getElementById('notif-body');
+        const panel = document.getElementById('notif-panel');
+        if (body && panel?.classList.contains('open') && evt.notification) {
+          const placeholder = body.querySelector('.os-newchrome-notif-empty');
+          if (placeholder) placeholder.remove();
+          body.insertAdjacentHTML('afterbegin', renderNotifItem(evt.notification));
+        }
+        // Keep cache in sync
+        if (_notifCache) {
+          _notifCache.notifications = [evt.notification, ...(_notifCache.notifications || [])];
+          _notifCache.unread_count = (_notifCache.unread_count || 0) + 1;
+        }
+      } catch {}
+    };
+    es.onerror = () => { _notifEsOpen = false; }; // reconnect handled by EventSource retry
+  }
+
+  function initNotifications() {
+    // Only run when the user is authenticated
+    if (!localStorage.getItem('ros_token')) return;
+    loadNotifications();
+    initNotificationsSSE();
+  }
 
   function renderNewTopBar() {
     const headerEl = document.getElementById('top-header');
@@ -55,8 +175,7 @@
                   title="Notifications" aria-label="Notifications"
                   onclick="toggleNotifications(event)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-            <span class="os-newchrome-icon-badge" id="notif-badge"
-                  style="${PHASE1_NOTIF_COUNT > 0 ? '' : 'display:none;'}">${PHASE1_NOTIF_COUNT}</span>
+            <span class="os-newchrome-icon-badge" id="notif-badge" style="display:none;"></span>
           </button>
           <button type="button" class="os-newchrome-avatar" id="user-avatar" title="Account" onclick="toggleUserMenu(event)">
             ${avatarContent(user)}
@@ -110,7 +229,7 @@
           <button class="os-newchrome-notif-mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
         </div>
         <div class="os-newchrome-notif-body" id="notif-body">
-          <div class="os-newchrome-notif-empty">Phase 4 will populate this feed with mentions, work-order updates, holdings due-soon alerts, and pipeline promotions.</div>
+          <div class="os-newchrome-notif-empty">Loading…</div>
         </div>
       </div>
 
@@ -207,7 +326,10 @@
     document.getElementById('qc-menu')?.classList.remove('open');
     document.getElementById('user-menu')?.classList.remove('open');
     document.getElementById('ai-panel')?.classList.remove('open');
+    const opening = !panel.classList.contains('open');
     panel.classList.toggle('open');
+    // Reload on every open to get fresh data (keeps times accurate)
+    if (opening) loadNotifications();
   }
 
   // ── AI Assistant panel (placeholder) ────────────────────────────
@@ -234,10 +356,30 @@
     if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
     panel.classList.remove('open');
   }
-  function markAllNotificationsRead() {
-    const badge = document.getElementById('notif-badge');
-    if (badge) badge.style.display = 'none';
-    // Phase 4: POST to /api/notifications/mark-all-read
+  async function markAllNotificationsRead() {
+    setNotifBadge(0);
+    // Update panel items to read state immediately
+    document.querySelectorAll('#notif-body .notif-item.unread').forEach(el => {
+      el.classList.remove('unread');
+      el.classList.add('read');
+    });
+    try { await apiFetch('/api/notifications/read-all', { method: 'POST' }); } catch {}
+    if (_notifCache) _notifCache.unread_count = 0;
+  }
+
+  async function clickNotification(id, url) {
+    // Mark this one read
+    try { apiFetch(`/api/notifications/${id}/read`, { method: 'POST' }); } catch {}
+    // Update UI immediately
+    const el = document.querySelector(`#notif-body .notif-item[onclick*="${id}"]`);
+    if (el) { el.classList.remove('unread'); el.classList.add('read'); }
+    // Recalculate badge
+    if (_notifCache) {
+      _notifCache.unread_count = Math.max(0, (_notifCache.unread_count || 1) - 1);
+      setNotifBadge(_notifCache.unread_count);
+    }
+    // Navigate
+    if (url) window.location.href = url;
   }
 
   // Expose for inline onclick handlers
@@ -245,6 +387,7 @@
   window.toggleNotifications = toggleNotifications;
   window.toggleAIAssistant = toggleAIAssistant;
   window.markAllNotificationsRead = markAllNotificationsRead;
+  window.clickNotification = clickNotification;
   window.renderNewTopBar = renderNewTopBar;
 
   // Outside-click handlers
@@ -384,9 +527,14 @@
   window.__renderMobileBottomNav = renderMobileBottomNav;
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { renderNewTopBar(); renderMobileBottomNav(); });
+    document.addEventListener('DOMContentLoaded', () => {
+      renderNewTopBar();
+      renderMobileBottomNav();
+      initNotifications();
+    });
   } else {
     renderNewTopBar();
     renderMobileBottomNav();
+    initNotifications();
   }
 })();

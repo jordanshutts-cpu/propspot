@@ -699,6 +699,30 @@ html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
   line-height: 1.5;
 }
 
+/* Notification feed items */
+.notif-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background .1s;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: #f9fafb; }
+.notif-item.unread { background: #f0fdf4; }
+.notif-item.unread:hover { background: #dcfce7; }
+.notif-item-icon {
+  flex-shrink: 0; width: 30px; height: 30px;
+  border-radius: 50%; background: #e5e7eb;
+  display: flex; align-items: center; justify-content: center;
+  color: #6b7280;
+}
+.notif-item.unread .notif-item-icon { background: #bbf7d0; color: #15803d; }
+.notif-item-icon svg { width: 14px; height: 14px; }
+.notif-item-content { flex: 1; min-width: 0; }
+.notif-item-title { font-size: 12.5px; font-weight: 500; line-height: 1.4; color: #111827; }
+.notif-item-body  { font-size: 12px; color: #6b7280; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-item-time  { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+
 /* User menu repositioning under the new top bar */
 body.os-newchrome .user-menu {
   top: 52px;

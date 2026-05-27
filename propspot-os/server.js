@@ -50,6 +50,7 @@ app.use('/api/underwriting',      require('./routes/underwriting'));
 app.use('/api/pinned',            require('./routes/pinned'));
 app.use('/api/recent',            require('./routes/recent'));
 app.use('/api/sidebar-counts',    require('./routes/sidebar-counts'));
+app.use('/api/notifications',     require('./routes/notifications'));
 app.use('/api/tasks',             require('./routes/tasks'));
 app.use('/api/task-projects',    require('./routes/task-projects'));
 app.use('/api/drive',             require('./routes/drive'));
@@ -206,6 +207,21 @@ initDb()
     if (process.env.TIMESHEETS_WORKER_ENABLED !== '0') {
       try { require('./workers/timesheets').start(); }
       catch (e) { console.error('[timesheets-worker] failed to start:', e.message); }
+    }
+
+    // Holdings due-soon reminders. Idempotent (dedupes by item_id+due_date),
+    // so the 6-hour cadence is safe — duplicate runs are a no-op.
+    // Skip with HOLDINGS_REMINDERS_ENABLED=0.
+    if (process.env.HOLDINGS_REMINDERS_ENABLED !== '0') {
+      const runHoldingsReminders = require('./scripts/holdings-reminders');
+      const HOLDINGS_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
+      // First run 60s after boot — gives DB schema migrations time to settle.
+      setTimeout(() => {
+        runHoldingsReminders().catch(e => console.error('[holdings-reminders] tick failed:', e.message));
+        setInterval(() => {
+          runHoldingsReminders().catch(e => console.error('[holdings-reminders] tick failed:', e.message));
+        }, HOLDINGS_INTERVAL_MS);
+      }, 60 * 1000);
     }
   })
   .catch(err => {

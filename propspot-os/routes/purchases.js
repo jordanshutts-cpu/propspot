@@ -3,6 +3,7 @@ const { query } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { attachCrud } = require('../lib/crud');
 const { logActivity } = require('../lib/activity');
+const { notifyOwners } = require('../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -45,6 +46,16 @@ router.post('/:id/promote', async (req, res) => {
     await logActivity({
       actorUserId: req.userId, entityType: 'purchase', entityId: purchase.id,
       action: 'promoted', payload: { project_id: prjRows[0].id, kind }
+    });
+
+    const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+    const { rows: [prop] }  = await query(`SELECT address_line1 FROM properties WHERE id = $1`, [purchase.property_id]);
+    notifyOwners({
+      excludeUserId: req.userId, type: 'pipeline_promotion',
+      title: `${actor?.full_name || 'Someone'} started a ${kind} project`,
+      body: prop?.address_line1 || 'Pipeline updated',
+      url: '/projects.html',
+      payload: { stage: 'project', project_id: prjRows[0].id, purchase_id: purchase.id, kind }
     });
 
     res.status(201).json(prjRows[0]);

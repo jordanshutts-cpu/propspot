@@ -283,10 +283,23 @@ async function writeMentionsAndNotify(messageId, body, scope, message, alreadyMe
 
   // Notify any newly-added mentions (not already in `alreadyMentioned`)
   const already = new Set(alreadyMentioned);
+  const { pushNotification } = require('../../lib/notify');
+  const senderName = message.sender_name || 'Someone';
+  const textPreview = (message.body || '').replace(/<[^>]*>/g, '').trim().slice(0, 120);
   for (const uid of valid) {
     if (already.has(uid)) continue;
     if (uid === message.sender_id) continue; // don't notify self
     hub.publish('user:' + uid, { type: 'mention', message });
+    pushNotification({
+      userId: uid, type: 'pulse_mention',
+      title: `${senderName} mentioned you in Pulse`,
+      body: textPreview || null, url: '/pulse.html',
+      payload: {
+        message_id: message.id,
+        channel_id: message.channel_id || null,
+        dm_id: message.dm_id || null
+      }
+    });
   }
   return valid;
 }

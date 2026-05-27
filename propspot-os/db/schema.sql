@@ -60,6 +60,14 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url           TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_cloudinary_id TEXT;
 
+-- Soft-remove flag for the Members page. When set, the user is hidden from
+-- the team list and login is rejected (both password + Google flows), but
+-- their FK references stay intact so attribution on past photos / comments
+-- / tasks isn't lost.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS users_removed_at_idx
+  ON users (removed_at) WHERE removed_at IS NOT NULL;
+
 -- Google Workspace SSO linkage. google_sub is Google's stable user ID
 -- (the `sub` claim). google_email is captured at link time so users
 -- can see which Workspace account they linked. Partial unique indexes
@@ -1295,6 +1303,20 @@ DO $$ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS chat_messages_reply_to_idx ON chat_messages(reply_to_id);
 
+-- ── Slack migration linkage ──────────────────────────────────────────────────
+-- Lets the Slack importer resume safely if interrupted (and skip
+-- already-migrated rows on re-run). All nullable so non-migrated rows
+-- are unaffected.
+ALTER TABLE chat_channels    ADD COLUMN IF NOT EXISTS slack_channel_id  TEXT;
+ALTER TABLE chat_messages    ADD COLUMN IF NOT EXISTS slack_message_ts  TEXT;
+ALTER TABLE chat_attachments ADD COLUMN IF NOT EXISTS slack_file_id     TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_channels_slack_uniq
+  ON chat_channels (slack_channel_id) WHERE slack_channel_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_messages_slack_uniq
+  ON chat_messages (slack_message_ts) WHERE slack_message_ts IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS chat_attachments_slack_uniq
+  ON chat_attachments (slack_file_id) WHERE slack_file_id IS NOT NULL;
+
 -- ── Tasks (To-Do Tracker) ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tasks (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1783,3 +1805,22 @@ VALUES ('timesheets', 'Timesheets',
         'Clock in / clock out, approve hours, push to Gusto',
         'clock', TRUE)
 ON CONFLICT (slug) DO NOTHING;
+
+-- ── Notifications feed (2026-05-27) ─────────────────────────────────────────
+-- Drives the topbar bell. Written by lib/notify.pushNotification() with a
+-- companion hub.publish('user:<id>', …) for real-time SSE delivery.
+CREATE TABLE IF NOT EXISTS notifications (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type       TEXT        NOT NULL,
+  title      TEXT        NOT NULL,
+  body       TEXT,
+  url        TEXT,
+  read_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  payload    JSONB
+);
+CREATE INDEX IF NOT EXISTS notifications_user_recent_idx
+  ON notifications (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_user_unread_idx
+  ON notifications (user_id) WHERE read_at IS NULL;

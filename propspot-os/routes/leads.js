@@ -3,6 +3,7 @@ const { query } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { attachCrud } = require('../lib/crud');
 const { logActivity } = require('../lib/activity');
+const { notifyOwners } = require('../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -43,6 +44,16 @@ router.post('/:id/promote', async (req, res) => {
     await logActivity({
       actorUserId: req.userId, entityType: 'lead', entityId: lead.id,
       action: 'promoted', payload: { opportunity_id: oRows[0].id }
+    });
+
+    const { rows: [actor] } = await query(`SELECT full_name FROM users WHERE id = $1`, [req.userId]);
+    const { rows: [prop] }  = await query(`SELECT address_line1 FROM properties WHERE id = $1`, [lead.property_id]);
+    notifyOwners({
+      excludeUserId: req.userId, type: 'pipeline_promotion',
+      title: `${actor?.full_name || 'Someone'} promoted a lead to an opportunity`,
+      body: prop?.address_line1 || 'Pipeline updated',
+      url: '/acquisitions.html',
+      payload: { stage: 'opportunity', opportunity_id: oRows[0].id, lead_id: lead.id }
     });
 
     res.status(201).json(oRows[0]);

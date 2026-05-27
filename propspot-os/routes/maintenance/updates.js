@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../../db');
 const { requireAuth, requireMaintenanceGrant } = require('../../middleware/auth');
+const { pushNotification } = require('../../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -24,6 +25,28 @@ router.post('/', async (req, res) => {
     const { rows: u } = await query(
       `SELECT full_name FROM users WHERE id = $1`, [req.userId]
     );
+
+    // Notify the work order's assignee + creator (excluding the commenter)
+    try {
+      const { rows: [wo] } = await query(
+        `SELECT title, assigned_user_id, created_by FROM work_orders WHERE id = $1`,
+        [work_order_id]
+      );
+      const actorName = u[0]?.full_name || 'Someone';
+      const recipients = new Set();
+      if (wo?.assigned_user_id && wo.assigned_user_id !== req.userId) recipients.add(wo.assigned_user_id);
+      if (wo?.created_by        && wo.created_by        !== req.userId) recipients.add(wo.created_by);
+      for (const uid of recipients) {
+        pushNotification({
+          userId: uid, type: 'work_order_comment',
+          title: `${actorName} commented on a work order`,
+          body: wo?.title || body.trim().slice(0, 100),
+          url: '/maintenance.html',
+          payload: { work_order_id, update_id: rows[0].id, actor_user_id: req.userId }
+        });
+      }
+    } catch (e) { /* non-fatal */ }
+
     res.status(201).json({ ...rows[0], author_name: u[0]?.full_name || null });
   } catch (err) {
     console.error(err);
