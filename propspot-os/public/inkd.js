@@ -68,4 +68,121 @@ async function saveToFiles(id) {
   load();
 }
 
+// ── New-envelope modal ───────────────────────────────────────
+const modal = {
+  el: null,
+  templates: [],
+  properties: [],
+  selectedProperty: null,
+};
+
+async function openNewEnvelope() {
+  modal.el = document.getElementById('new-env-modal');
+  modal.el.hidden = false;
+
+  // Reset state
+  modal.selectedProperty = null;
+  document.getElementById('ne-property-selected').hidden = true;
+  document.getElementById('ne-property-search').value = '';
+  document.getElementById('ne-property-search').hidden = false;
+  document.getElementById('ne-property-results').hidden = true;
+
+  // Load templates (parallel with properties)
+  const [tplRes, propRes] = await Promise.all([
+    api('/api/inkd/templates'),
+    api('/api/properties'),
+  ]);
+  modal.templates  = tplRes.ok  ? await tplRes.json()  : [];
+  modal.properties = propRes.ok ? await propRes.json() : [];
+
+  const tplSel = document.getElementById('ne-template');
+  if (!modal.templates.length) {
+    tplSel.innerHTML = '<option value="">No templates yet — create one first</option>';
+  } else {
+    tplSel.innerHTML = '<option value="">Pick a template…</option>' +
+      modal.templates.map(t =>
+        `<option value="${t.id}">${escapeHtml(t.name)}${t.category ? ' — ' + escapeHtml(t.category) : ''}</option>`
+      ).join('');
+  }
+}
+
+function closeNewEnvelope() {
+  if (modal.el) modal.el.hidden = true;
+}
+
+function renderPropertyResults(query) {
+  const results = document.getElementById('ne-property-results');
+  const q = query.trim().toLowerCase();
+  if (!q) { results.hidden = true; return; }
+  const matches = modal.properties.filter(p => {
+    const addr = `${p.address_line1 || ''} ${p.city || ''} ${p.state || ''} ${p.zip || ''}`.toLowerCase();
+    return addr.includes(q);
+  }).slice(0, 8);
+  if (!matches.length) {
+    results.innerHTML = '<div class="empty">No properties match</div>';
+    results.hidden = false;
+    return;
+  }
+  results.innerHTML = matches.map(p => `
+    <div class="row" data-id="${p.id}">
+      ${escapeHtml(p.address_line1 || '(no address)')}
+      <span class="sub">${escapeHtml([p.city, p.state, p.zip].filter(Boolean).join(', '))}</span>
+    </div>`).join('');
+  results.hidden = false;
+  for (const row of results.querySelectorAll('.row')) {
+    row.addEventListener('click', () => {
+      const p = modal.properties.find(x => String(x.id) === row.dataset.id);
+      selectProperty(p);
+    });
+  }
+}
+
+function selectProperty(p) {
+  modal.selectedProperty = p;
+  document.getElementById('ne-property-search').hidden = true;
+  document.getElementById('ne-property-results').hidden = true;
+  const label = [p.address_line1, p.city, p.state, p.zip].filter(Boolean).join(', ');
+  document.getElementById('ne-property-selected-label').textContent = label;
+  document.getElementById('ne-property-selected').hidden = false;
+}
+
+function clearProperty() {
+  modal.selectedProperty = null;
+  document.getElementById('ne-property-selected').hidden = true;
+  const input = document.getElementById('ne-property-search');
+  input.hidden = false;
+  input.value = '';
+  input.focus();
+}
+
+function continueToComposer() {
+  const tplId = document.getElementById('ne-template').value;
+  if (!tplId) {
+    showToast('Pick a template to continue', 'error');
+    return;
+  }
+  const params = new URLSearchParams({ template_id: tplId });
+  if (modal.selectedProperty) params.set('property_id', modal.selectedProperty.id);
+  location.href = `/inkd-send.html?${params.toString()}`;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// Wire modal events on page load
+document.getElementById('btn-new-envelope').addEventListener('click', openNewEnvelope);
+document.getElementById('ne-cancel').addEventListener('click', closeNewEnvelope);
+document.getElementById('ne-continue').addEventListener('click', continueToComposer);
+document.getElementById('ne-property-clear').addEventListener('click', clearProperty);
+document.getElementById('ne-property-search').addEventListener('input', (e) => renderPropertyResults(e.target.value));
+// Close on backdrop click (but not when clicking inside the modal box)
+document.getElementById('new-env-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'new-env-modal') closeNewEnvelope();
+});
+// Esc closes the modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modal.el && !modal.el.hidden) closeNewEnvelope();
+});
+
 load();
