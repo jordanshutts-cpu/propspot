@@ -69,6 +69,21 @@
     .access-cell.empty:hover { background: var(--brand-light); color: var(--brand); border-color: var(--brand); }
     .access-cell.loading { opacity: .5; cursor: wait; pointer-events: none; }
     .access-cell.locked { opacity: .5; cursor: not-allowed; pointer-events: none; }
+
+    /* Separator between team members and external workers. The row spans
+       every column and sticks an "External users" label on top of a
+       heavier top border so it reads as a clear section break. */
+    .team-table tr.external-divider td {
+      padding: 18px 12px 6px; background: var(--bg);
+      border-top: 2px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .team-table tr.external-divider:hover td { background: var(--bg); }
+    .team-table tr.external-divider .col-member { background: var(--bg); }
+    .external-divider-label {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--text-muted);
+    }
+    .badge.badge-external { background: #dbeafe; color: #1e40af; font-size: .65rem; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -198,9 +213,10 @@
         </tr>
       </thead>`;
 
-    const body = `<tbody>${allUsers.map(u => {
+    const renderRow = (u) => {
       const name = u.full_name || u.email;
       const isYou = u.id === me.id;
+      const isExternal = u.user_type === 'external_worker';
       const granted = userGrantedAppIds(u);
       const canUninvite = me.is_owner && !u.is_active && !u.is_owner && !isYou;
       const canResend   = canUninvite;
@@ -224,6 +240,7 @@
                   ${escHtml(name)}
                   ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}
                   ${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}
+                  ${isExternal ? '<span class="badge badge-external">External</span>' : ''}
                 </div>
                 <div class="team-email">${escHtml(u.email)}</div>
               </div>
@@ -237,7 +254,22 @@
           </td>
         </tr>
       `;
-    }).join('')}</tbody>`;
+    };
+
+    // Split into team members and external workers. Team renders first;
+    // a divider row + section label sits between them when at least one
+    // external exists.
+    const teamMembers = allUsers.filter(u => u.user_type !== 'external_worker');
+    const externals  = allUsers.filter(u => u.user_type === 'external_worker');
+    const colCount   = allApps.length + 3; // member + apps + status + actions
+    const divider = externals.length
+      ? `<tr class="external-divider">
+           <td colspan="${colCount}">
+             <div class="external-divider-label">External users · ${externals.length}</div>
+           </td>
+         </tr>`
+      : '';
+    const body = `<tbody>${teamMembers.map(renderRow).join('')}${divider}${externals.map(renderRow).join('')}</tbody>`;
 
     el.innerHTML = `<div class="team-table-wrap"><table class="team-table">${head}${body}</table></div>`;
   }
