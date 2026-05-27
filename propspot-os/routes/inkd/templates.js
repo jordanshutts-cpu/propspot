@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const { query } = require('../../db');
 const { requireAuth } = require('../../middleware/auth');
 const { SOURCES } = require('../../lib/inkd-autofill-sources');
+const { signTemplateUrls } = require('../../lib/inkd-cloudinary-urls');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -38,7 +39,7 @@ router.get('/:id', async (req, res) => {
       `SELECT * FROM inkd_template_fields
         WHERE template_id=$1
         ORDER BY page_number, display_order`, [req.params.id]);
-    res.json({ ...t.rows[0], fields: f.rows });
+    res.json({ ...signTemplateUrls(t.rows[0]), fields: f.rows });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to load template' }); }
 });
 
