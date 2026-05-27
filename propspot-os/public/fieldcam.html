@@ -186,19 +186,21 @@
                   0 0 0 1px rgba(0,0,0,0.05);
     }
 
-    /* MarkerCluster — branded green clusters */
+    /* MarkerCluster — default green (fallback only, overridden by iconCreateFunction) */
     .marker-cluster {
       background: rgba(97,183,70,0.15) !important;
       border-radius: 50%;
     }
     .marker-cluster div {
-      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%) !important;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #15803d) 100%);
       color: #fff !important;
       font-weight: 800 !important;
       font-size: 12px !important;
       box-shadow: 0 4px 10px -2px rgba(97,183,70,0.55);
       border: 2px solid #fff;
     }
+    /* Custom status-colored clusters — neutralise the outer wrapper halo */
+    .fc-cluster-icon.marker-cluster { background: transparent !important; }
 
     /* Leaflet popup — premium chrome */
     .leaflet-popup-content-wrapper {
@@ -846,11 +848,47 @@
     }
 
     // Cluster layer — collapses dense areas into a single counter pill.
+    // iconCreateFunction tallies the status of every child marker and colors
+    // the cluster bubble using the majority status color.
     mapMarkerCluster = L.markerClusterGroup({
       showCoverageOnHover: false,
       maxClusterRadius: 48,
       spiderfyOnMaxZoom: true,
-      disableClusteringAtZoom: 16
+      disableClusteringAtZoom: 16,
+      iconCreateFunction: function(cluster) {
+        const markers = cluster.getAllChildMarkers();
+        // Count occurrences of each status
+        const counts = {};
+        for (const m of markers) {
+          const s = m.options.statusKey || '';
+          counts[s] = (counts[s] || 0) + 1;
+        }
+        // Pick the majority status
+        let topStatus = '', topCount = 0;
+        for (const [s, c] of Object.entries(counts)) {
+          if (c > topCount) { topCount = c; topStatus = s; }
+        }
+        const { color } = statusMeta(topStatus);
+        const dark = darkenHex(color);
+        const n = cluster.getChildCount();
+        // Size scales with how many properties are in the cluster
+        const sz = n < 10 ? 34 : n < 100 ? 42 : 52;
+        const fs = n < 100 ? 13 : 11;
+        return L.divIcon({
+          html: `<div style="
+            width:${sz}px;height:${sz}px;line-height:${sz}px;text-align:center;
+            background:linear-gradient(135deg,${color},${dark});
+            border-radius:50%;
+            border:2.5px solid rgba(255,255,255,0.9);
+            box-shadow:0 4px 12px -3px ${color}aa;
+            color:#fff;font-weight:800;font-size:${fs}px;
+            font-family:inherit;
+          ">${n}</div>`,
+          className: 'fc-cluster-icon',
+          iconSize:   [sz + 10, sz + 10],
+          iconAnchor: [(sz + 10) / 2, (sz + 10) / 2]
+        });
+      }
     });
 
     mapBounds = [];
@@ -878,7 +916,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><polyline points="9 18 15 12 9 6"/></svg>
           </a>
         </div>`;
-      L.marker(coord, { icon: statusDivIcon(prop.status) })
+      L.marker(coord, { icon: statusDivIcon(prop.status), statusKey: prop.status })
         .bindPopup(html, { maxWidth: 260, closeButton: false })
         .addTo(mapMarkerCluster);
     }
