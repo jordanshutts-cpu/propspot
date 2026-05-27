@@ -55,6 +55,7 @@
       this.previewUrl = null;
       this.blob = null;
       this.includeBubble = (mode === 'screen');
+      this.includeMic = true;
 
       this._renderRoot();
       this.state.subscribe(() => this._render());
@@ -79,12 +80,16 @@
       this.root.innerHTML = `
         <div class="ps-recorder-body">
           <label class="ps-recorder-bubble-toggle">
+            <input type="checkbox" id="ps-rec-mic" checked /> Include voice (mic)
+          </label>
+          <label class="ps-recorder-bubble-toggle">
             <input type="checkbox" id="ps-rec-bubble" checked /> Include webcam bubble
           </label>
           <button class="ps-recorder-btn primary" data-action="go">Start screen recording</button>
           <button class="ps-recorder-btn ps-recorder-cancel" data-action="discard">Cancel</button>
         </div>`;
       this.root.querySelector('[data-action="go"]').onclick = () => {
+        this.includeMic = this.root.querySelector('#ps-rec-mic').checked;
         this.includeBubble = this.root.querySelector('#ps-rec-bubble').checked;
         this._beginAcquire();
       };
@@ -122,6 +127,22 @@
         });
         const vTrack = screenStream.getVideoTracks()[0];
         if (vTrack) vTrack.addEventListener('ended', () => this.stopRecording());
+
+        // Capture the user's mic separately so their voice is recorded
+        // regardless of whether they ticked "Share tab audio" in Chrome's
+        // picker (and on macOS Chrome, system audio is often unavailable
+        // entirely for Window/Entire-screen shares). Honors the "Include
+        // voice" checkbox on the pre-record panel.
+        let micStream = null;
+        if (this.includeMic) {
+          try {
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          } catch (err) {
+            console.warn('Mic denied for screen recording — proceeding without voice:', err);
+          }
+        }
+        this.micStream = micStream;
+
         let webcamStream = null;
         if (this.includeBubble) {
           try {
@@ -133,11 +154,16 @@
             console.warn('Webcam bubble denied — proceeding screen-only:', err);
           }
         }
-        if (!webcamStream) return screenStream;
+
+        if (!webcamStream) {
+          this.composite = window.PulseRecorderCompositor.composeScreenWithMic({
+            screenStream, micStream
+          });
+          return this.composite.stream;
+        }
 
         this.composite = await window.PulseRecorderCompositor.compositeScreenAndWebcam({
-          screenStream,
-          webcamStream
+          screenStream, webcamStream, micStream
         });
         return this.composite.stream;
       }
@@ -172,6 +198,10 @@
       if (this.mediaStream) {
         this.mediaStream.getTracks().forEach(t => t.stop());
         this.mediaStream = null;
+      }
+      if (this.micStream) {
+        this.micStream.getTracks().forEach(t => t.stop());
+        this.micStream = null;
       }
     }
 
@@ -284,11 +314,18 @@
         const previewTag = (this.mode === 'voice')
           ? `<span class="ps-recorder-meter" id="ps-rec-meter"></span>`
           : `<video id="ps-rec-preview" autoplay muted playsinline class="ps-recorder-live-preview"></video>`;
+        // For screen mode, surface a tiny mic level indicator next to the
+        // preview so the user can visually confirm their voice is being
+        // captured (otherwise there's no UI signal that audio is on).
+        const micIndicator = (this.mode === 'screen' && this.includeMic)
+          ? `<span class="ps-recorder-mic" title="Voice"><span class="ps-recorder-mic-dot" id="ps-rec-mic-dot"></span> mic</span>`
+          : '';
         this.root.innerHTML = `
           <div class="ps-recorder-body">
             <span class="ps-recorder-dot"></span>
             <span class="ps-recorder-mode">${this._modeLabel()}</span>
             ${previewTag}
+            ${micIndicator}
             <span class="ps-recorder-timer" id="ps-rec-timer">0:00</span>
             <button class="ps-recorder-btn ps-recorder-stop" data-action="stop">Stop</button>
             <button class="ps-recorder-btn ps-recorder-cancel" data-action="discard">Cancel</button>
@@ -299,6 +336,9 @@
         } else {
           const v = this.root.querySelector('#ps-rec-preview');
           if (v && this.mediaStream) v.srcObject = this.mediaStream;
+          if (this.mode === 'screen' && this.includeMic && this.micStream) {
+            this._startMicIndicator();
+          }
         }
         return;
       }
@@ -415,6 +455,31 @@
       meter.style.transition = 'width 80ms linear';
       tick();
       this._stopMeter = () => { stopped = true; };
+    }
+
+    _startMicIndicator() {
+      const dot = this.root.querySelector('#ps-rec-mic-dot');
+      if (!dot || !this.micStream) return;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaStreamSource(this.micStream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      src.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let stopped = false;
+      const tick = () => {
+        if (stopped || this.state.get() !== 'recording') { ctx.close().catch(() => {}); return; }
+        analyser.getByteFrequencyData(data);
+        let sum = 0; for (const v of data) sum += v;
+        const level = Math.min(1, (sum / data.length) / 128);
+        const scale = 0.6 + level * 0.8;
+        dot.style.transform = `scale(${scale.toFixed(2)})`;
+        dot.style.opacity = (0.4 + level * 0.6).toFixed(2);
+        requestAnimationFrame(tick);
+      };
+      tick();
+      const prevStop = this._stopMeter;
+      this._stopMeter = () => { stopped = true; prevStop?.(); };
     }
   }
 
