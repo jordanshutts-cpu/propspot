@@ -190,6 +190,23 @@ router.patch('/:id', upload.single('photo'), async (req, res) => {
   }
 });
 
+// ── PATCH /api/photos/:id/notes ────────────────────────────────
+// Update caption/notes text for a photo.
+router.patch('/:id/notes', async (req, res) => {
+  const { notes } = req.body;
+  try {
+    const { rows } = await query(
+      'UPDATE photos SET notes = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [notes?.trim() || null, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Photo not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update notes' });
+  }
+});
+
 // ── PATCH /api/photos/:id/folder ───────────────────────────────
 // Move a photo to a different folder (or unassign)
 router.patch('/:id/folder', async (req, res) => {

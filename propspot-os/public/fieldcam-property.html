@@ -125,19 +125,21 @@
       backdrop-filter: blur(4px);
     }
 
-    /* ── Lightbox ──────────────────────────────────────────────── */
-    .fc-lb { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.92); flex-direction: column; }
+    /* ── Lightbox — split layout: photo left, panel right ───────── */
+    .fc-lb { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.92); flex-direction: row; }
     .fc-lb.open { display: flex; }
-    .fc-lb-top {
-      flex: 1; position: relative; min-height: 0;
+
+    /* Left: photo area (stays dark for comfortable viewing) */
+    .fc-lb-left {
+      flex: 1; position: relative; min-width: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 16px 80px 8px;
+      padding: 16px 80px;
     }
-    .fc-lb-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); color: #fff; font-size: 1.25rem; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background .12s, transform .1s; z-index: 10; }
+    .fc-lb-close { position: absolute; top: 16px; left: 16px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); color: #fff; font-size: 1.25rem; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background .12s, transform .1s; z-index: 10; }
     .fc-lb-close:hover { background: rgba(255,255,255,.28); transform: scale(1.08); }
     .fc-lb-img   { max-width: 100%; max-height: 100%; border-radius: 10px; object-fit: contain; box-shadow: 0 24px 64px rgba(0,0,0,.6); min-height: 0; }
     .fc-lb-video { max-width: 100%; max-height: 100%; border-radius: 10px; }
-    .fc-lb-meta  { display: flex; align-items: center; justify-content: center; gap: 10px; color: rgba(255,255,255,.8); font-size: .82rem; margin-top: 14px; text-align: center; flex-shrink: 0; }
+    .fc-lb-meta  { display: flex; align-items: center; justify-content: center; gap: 10px; color: rgba(255,255,255,.6); font-size: .78rem; margin-top: 10px; text-align: center; flex-shrink: 0; }
     .fc-lb-counter { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: .72rem; font-weight: 600; letter-spacing: .06em; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
     .fc-lb-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); color: #fff; width: 46px; height: 46px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); transition: background .12s, transform .14s; z-index: 10; }
     .fc-lb-nav:hover { background: rgba(255,255,255,.28); transform: translateY(-50%) scale(1.1); }
@@ -145,28 +147,75 @@
     .fc-lb-next { right: 18px; }
     .fc-lb-nav.hidden { display: none; }
 
-    /* ── Lightbox action bar (Annotate / Trash / Restore / Delete Forever) ── */
+    /* Right: info panel — uses app surface so it matches the rest of the UI */
+    .fc-lb-right {
+      width: 320px; flex-shrink: 0;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .fc-lb-right-head {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .fc-lb-right-uploader { font-size: .88rem; font-weight: 600; color: var(--text); }
+    .fc-lb-right-time { font-size: .75rem; color: var(--text-muted); margin-top: 3px; }
+    .fc-lb-right-folder { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+    .fc-lb-right-counter { font-size: .72rem; color: var(--text-muted); margin-top: 4px; font-weight: 600; }
+
+    /* ── Action buttons (inside right panel) ── */
     .fc-lb-actions {
-      display: flex; gap: 10px;
-      padding: 10px 20px 4px;
-      max-width: 600px; width: 100%;
-      margin: 0 auto;
+      display: flex; flex-direction: column; gap: 7px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
     .fc-lb-actions button {
-      flex: 1; padding: 10px 14px;
-      border-radius: 10px; border: none;
-      font-size: .85rem; font-weight: 600;
-      cursor: pointer;
-      transition: filter .12s, transform .1s;
+      width: 100%; padding: 9px 14px;
+      border-radius: 9px;
+      font-size: .84rem; font-weight: 600;
+      cursor: pointer; text-align: left;
+      transition: opacity .12s, transform .1s;
     }
-    .fc-lb-actions button:hover { filter: brightness(1.1); }
-    .fc-lb-actions button:active { transform: scale(.97); }
-    .fc-lb-actions button:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-    .lb-annotate-btn { background: #61B746; color: #fff; }
-    .lb-delete-btn   { background: rgba(255,59,48,.15); color: #FF6B61; border: 1px solid rgba(255,59,48,.3) !important; }
-    .lb-restore-btn  { background: rgba(97,183,70,.18); color: #7BD45F; border: 1px solid rgba(97,183,70,.35) !important; }
-    .lb-perm-delete-btn { background: rgba(255,59,48,.22); color: #FF6B61; border: 1px solid rgba(255,59,48,.4) !important; }
+    .fc-lb-actions button:hover { opacity: .85; }
+    .fc-lb-actions button:active { transform: scale(.98); }
+    .fc-lb-actions button:disabled { opacity: .4; cursor: not-allowed; }
+    .lb-annotate-btn { background: rgba(97,183,70,.1); color: var(--brand); border: 1.5px solid rgba(97,183,70,.28) !important; }
+    .lb-delete-btn   { background: rgba(255,59,48,.07); color: #d93025; border: 1.5px solid rgba(255,59,48,.2) !important; }
+    .lb-restore-btn  { background: rgba(97,183,70,.1); color: var(--brand); border: 1.5px solid rgba(97,183,70,.28) !important; }
+    .lb-perm-delete-btn { background: rgba(255,59,48,.1); color: #d93025; border: 1.5px solid rgba(255,59,48,.28) !important; }
+
+    /* ── Caption / notes edit ── */
+    .fc-lb-notes-section {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .fc-lb-notes-label {
+      font-size: .68rem; font-weight: 800; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px;
+    }
+    .fc-lb-notes-input {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 10px; border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--text);
+      font-size: .84rem; font-family: inherit;
+      resize: none; min-height: 52px;
+      outline: none; transition: border-color .12s;
+    }
+    .fc-lb-notes-input:focus { border-color: var(--brand); }
+    .fc-lb-notes-save {
+      margin-top: 6px; padding: 6px 14px;
+      border-radius: 7px; border: none;
+      background: var(--brand); color: #fff;
+      font-size: .8rem; font-weight: 600;
+      cursor: pointer; transition: opacity .12s;
+    }
+    .fc-lb-notes-save:hover { opacity: .88; }
+    .fc-lb-notes-save:disabled { opacity: .4; cursor: not-allowed; }
 
     /* ── Trash tab pill (distinct red accent) ── */
     .fc-tab.trash-tab { color: #c53b30; border-color: rgba(197,59,48,.25); }
@@ -182,108 +231,121 @@
     .fc-empty-trash-btn:hover { background: rgba(197,59,48,.12); border-color: #c53b30; }
     .fc-empty-trash-btn:disabled { opacity: .4; cursor: not-allowed; }
 
-    /* ── Comments panel (pinned bottom of lightbox) ──────────── */
-    .fc-lb-comments {
-      width: 100%; flex-shrink: 0;
-      background: #1c1c1e;
-      border-top: 1px solid rgba(255,255,255,.1);
-      display: flex; flex-direction: column;
-      max-height: 280px;
+    /* ── Comments panel (scrollable, inside right panel) ─────────── */
+    .fc-lb-comments-wrap {
+      flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
     }
     .fc-lb-comments-header {
-      padding: 10px 16px 0;
-      color: rgba(255,255,255,.45);
-      font-size: .72rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .5px;
+      padding: 10px 14px 6px;
+      color: var(--text-muted);
+      font-size: .68rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .07em;
+      flex-shrink: 0;
     }
     .fc-lb-comments-list {
       overflow-y: auto; -webkit-overflow-scrolling: touch;
-      padding: 10px 16px;
-      display: flex; flex-direction: column; gap: 12px;
-      max-height: 160px;
+      padding: 4px 14px 8px;
+      display: flex; flex-direction: column; gap: 10px;
+      flex: 1; min-height: 0;
     }
     .lb-comment { display: flex; gap: 9px; align-items: flex-start; }
     .lb-comment-avatar {
       width: 28px; height: 28px; border-radius: 50%;
-      background: #3a3a3c; color: #fff;
+      background: var(--brand); color: #fff;
       font-size: .75rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; margin-top: 1px;
     }
     .lb-comment-body { flex: 1; min-width: 0; }
     .lb-comment-author {
-      color: rgba(255,255,255,.45);
+      color: var(--text-muted);
       font-size: .7rem; font-weight: 600;
       margin-bottom: 2px;
     }
     .lb-comment-text {
-      color: #f0f0f0; font-size: .84rem;
+      color: var(--text); font-size: .84rem;
       line-height: 1.45; word-break: break-word;
     }
-    .lb-comment-text .mention { color: #61B746; font-weight: 600; }
+    .lb-comment-text .mention { color: var(--brand); font-weight: 600; }
     .lb-comment-del {
       background: none; border: none;
-      color: rgba(255,255,255,.2);
+      color: var(--text-muted);
       font-size: .72rem; cursor: pointer;
       padding: 2px 4px; flex-shrink: 0;
       border-radius: 4px; line-height: 1;
     }
-    .lb-comment-del:hover { color: #FF3B30; background: rgba(255,59,48,.1); }
+    .lb-comment-del:hover { color: #d93025; background: rgba(255,59,48,.08); }
     .lb-comments-empty {
-      color: rgba(255,255,255,.28);
-      font-size: .82rem; text-align: center; padding: 12px 0;
+      color: var(--text-muted);
+      font-size: .82rem; text-align: center; padding: 14px 0;
     }
     .lb-comment-input-wrap {
-      padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
-      border-top: 1px solid rgba(255,255,255,.06);
-      position: relative;
+      padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 8px);
+      border-top: 1px solid var(--border);
+      position: relative; flex-shrink: 0;
     }
     .lb-comment-input-row { display: flex; gap: 8px; align-items: center; }
     .lb-comment-input {
-      flex: 1; background: #2c2c2e;
-      border: 1px solid #3a3a3c; border-radius: 20px;
-      padding: 9px 14px; color: #fff;
-      font-size: .85rem; outline: none; font-family: inherit;
+      flex: 1; background: var(--bg);
+      border: 1.5px solid var(--border); border-radius: 20px;
+      padding: 8px 14px; color: var(--text);
+      font-size: .84rem; outline: none; font-family: inherit;
     }
-    .lb-comment-input:focus { border-color: #61B746; }
-    .lb-comment-input::placeholder { color: rgba(255,255,255,.28); }
+    .lb-comment-input:focus { border-color: var(--brand); }
+    .lb-comment-input::placeholder { color: var(--text-muted); }
     .lb-comment-send {
-      width: 34px; height: 34px; border-radius: 50%;
-      background: #61B746; border: none; color: #fff;
-      font-size: 1rem; font-weight: 700; cursor: pointer;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--brand); border: none; color: #fff;
+      font-size: .9rem; font-weight: 700; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; transition: background .15s;
+      flex-shrink: 0; transition: opacity .15s;
     }
-    .lb-comment-send:hover { background: #53a33c; }
-    .lb-comment-send:disabled { background: #3a3a3c; cursor: default; }
+    .lb-comment-send:hover { opacity: .88; }
+    .lb-comment-send:disabled { background: var(--border); cursor: default; }
 
-    /* @ mention dropdown */
+    /* @-mention dropdown */
     .lb-mention-dropdown {
       position: absolute; bottom: calc(100% + 4px);
       left: 12px; right: 12px;
-      background: #2c2c2e; border-radius: 12px;
+      background: var(--surface); border-radius: 12px;
       overflow: hidden; z-index: 20;
-      box-shadow: 0 -6px 24px rgba(0,0,0,.5);
-      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 -4px 20px rgba(0,0,0,.12);
+      border: 1px solid var(--border);
     }
     .lb-mention-dropdown.hidden { display: none; }
     .lb-mention-item {
-      padding: 10px 14px; color: #fff; font-size: .85rem;
+      padding: 10px 14px; color: var(--text); font-size: .85rem;
       cursor: pointer;
       display: flex; align-items: center; gap: 10px;
-      border-bottom: 1px solid rgba(255,255,255,.05);
+      border-bottom: 1px solid var(--border);
     }
     .lb-mention-item:last-child { border-bottom: none; }
-    .lb-mention-item:hover, .lb-mention-item.active { background: rgba(97,183,70,.15); }
+    .lb-mention-item:hover, .lb-mention-item.active { background: rgba(97,183,70,.08); }
     .lb-mention-avatar {
       width: 26px; height: 26px; border-radius: 50%;
-      background: #3a3a3c; color: #fff;
+      background: var(--brand); color: #fff;
       font-size: .72rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
     .lb-mention-name { flex: 1; }
-    .lb-mention-email { color: rgba(255,255,255,.35); font-size: .75rem; }
+    .lb-mention-email { color: var(--text-muted); font-size: .75rem; }
+
+    /* Mobile: stack vertically, right panel slides up from bottom */
+    @media (max-width: 768px) {
+      .fc-lb { flex-direction: column; }
+      .fc-lb-left { padding: 12px 56px 8px; flex: 1; min-height: 0; }
+      .fc-lb-close { top: 12px; left: 12px; width: 34px; height: 34px; }
+      .fc-lb-right {
+        width: 100%; flex-shrink: 0;
+        border-left: none; border-top: 1px solid var(--border);
+        border-radius: 16px 16px 0 0;
+        max-height: 52vh;
+        overflow-y: auto;
+      }
+      .fc-lb-actions { flex-direction: row; }
+      .fc-lb-actions button { text-align: center; flex: 1; }
+    }
 
     .fc-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     .fc-empty-icon { font-size: 3rem; opacity: .35; margin-bottom: 10px; }
@@ -462,9 +524,10 @@
 
 <!-- Lightbox -->
 <div class="fc-lb" id="fc-lb">
-  <button class="fc-lb-close" onclick="closeLb()">✕</button>
 
-  <div class="fc-lb-top" id="fc-lb-top">
+  <!-- Left: photo viewer (dark background for comfortable viewing) -->
+  <div class="fc-lb-left" id="fc-lb-left">
+    <button class="fc-lb-close" onclick="closeLb()">✕</button>
     <button class="fc-lb-nav fc-lb-prev hidden" id="fc-lb-prev" onclick="navLb(-1)">
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
@@ -474,34 +537,48 @@
     <img class="fc-lb-img" id="fc-lb-img" src="" alt="" style="display:none;">
     <video class="fc-lb-video" id="fc-lb-video" controls playsinline style="display:none;"></video>
     <div class="fc-lb-meta" id="fc-lb-meta"></div>
+  </div>
 
+  <!-- Right: info panel (app-themed surface) -->
+  <div class="fc-lb-right" id="fc-lb-right">
+
+    <!-- Header: uploader + timestamp + counter -->
+    <div class="fc-lb-right-head" id="fc-lb-right-head"></div>
+
+    <!-- Action buttons: Annotate / Trash / Restore / Delete Forever -->
     <div class="fc-lb-actions">
-      <!-- Normal mode -->
       <button id="lb-annotate-btn" class="lb-annotate-btn" onclick="annotateCurrentPhoto()">✏️ Annotate</button>
-      <button id="lb-delete-btn" class="lb-delete-btn" onclick="trashCurrentPhoto()">🗑 Trash</button>
-      <!-- Trash mode (hidden by default) -->
+      <button id="lb-delete-btn" class="lb-delete-btn" onclick="trashCurrentPhoto()">🗑 Move to Trash</button>
       <button id="lb-restore-btn" class="lb-restore-btn" onclick="restoreCurrentPhoto()" style="display:none;">♻️ Restore</button>
       <button id="lb-perm-delete-btn" class="lb-perm-delete-btn" onclick="permanentlyDeleteCurrentPhoto()" style="display:none;">🗑 Delete Forever</button>
     </div>
-  </div>
 
-  <!-- Comments panel (pinned to bottom) -->
-  <div class="fc-lb-comments" id="fc-lb-comments">
-    <div class="fc-lb-comments-header">💬 Comments</div>
-    <div class="fc-lb-comments-list" id="fc-lb-comments-list">
-      <div class="lb-comments-empty">Loading…</div>
+    <!-- Caption / notes edit -->
+    <div class="fc-lb-notes-section">
+      <div class="fc-lb-notes-label">Caption</div>
+      <textarea class="fc-lb-notes-input" id="fc-lb-notes-input" placeholder="Add a caption…" rows="2"></textarea>
+      <button class="fc-lb-notes-save" onclick="saveLbNotes()" id="fc-lb-notes-save">Save caption</button>
     </div>
-    <div class="lb-comment-input-wrap">
-      <div class="lb-mention-dropdown hidden" id="lb-mention-dropdown"></div>
-      <div class="lb-comment-input-row">
-        <input type="text" class="lb-comment-input" id="lb-comment-input"
-               placeholder="Add a comment… @mention teammates"
-               oninput="handleCommentInput(this.value)"
-               onkeydown="handleCommentKeydown(event)"
-               autocomplete="off" autocorrect="off" spellcheck="false">
-        <button class="lb-comment-send" id="lb-comment-send" onclick="submitComment()" title="Post comment">↑</button>
+
+    <!-- Comments (scrollable) -->
+    <div class="fc-lb-comments-wrap">
+      <div class="fc-lb-comments-header">💬 Comments</div>
+      <div class="fc-lb-comments-list" id="fc-lb-comments-list">
+        <div class="lb-comments-empty">Loading…</div>
+      </div>
+      <div class="lb-comment-input-wrap">
+        <div class="lb-mention-dropdown hidden" id="lb-mention-dropdown"></div>
+        <div class="lb-comment-input-row">
+          <input type="text" class="lb-comment-input" id="lb-comment-input"
+                 placeholder="Add a comment… @mention teammates"
+                 oninput="handleCommentInput(this.value)"
+                 onkeydown="handleCommentKeydown(event)"
+                 autocomplete="off" autocorrect="off" spellcheck="false">
+          <button class="lb-comment-send" id="lb-comment-send" onclick="submitComment()" title="Post comment">↑</button>
+        </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -919,11 +996,23 @@
       img.src = p?.url || '';
     }
     const time = p?.taken_at ? new Date(p.taken_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-    const metaText = [p?.uploader_name, time, p?.folder_name ? '📁 '+p.folder_name : ''].filter(Boolean).join(' · ');
     const total = lbPhotos.length;
+    // Left panel: just show counter pill
     const metaEl = document.getElementById('fc-lb-meta');
-    metaEl.innerHTML = (metaText ? `<span>${metaText}</span>` : '') +
-      (total > 1 ? `<span class="fc-lb-counter">${idx + 1} / ${total}</span>` : '');
+    metaEl.innerHTML = total > 1 ? `<span class="fc-lb-counter">${idx + 1} / ${total}</span>` : '';
+    // Right panel header: uploader, timestamp, folder
+    const headEl = document.getElementById('fc-lb-right-head');
+    if (headEl) {
+      const uploader = p?.uploader_name || '';
+      const folder   = p?.folder_name ? `📁 ${p.folder_name}` : '';
+      headEl.innerHTML =
+        (uploader ? `<div class="fc-lb-right-uploader">${escHtml(uploader)}</div>` : '') +
+        (time     ? `<div class="fc-lb-right-time">${escHtml(time)}</div>`          : '') +
+        (folder   ? `<div class="fc-lb-right-folder">${escHtml(folder)}</div>`      : '');
+    }
+    // Populate notes/caption field
+    const notesInput = document.getElementById('fc-lb-notes-input');
+    if (notesInput) notesInput.value = p?.notes || '';
     document.getElementById('fc-lb-prev').classList.toggle('hidden', idx <= 0);
     document.getElementById('fc-lb-next').classList.toggle('hidden', idx >= total - 1);
 
@@ -946,12 +1035,16 @@
     document.getElementById('fc-lb').classList.remove('open');
     document.body.style.overflow = '';
     lbIdx = -1;
-    // Reset comments panel
+    // Reset right panel
     currentComments = [];
     const list = document.getElementById('fc-lb-comments-list');
     if (list) list.innerHTML = '<div class="lb-comments-empty">Loading…</div>';
     const input = document.getElementById('lb-comment-input');
     if (input) input.value = '';
+    const notesInput = document.getElementById('fc-lb-notes-input');
+    if (notesInput) notesInput.value = '';
+    const headEl = document.getElementById('fc-lb-right-head');
+    if (headEl) headEl.innerHTML = '';
     hideMentionDropdown();
   }
 
@@ -973,9 +1066,9 @@
     if (e.key === 'ArrowRight') navLb(1);
   });
 
-  // Touch swipe on lightbox top section (not the comments panel)
+  // Touch swipe on left photo area only (not the right info panel)
   let _sx = null;
-  const _swipeEl = document.getElementById('fc-lb-top');
+  const _swipeEl = document.getElementById('fc-lb-left');
   _swipeEl.addEventListener('touchstart', e => { _sx = e.touches[0].clientX; }, { passive: true });
   _swipeEl.addEventListener('touchend', e => {
     if (_sx === null) return;
@@ -1005,6 +1098,27 @@
         showToast?.('Failed: ' + (err.message || err), 'error');
       }
     }, null);
+  }
+
+  async function saveLbNotes() {
+    const p   = lbPhotos[lbIdx];
+    if (!p) return;
+    const input = document.getElementById('fc-lb-notes-input');
+    const btn   = document.getElementById('fc-lb-notes-save');
+    const notes = input?.value?.trim() || null;
+    if (btn) btn.disabled = true;
+    try {
+      const updated = await satelliteApiFetch('fieldcam', `/api/photos/${p.id}/notes`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notes })
+      });
+      p.notes = updated.notes;
+      showToast?.('Caption saved');
+    } catch (err) {
+      showToast?.('Failed to save: ' + (err.message || err), 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function trashCurrentPhoto() {
