@@ -32,20 +32,31 @@ router.get('/', async (req, res) => {
   try {
     const isAdmin = await getIsAdmin(req.userId);
 
+    // last_activity_at = most recent photo upload (taken_at preferred,
+    // falls back to created_at) for that property, ignoring trashed photos.
+    // Properties with no photos sort by their own updated_at/created_at so
+    // newly-created properties still appear near the top until something
+    // happens at them.
     const baseSelect = `
       SELECT ${SELECT_FIELDS},
              (SELECT COUNT(*) FROM photos
                 WHERE property_id = p.id AND deleted_at IS NULL)::int AS photo_count,
              (SELECT url FROM photos
                 WHERE property_id = p.id AND deleted_at IS NULL AND media_type = 'image'
-                ORDER BY COALESCE(taken_at, created_at) DESC LIMIT 1) AS latest_photo_url
+                ORDER BY COALESCE(taken_at, created_at) DESC LIMIT 1) AS latest_photo_url,
+             COALESCE(
+               (SELECT MAX(COALESCE(taken_at, created_at)) FROM photos
+                  WHERE property_id = p.id AND deleted_at IS NULL),
+               p.updated_at,
+               p.created_at
+             ) AS last_activity_at
         FROM properties p
         LEFT JOIN users u ON u.id = p.created_by
     `;
 
     let sql, params;
     if (isAdmin) {
-      sql = baseSelect + ' ORDER BY p.created_at DESC';
+      sql = baseSelect + ' ORDER BY last_activity_at DESC NULLS LAST, p.created_at DESC';
       params = [];
     } else {
       // Restricted properties (those with any property_access rows) are
@@ -55,7 +66,7 @@ router.get('/', async (req, res) => {
         WHERE NOT EXISTS (SELECT 1 FROM property_access pa WHERE pa.property_id = p.id)
            OR EXISTS (SELECT 1 FROM property_access pa
                        WHERE pa.property_id = p.id AND pa.user_id = $1)
-        ORDER BY p.created_at DESC
+        ORDER BY last_activity_at DESC NULLS LAST, p.created_at DESC
       `;
       params = [req.userId];
     }
