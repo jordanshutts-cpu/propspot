@@ -1417,6 +1417,41 @@ CREATE UNIQUE INDEX IF NOT EXISTS drive_perms_folder_user_uniq ON drive_permissi
 CREATE UNIQUE INDEX IF NOT EXISTS drive_perms_file_user_uniq ON drive_permissions(file_id, user_id) WHERE file_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS drive_perms_user_idx ON drive_permissions(user_id);
 
+-- ── Drive: sync support (desktop companion app) ────────────────────
+ALTER TABLE drive_files   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE drive_files   ADD COLUMN IF NOT EXISTS version    INT NOT NULL DEFAULT 1;
+ALTER TABLE drive_files   ADD COLUMN IF NOT EXISTS content_hash TEXT;
+ALTER TABLE drive_folders ADD COLUMN IF NOT EXISTS version    INT NOT NULL DEFAULT 1;
+
+CREATE INDEX IF NOT EXISTS drive_files_updated_idx   ON drive_files(updated_at);
+CREATE INDEX IF NOT EXISTS drive_folders_updated_idx ON drive_folders(updated_at);
+
+-- Sync cursors: tracks per-device sync state
+CREATE TABLE IF NOT EXISTS drive_sync_cursors (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_id   TEXT NOT NULL,
+  device_name TEXT,
+  platform    TEXT CHECK (platform IN ('macos','windows','linux')),
+  cursor_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS drive_sync_cursor_user_device
+  ON drive_sync_cursors(user_id, device_id);
+
+-- Tombstones: track deletions so sync clients can remove local copies
+CREATE TABLE IF NOT EXISTS drive_sync_tombstones (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  item_type   TEXT NOT NULL CHECK (item_type IN ('file','folder')),
+  item_id     UUID NOT NULL,
+  parent_id   UUID,
+  filename    TEXT,
+  deleted_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  deleted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS drive_tombstones_deleted_idx ON drive_sync_tombstones(deleted_at);
+
 -- ── 2026-05-23 one-time: archive every open thread with no activity in the
 -- last 30 days. Lets Jordan start with a clean Unassigned/Assigned view
 -- without years of backfilled history cluttering the lists. Owners can

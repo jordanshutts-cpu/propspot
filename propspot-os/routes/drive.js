@@ -158,6 +158,7 @@ router.patch('/folders/:id', async (req, res) => {
         name = COALESCE($2, name),
         parent_id = $3,
         team_visible = COALESCE($4, team_visible),
+        version = version + 1,
         updated_at = NOW()
       WHERE id = $1 RETURNING *
     `, [req.params.id, name || null, parent_id !== undefined ? parent_id : undefined, team_visible !== undefined ? team_visible : null]);
@@ -190,6 +191,32 @@ router.delete('/folders/:id', async (req, res) => {
           try { await cloudinary.uploader.destroy(f.cloudinary_id); } catch {}
         }
       }
+    }
+
+    // Record tombstones for sync clients
+    const { rows: allFiles } = await query(`
+      WITH RECURSIVE tree AS (
+        SELECT id FROM drive_folders WHERE id = $1
+        UNION ALL
+        SELECT f.id FROM drive_folders f JOIN tree t ON f.parent_id = t.id
+      )
+      SELECT id, folder_id, filename FROM drive_files WHERE folder_id IN (SELECT id FROM tree)
+    `, [req.params.id]);
+    for (const f of allFiles) {
+      await query(`INSERT INTO drive_sync_tombstones (item_type, item_id, parent_id, filename, deleted_by)
+        VALUES ('file', $1, $2, $3, $4)`, [f.id, f.folder_id, f.filename, req.userId]);
+    }
+    const { rows: allSubfolders } = await query(`
+      WITH RECURSIVE tree AS (
+        SELECT id, parent_id, name FROM drive_folders WHERE id = $1
+        UNION ALL
+        SELECT f.id, f.parent_id, f.name FROM drive_folders f JOIN tree t ON f.parent_id = t.id
+      )
+      SELECT id, parent_id, name FROM tree
+    `, [req.params.id]);
+    for (const f of allSubfolders) {
+      await query(`INSERT INTO drive_sync_tombstones (item_type, item_id, parent_id, filename, deleted_by)
+        VALUES ('folder', $1, $2, $3, $4)`, [f.id, f.parent_id, f.name, req.userId]);
     }
 
     await query(`DELETE FROM drive_folders WHERE id = $1`, [req.params.id]);
@@ -285,7 +312,9 @@ router.patch('/files/:id', async (req, res) => {
     const { rows: [file] } = await query(`
       UPDATE drive_files SET
         filename = COALESCE($2, filename),
-        folder_id = COALESCE($3, folder_id)
+        folder_id = COALESCE($3, folder_id),
+        version = version + 1,
+        updated_at = NOW()
       WHERE id = $1 RETURNING *
     `, [req.params.id, filename || null, folder_id !== undefined ? folder_id : null]);
     if (!file) return res.status(404).json({ error: 'File not found' });
@@ -301,13 +330,16 @@ router.delete('/files/:id', async (req, res) => {
   try {
     const role = await getEffectiveRole(req.userId, 'file', req.params.id);
     if (!hasRole(role, 'editor')) return res.status(403).json({ error: 'No permission' });
-    const { rows: [file] } = await query(`SELECT cloudinary_id FROM drive_files WHERE id = $1`, [req.params.id]);
+    const { rows: [file] } = await query(`SELECT cloudinary_id, folder_id, filename FROM drive_files WHERE id = $1`, [req.params.id]);
     if (!file) return res.status(404).json({ error: 'File not found' });
     if (file.cloudinary_id) {
       try { await cloudinary.uploader.destroy(file.cloudinary_id, { resource_type: 'raw' }); } catch {
         try { await cloudinary.uploader.destroy(file.cloudinary_id); } catch {}
       }
     }
+    await query(`INSERT INTO drive_sync_tombstones (item_type, item_id, parent_id, filename, deleted_by)
+      VALUES ('file', $1, $2, $3, $4)`,
+      [req.params.id, file.folder_id || null, file.filename || null, req.userId]);
     await query(`DELETE FROM drive_files WHERE id = $1`, [req.params.id]);
     res.json({ success: true });
   } catch (err) {

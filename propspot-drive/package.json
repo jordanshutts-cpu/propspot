@@ -1,0 +1,50 @@
+{
+  "name": "propspot-drive",
+  "version": "1.0.0",
+  "description": "PropSpot Drive — native file sync client for macOS and Windows",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --mac --win"
+  },
+  "build": {
+    "appId": "com.propspot.drive",
+    "productName": "PropSpot Drive",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.icns",
+      "target": ["dmg", "zip"],
+      "entitlements": "build/entitlements.mac.plist",
+      "hardenedRuntime": true,
+      "extendInfo": {
+        "NSFileProviderDomainUsageDescription": "PropSpot Drive syncs your files to the cloud."
+      }
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": ["nsis"],
+      "publisherName": "PropSpot"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "runAfterFinish": true
+    }
+  },
+  "dependencies": {
+    "chokidar": "^4.0.0",
+    "electron-store": "^10.0.0",
+    "form-data": "^4.0.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
