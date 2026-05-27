@@ -2040,7 +2040,11 @@ async function renderThreadMenu(kind) {
   if (kind === 'kebab') {
     return `
       <div class="th-dropdown-item" onclick="markUnread()">📩 Mark unread</div>
-      <div class="th-dropdown-item" onclick="openLinkPropertyDialog()">🏠 ${t.property_id ? 'Change property' : 'Link to property'}</div>
+      <div class="th-dropdown-divider"></div>
+      <div class="th-dropdown-item" onclick="printThread()">🖨 Print</div>
+      <div class="th-dropdown-item" onclick="copyThreadUrl()">🔗 Copy conversation URL</div>
+      <div class="th-dropdown-item" onclick="copyThreadId()">📋 Copy conversation ID</div>
+      <div class="th-dropdown-item" onclick="openThreadInNewTab()">↗ Open in new tab</div>
       <div class="th-dropdown-divider"></div>
       <div class="th-dropdown-item" onclick="toggleStatus('trash')">${t.status === 'trash' ? '↩ Restore from trash' : '🗑 Move to trash'}</div>
       <div class="th-dropdown-item danger" onclick="toggleStatus('spam')">${t.status === 'spam' ? '✓ Not spam' : '🚫 Mark as spam'}</div>
@@ -2067,6 +2071,20 @@ async function renderThreadMenu(kind) {
     return (items || '<div class="th-dropdown-item">No teammates</div>') + unassign;
   }
   return '';
+}
+
+function copyThreadUrl() {
+  const url = location.origin + '/inbox.html?thread=' + STATE.activeThreadId;
+  navigator.clipboard.writeText(url).then(() => showToast('Conversation URL copied'));
+}
+function copyThreadId() {
+  navigator.clipboard.writeText(STATE.activeThreadId).then(() => showToast('Conversation ID copied'));
+}
+function openThreadInNewTab() {
+  window.open('/inbox.html?thread=' + STATE.activeThreadId, '_blank');
+}
+function printThread() {
+  window.print();
 }
 
 async function assignThread(userId) {
