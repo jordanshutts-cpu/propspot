@@ -1,5 +1,19 @@
+// Wrapper around fetch() that adds the PropSpot Authorization header from
+// localStorage.ros_token (set during login). Without it every /api/inkd/ call
+// returns 401 'Authentication required' from middleware/auth.js.
+function api(url, options = {}) {
+  const token = localStorage.getItem('ros_token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 async function load() {
-  const r = await fetch('/api/inkd/envelopes');
+  const r = await api('/api/inkd/envelopes');
   const list = await r.json();
   const buckets = { draft: [], out: [], action: [], review: [], filed: [] };
   for (const e of list) {
@@ -43,12 +57,12 @@ function card(e, lane) {
 
 async function voidEnv(id) {
   if (!confirm('Void this envelope?')) return;
-  await fetch(`/api/inkd/envelopes/${id}/void`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  await api(`/api/inkd/envelopes/${id}/void`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
   load();
 }
 
 async function saveToFiles(id) {
-  const r = await fetch(`/api/inkd/envelopes/${id}/save-to-files`, { method: 'POST' });
+  const r = await api(`/api/inkd/envelopes/${id}/save-to-files`, { method: 'POST' });
   if (!r.ok) { const j = await r.json().catch(()=>({})); alert('Save failed: ' + (j.error || r.statusText)); return; }
   alert('Saved to property Files');
   load();

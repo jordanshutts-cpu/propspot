@@ -1,3 +1,16 @@
+// Wrapper around fetch() that adds the PropSpot Authorization header from
+// localStorage.ros_token. Without it every /api/inkd/ call returns 401.
+function api(url, options = {}) {
+  const token = localStorage.getItem('ros_token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 const params = new URLSearchParams(location.search);
 
 const state = {
@@ -17,7 +30,7 @@ async function init() {
       contact_id:    params.get('contact_id'),
     };
     if (!body.template_id) { alert('Missing template_id'); return; }
-    const r = await fetch('/api/inkd/envelopes', {
+    const r = await api('/api/inkd/envelopes', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -40,7 +53,7 @@ async function init() {
 }
 
 async function loadEnvelope(id) {
-  const r = await fetch(`/api/inkd/envelopes/${id}`);
+  const r = await api(`/api/inkd/envelopes/${id}`);
   if (!r.ok) { alert('Envelope not found'); return; }
   const e = await r.json();
   state.envelope = e;
@@ -134,7 +147,7 @@ function renderFields() {
 }
 
 async function addRecipient() {
-  const r = await fetch(`/api/inkd/envelopes/${state.envelope.id}/recipients`, {
+  const r = await api(`/api/inkd/envelopes/${state.envelope.id}/recipients`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ role: 'buyer', full_name: '', email: '', signing_order: state.recipients.length + 1 }),
   });
@@ -144,7 +157,7 @@ async function addRecipient() {
   renderRecipients();
 }
 async function updateRecipient(id, key, value) {
-  await fetch(`/api/inkd/envelopes/${state.envelope.id}/recipients/${id}`, {
+  await api(`/api/inkd/envelopes/${state.envelope.id}/recipients/${id}`, {
     method: 'PATCH', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ [key]: value }),
   });
@@ -152,12 +165,12 @@ async function updateRecipient(id, key, value) {
   if (r) r[key] = value;
 }
 async function deleteRecipient(id) {
-  await fetch(`/api/inkd/envelopes/${state.envelope.id}/recipients/${id}`, { method: 'DELETE' });
+  await api(`/api/inkd/envelopes/${state.envelope.id}/recipients/${id}`, { method: 'DELETE' });
   state.recipients = state.recipients.filter(r => r.id !== id);
   renderRecipients();
 }
 async function updateFieldValue(id, value) {
-  await fetch(`/api/inkd/envelopes/${state.envelope.id}/field-values`, {
+  await api(`/api/inkd/envelopes/${state.envelope.id}/field-values`, {
     method: 'PUT', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ values: [{ id, value }] }),
   });
@@ -169,7 +182,7 @@ async function updateFieldValue(id, value) {
 }
 async function toggleReminders() {
   const v = document.getElementById('reminders-toggle').checked;
-  await fetch(`/api/inkd/envelopes/${state.envelope.id}`, {
+  await api(`/api/inkd/envelopes/${state.envelope.id}`, {
     method: 'PATCH', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ reminders_enabled: v }),
   });
@@ -181,7 +194,7 @@ async function send() {
   if (!state.recipients.length) return alert('Add at least one recipient before sending');
   const missing = state.recipients.find(r => !r.email || !r.full_name);
   if (missing) return alert('Every recipient needs a name + email');
-  const r = await fetch(`/api/inkd/envelopes/${state.envelope.id}/send`, { method: 'POST' });
+  const r = await api(`/api/inkd/envelopes/${state.envelope.id}/send`, { method: 'POST' });
   if (!r.ok) { const j = await r.json().catch(()=>({})); return alert('Send failed: ' + (j.error || r.statusText)); }
   alert('Envelope sent');
   location.href = `/inkd.html?lane=out`;

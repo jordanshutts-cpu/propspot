@@ -73,7 +73,7 @@ router.post('/', upload.single('file'), async (req, res) => {
         (name, category, description, source_pdf_url, source_pdf_id, page_count, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
-      [name, category || null, description || null, cloud.secure_url, cloud.public_id, pageCount, req.user.id]
+      [name, category || null, description || null, cloud.secure_url, cloud.public_id, pageCount, req.userId]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
