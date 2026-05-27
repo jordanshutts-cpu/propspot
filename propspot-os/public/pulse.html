@@ -44,6 +44,41 @@
     }
     .ps-nav-divider { height:1px; background:var(--border); margin:8px 14px; }
 
+    /* ── User-created sidebar sections ── */
+    .ps-user-section { margin: 2px 0; }
+    .ps-user-section-head {
+      display:flex; align-items:center; gap:4px;
+      padding:6px 10px 4px 4px;
+      font-size:.74rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.04em; color:var(--text-muted);
+    }
+    .ps-section-caret {
+      background:transparent; border:none; cursor:pointer;
+      color:var(--text-muted); width:18px; height:18px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:4px; font-size:.7rem; flex-shrink:0;
+    }
+    .ps-section-caret:hover { background:var(--brand-light); color:var(--text); }
+    .ps-section-name { flex:1; min-width:0; cursor:text;
+                       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ps-section-del {
+      background:transparent; border:none; cursor:pointer; opacity:0;
+      color:var(--text-muted); padding:0 4px; font-size:1rem; line-height:1;
+      transition:opacity .1s, color .1s;
+    }
+    .ps-user-section-head:hover .ps-section-del { opacity:1; }
+    .ps-section-del:hover { color:#ef4444; }
+    .ps-user-section.collapsed .ps-user-section-body { display:none; }
+    .ps-user-section-body { min-height:8px; padding:0 0 4px; transition:background .12s; }
+    .ps-default-body { transition:background .12s; }
+    .ps-drop-over { background:rgba(97,183,70,.14); outline:1.5px dashed var(--brand);
+                    outline-offset:-2px; border-radius:6px; }
+    .ps-row.dragging { opacity:.4; }
+    .ps-section-empty {
+      padding:8px 14px; margin:0; font-size:.74rem; color:var(--text-muted);
+      opacity:.55; font-style:italic;
+    }
+
     /* Unreads view (Slack-style aggregate list) */
     .ps-unreads-list { padding:14px 18px; overflow-y:auto; flex:1; }
     .ps-unread-row {
@@ -541,6 +576,9 @@
   let messages = [], sseSource = null;
   let lastSender = null, lastDate = null;
   let allChannels = [], allDms = [], allOrgUsers = [];
+  // Per-user sidebar sections + items. See /api/pulse/sections.
+  // mySections: [{ id, name, position, collapsed, items: [{id, channel_id?, dm_id?, position}] }]
+  let mySections = [];
   let settingsChannelId = null;
   let pendingMentions = new Map();
   let mentionState = null;
@@ -602,12 +640,14 @@
 
   // ── Sidebar ────────────────────────────────────────────────────
   async function loadSidebar() {
-    const [chRes, dmRes] = await Promise.allSettled([
+    const [chRes, dmRes, secRes] = await Promise.allSettled([
       satelliteApiFetch('pulse', '/api/pulse/channels'),
       satelliteApiFetch('pulse', '/api/pulse/dms'),
+      satelliteApiFetch('pulse', '/api/pulse/sections'),
     ]);
-    allChannels = chRes.status === 'fulfilled' && Array.isArray(chRes.value) ? chRes.value : [];
-    allDms      = dmRes.status === 'fulfilled' && Array.isArray(dmRes.value) ? dmRes.value : [];
+    allChannels = chRes.status  === 'fulfilled' && Array.isArray(chRes.value)  ? chRes.value  : [];
+    allDms      = dmRes.status  === 'fulfilled' && Array.isArray(dmRes.value)  ? dmRes.value  : [];
+    mySections  = secRes.status === 'fulfilled' && Array.isArray(secRes.value) ? secRes.value : [];
 
     if (!allChannels.length) {
       document.getElementById('ps-sidebar-body').innerHTML =
@@ -650,23 +690,97 @@
       <div class="ps-nav-divider"></div>
     `;
 
+    // ── Channel + DM rows are reusable across user-created sections and
+    //    the default groups. Each row is draggable; the drop target
+    //    handler reads data-drag-type + data-drag-id to assign it.
+    const channelRowHtml = (ch) => {
+      const active = activeScope?.id === ch.id ? ' active' : '';
+      const unread = ch.unread > 0 ? `<span class="ps-badge">${ch.unread}</span>` : '';
+      return `<div class="ps-row${active}"
+        draggable="true"
+        data-drag-type="channel" data-drag-id="${ch.id}"
+        data-ch-id="${ch.id}" data-ch-name="${escHtml(ch.name || ch.slug)}" data-ch-role="${escHtml(ch.my_role || 'member')}"
+        ondragstart="psDragStart(event)" ondragend="psDragEnd(event)"
+        onclick="handleChClick(this)">
+        <span class="ps-row-icon">#</span>
+        <span class="ps-row-name">${escHtml(ch.name || ch.slug)}</span>${unread}
+      </div>`;
+    };
+    const dmRowHtml = (dm) => {
+      const others  = (dm.members || []).filter(m => m.user_id !== myId);
+      const name    = dm.title || others.map(m => m.full_name || m.email || '?').join(', ') || 'Group DM';
+      const active  = activeScope?.id === dm.id ? ' active' : '';
+      const unread  = dm.unread > 0 ? `<span class="ps-badge">${dm.unread}</span>` : '';
+      const initial = (others[0]?.full_name || others[0]?.email || '?')[0]?.toUpperCase() || '?';
+      return `<div class="ps-row${active}"
+        draggable="true"
+        data-drag-type="dm" data-drag-id="${dm.id}"
+        data-dm-id="${dm.id}" data-dm-name="${escHtml(name)}"
+        ondragstart="psDragStart(event)" ondragend="psDragEnd(event)"
+        onclick="handleDmClick(this)">
+        <div class="ps-dm-avatar" style="background:${avatarColor(dm.id)}">${escHtml(initial)}</div>
+        <span class="ps-row-name">${escHtml(name)}</span>${unread}
+        <button class="ps-row-hide" onclick="hideDm('${dm.id}', event)" title="Hide from sidebar" aria-label="Hide">×</button>
+      </div>`;
+    };
+
+    // Build a lookup of which channels/DMs are already assigned to a user
+    // section so the default groups can exclude them.
+    const inSection = { channels: new Set(), dms: new Set() };
+    for (const sec of mySections) {
+      for (const it of sec.items) {
+        if (it.channel_id) inSection.channels.add(it.channel_id);
+        if (it.dm_id)      inSection.dms.add(it.dm_id);
+      }
+    }
+
+    // ── User-created sections (drag-drop targets) ──
+    for (const sec of mySections) {
+      const items = sec.items
+        .map(it => {
+          if (it.channel_id) {
+            const ch = memberChs.find(c => c.id === it.channel_id);
+            return ch ? channelRowHtml(ch) : '';
+          }
+          if (it.dm_id) {
+            const dm = allDms.find(d => d.id === it.dm_id);
+            return dm ? dmRowHtml(dm) : '';
+          }
+          return '';
+        })
+        .join('');
+      const caret = sec.collapsed ? '▸' : '▾';
+      html += `
+        <div class="ps-user-section${sec.collapsed ? ' collapsed' : ''}" data-section-id="${sec.id}">
+          <div class="ps-user-section-head">
+            <button class="ps-section-caret" onclick="toggleSection('${sec.id}')" title="${sec.collapsed ? 'Expand' : 'Collapse'}">${caret}</button>
+            <span class="ps-section-name" ondblclick="renameSection('${sec.id}')" title="Double-click to rename">${escHtml(sec.name)}</span>
+            <button class="ps-section-del" onclick="deleteSection('${sec.id}')" title="Delete section">×</button>
+          </div>
+          <div class="ps-user-section-body"
+               data-drop-target="section" data-section-id="${sec.id}"
+               ondragover="psDragOver(event)" ondragleave="psDragLeave(event)" ondrop="psDrop(event)">
+            ${items || '<p class="ps-section-empty">Drop channels or DMs here</p>'}
+          </div>
+        </div>`;
+    }
+
+    // ── Default Channels group (channels not in any user section) ──
+    const looseChs = memberChs.filter(c => !inSection.channels.has(c.id));
     html += `<div class="ps-section-row">
       <span class="ps-section">Channels</span>
+      <button class="ps-new-btn" onclick="newSection()" title="New section" style="margin-right:6px;">＋ Section</button>
       ${isOwner ? `<button class="ps-new-btn" onclick="openNewChannelModal()" title="New channel">+</button>` : ''}
-    </div>`;
-
-    if (memberChs.length) {
-      html += memberChs.map(ch => {
-        const active = activeScope?.id === ch.id ? ' active' : '';
-        const unread = ch.unread > 0 ? `<span class="ps-badge">${ch.unread}</span>` : '';
-        return `<div class="ps-row${active}" data-ch-id="${ch.id}" data-ch-name="${escHtml(ch.name || ch.slug)}" data-ch-role="${escHtml(ch.my_role || 'member')}" onclick="handleChClick(this)">
-          <span class="ps-row-icon">#</span>
-          <span class="ps-row-name">${escHtml(ch.name || ch.slug)}</span>${unread}
-        </div>`;
-      }).join('');
-    } else {
+    </div>
+    <div class="ps-default-body"
+         data-drop-target="default" data-default-type="channel"
+         ondragover="psDragOver(event)" ondragleave="psDragLeave(event)" ondrop="psDrop(event)">`;
+    if (looseChs.length) {
+      html += looseChs.map(channelRowHtml).join('');
+    } else if (!mySections.length) {
       html += `<p class="text-muted text-sm" style="padding:6px 14px;">No channels yet.</p>`;
     }
+    html += `</div>`;
 
     if (joinableChs.length) {
       html += `<div class="ps-section-row" style="margin-top:8px;"><span class="ps-section">Browse</span></div>`;
@@ -678,30 +792,123 @@
         </div>`).join('');
     }
 
-    // DMs section — always shown with + button
+    // ── Default DMs group (DMs not in any user section) ──
+    const looseDms = allDms.filter(d => !inSection.dms.has(d.id));
     html += `<div class="ps-section-row" style="margin-top:8px;">
       <span class="ps-section">Direct Messages</span>
       <button class="ps-new-btn" onclick="openNewDmModal()" title="New direct message">+</button>
-    </div>`;
-
-    if (allDms.length) {
-      html += allDms.map(dm => {
-        const others  = (dm.members || []).filter(m => m.user_id !== myId);
-        const name    = dm.title || others.map(m => m.full_name || m.email || '?').join(', ') || 'Group DM';
-        const active  = activeScope?.id === dm.id ? ' active' : '';
-        const unread  = dm.unread > 0 ? `<span class="ps-badge">${dm.unread}</span>` : '';
-        const initial = (others[0]?.full_name || others[0]?.email || '?')[0]?.toUpperCase() || '?';
-        return `<div class="ps-row${active}" data-dm-id="${dm.id}" data-dm-name="${escHtml(name)}" onclick="handleDmClick(this)">
-          <div class="ps-dm-avatar" style="background:${avatarColor(dm.id)}">${escHtml(initial)}</div>
-          <span class="ps-row-name">${escHtml(name)}</span>${unread}
-          <button class="ps-row-hide" onclick="hideDm('${dm.id}', event)" title="Hide from sidebar" aria-label="Hide">×</button>
-        </div>`;
-      }).join('');
-    } else {
+    </div>
+    <div class="ps-default-body"
+         data-drop-target="default" data-default-type="dm"
+         ondragover="psDragOver(event)" ondragleave="psDragLeave(event)" ondrop="psDrop(event)">`;
+    if (looseDms.length) {
+      html += looseDms.map(dmRowHtml).join('');
+    } else if (!mySections.length) {
       html += `<p class="text-muted text-sm" style="padding:6px 14px;opacity:.55;">No DMs yet</p>`;
     }
+    html += `</div>`;
 
     document.getElementById('ps-sidebar-body').innerHTML = html;
+  }
+
+  // ── Sections: create / rename / delete / collapse ─────────────────
+  async function newSection() {
+    const name = (prompt('Section name?') || '').trim();
+    if (!name) return;
+    try {
+      await satelliteApiFetch('pulse', '/api/pulse/sections', {
+        method: 'POST', body: JSON.stringify({ name })
+      });
+      await loadSidebar();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+  async function renameSection(id) {
+    const sec = mySections.find(s => s.id === id);
+    if (!sec) return;
+    const name = (prompt('Rename section', sec.name) || '').trim();
+    if (!name || name === sec.name) return;
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/sections/${id}`, {
+        method: 'PATCH', body: JSON.stringify({ name })
+      });
+      await loadSidebar();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+  async function deleteSection(id) {
+    const sec = mySections.find(s => s.id === id);
+    if (!sec) return;
+    if (!confirm(`Delete the "${sec.name}" section? Channels/DMs inside it move back to the default groups.`)) return;
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/sections/${id}`, { method: 'DELETE' });
+      await loadSidebar();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+  async function toggleSection(id) {
+    const sec = mySections.find(s => s.id === id);
+    if (!sec) return;
+    const next = !sec.collapsed;
+    try {
+      await satelliteApiFetch('pulse', `/api/pulse/sections/${id}`, {
+        method: 'PATCH', body: JSON.stringify({ collapsed: next })
+      });
+      sec.collapsed = next;
+      renderSidebar();
+    } catch (e) { showToast(e.message, 'error'); }
+  }
+
+  // ── Sections: drag-drop ────────────────────────────────────────────
+  let psDrag = null; // { type:'channel'|'dm', id }
+  function psDragStart(e) {
+    const row = e.currentTarget;
+    psDrag = { type: row.dataset.dragType, id: row.dataset.dragId };
+    row.classList.add('dragging');
+    // dataTransfer is required for drag to fire across some browsers.
+    try { e.dataTransfer.setData('text/plain', psDrag.id); } catch (_) {}
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+  }
+  function psDragEnd(e) {
+    e.currentTarget?.classList.remove('dragging');
+    document.querySelectorAll('.ps-drop-over').forEach(el => el.classList.remove('ps-drop-over'));
+    psDrag = null;
+  }
+  function psDragOver(e) {
+    if (!psDrag) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('ps-drop-over');
+  }
+  function psDragLeave(e) {
+    e.currentTarget.classList.remove('ps-drop-over');
+  }
+  async function psDrop(e) {
+    e.preventDefault();
+    const target = e.currentTarget;
+    target.classList.remove('ps-drop-over');
+    if (!psDrag) return;
+    const drag = psDrag; psDrag = null;
+    const dropKind = target.dataset.dropTarget;
+    try {
+      if (dropKind === 'section') {
+        const sectionId = target.dataset.sectionId;
+        const body = drag.type === 'channel' ? { channel_id: drag.id } : { dm_id: drag.id };
+        await satelliteApiFetch('pulse', `/api/pulse/sections/${sectionId}/items`, {
+          method: 'POST', body: JSON.stringify(body)
+        });
+      } else if (dropKind === 'default') {
+        // Remove from whichever section currently holds this channel/DM.
+        const cur = mySections.flatMap(s => s.items.map(it => ({ s, it })))
+          .find(({ it }) =>
+            (drag.type === 'channel' && it.channel_id === drag.id) ||
+            (drag.type === 'dm'      && it.dm_id      === drag.id)
+          );
+        if (!cur) return; // already in default
+        await satelliteApiFetch('pulse',
+          `/api/pulse/sections/${cur.s.id}/items/${cur.it.id}`,
+          { method: 'DELETE' }
+        );
+      }
+      await loadSidebar();
+    } catch (err) { showToast(err.message, 'error'); }
   }
 
   function handleChClick(el) {
