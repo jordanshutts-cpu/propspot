@@ -56,13 +56,16 @@ router.post('/', upload.single('file'), async (req, res) => {
     const pdfDoc = await PDFDocument.load(req.file.buffer, { ignoreEncryption: true });
     const pageCount = pdfDoc.getPageCount();
 
-    // Match the property-files.js pattern (resource_type: 'auto'). On some Cloudinary
-    // plans 'raw' uploads of PDFs are restricted; 'auto' classifies PDFs as image
-    // resources, which always works for upload (we never request rendering, just storage).
+    // Upload PDFs as 'raw' resources (binary passthrough). The earlier 'auto'
+    // value caused Cloudinary to classify PDFs as 'image' resources, and then
+    // its default "PDF and ZIP files delivery" security policy blocked browser
+    // fetches with a 401 — so the editor stage couldn't load the saved PDF
+    // back. 'raw' resources bypass that policy entirely and serve the file
+    // as-is, the same way an S3 bucket would.
     stage = 'cloudinary-upload';
     const cloud = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
-        { resource_type: 'auto', folder: 'propspot/inkd/templates' },
+        { resource_type: 'raw', folder: 'propspot/inkd/templates', format: 'pdf' },
         (err, out) => err ? reject(err) : resolve(out)
       ).end(req.file.buffer);
     });
