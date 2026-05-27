@@ -120,6 +120,8 @@
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: true, audio: true
         });
+        const vTrack = screenStream.getVideoTracks()[0];
+        if (vTrack) vTrack.addEventListener('ended', () => this.stopRecording());
         let webcamStream = null;
         if (this.includeBubble) {
           try {
@@ -174,6 +176,7 @@
     }
 
     _finalizeBlob() {
+      if (this._discarded) { this.chunks = []; return; }
       const type = this.recorder?.mimeType || this.mime || 'application/octet-stream';
       this.blob = new Blob(this.chunks, { type });
       this.previewUrl = URL.createObjectURL(this.blob);
@@ -181,17 +184,22 @@
     }
 
     discard() {
+      this._discarded = true;
+      if (this.recorder && this.recorder.state !== 'inactive') {
+        try { this.recorder.stop(); } catch (_) {}
+      }
       if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
       this.previewUrl = null;
       this.blob = null;
       this.chunks = [];
+      this._stopMeter?.();
       this._cleanupStreams();
       this.state.send('discard');
       this.destroy();
     }
 
     async send() {
-      if (!this.blob) return;
+      if (!this.blob || this._sendDisabled) return;
       this.state.send('send');
       try {
         const attachment = await this._upload(this.blob);
@@ -204,6 +212,7 @@
         this.destroy();
       } catch (err) {
         console.warn('PulseRecorder upload failed:', err);
+        if (/too large/i.test(err?.message || '')) this._sendDisabled = true;
         this.state.send('uploadFail');
         this._render();
         this._showToast(err?.message || 'Upload failed — try again.');
@@ -216,10 +225,12 @@
       const fd = new FormData();
       fd.append('file', blob, filename);
 
+      const base = (typeof API_BASE !== 'undefined') ? API_BASE : '';
+      const token = (typeof getToken === 'function') ? (getToken() || '') : '';
+
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', (window.API_BASE || '') + '/api/pulse/attachments');
-        const token = (window.getToken && window.getToken()) || '';
+        xhr.open('POST', base + '/api/pulse/attachments');
         if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
         xhr.upload.onprogress = (e) => {
           if (!e.lengthComputable) return;
@@ -227,8 +238,25 @@
         };
         xhr.onload = () => {
           const data = (() => { try { return JSON.parse(xhr.responseText); } catch (_) { return {}; } })();
-          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-          else reject(new Error(data.error || `Upload failed (${xhr.status})`));
+          if (xhr.status === 401) {
+            if (typeof clearToken === 'function') clearToken();
+            window.location.href = '/index.html';
+            reject(new Error('Session expired'));
+            return;
+          }
+          if (xhr.status === 413) {
+            reject(new Error('Recording too large — try a shorter clip.'));
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            if (!data || typeof data.url !== 'string') {
+              reject(new Error('Upload response missing url'));
+              return;
+            }
+            resolve(data);
+          } else {
+            reject(new Error(data.error || `Upload failed (${xhr.status})`));
+          }
         };
         xhr.onerror = () => reject(new Error('Network error during upload'));
         xhr.send(fd);
@@ -241,6 +269,7 @@
 
     destroy() {
       if (this.tickHandle) clearInterval(this.tickHandle);
+      this._stopMeter?.();
       this._cleanupStreams();
       if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root);
     }
@@ -278,10 +307,11 @@
         const player = isVideo
           ? `<video controls src="${this.previewUrl}" class="ps-recorder-preview-vid"></video>`
           : `<audio controls src="${this.previewUrl}" class="ps-recorder-preview-aud"></audio>`;
+        const sendAttr = this._sendDisabled ? 'disabled' : '';
         this.root.innerHTML = `
           <div class="ps-recorder-body">
             ${player}
-            <button class="ps-recorder-btn primary" data-action="send">Send</button>
+            <button class="ps-recorder-btn primary" data-action="send" ${sendAttr}>Send</button>
             <button class="ps-recorder-btn" data-action="reset">Re-record</button>
             <button class="ps-recorder-btn ps-recorder-cancel" data-action="discard">Discard</button>
           </div>`;
@@ -325,7 +355,11 @@
       this.previewUrl = null;
       this.blob = null;
       this.chunks = [];
+      this._sendDisabled = false;
+      this._discarded = false;
+      this._stopMeter?.();
       this._cleanupStreams();
+      this.state.send('reset');
       this._beginAcquire();
     }
 

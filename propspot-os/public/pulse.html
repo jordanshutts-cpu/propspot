@@ -1232,7 +1232,13 @@
   }
 
   // ── Message HTML ───────────────────────────────────────────────
+  function isSafeAttachmentUrl(url) {
+    if (typeof url !== 'string' || !url) return false;
+    return /^https:\/\/[^\s"'<>]+$/.test(url);
+  }
+
   function cloudinaryPoster(url) {
+    if (!url.includes('/video/upload/')) return '';
     return url
       .replace('/video/upload/', '/video/upload/so_auto/')
       .replace(/\.(webm|mp4|mov|quicktime)$/i, '.jpg');
@@ -1243,18 +1249,20 @@
     return atts.map(a => {
       const mime = a.mime_type || '';
       const url  = a.url;
+      if (!isSafeAttachmentUrl(url)) return '';
+      const safeUrl = escHtml(url);
       const safeFn = escHtml(a.filename || 'file');
       if (mime.startsWith('image/')) {
-        return `<div class="ps-msg-attachment"><a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${safeFn}" loading="lazy" /></a></div>`;
+        return `<div class="ps-msg-attachment"><a href="${safeUrl}" target="_blank" rel="noopener"><img src="${safeUrl}" alt="${safeFn}" loading="lazy" /></a></div>`;
       }
       if (mime.startsWith('audio/')) {
-        return `<div class="ps-msg-attachment"><audio controls preload="metadata" src="${url}"></audio></div>`;
+        return `<div class="ps-msg-attachment"><audio controls preload="metadata" src="${safeUrl}"></audio></div>`;
       }
       if (mime.startsWith('video/')) {
-        const poster = cloudinaryPoster(url);
-        return `<div class="ps-msg-attachment"><video controls preload="metadata" poster="${poster}" src="${url}"></video></div>`;
+        const poster = escHtml(cloudinaryPoster(url));
+        return `<div class="ps-msg-attachment"><video controls preload="metadata" poster="${poster}" src="${safeUrl}"></video></div>`;
       }
-      return `<div class="ps-msg-attachment file"><a href="${url}" target="_blank" rel="noopener">📎 ${safeFn}</a></div>`;
+      return `<div class="ps-msg-attachment file"><a href="${safeUrl}" target="_blank" rel="noopener">📎 ${safeFn}</a></div>`;
     }).join('');
   }
 
@@ -1868,7 +1876,6 @@
 
   // ── Send message ───────────────────────────────────────────────
   // ── Pulse Recorder integration ──────────────────────────────────
-  let pendingAttachments = [];
   let activeRecorder = null;
 
   function isRecorderEnabled() {
@@ -1885,12 +1892,13 @@
     }
     const noMedia = !navigator.mediaDevices?.getUserMedia;
     const noScreen = !navigator.mediaDevices?.getDisplayMedia;
-    if (noMedia) {
+    const noRecorder = typeof window.MediaRecorder === 'undefined';
+    if (noMedia || noRecorder) {
       ['ps-tool-voice','ps-tool-webcam'].forEach(id => {
         const el = document.getElementById(id); if (el) el.style.display = 'none';
       });
     }
-    if (noScreen) {
+    if (noScreen || noRecorder) {
       const el = document.getElementById('ps-tool-screen'); if (el) el.style.display = 'none';
     }
   }
@@ -1899,11 +1907,28 @@
     if (activeRecorder) { activeRecorder.destroy(); activeRecorder = null; }
     const host = document.getElementById('ps-recorder-host');
     if (!host) return;
+    const scopeAtStart = activeScope;
     activeRecorder = new PulseRecorder({ mode, mountInto: host });
-    host.addEventListener('pulse-recorder:done', (e) => {
-      pendingAttachments.push(e.detail);
-      sendMsg();
+    host.addEventListener('pulse-recorder:done', async (e) => {
       activeRecorder = null;
+      if (!scopeAtStart) return;
+      const ta = document.getElementById('ps-textarea');
+      const text = ta ? ta.value.trim() : '';
+      if (ta) { ta.value = ''; ta.style.height = ''; }
+      const payload = {
+        body: text,
+        attachments: [e.detail]
+      };
+      if (scopeAtStart.type === 'channel') payload.channel_id = scopeAtStart.id;
+      else                                  payload.dm_id      = scopeAtStart.id;
+      try {
+        await satelliteApiFetch('pulse', '/api/pulse/messages', {
+          method: 'POST', body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        showToast(err.message || 'Failed to send recording', 'error');
+        if (ta) ta.value = text;
+      }
     }, { once: true });
     activeRecorder.start();
   }
@@ -1913,14 +1938,11 @@
     const ta = document.getElementById('ps-textarea');
     if (!ta) return;
     let text = ta.value.trim();
-    const attachments = pendingAttachments.slice();
-    pendingAttachments = [];
-
-    if (!text && !attachments.length) return;
+    if (!text) return;
     ta.value = ''; ta.style.height = '';
     closeMentionPicker();
 
-    if (text && pendingMentions.size) {
+    if (pendingMentions.size) {
       pendingMentions.forEach((uid, name) => {
         const safe = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         text = text.replace(
@@ -1934,17 +1956,12 @@
     const payload = activeScope.type === 'channel'
       ? { channel_id: activeScope.id, body: text }
       : { dm_id:      activeScope.id, body: text };
-    if (attachments.length) payload.attachments = attachments;
     if (replyingTo) { payload.reply_to_id = replyingTo.id; cancelReply(); }
     try {
       await satelliteApiFetch('pulse', '/api/pulse/messages', {
         method: 'POST', body: JSON.stringify(payload)
       });
-    } catch (e) {
-      showToast(e.message, 'error');
-      ta.value = text;
-      pendingAttachments = attachments;
-    }
+    } catch (e) { showToast(e.message, 'error'); ta.value = text; }
   }
 
   function handleKey(e) {

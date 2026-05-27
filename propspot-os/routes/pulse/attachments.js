@@ -64,10 +64,16 @@ router.post('/', (req, res, next) => {
       folder: `propspot/chat/uploads/${req.userId}`,
       mimeType: file.mimetype
     });
+    // Trust Cloudinary's parsed resource_type + format rather than the
+    // client-controlled multipart Content-Type. Falls back to the client
+    // value only when Cloudinary didn't return enough metadata.
+    const derivedMime = (result.resource_type && result.format)
+      ? `${result.resource_type === 'raw' ? 'application' : result.resource_type}/${result.format}`
+      : file.mimetype;
     return res.json({
       url: result.url,
       cloudinary_id: result.cloudinary_id,
-      mime_type: file.mimetype,
+      mime_type: derivedMime,
       size_bytes: file.size,
       filename: file.originalname || 'file'
     });
