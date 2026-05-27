@@ -57,6 +57,7 @@ router.post('/', async (req, res) => {
         if (rowCount > 0) log.push(`${table}: ${rowCount} row(s) moved`);
       } catch (e) {
         if (e.code === '42P01') log.push(`${table}: table not found, skipped`);
+        else if (e.code === '42703') log.push(`${table}: no property_id column, skipped`);
         else throw e;
       }
     }
