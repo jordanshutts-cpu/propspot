@@ -15,7 +15,7 @@ function makeApp(userId, role = 'admin') {
     req.user = { id: userId };
     next();
   });
-  app.use('/api/timesheets', require('../../routes/timesheets/admin'));
+  app.use('/api/timesheets', require('../../routes/timesheets/admin').unsafe());
   return app;
 }
 

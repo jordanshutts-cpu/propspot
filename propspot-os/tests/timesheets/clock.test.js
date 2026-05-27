@@ -15,7 +15,7 @@ function makeApp(userId) {
     next();
   });
   // Skip the real middleware chain by mounting the inner router directly.
-  const router = require('../../routes/timesheets/entries');
+  const router = require('../../routes/timesheets/entries').unsafe();
   app.use('/api/timesheets', router);
   return app;
 }
