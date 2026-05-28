@@ -495,9 +495,44 @@ html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
   padding: 0 18px;
   gap: 14px;
 }
-.os-newchrome-hamburger {
-  /* Always in column 1 — explicit placement so display:none doesn't shift siblings */
+/* ── Topbar left section: hamburger + brand ── */
+.os-topbar-left {
   grid-column: 1;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.os-topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  padding: 5px 10px 5px 6px;
+  border-radius: 9px;
+  transition: background .14s;
+  flex-shrink: 0;
+}
+.os-topbar-brand:hover { background: rgba(97,183,70,0.09); }
+.os-topbar-brand-icon {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.os-topbar-brand-name {
+  font-size: .88rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  white-space: nowrap;
+  line-height: 1;
+}
+.os-topbar-brand-spot   { color: var(--brand); }
+.os-topbar-brand-suffix { color: var(--text-muted); font-weight: 600; }
+
+.os-newchrome-hamburger {
+  /* hamburger is now inside .os-topbar-left, not a direct grid child */
   justify-self: start;
 }
 .os-newchrome-search-wrap {
@@ -781,9 +816,15 @@ body.os-newchrome .user-menu {
 /* Lock body scroll when drawer is open (touch devices) */
 body.mobile-rail-open { overflow: hidden; touch-action: none; }
 
+/* Dark-mode brand overrides */
+html.theme-dark .os-topbar-brand:hover { background: rgba(110,208,87,0.08); }
+html.theme-dark .os-topbar-brand-name  { color: #e6edf3; }
+html.theme-dark .os-topbar-brand-suffix { color: #6b7280; }
+
 /* Mobile fold */
 @media (max-width: 768px) {
   .os-newchrome-hamburger { display: inline-flex; }
+  .os-topbar-brand-name   { display: none; }   /* icon only on mobile */
 
   body.os-newchrome {
     padding-left: 0;

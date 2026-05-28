@@ -140,10 +140,16 @@
 
     headerEl.innerHTML = `
       <div class="os-newchrome-topbar">
-        <button type="button" class="os-newchrome-hamburger" id="mobile-rail-toggle"
-                onclick="toggleMobileRail(event)" aria-label="Open menu" title="Open menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        </button>
+        <div class="os-topbar-left">
+          <button type="button" class="os-newchrome-hamburger" id="mobile-rail-toggle"
+                  onclick="toggleMobileRail(event)" aria-label="Open menu" title="Open menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <a href="/dashboard.html" class="os-topbar-brand" title="Prop Spot">
+            <img src="/favicon.png" class="os-topbar-brand-icon" alt="">
+            <span class="os-topbar-brand-name">prop<span class="os-topbar-brand-spot">spot</span><span class="os-topbar-brand-suffix">.os</span></span>
+          </a>
+        </div>
         <form class="os-newchrome-search-wrap" onsubmit="submitTopSearch(event)">
           <div class="os-newchrome-search">
             <span class="os-newchrome-search-icon" aria-hidden="true">
