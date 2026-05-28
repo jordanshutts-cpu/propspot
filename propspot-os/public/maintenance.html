@@ -185,23 +185,29 @@
       position:relative;
       transition: background .12s;
     }
+    /* Left status stripe — always visible, status-driven */
     .wo-row::before {
-      content:''; position:absolute; left:0; top:8px; bottom:8px;
-      width:3px; border-radius:0 3px 3px 0;
-      background:transparent; transition: background .15s;
+      content:''; position:absolute; left:0; top:0; bottom:0;
+      width:4px;
+      background: var(--wo-status-color, var(--border));
+      transition: opacity .15s;
     }
     .wo-row:hover {
-      background: linear-gradient(90deg, var(--brand-light) 0%, transparent 70%);
+      background: linear-gradient(90deg, var(--wo-status-glow, var(--brand-light)) 0%, transparent 60%);
     }
-    .wo-row:hover::before { background: var(--brand); }
-    .wo-row.pri-urgent { border-left:none; padding-left:22px; }
-    .wo-row.pri-urgent::before { background:#dc2626; }
-    .wo-row.pri-high   { border-left:none; padding-left:22px; }
-    .wo-row.pri-high::before   { background:#d97706; }
+    /* Status-based stripe + icon tinting */
+    .wo-row.st-open       { --wo-status-color:#d97706; --wo-status-glow:rgba(217,119,6,.08); }
+    .wo-row.st-scheduled  { --wo-status-color:#7c3aed; --wo-status-glow:rgba(124,58,237,.08); }
+    .wo-row.st-in_progress{ --wo-status-color:#2563eb; --wo-status-glow:rgba(37,99,235,.08); }
+    .wo-row.st-completed  { --wo-status-color:#22c55e; --wo-status-glow:rgba(34,197,94,.08); }
+    .wo-row.st-cancelled  { --wo-status-color:#94a3b8; --wo-status-glow:rgba(148,163,184,.06); }
+    /* Urgent priority: red stripe overrides status */
+    .wo-row.pri-urgent    { --wo-status-color:#dc2626; --wo-status-glow:rgba(220,38,38,.08); border-left:none; padding-left:22px; }
+    /* Icon box inherits status color */
     .wo-icon {
-      background: var(--brand-light);
-      color: var(--brand);
       border-radius: 9px;
+      background: color-mix(in srgb, var(--wo-status-color, var(--brand)) 12%, transparent);
+      color: var(--wo-status-color, var(--brand));
     }
 
     /* "+ New" hero CTA */
@@ -243,8 +249,9 @@
       background: linear-gradient(90deg, var(--d-brand-glow) 0%, transparent 70%);
     }
     html.theme-dark .wo-icon {
-      background: var(--d-brand-glow);
-      color: var(--d-brand);
+      /* Let the status-color CSS variable carry through in dark mode too */
+      background: color-mix(in srgb, var(--wo-status-color, var(--d-brand)) 16%, transparent);
+      color: var(--wo-status-color, var(--d-brand));
     }
   </style>
 </head>
@@ -579,7 +586,7 @@
       return;
     }
     el.innerHTML = `<div class="wo-list">${rows.map(o => `
-      <div class="wo-row pri-${o.priority}" onclick="openEdit('${o.id}')">
+      <div class="wo-row pri-${o.priority} st-${o.status}" onclick="openEdit('${o.id}')">
         <div class="wo-icon">${CAT_ICONS[o.category]||CAT_ICONS.general}</div>
         <div class="wo-body">
           <div class="wo-title">${escHtml(o.title)}</div>
