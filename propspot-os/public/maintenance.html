@@ -51,11 +51,11 @@
     .bdg-pri-high   { background:#fef3c7; color:#92400e; }
     .bdg-pri-normal { background:#dcfce7; color:#15803d; }
     .bdg-pri-low    { background:var(--border); color:var(--text-muted); }
-    .bdg-st-open        { background:#dbeafe; color:#1e40af; }
-    .bdg-st-scheduled   { background:#ede9fe; color:#5b21b6; }
-    .bdg-st-in_progress { background:#fef3c7; color:#92400e; }
-    .bdg-st-completed   { background:#dcfce7; color:#15803d; }
-    .bdg-st-cancelled   { background:var(--border); color:var(--text-muted); }
+    .bdg-st-open        { background:#dbeafe; color:#1e40af; }   /* blue  — waiting */
+    .bdg-st-scheduled   { background:#ede9fe; color:#5b21b6; }   /* purple — planned */
+    .bdg-st-in_progress { background:#fef3c7; color:#92400e; }   /* amber  — active */
+    .bdg-st-completed   { background:#dcfce7; color:#15803d; }   /* green  — done */
+    .bdg-st-cancelled   { background:var(--border); color:var(--text-muted); } /* gray — dead */
     .badge-xs { font-size:.68rem; padding:2px 8px; border-radius:100px; font-weight:600; display:inline-block; }
     /* ── Assignee picker ── */
     .picker-btn { display:flex; align-items:center; justify-content:space-between;
@@ -136,9 +136,9 @@
     }
     .wo-kpi-icon svg { width:16px; height:16px; }
     .wo-kpi.urgent    { --wo-accent:#dc2626; --wo-accent-bg:rgba(220,38,38,.10); }
-    .wo-kpi.open      { --wo-accent:#d97706; --wo-accent-bg:rgba(217,119,6,.10); }
+    .wo-kpi.open      { --wo-accent:#2563eb; --wo-accent-bg:rgba(37,99,235,.10); }
     .wo-kpi.sched     { --wo-accent:#7c3aed; --wo-accent-bg:rgba(124,58,237,.10); }
-    .wo-kpi.progress  { --wo-accent:#2563eb; --wo-accent-bg:rgba(37,99,235,.10); }
+    .wo-kpi.progress  { --wo-accent:#d97706; --wo-accent-bg:rgba(217,119,6,.10); }
     .wo-kpi.completed { --wo-accent:#22c55e; --wo-accent-bg:rgba(34,197,94,.10); }
 
     /* Category nav row (Work Orders / Lawn Mowing) — pill tabs */
@@ -199,9 +199,9 @@
       background: linear-gradient(90deg, var(--wo-status-glow, var(--brand-light)) 0%, transparent 60%);
     }
     /* Status-based stripe + icon tinting */
-    .wo-row.st-open       { --wo-status-color:#d97706; --wo-status-glow:rgba(217,119,6,.08); }
+    .wo-row.st-open       { --wo-status-color:#2563eb; --wo-status-glow:rgba(37,99,235,.08); }
     .wo-row.st-scheduled  { --wo-status-color:#7c3aed; --wo-status-glow:rgba(124,58,237,.08); }
-    .wo-row.st-in_progress{ --wo-status-color:#2563eb; --wo-status-glow:rgba(37,99,235,.08); }
+    .wo-row.st-in_progress{ --wo-status-color:#d97706; --wo-status-glow:rgba(217,119,6,.08); }
     .wo-row.st-completed  { --wo-status-color:#22c55e; --wo-status-glow:rgba(34,197,94,.08); }
     .wo-row.st-cancelled  { --wo-status-color:#94a3b8; --wo-status-glow:rgba(148,163,184,.06); }
     /* Urgent priority: red stripe overrides status */
