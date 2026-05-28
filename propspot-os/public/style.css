@@ -48,11 +48,10 @@ html.page-loading .os-page-loader,
   gap: 28px;
 }
 
-/* Use favicon.png (illustration only, square, no text) so the loading
-   screen shows just the dog+house mark without the propspot.os wordmark. */
+/* Full logo with text, no separator line (already removed from PNG). */
 .os-page-loader-logo {
-  width: 200px; height: 200px;
-  background-image: url('/favicon.png');
+  width: 280px; height: 185px;
+  background-image: url('/logo.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
