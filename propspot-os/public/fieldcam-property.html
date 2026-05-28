@@ -493,8 +493,8 @@
         <div class="fc-stat"><div class="fc-stat-num" id="stat-last">—</div><div class="fc-stat-label">Last upload</div></div>
       </div>
       <div class="fc-hero-actions">
-        <a class="btn btn-primary" id="fc-take-photo" href="#">📷 Take Photo</a>
-        <button class="btn btn-secondary" onclick="document.getElementById('fc-upload-input').click()">⬆ Upload</button>
+        <a class="btn btn-primary" id="fc-take-photo" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-2px;margin-right:6px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take Photo</a>
+        <button class="btn btn-secondary" onclick="document.getElementById('fc-upload-input').click()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-2px;margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload</button>
         <input type="file" id="fc-upload-input" multiple accept="image/*,video/*" style="display:none;" onchange="uploadPhotos(this.files)">
         <a class="btn btn-secondary" id="fc-link-property" href="#" style="display:none;">View property page →</a>
       </div>
@@ -815,7 +815,7 @@
     lbPhotos = [...allPhotos];
 
     if (!allPhotos.length) {
-      el.innerHTML = `<div class="fc-empty"><div class="fc-empty-icon">📷</div><p>No photos yet${currentFolder ? ' in this folder' : ''}.</p></div>`;
+      el.innerHTML = `<div class="fc-empty"><div class="fc-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:42px;height:42px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><p>No photos yet${currentFolder ? ' in this folder' : ''}.</p></div>`;
       return;
     }
 
