@@ -89,6 +89,139 @@
     .pin-menu button { display:flex; align-items:center; gap:8px; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; font-size:.85rem; font-weight:500; color:var(--text); text-align:left; transition:background .1s; }
     .pin-menu button:hover { background:var(--brand-light); }
     .pin-menu button .pin-icon { width:18px; text-align:center; }
+
+    /* ── PREMIUM REFRESH (matches maintenance / tasks) ──────────── */
+
+    .lawn-cat-nav {
+      display:inline-flex; gap:2px; margin-bottom:18px;
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:10px; padding:3px;
+    }
+    .lawn-cat-nav .pill {
+      padding:6px 16px; border-radius:7px; border:none;
+      background:transparent; font-size:.82rem; font-weight:600;
+      color:var(--text-muted); cursor:pointer; transition:all .12s;
+      text-decoration:none;
+    }
+    .lawn-cat-nav .pill:hover { color:var(--text); background:var(--surface); }
+    .lawn-cat-nav .pill.active {
+      background:var(--surface); color:var(--brand);
+      box-shadow:0 1px 2px rgba(0,0,0,.06);
+    }
+
+    .lawn-hero-btn-primary {
+      box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px -6px var(--brand);
+      transition: transform .12s, box-shadow .12s;
+    }
+    .lawn-hero-btn-primary:hover { transform: translateY(-1px); }
+
+    .lawn-table-wrap {
+      border:1px solid var(--border) !important;
+      border-radius:14px !important;
+      box-shadow:0 1px 2px rgba(0,0,0,.03), 0 4px 12px -8px rgba(0,0,0,.06) !important;
+    }
+    .lawn-table tbody tr { transition: background .12s; }
+    .lawn-table tbody tr:hover {
+      background: linear-gradient(90deg, var(--brand-light) 0%, transparent 70%) !important;
+    }
+    .lawn-table thead th {
+      background: var(--surface) !important;
+      border-bottom: 1.5px solid var(--border);
+      font-size: .66rem; letter-spacing: .08em;
+    }
+    .lawn-table tbody td { padding: 12px; }
+
+    .lawn-section-head { margin-bottom: 12px; }
+    .lawn-section-title { letter-spacing: -.005em; font-size: 1rem; }
+    .lawn-section-count {
+      background: var(--brand-light) !important;
+      color: var(--brand) !important;
+      border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+      font-size: .68rem;
+    }
+    .lawn-section.section-attention .lawn-section-count {
+      background: #fee2e2 !important;
+      color: #b91c1c !important;
+      border-color: rgba(220,38,38,.3);
+    }
+
+    .route-empty {
+      padding: 18px 16px !important;
+      border-radius: 12px !important;
+      border: 1.5px dashed var(--border);
+      background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+      transition: all .15s;
+      max-height: none !important;
+    }
+    .route-empty:hover { border-color: var(--brand); color: var(--brand); }
+    .route-empty.drop-target {
+      border-color: var(--brand); background: var(--brand-light);
+      color: var(--brand);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 15%, transparent);
+    }
+
+    .badge-xs, .badge-purple, .badge-amber, .badge-grey, .badge-blue {
+      border-radius: 8px; padding: 3px 9px;
+      font-weight: 600; font-size: .68rem;
+    }
+
+    .sign-toggle input { accent-color: var(--brand); cursor: pointer; }
+
+    /* Dark-mode parity */
+    html.theme-dark .lawn-cat-nav {
+      background: var(--d-surface-2); border-color: var(--d-border);
+    }
+    html.theme-dark .lawn-cat-nav .pill { color: var(--d-text-muted); }
+    html.theme-dark .lawn-cat-nav .pill:hover {
+      background: var(--d-surface); color: var(--d-text);
+    }
+    html.theme-dark .lawn-cat-nav .pill.active {
+      background: var(--d-surface); color: var(--d-brand);
+      box-shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+    html.theme-dark .lawn-table-wrap {
+      background: var(--d-surface) !important;
+      border-color: var(--d-border) !important;
+      box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px -8px rgba(0,0,0,.6) !important;
+    }
+    html.theme-dark .lawn-table thead th {
+      background: var(--d-surface-2) !important;
+      color: var(--d-text-muted);
+      border-bottom-color: var(--d-border);
+    }
+    html.theme-dark .lawn-table tbody tr { border-bottom-color: var(--d-border); }
+    html.theme-dark .lawn-table tbody tr:hover {
+      background: linear-gradient(90deg, var(--d-brand-glow) 0%, transparent 70%) !important;
+    }
+    html.theme-dark .lawn-table .lockbox {
+      background: var(--d-surface-2); color: var(--d-text);
+    }
+    html.theme-dark .lawn-section-count {
+      background: var(--d-brand-glow) !important;
+      color: var(--d-brand) !important;
+      border-color: rgba(110,208,87,.3);
+    }
+    html.theme-dark .lawn-section.section-attention .lawn-section-count {
+      background: rgba(248,113,113,.15) !important;
+      color: #fca5a5 !important;
+      border-color: rgba(248,113,113,.3);
+    }
+    html.theme-dark .route-empty {
+      background: linear-gradient(180deg, var(--d-surface) 0%, var(--d-surface-2) 100%);
+      border-color: var(--d-border-strong);
+      color: var(--d-text-muted);
+    }
+    html.theme-dark .route-empty:hover { border-color: var(--d-brand); color: var(--d-brand); }
+    html.theme-dark .route-empty.drop-target {
+      background: var(--d-brand-glow); border-color: var(--d-brand);
+      color: var(--d-brand);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--d-brand) 20%, transparent);
+    }
+    html.theme-dark .badge-purple { background: rgba(167,139,250,.15); color: #c4b5fd; }
+    html.theme-dark .badge-amber  { background: rgba(245,158,11,.15); color: #fcd34d; }
+    html.theme-dark .badge-grey   { background: var(--d-surface-2); color: var(--d-text-muted); }
+    html.theme-dark .badge-blue   { background: rgba(96,165,250,.15); color: #93c5fd; }
+    html.theme-dark .overdue-text { color: #fca5a5; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -98,15 +231,15 @@
 
 <main class="page">
 
-  <div class="pill-row" style="margin-bottom:16px;">
-    <a class="pill" href="/maintenance.html" style="text-decoration:none;">Work Orders</a>
-    <a class="pill active" href="/lawn.html" style="text-decoration:none;">Lawn Mowing</a>
+  <div class="lawn-cat-nav">
+    <a class="pill" href="/maintenance.html">Work Orders</a>
+    <a class="pill active" href="/lawn.html">Lawn Mowing</a>
   </div>
 
   <div class="section-header">
     <span class="section-title">Lawn maintenance</span>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <button class="btn btn-primary btn-sm" onclick="openAddPropertyModal()" title="Add a property to the mowing schedule (e.g. a rented home where we still mow)">+ Add Property</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm lawn-hero-btn-primary" onclick="openAddPropertyModal()" title="Add a property to the mowing schedule (e.g. a rented home where we still mow)">+ Add Property</button>
       <button class="btn btn-secondary btn-sm" onclick="optimizeRoute()" title="Optimize stop order to minimize driving distance">Optimize Route</button>
       <button class="btn btn-secondary btn-sm" onclick="openInMaps()" title="Open today's route in Google Maps">Open Route in Maps</button>
     </div>
