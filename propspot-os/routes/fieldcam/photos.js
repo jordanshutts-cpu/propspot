@@ -3,6 +3,7 @@ const multer     = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { query }  = require('../../db');
 const { requireAuth } = require('../../middleware/auth');
+const { userCanAccessProperty } = require('../../lib/property-access');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -66,6 +67,9 @@ router.get('/recent', async (req, res) => {
 // ── GET /api/photos/:propertyId ────────────────────────────────
 router.get('/:propertyId', async (req, res) => {
   try {
+    if (!(await userCanAccessProperty(req.userId, req.params.propertyId))) {
+      return res.status(403).json({ error: 'You do not have access to this property' });
+    }
     const { folder_id } = req.query;
     let sql = `
       SELECT
@@ -101,11 +105,14 @@ router.post('/:propertyId', upload.single('photo'), async (req, res) => {
   const { lat, lng, notes, folder_id } = req.body;
 
   try {
-    // Confirm property exists
+    // Confirm property exists + user can access it
     const { rows: propRows } = await query(
       'SELECT id FROM properties WHERE id = $1', [propertyId]
     );
     if (!propRows[0]) return res.status(404).json({ error: 'Property not found' });
+    if (!(await userCanAccessProperty(req.userId, propertyId))) {
+      return res.status(403).json({ error: 'You do not have access to this property' });
+    }
 
     const mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
 

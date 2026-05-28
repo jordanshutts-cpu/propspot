@@ -231,6 +231,71 @@ router.post('/resend-all-pending', requireOwner, async (req, res) => {
   }
 });
 
+// GET /api/users/:id/property-access  (owner only)
+// Returns { property_ids: [...] } — every property this user is explicitly
+// listed on in property_access. Used by the permissions modal.
+router.get('/:id/property-access', requireOwner, async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT property_id FROM property_access WHERE user_id = $1`,
+      [req.params.id]
+    );
+    res.json({ property_ids: rows.map(r => r.property_id) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch property access' });
+  }
+});
+
+// PUT /api/users/:id/property-access  (owner only)
+// Atomically replaces this user's property_access rows with the supplied set.
+// Body: { property_ids: ["uuid", ...], access_level?: 'full'|'view' }.
+// Use `[]` to clear all per-property grants (giving an external user no
+// access; for team members this restores them to the default "see everything
+// unrestricted" rule).
+router.put('/:id/property-access', requireOwner, async (req, res) => {
+  const ids = Array.isArray(req.body.property_ids) ? req.body.property_ids : null;
+  if (!ids) return res.status(400).json({ error: 'property_ids array required' });
+  const level = req.body.access_level === 'view' ? 'view' : 'full';
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    await client.query(
+      `DELETE FROM property_access
+        WHERE user_id = $1
+          AND NOT (property_id = ANY($2::uuid[]))`,
+      [req.params.id, ids]
+    );
+
+    for (const pid of ids) {
+      await client.query(`
+        INSERT INTO property_access (property_id, user_id, access_level, granted_by)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (property_id, user_id)
+          DO UPDATE SET access_level = EXCLUDED.access_level, granted_by = EXCLUDED.granted_by
+      `, [pid, req.params.id, level, req.userId]);
+    }
+
+    await client.query('COMMIT');
+
+    await logActivity({
+      actorUserId: req.userId, entityType: 'user', entityId: req.params.id,
+      action: 'property_access_updated',
+      payload: { count: ids.length, access_level: level }
+    });
+
+    res.json({ property_ids: ids, access_level: level });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Update property access error:', err);
+    res.status(500).json({ error: 'Failed to update property access' });
+  } finally {
+    client.release();
+  }
+});
+
 // PATCH /api/users/:id  (owner only — change is_owner / full_name / user_type)
 router.patch('/:id', requireOwner, async (req, res) => {
   const { full_name, is_owner, user_type } = req.body;

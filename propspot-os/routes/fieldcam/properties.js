@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../../db');
 const { requireAuth } = require('../../middleware/auth');
 const { normalizeAddress, parseFreetextAddress } = require('../../lib/address');
+const { propertyFilterSql } = require('../../lib/property-access');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -54,21 +55,20 @@ router.get('/', async (req, res) => {
         LEFT JOIN users u ON u.id = p.created_by
     `;
 
+    // Centralized visibility filter:
+    //   • Owner                → no filter (sees all)
+    //   • Team member          → unrestricted + listed restricted (team-rows only count as restricting)
+    //   • External worker      → ONLY properties they have an explicit
+    //                            property_access row for
+    const filter = await propertyFilterSql(req.userId, 'p.id');
     let sql, params;
-    if (isAdmin) {
+    if (!filter) {
       sql = baseSelect + ' ORDER BY last_activity_at DESC NULLS LAST, p.created_at DESC';
       params = [];
     } else {
-      // Restricted properties (those with any property_access rows) are
-      // only visible to listed users. Unrestricted properties are public
-      // within the org.
-      sql = baseSelect + `
-        WHERE NOT EXISTS (SELECT 1 FROM property_access pa WHERE pa.property_id = p.id)
-           OR EXISTS (SELECT 1 FROM property_access pa
-                       WHERE pa.property_id = p.id AND pa.user_id = $1)
-        ORDER BY last_activity_at DESC NULLS LAST, p.created_at DESC
-      `;
-      params = [req.userId];
+      sql = baseSelect + ' WHERE ' + filter.sql +
+            ' ORDER BY last_activity_at DESC NULLS LAST, p.created_at DESC';
+      params = [filter.param];
     }
 
     const { rows } = await query(sql, params);

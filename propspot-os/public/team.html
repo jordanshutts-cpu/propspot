@@ -75,6 +75,46 @@
     .access-cell.loading { opacity: .5; cursor: wait; pointer-events: none; }
     .access-cell.locked { opacity: .5; cursor: not-allowed; pointer-events: none; }
 
+    /* Make user names look clickable when the owner can open the perms modal */
+    .team-name.clickable { cursor: pointer; }
+    .team-name.clickable:hover { color: var(--brand); }
+
+    /* Permissions modal */
+    .perm-type-toggle { display: flex; flex-direction: column; gap: 8px; }
+    .perm-type-toggle label {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+      cursor: pointer; font-size: .9rem;
+    }
+    .perm-type-toggle label:has(input:checked) {
+      border-color: var(--brand); background: var(--brand-light);
+    }
+    .perm-type-toggle small { margin-left: auto; font-size: .75rem; }
+
+    .perm-app-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+      margin-bottom: 6px; cursor: pointer; font-size: .9rem;
+    }
+    .perm-app-row:has(input:checked) { border-color: var(--brand); background: var(--brand-light); }
+    .perm-app-row .app-icon { display: inline-flex; }
+    .perm-app-row .app-icon svg { width: 1.1rem; height: 1.1rem; display: block; }
+
+    .perm-prop-list {
+      max-height: 240px; overflow: auto;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 4px;
+    }
+    .perm-prop-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: .85rem;
+    }
+    .perm-prop-row:hover { background: var(--bg); }
+    .perm-prop-row.hidden { display: none; }
+    .perm-prop-row input[type=checkbox] { cursor: pointer; }
+    .perm-prop-addr { flex: 1; }
+    .perm-prop-addr small { color: var(--text-muted); margin-left: 6px; font-size: .7rem; }
+
     /* Separator between team members and external workers. The row spans
        every column and sticks an "External users" label on top of a
        heavier top border so it reads as a clear section break. */
@@ -207,6 +247,45 @@
   </div>
 </div>
 
+<!-- Manage Permissions modal -->
+<div id="perm-modal" class="modal-backdrop">
+  <div class="modal-card" style="max-width:640px;">
+    <div class="section-header">
+      <span class="section-title">Manage permissions</span>
+      <button class="icon-btn" style="background:#eee;color:#000;" onclick="closeModal('perm-modal')">×</button>
+    </div>
+    <p class="text-sm text-muted" id="perm-subhead"></p>
+
+    <div class="form-group" style="margin-top:16px;">
+      <label class="form-label">User type</label>
+      <div class="perm-type-toggle">
+        <label><input type="radio" name="perm-user-type" value="team" id="perm-type-team"> <span>Team member</span> <small class="text-muted">sees every unrestricted property</small></label>
+        <label><input type="radio" name="perm-user-type" value="external_worker" id="perm-type-external"> <span>External worker</span> <small class="text-muted">contractor / vendor — sees only properties you grant below</small></label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">App access</label>
+      <p class="text-xs text-muted mb-8">Check every app this user can open. Same as the table cells — included here so you can manage everything in one place.</p>
+      <div id="perm-apps"></div>
+    </div>
+
+    <div class="form-group" id="perm-properties-group">
+      <label class="form-label">Property access <span id="perm-prop-count" class="text-xs text-muted"></span></label>
+      <p class="text-xs text-muted mb-8" id="perm-prop-help">Only required for external workers. Pick which properties this user can view and upload photos to.</p>
+      <input class="form-input mb-8" id="perm-prop-search" placeholder="Search address…" oninput="filterPermProperties()">
+      <div class="perm-prop-list" id="perm-prop-list"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="selectAllPermProperties(true)">Select all</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="selectAllPermProperties(false)">Clear all</button>
+      </div>
+    </div>
+
+    <p id="perm-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+    <button class="btn btn-primary btn-full" id="perm-save" onclick="savePermissions()">Save changes</button>
+  </div>
+</div>
+
 <script>window.NAV_CURRENT = 'team';</script>
 
 <script src="config.js"></script>
@@ -324,7 +403,8 @@
             <div class="member-cell">
               <div class="avatar">${escHtml(name.charAt(0).toUpperCase())}</div>
               <div>
-                <div class="team-name">
+                <div class="team-name ${me.is_owner ? 'clickable' : ''}"
+                     ${me.is_owner ? `onclick="openPermissionsModal('${u.id}')" title="Manage permissions"` : ''}>
                   ${escHtml(name)}
                   ${isYou ? '<span class="badge" style="font-size:.65rem;">You</span>' : ''}
                   ${u.is_owner ? '<span class="badge" style="font-size:.65rem;background:#fef3c7;color:#92400e;">Owner</span>' : ''}
@@ -500,6 +580,174 @@
       await reloadUsers();
     } catch (err) {
       alert('Could not remove: ' + err.message);
+    }
+  }
+
+  // ── Permissions modal ────────────────────────────────────────
+  // Owners can fully manage a member: user_type, per-app access, and (for
+  // external workers) the exact set of properties they're allowed to see.
+  let permCtx = null; // { userId, allProperties, grantedAppIds, propertyIds }
+
+  async function openPermissionsModal(userId) {
+    if (!me.is_owner) return;
+    const u = allUsers.find(x => x.id === userId);
+    if (!u) return;
+
+    document.getElementById('perm-err').style.display = 'none';
+    document.getElementById('perm-subhead').innerHTML =
+      `<strong>${escHtml(u.full_name || u.email)}</strong> · ${escHtml(u.email)}`;
+    document.getElementById('perm-apps').innerHTML = '<p class="text-xs text-muted">Loading…</p>';
+    document.getElementById('perm-prop-list').innerHTML = '<p class="text-xs text-muted" style="padding:8px;">Loading properties…</p>';
+
+    document.getElementById('perm-modal').classList.add('open');
+
+    // Pull in parallel: full property list + this user's current property_access set.
+    const [props, access] = await Promise.all([
+      apiFetch('/api/properties').then(r => Array.isArray(r) ? r : []),
+      apiFetch('/api/users/' + userId + '/property-access').then(r => r.property_ids || []).catch(() => [])
+    ]);
+
+    permCtx = {
+      userId,
+      allProperties: props,
+      grantedAppIds: new Set(userGrantedAppIds(u)),
+      propertyIds: new Set(access),
+      originalAppIds: new Set(userGrantedAppIds(u)),
+      originalPropertyIds: new Set(access),
+      originalUserType: u.user_type || 'team'
+    };
+
+    // User type
+    document.getElementById('perm-type-team').checked     = (u.user_type !== 'external_worker');
+    document.getElementById('perm-type-external').checked = (u.user_type === 'external_worker');
+    document.querySelectorAll('input[name="perm-user-type"]').forEach(r =>
+      r.onchange = updatePermPropertiesVisibility
+    );
+
+    // App rows
+    document.getElementById('perm-apps').innerHTML = allApps.map(a => `
+      <label class="perm-app-row">
+        <input type="checkbox" data-app-id="${a.id}" ${permCtx.grantedAppIds.has(a.id) ? 'checked' : ''}>
+        <span class="app-icon">${APP_ICONS[a.slug] || escHtml(a.icon || '🧩')}</span>
+        <span style="flex:1;">${escHtml(a.name)}</span>
+      </label>
+    `).join('');
+
+    // Property rows
+    renderPermProperties();
+    updatePermPropertiesVisibility();
+  }
+
+  function renderPermProperties() {
+    const list = document.getElementById('perm-prop-list');
+    if (!permCtx.allProperties.length) {
+      list.innerHTML = '<p class="text-xs text-muted" style="padding:8px;">No properties yet.</p>';
+      updatePermPropCount();
+      return;
+    }
+    list.innerHTML = permCtx.allProperties.map(p => {
+      const label = p.display_name || p.address_line1 || '(unnamed)';
+      const sub = [p.city, p.state].filter(Boolean).join(', ');
+      const checked = permCtx.propertyIds.has(p.id) ? 'checked' : '';
+      const searchText = ((p.display_name || '') + ' ' + (p.address_line1 || '') + ' ' + (p.city || '') + ' ' + (p.state || '')).toLowerCase();
+      return `<label class="perm-prop-row" data-search="${escHtml(searchText)}">
+        <input type="checkbox" data-prop-id="${p.id}" ${checked} onchange="togglePermProperty('${p.id}', this.checked)">
+        <span class="perm-prop-addr">${escHtml(label)}${sub ? `<small>${escHtml(sub)}</small>` : ''}</span>
+      </label>`;
+    }).join('');
+    updatePermPropCount();
+  }
+
+  function togglePermProperty(propId, checked) {
+    if (checked) permCtx.propertyIds.add(propId);
+    else permCtx.propertyIds.delete(propId);
+    updatePermPropCount();
+  }
+
+  function selectAllPermProperties(select) {
+    // Only act on currently-visible (filtered) rows so a search-and-select-all works.
+    document.querySelectorAll('#perm-prop-list .perm-prop-row:not(.hidden) input[type=checkbox]').forEach(cb => {
+      cb.checked = select;
+      const pid = cb.dataset.propId;
+      if (select) permCtx.propertyIds.add(pid);
+      else permCtx.propertyIds.delete(pid);
+    });
+    updatePermPropCount();
+  }
+
+  function updatePermPropCount() {
+    document.getElementById('perm-prop-count').textContent =
+      ' · ' + permCtx.propertyIds.size + ' selected';
+  }
+
+  function filterPermProperties() {
+    const q = document.getElementById('perm-prop-search').value.trim().toLowerCase();
+    document.querySelectorAll('#perm-prop-list .perm-prop-row').forEach(row => {
+      const match = !q || row.dataset.search.includes(q);
+      row.classList.toggle('hidden', !match);
+    });
+  }
+
+  function updatePermPropertiesVisibility() {
+    const isExternal = document.getElementById('perm-type-external').checked;
+    const group = document.getElementById('perm-properties-group');
+    document.getElementById('perm-prop-help').textContent = isExternal
+      ? 'Required — external workers can ONLY see the properties checked below.'
+      : 'Optional — team members see every property by default. Use this to restrict them to a specific subset (acts as the existing per-property allow-list).';
+    group.style.opacity = '1';
+  }
+
+  async function savePermissions() {
+    if (!permCtx) return;
+    const btn = document.getElementById('perm-save');
+    const err = document.getElementById('perm-err');
+    err.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    try {
+      const newType = document.querySelector('input[name="perm-user-type"]:checked').value;
+      const newAppIds = new Set(
+        [...document.querySelectorAll('#perm-apps input[type=checkbox]:checked')]
+          .map(cb => cb.dataset.appId)
+      );
+      const newPropIds = [...permCtx.propertyIds];
+
+      // 1. user_type — only PATCH if changed.
+      if (newType !== permCtx.originalUserType) {
+        await apiFetch('/api/users/' + permCtx.userId, {
+          method: 'PATCH',
+          body: JSON.stringify({ user_type: newType })
+        });
+      }
+
+      // 2. App grants — diff against original.
+      for (const appId of newAppIds) {
+        if (!permCtx.originalAppIds.has(appId)) {
+          await apiFetch(`/api/apps/${appId}/grants/${permCtx.userId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ role: 'member' })
+          });
+        }
+      }
+      for (const appId of permCtx.originalAppIds) {
+        if (!newAppIds.has(appId)) {
+          await apiFetch(`/api/apps/${appId}/grants/${permCtx.userId}`, { method: 'DELETE' });
+        }
+      }
+
+      // 3. Property access — atomic replace.
+      await apiFetch('/api/users/' + permCtx.userId + '/property-access', {
+        method: 'PUT',
+        body: JSON.stringify({ property_ids: newPropIds, access_level: 'full' })
+      });
+
+      await reloadUsers();
+      closeModal('perm-modal');
+    } catch (e) {
+      err.textContent = e.message || 'Save failed.';
+      err.style.display = '';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save changes';
     }
   }
 
