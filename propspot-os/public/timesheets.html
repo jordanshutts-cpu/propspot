@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Timesheets</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+</head>
+<body class="os-newlayout">
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page" id="timesheets-page">
+  <nav class="tab-bar" id="ts-tabs">
+    <button class="tab active" data-tab="my-time">My time</button>
+    <button class="tab" data-tab="approvals" hidden>Approvals</button>
+    <button class="tab" data-tab="history"   hidden>History</button>
+    <button class="tab" data-tab="settings"  hidden>Settings</button>
+  </nav>
+
+  <!-- My time tab -->
+  <section class="tab-panel" id="tab-my-time">
+    <div class="ts-clock-card">
+      <div class="ts-tag-row">
+        <select id="ts-project"  class="ts-tag"><option value="">Project…</option></select>
+        <select id="ts-property" class="ts-tag"><option value="">Property…</option></select>
+        <select id="ts-workorder" class="ts-tag"><option value="">Work order…</option></select>
+        <select id="ts-category" class="ts-tag"><option value="">Category…</option></select>
+      </div>
+      <button id="ts-clock-btn" class="ts-clock-btn idle">Clock In</button>
+      <div id="ts-timer" class="ts-timer" hidden>0:00:00</div>
+      <button id="ts-switch-btn" class="ts-switch" hidden>Switch task</button>
+    </div>
+
+    <div class="ts-summary">
+      <span id="ts-period-label">Pay period …</span>
+      <span id="ts-period-hours">0.0 hrs</span>
+    </div>
+
+    <h3>Today</h3>
+    <ul id="ts-today-list" class="ts-entry-list"></ul>
+
+    <button id="ts-add-manual" class="ts-secondary">+ Add manual entry</button>
+  </section>
+
+  <section class="tab-panel" id="tab-approvals" hidden></section>
+  <section class="tab-panel" id="tab-history"   hidden></section>
+  <section class="tab-panel" id="tab-settings"  hidden></section>
+</main>
+
+<script>window.NAV_CURRENT = 'timesheets';</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="/timesheets.js"></script>
+
+<dialog id="ts-manual-modal" class="ts-modal">
+  <form method="dialog" id="ts-manual-form">
+    <h3>Add manual entry</h3>
+    <label>Date <input type="date" name="date" required></label>
+    <label>Start <input type="time" name="start" required></label>
+    <label>End <input type="time" name="end" required></label>
+    <label>Category <select name="category" id="ts-manual-category"></select></label>
+    <label>Notes <textarea name="notes"></textarea></label>
+    <menu>
+      <button value="cancel">Cancel</button>
+      <button value="save" id="ts-manual-save">Save</button>
+    </menu>
+  </form>
+</dialog>
+</body>
+</html>

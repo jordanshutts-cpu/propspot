@@ -1592,3 +1592,48 @@ a.os-kpi:hover {
   content: ''; width: 6px; height: 6px; border-radius: 50%;
   background: var(--brand);
 }
+
+/* ── Timesheets ─────────────────────────────────────────────────────── */
+.ts-clock-card { display: flex; flex-direction: column; align-items: center;
+                 gap: 1rem; padding: 2rem; background: var(--surface);
+                 border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.ts-tag-row    { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+.ts-tag        { padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+                 border: 1px solid var(--border); background: var(--bg); }
+.ts-clock-btn  { font-size: 1.25rem; font-weight: 600; padding: 1rem 3rem;
+                 border-radius: 999px; border: 0; color: white; cursor: pointer;
+                 transition: background 150ms; }
+.ts-clock-btn.idle   { background: #16a34a; }
+.ts-clock-btn.idle:hover   { background: #15803d; }
+.ts-clock-btn.active { background: #dc2626; }
+.ts-clock-btn.active:hover { background: #b91c1c; }
+.ts-timer      { font-family: monospace; font-size: 1.75rem; color: var(--muted); }
+.ts-switch     { background: transparent; color: var(--accent); border: 0;
+                 cursor: pointer; text-decoration: underline; }
+.ts-summary    { display: flex; justify-content: space-between;
+                 padding: 1rem; font-size: 1rem; color: var(--muted); }
+.ts-entry-list { list-style: none; padding: 0; }
+.ts-entry      { display: grid; grid-template-columns: 1fr auto auto;
+                 gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.ts-empty      { color: var(--muted); padding: 1rem 0; }
+.ts-secondary  { background: transparent; border: 1px dashed var(--border);
+                 padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; }
+
+.ts-modal { padding: 1.5rem; border: 0; border-radius: 0.75rem; min-width: 400px; }
+.ts-modal label { display: block; margin-bottom: 1rem; }
+.ts-modal input, .ts-modal select, .ts-modal textarea { width: 100%; padding: 0.5rem; }
+
+.ts-live-strip { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 0.75rem 0; }
+.ts-live-chip  { background: #16a34a; color: white; padding: 0.25rem 0.75rem;
+                 border-radius: 999px; font-size: 0.875rem; }
+.ts-live-empty { color: var(--muted); padding: 0.75rem 0; }
+.ts-table      { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.ts-table th, .ts-table td { padding: 0.5rem; border-bottom: 1px solid var(--border);
+                              text-align: left; }
+.ts-primary    { background: var(--accent); color: white; padding: 0.75rem 1.5rem;
+                 border: 0; border-radius: 0.5rem; cursor: pointer; }
+.ts-approve    { background: #16a34a; color: white; padding: 0.25rem 0.75rem;
+                 border: 0; border-radius: 0.25rem; cursor: pointer; }
+.ts-anomaly    { background: #f59e0b; color: white; padding: 0.125rem 0.5rem;
+                 border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+.ts-modal menu { display: flex; gap: 0.5rem; justify-content: flex-end; padding: 0; }

@@ -110,6 +110,12 @@ app.use('/api/inbox/attachments',    require('./routes/inbox/attachments'));
 app.use('/api/inbox/contacts',       require('./routes/inbox/contacts'));
 app.use('/api/inbox/properties',     require('./routes/inbox/properties'));
 
+// ── Timesheets ────────────────────────────────────────────────────
+app.use('/api/timesheets', require('./routes/timesheets/entries'));
+app.use('/api/timesheets', require('./routes/timesheets/admin'));
+app.use('/api/timesheets/gusto', require('./routes/timesheets/gusto'));
+app.use('/api/timesheets', require('./routes/timesheets/settings'));
+
 // ── Health Check ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', service: 'propspot-os', timestamp: new Date().toISOString() })
@@ -197,6 +203,10 @@ initDb()
       } catch (e) {
         console.error('[inbox-sync] failed to start:', e.message);
       }
+    }
+    if (process.env.TIMESHEETS_WORKER_ENABLED !== '0') {
+      try { require('./workers/timesheets').start(); }
+      catch (e) { console.error('[timesheets-worker] failed to start:', e.message); }
     }
 
     // Holdings due-soon reminders. Idempotent (dedupes by item_id+due_date),
