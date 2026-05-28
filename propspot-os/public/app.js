@@ -282,40 +282,55 @@ window.__notifSoundEnabled = function () {
   try { return localStorage.getItem('propspot_sound_muted') !== '1'; } catch { return true; }
 };
 window.__playNotifSound = (function () {
+  // Each kind gets its own short, distinct chime so power users can tell
+  // an @mention apart from a new Pulse message vs a new inbox email
+  // without looking at the screen. All synthesized via Web Audio API —
+  // zero assets to ship.
+  //
+  // Patterns map: <kind> → [[freq, startOffsetSec, durSec], …] + peak gain.
+  const PATTERNS = {
+    mention:  { peak: 0.16, notes: [[660, 0.00, 0.12], [880, 0.10, 0.12], [1100, 0.20, 0.14]], tail: 0.55, type: 'sine' },
+    pulse:    { peak: 0.13, notes: [[880, 0.00, 0.18]],                                          tail: 0.35, type: 'triangle' },
+    inbox:    { peak: 0.13, notes: [[523, 0.00, 0.12], [784, 0.09, 0.14]],                       tail: 0.40, type: 'sine' },
+    task:     { peak: 0.12, notes: [[880, 0.00, 0.10], [660, 0.08, 0.12]],                       tail: 0.35, type: 'sine' },
+    holdings: { peak: 0.13, notes: [[440, 0.00, 0.16], [392, 0.14, 0.20]],                       tail: 0.55, type: 'sine' },
+    promotion:{ peak: 0.14, notes: [[523, 0.00, 0.10], [659, 0.09, 0.10], [784, 0.18, 0.14]],    tail: 0.55, type: 'triangle' },
+  };
+  // Map notification.type strings to chime kinds.
+  const TYPE_MAP = {
+    task_assigned:       'task',
+    task_mention:        'mention',
+    pulse_mention:       'mention',
+    inbox:               'inbox',           // shorthand fired by sidebar
+    pulse:               'pulse',           // shorthand fired by sidebar
+    mention:             'mention',         // shorthand fired by sidebar
+    message:             'task',            // legacy: generic
+    work_order_assigned: 'task',
+    work_order_status:   'task',
+    work_order_comment:  'task',
+    pipeline_promotion:  'promotion',
+    holdings_due:        'holdings',
+  };
   let ctx = null;
-  return function (type) {
+  return function (typeOrKind) {
     if (!window.__notifSoundEnabled()) return;
+    const kind = PATTERNS[typeOrKind] ? typeOrKind : (TYPE_MAP[typeOrKind] || 'task');
+    const pat = PATTERNS[kind];
     try {
       if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
-
-      if (type === 'mention') {
-        // Three-tone ascending chime for mentions
-        [660, 880, 1100].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          osc.type = 'sine';
-          osc.frequency.value = freq;
-          osc.connect(gain);
-          osc.start(now + i * 0.1);
-          osc.stop(now + i * 0.1 + 0.12);
-        });
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-      } else {
-        // Two-tone knock for regular messages
-        [880, 660].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          osc.type = 'sine';
-          osc.frequency.value = freq;
-          osc.connect(gain);
-          osc.start(now + i * 0.08);
-          osc.stop(now + i * 0.08 + 0.1);
-        });
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      gain.gain.setValueAtTime(pat.peak, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + pat.tail);
+      for (const [freq, off, dur] of pat.notes) {
+        const osc = ctx.createOscillator();
+        osc.type = pat.type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        osc.start(now + off);
+        osc.stop(now + off + dur);
       }
     } catch (e) {}
   };

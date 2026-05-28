@@ -772,11 +772,15 @@
       fetchCounts(), fetchPinned(), fetchRecent(), fetchTotal(), fetchOrg()
     ]);
 
-    // Play notification sound when new mentions or inbox items arrive
+    // Play notification sound when new mentions, inbox items, or pulse
+    // messages arrive. Each count type gets its own distinct chime so
+    // a Pulse "bloop" doesn't sound like an inbox "ding".
     if (typeof window.__playNotifSound === 'function' && window.__prevSidebarCounts) {
       const prev = window.__prevSidebarCounts;
-      if (counts.mentions > (prev.mentions || 0)) window.__playNotifSound('mention');
-      else if (counts.inbox > (prev.inbox || 0)) window.__playNotifSound('message');
+      if      ((counts.mentions || 0) > (prev.mentions || 0)) window.__playNotifSound('mention');
+      else if ((counts.inbox    || 0) > (prev.inbox    || 0)) window.__playNotifSound('inbox');
+      else if ((counts.pulse    || 0) > (prev.pulse    || 0)) window.__playNotifSound('pulse');
+      else if ((counts.myTasks  || 0) > (prev.myTasks  || 0)) window.__playNotifSound('task');
     }
     window.__prevSidebarCounts = { ...counts };
 
@@ -967,9 +971,10 @@
       const counts = IS_SATELLITE ? await osFetch('/api/sidebar-counts') : await apiFetch('/api/sidebar-counts');
       if (typeof window.__playNotifSound === 'function' && window.__prevSidebarCounts) {
         const prev = window.__prevSidebarCounts;
-        if ((counts.mentions || 0) > (prev.mentions || 0)) window.__playNotifSound('mention');
-        else if ((counts.inbox || 0) > (prev.inbox || 0)) window.__playNotifSound('message');
-        else if ((counts.myTasks || 0) > (prev.myTasks || 0)) window.__playNotifSound('message');
+        if      ((counts.mentions || 0) > (prev.mentions || 0)) window.__playNotifSound('mention');
+        else if ((counts.inbox    || 0) > (prev.inbox    || 0)) window.__playNotifSound('inbox');
+        else if ((counts.pulse    || 0) > (prev.pulse    || 0)) window.__playNotifSound('pulse');
+        else if ((counts.myTasks  || 0) > (prev.myTasks  || 0)) window.__playNotifSound('task');
       }
       window.__prevSidebarCounts = { ...counts };
 

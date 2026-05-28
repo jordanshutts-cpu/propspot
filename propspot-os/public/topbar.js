@@ -102,9 +102,10 @@
         const badge = document.getElementById('notif-badge');
         const current = parseInt(badge?.textContent || '0', 10);
         setNotifBadge(isNaN(current) ? 1 : current + 1);
-        // Play chime if available
+        // Play the chime that matches the notification type — pulse_mention
+        // gets the mention chime, work_order_* gets the task chime, etc.
         if (typeof window.__playNotifSound === 'function') {
-          window.__playNotifSound('mention');
+          window.__playNotifSound(evt.notification?.type || 'message');
         }
         // Prepend to panel if it's open
         const body = document.getElementById('notif-body');
@@ -226,7 +227,13 @@
       <div class="os-newchrome-notif-panel" id="notif-panel">
         <div class="os-newchrome-notif-header">
           <h3>Notifications</h3>
-          <button class="os-newchrome-notif-mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button id="notif-sound-toggle" class="os-newchrome-notif-mark-all"
+                    onclick="toggleNotifSound(event)"
+                    style="padding:4px 6px;display:inline-flex;align-items:center;"
+                    title="Mute / unmute notification sounds" aria-label="Toggle sounds"></button>
+            <button class="os-newchrome-notif-mark-all" onclick="markAllNotificationsRead()">Mark all read</button>
+          </div>
         </div>
         <div class="os-newchrome-notif-body" id="notif-body">
           <div class="os-newchrome-notif-empty">Loading…</div>
@@ -294,6 +301,9 @@
     if (typeof window.__applyScopeToLinks === 'function') {
       window.__applyScopeToLinks();
     }
+
+    // Paint the notification-sound mute button (state lives in localStorage).
+    if (typeof paintNotifSoundIcon === 'function') paintNotifSoundIcon();
 
     // Topbar is painted — let the page-loader drop. Pairs with sidebar.js's
     // matching call; loader only fades once BOTH parts have signaled ready.
@@ -382,6 +392,34 @@
     if (url) window.location.href = url;
   }
 
+  // ── Notification sound mute toggle ────────────────────────────────
+  // The actual mute state lives in localStorage and is read by
+  // window.__notifSoundEnabled() in app.js. This just paints the right
+  // icon (speaker vs muted-speaker) and flips the flag.
+  const ICON_SPEAKER_ON  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>';
+  const ICON_SPEAKER_OFF = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+
+  function paintNotifSoundIcon() {
+    const btn = document.getElementById('notif-sound-toggle');
+    if (!btn) return;
+    const on = window.__notifSoundEnabled ? window.__notifSoundEnabled() : true;
+    btn.innerHTML = on ? ICON_SPEAKER_ON : ICON_SPEAKER_OFF;
+    btn.title = on ? 'Mute notification sounds' : 'Unmute notification sounds';
+  }
+
+  function toggleNotifSound(e) {
+    e?.stopPropagation();
+    try {
+      const muted = localStorage.getItem('propspot_sound_muted') === '1';
+      localStorage.setItem('propspot_sound_muted', muted ? '0' : '1');
+      // If we just unmuted, play a quick "test" so the user hears the change.
+      if (muted && typeof window.__playNotifSound === 'function') {
+        window.__playNotifSound('pulse');
+      }
+    } catch {}
+    paintNotifSoundIcon();
+  }
+
   // Expose for inline onclick handlers
   window.toggleQuickCreate = toggleQuickCreate;
   window.toggleNotifications = toggleNotifications;
@@ -389,6 +427,7 @@
   window.markAllNotificationsRead = markAllNotificationsRead;
   window.clickNotification = clickNotification;
   window.renderNewTopBar = renderNewTopBar;
+  window.toggleNotifSound = toggleNotifSound;
 
   // Outside-click handlers
   document.addEventListener('click', closeQuickCreateOnOutsideClick);
