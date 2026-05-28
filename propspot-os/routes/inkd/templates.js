@@ -17,11 +17,22 @@ const upload = multer({
 // GET /api/inkd/templates  — list (non-archived)
 router.get('/', async (req, res) => {
   try {
+    // signer_count = distinct recipient_role values across the template's
+    // fields. NULL roles are excluded so creator-only fields (today, user.*)
+    // don't inflate the count.
     const { rows } = await query(
-      `SELECT id, name, category, description, page_count, created_at, updated_at
-         FROM inkd_templates
-        WHERE archived_at IS NULL
-        ORDER BY updated_at DESC`
+      `SELECT t.id, t.name, t.category, t.description, t.page_count,
+              t.created_at, t.updated_at,
+              COALESCE(s.signer_count, 0)::int AS signer_count
+         FROM inkd_templates t
+         LEFT JOIN (
+           SELECT template_id, COUNT(DISTINCT recipient_role) AS signer_count
+             FROM inkd_template_fields
+            WHERE recipient_role IS NOT NULL
+            GROUP BY template_id
+         ) s ON s.template_id = t.id
+        WHERE t.archived_at IS NULL
+        ORDER BY t.updated_at DESC`
     );
     res.json(rows);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to list templates' }); }
@@ -170,6 +181,55 @@ router.delete('/:id', async (req, res) => {
     await query('UPDATE inkd_templates SET archived_at=now() WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to archive template' }); }
+});
+
+// POST /api/inkd/templates/:id/duplicate  — clone a template + its fields.
+// Reuses the source PDF (source_pdf_id) instead of re-uploading — Cloudinary
+// is already storing the bytes, and re-upload would double the storage cost
+// while gaining nothing. The duplicated template is appended with "(copy)"
+// so it's easy to spot in the list. The caller (front-end) navigates the
+// user to the new template's editor so they can rename it immediately.
+router.post('/:id/duplicate', async (req, res) => {
+  try {
+    const src = await query(
+      'SELECT * FROM inkd_templates WHERE id=$1 AND archived_at IS NULL',
+      [req.params.id]
+    );
+    if (!src.rows[0]) return res.status(404).json({ error: 'Template not found' });
+    const t = src.rows[0];
+
+    const dup = (await query(
+      `INSERT INTO inkd_templates
+         (name, category, description, source_pdf_url, source_pdf_id, page_count, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        `${t.name} (copy)`,
+        t.category,
+        t.description,
+        t.source_pdf_url,
+        t.source_pdf_id,
+        t.page_count,
+        req.userId,
+      ]
+    )).rows[0];
+
+    await query(
+      `INSERT INTO inkd_template_fields
+         (template_id, page_number, x_pct, y_pct, width_pct, height_pct,
+          field_type, label, recipient_role, required, autofill_source, display_order)
+       SELECT $1, page_number, x_pct, y_pct, width_pct, height_pct,
+              field_type, label, recipient_role, required, autofill_source, display_order
+         FROM inkd_template_fields
+         WHERE template_id = $2`,
+      [dup.id, t.id]
+    );
+
+    res.status(201).json(dup);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to duplicate template' });
+  }
 });
 
 // PUT /api/inkd/templates/:id/fields  — replace the full field set for a template
