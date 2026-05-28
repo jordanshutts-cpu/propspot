@@ -123,7 +123,7 @@ router.get('/', async (req, res) => {
 
     // ── Pipeline (Jordan's flow: prospect → lead → opportunity → acquisition
     //    → project → holdings | disposition → sold; dead off-track) ────
-    safeCount(`SELECT COUNT(*)::int AS count FROM prospects     WHERE status IN ('active','attempted')`),
+    safeCount(`SELECT COUNT(*)::int AS count FROM properties     WHERE status = 'prospect'`),
     safeCount(`SELECT COUNT(*)::int AS count FROM leads         WHERE status IN ('new','working')`),
     safeCount(`SELECT COUNT(*)::int AS count FROM opportunities WHERE status IN ('active','appointment_set')`),
     safeCount(`SELECT COUNT(*)::int AS count FROM properties    WHERE status = 'purchasing'`),                                              // acquisitions

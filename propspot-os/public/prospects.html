@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#61B746">
+  <title>Prop Spot — Prospects</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="style.css">
+  <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
+</head>
+<body class="os-newlayout">
+
+<aside class="apps-rail" id="apps-rail"></aside>
+<header class="top-header" id="top-header"></header>
+<div class="user-menu" id="user-menu"></div>
+
+<main class="page">
+  <div id="page-hero"></div>
+
+  <div class="search-box" style="margin-bottom: 10px;">
+    <span class="search-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </span>
+    <input class="form-input" type="search" id="search-input" placeholder="Search by address, owner, county, TMS…" oninput="filterProps(this.value)">
+  </div>
+
+  <div class="os-section-head">
+    <div class="os-section-title" id="props-count">All Prospects</div>
+    <div class="os-section-line"></div>
+    <span id="view-toggle"></span>
+    <button class="dt-reset-btn" id="reset-table-btn" onclick="resetTableLayout()" title="Reset column order, widths, and sort" style="display:none;">↺ Reset table</button>
+  </div>
+
+  <div id="view-root"><p class="text-muted text-sm">Loading…</p></div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="datatable.js"></script>
+<script src="kanban.js"></script>
+<script>
+  window.PAGE_TITLE     = 'Prospects';
+  window.PAGE_STATUSES  = ['prospect'];
+  window.NAV_CURRENT    = 'prospects';
+  window.PAGE_TABLE_KEY = 'properties:prospects';
+  window.PAGE_VIEW_KEY  = 'view:prospects';
+
+  // Kanban lanes for the prospect pipeline.
+  // prospect_status mirrors the pattern of acquisition_status / project_status.
+  const LANES = [
+    ['research',   'Research',    '#64748b'],  // identified from list; verifying details
+    ['outreach',   'Outreach',    '#0891b2'],  // mailers / ads sent
+    ['follow_up',  'Follow-up',   '#d97706'],  // multi-touch follow-up cycle
+    ['engaged',    'Engaged',     '#22c55e'],  // owner has responded
+  ];
+
+  let allProps    = [];
+  let scopedProps = [];
+  let viewMode    = getViewMode(window.PAGE_VIEW_KEY);
+
+  async function init(){
+    if (!await requireAuth()) return;
+    renderViewToggle(document.getElementById('view-toggle'), {
+      storageKey: window.PAGE_VIEW_KEY,
+      onChange: (m) => { viewMode = m; renderCurrent(); }
+    });
+    try {
+      const props = await getProperties();
+      allProps = (Array.isArray(props) ? props : [])
+        .filter(p => window.PAGE_STATUSES.includes(p.status));
+      // Default any property without a prospect_status to 'research'.
+      for (const p of allProps) {
+        if (!p.prospect_status) p.prospect_status = 'research';
+      }
+      const q = new URLSearchParams(location.search).get('q');
+      if (q) {
+        document.getElementById('search-input').value = q;
+        filterProps(q);
+      } else {
+        scopedProps = allProps;
+        renderCurrent();
+      }
+    } catch (err) {
+      document.getElementById('view-root').innerHTML =
+        `<p class="text-muted text-sm">Error: ${escHtml(err.message)}</p>`;
+    }
+  }
+
+  function fullSearchString(p){
+    return [p.address_line1, p.unit, p.city, p.state, p.zip,
+            p.display_name, p.owner, p.owner_name, p.county, p.tms,
+            p.data_source, p.notes].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  function fmtDate(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function prospectStatusBadge(s) {
+    const map = {
+      research:  { label: 'Research',   bg: '#f1f5f9', color: '#475569' },
+      outreach:  { label: 'Outreach',   bg: '#e0f2fe', color: '#0369a1' },
+      follow_up: { label: 'Follow-up',  bg: '#fef3c7', color: '#92400e' },
+      engaged:   { label: 'Engaged',    bg: '#dcfce7', color: '#15803d' },
+    };
+    const st = map[s] || map.research;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:100px;font-size:.72rem;font-weight:600;background:${st.bg};color:${st.color};">${st.label}</span>`;
+  }
+
+  function renderHero(){
+    const list = scopedProps;
+    const total = list.length;
+    const laneCounts = {};
+    for (const [k] of LANES) laneCounts[k] = 0;
+    for (const p of list) {
+      const k = p.prospect_status || 'research';
+      if (k in laneCounts) laneCounts[k]++;
+    }
+    const engaged   = laneCounts['engaged']   || 0;
+    const outreach  = laneCounts['outreach']  || 0;
+    const followUp  = laneCounts['follow_up'] || 0;
+
+    // New this week (added in last 7 days)
+    const weekAgo = Date.now() - 7 * 86400000;
+    const newThisWeek = list.filter(p => p.created_at && new Date(p.created_at).getTime() >= weekAgo).length;
+
+    document.getElementById('page-hero').innerHTML = `
+      <section class="os-hero">
+        <div class="os-hero-eyebrow">Pipeline</div>
+        <h1 class="os-hero-title">Prospect Pipeline</h1>
+        <div class="os-hero-subtitle">${total === 1 ? '1 property' : total + ' properties'} tracked · ${LANES.map(([k,l]) => `${laneCounts[k] || 0} ${l}`).join(' · ')}</div>
+        <div class="os-hero-actions" style="margin: 0 0 16px;">
+          <a href="/add-property.html?status=prospect" class="btn btn-primary" style="padding:8px 14px;font-size:.85rem;">+ Add Prospect</a>
+        </div>
+        <div class="os-kpi-row">
+          <div class="os-kpi">
+            <div class="os-kpi-label">Total Prospects</div>
+            <div class="os-kpi-value">${total}</div>
+            <div class="os-kpi-sub">in pipeline</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Engaged</div>
+            <div class="os-kpi-value ${engaged > 0 ? 'brand' : ''}">${engaged}</div>
+            <div class="os-kpi-sub">owner responded</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Outreach + Follow-up</div>
+            <div class="os-kpi-value ${(outreach + followUp) > 0 ? 'warn' : ''}">${outreach + followUp}</div>
+            <div class="os-kpi-sub">active marketing</div>
+          </div>
+          <div class="os-kpi">
+            <div class="os-kpi-label">Added This Week</div>
+            <div class="os-kpi-value">${newThisWeek}</div>
+            <div class="os-kpi-sub">last 7 days</div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderCurrent(){
+    renderHero();
+    const total = scopedProps.length;
+    document.getElementById('props-count').textContent =
+      `All Prospects · ${total === 1 ? '1 property' : total + ' properties'}`;
+    document.getElementById('reset-table-btn').style.display = viewMode === 'table' ? '' : 'none';
+    if (viewMode === 'kanban') renderBoard(scopedProps);
+    else                       renderTable(scopedProps);
+  }
+
+  function renderBoard(list){
+    const el = document.getElementById('view-root');
+    renderKanban(el, list, {
+      lanes: LANES,
+      field: 'prospect_status',
+      onCardMove: async (id, newLane) => {
+        const prop = allProps.find(p => p.id === id);
+        if (!prop) return;
+        const prev = prop.prospect_status || 'research';
+        prop.prospect_status = newLane;
+        renderCurrent();
+        try {
+          await updateProperty(id, { prospect_status: newLane });
+          const label = LANES.find(([k]) => k === newLane)?.[1] || newLane;
+          showKbToast(`Moved to ${label}`);
+        } catch (err) {
+          prop.prospect_status = prev;
+          renderCurrent();
+          showKbToast(`Couldn't save: ${err.message}`, true);
+        }
+      }
+    });
+  }
+
+  function renderTable(list){
+    const el = document.getElementById('view-root');
+    if (!list.length){
+      el.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <p>No prospects match.</p>
+        <a href="/add-property.html?status=prospect" class="btn btn-primary">+ Add Prospect</a>
+      </div>`;
+      return;
+    }
+    renderDataTable(el, list, {
+      storageKey: window.PAGE_TABLE_KEY,
+      onRowClick: (row) => { location.href = '/property.html?id=' + row.id; },
+      defaultSort: { key: 'updated_at', dir: 'desc' },
+      columns: [
+        { key: 'address_line1', label: 'Address',     width: 240,
+          render: r => `<strong>${escHtml(r.address_line1 || '')}${r.unit ? ' #' + escHtml(r.unit) : ''}</strong>` },
+        { key: 'city',           label: 'City',        width: 130, render: r => escHtml(r.city  || '') },
+        { key: 'state',          label: 'State',       width: 70,  render: r => escHtml(r.state || '') },
+        { key: 'zip',            label: 'ZIP',         width: 80,  render: r => escHtml(r.zip   || '') },
+        { key: 'county',         label: 'County',      width: 120, render: r => escHtml(r.county || '') },
+        { key: 'prospect_status',label: 'Stage',       width: 130, render: r => prospectStatusBadge(r.prospect_status || 'research'), sortValue: r => r.prospect_status || 'research' },
+        { key: 'owner',          label: 'Owner',       width: 150, render: r => escHtml(r.owner_name || r.owner || '') },
+        { key: 'tms',            label: 'TMS',         width: 110, render: r => escHtml(r.tms   || '') },
+        { key: 'data_source',    label: 'Source',      width: 130, render: r => escHtml(r.data_source || '') },
+        { key: 'notes',          label: 'Notes',       width: 200, render: r => escHtml((r.notes || '').slice(0, 80) + ((r.notes || '').length > 80 ? '…' : '')) },
+        { key: 'created_at',     label: 'Added',       width: 110, render: r => fmtDate(r.created_at),  sortValue: r => r.created_at },
+        { key: 'updated_at',     label: 'Updated',     width: 110, render: r => fmtDate(r.updated_at),  sortValue: r => r.updated_at }
+      ]
+    });
+  }
+
+  function filterProps(q){
+    q = (q || '').toLowerCase();
+    scopedProps = q ? allProps.filter(p => fullSearchString(p).includes(q)) : allProps;
+    renderCurrent();
+  }
+
+  function resetTableLayout(){
+    if (!confirm('Reset column order, widths, and sort to defaults?')) return;
+    resetDataTablePrefs(window.PAGE_TABLE_KEY);
+    renderCurrent();
+  }
+
+  init();
+</script>
+</body>
+</html>

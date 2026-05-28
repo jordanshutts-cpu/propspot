@@ -814,7 +814,7 @@
           ${renderForYouRows(counts)}
 
           ${sectionLabel('Pipeline')}
-          ${row({ section: 'pipeline', icon: ICONS.target,     label: 'Prospects',     osnav: 'prospects',     href: '/acquisitions.html',                    badge: counts.prospects,     badgeClass: 'muted' })}
+          ${row({ section: 'pipeline', icon: ICONS.target,     label: 'Prospects',     osnav: 'prospects',     href: '/prospects.html',                       badge: counts.prospects,     badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.phone,      label: 'Leads',         osnav: 'leads',         href: '/acquisitions.html',                    badge: counts.leads,         badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.users,      label: 'Opportunities', osnav: 'opportunities', href: '/acquisitions.html',                    badge: counts.opportunities, badgeClass: 'muted' })}
           ${row({ section: 'pipeline', icon: ICONS.clipboard,  label: 'Acquisitions',  osnav: 'acquisitions',  href: '/acquisitions.html',                    badge: counts.acquisitions,  badgeClass: 'muted' })}

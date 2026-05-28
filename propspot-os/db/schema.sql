@@ -236,6 +236,14 @@ DO $$ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS properties_project_status_idx ON properties(project_status) WHERE status = 'renovating';
 
+-- Sub-status for properties in the 'prospect' lifecycle — drives the
+-- Prospects kanban. Mirrors acquisition_status / project_status pattern.
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS prospect_status TEXT NOT NULL DEFAULT 'research';
+ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_prospect_status_check;
+ALTER TABLE properties ADD CONSTRAINT properties_prospect_status_check
+  CHECK (prospect_status IN ('research','outreach','follow_up','engaged'));
+CREATE INDEX IF NOT EXISTS properties_prospect_status_idx ON properties(prospect_status) WHERE status = 'prospect';
+
 -- Drop the old CHECK BEFORE migrating values. The first release of this
 -- column shipped a CHECK that only allowed 'purchasing','due_diligence',
 -- 'approved_to_close'; if we leave that in place, the rename UPDATE
