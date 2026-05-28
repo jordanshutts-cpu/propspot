@@ -146,6 +146,88 @@
     }
     .team-table tr.ctx-target td { background: var(--brand-light); }
 
+    /* ── Dark-mode parity ─────────────────────────────────────────
+       The modal-card and a handful of perm-modal classes hardcode
+       light-mode colors. These overrides switch them to the global
+       --d-* palette so the modal is fully legible in dark mode.    */
+    html.theme-dark .modal-card {
+      background: var(--d-elevated);
+      color: var(--d-text);
+      border: 1px solid var(--d-border-strong);
+      box-shadow: 0 12px 40px rgba(0,0,0,.55);
+    }
+    html.theme-dark .modal-card .section-title { color: var(--d-text-strong); }
+    html.theme-dark .modal-card .form-label    { color: var(--d-text); }
+    html.theme-dark .modal-card .text-muted,
+    html.theme-dark .modal-card .text-xs.text-muted { color: var(--d-text-muted) !important; }
+    html.theme-dark .modal-card .form-input {
+      background: var(--d-surface-2);
+      color: var(--d-text);
+      border-color: var(--d-border);
+    }
+    html.theme-dark .modal-card .form-input::placeholder { color: var(--d-text-dim); }
+    html.theme-dark .modal-card .form-input:focus { border-color: var(--d-brand); }
+    html.theme-dark .modal-card .icon-btn {
+      background: var(--d-surface-2) !important;
+      color: var(--d-text) !important;
+    }
+    html.theme-dark .modal-card .icon-btn:hover { background: var(--d-surface-3) !important; }
+
+    /* Type-radio cards + per-app checkbox rows */
+    html.theme-dark .perm-type-toggle label,
+    html.theme-dark .perm-app-row {
+      background: var(--d-surface-2);
+      border-color: var(--d-border);
+      color: var(--d-text);
+    }
+    html.theme-dark .perm-type-toggle label small,
+    html.theme-dark .perm-type-toggle label .text-muted { color: var(--d-text-muted); }
+    html.theme-dark .perm-type-toggle label:has(input:checked),
+    html.theme-dark .perm-app-row:has(input:checked) {
+      background: var(--d-brand-glow);
+      border-color: var(--d-brand);
+      color: var(--d-text);
+    }
+
+    /* Property allow-list */
+    html.theme-dark .perm-prop-list {
+      background: var(--d-surface-2);
+      border-color: var(--d-border);
+    }
+    html.theme-dark .perm-prop-row { color: var(--d-text); }
+    html.theme-dark .perm-prop-row:hover { background: var(--d-surface-3); }
+    html.theme-dark .perm-prop-addr small { color: var(--d-text-muted); }
+
+    /* App-toggle list in the Invite modal */
+    html.theme-dark .app-toggle {
+      background: var(--d-surface-2);
+      border-color: var(--d-border);
+      color: var(--d-text);
+    }
+    html.theme-dark .app-toggle.checked {
+      background: var(--d-brand-glow);
+      border-color: var(--d-brand);
+    }
+    html.theme-dark .app-toggle .app-desc { color: var(--d-text-muted); }
+
+    /* Right-click context menu */
+    html.theme-dark .ctx-menu {
+      background: var(--d-elevated);
+      border-color: var(--d-border-strong);
+      color: var(--d-text);
+      box-shadow: 0 12px 28px rgba(0,0,0,.55), 0 2px 4px rgba(0,0,0,.4);
+    }
+    html.theme-dark .ctx-menu .ctx-item { color: var(--d-text); }
+    html.theme-dark .ctx-menu .ctx-item:hover { background: var(--d-brand-glow); color: var(--d-brand); }
+    html.theme-dark .ctx-menu .ctx-item.danger { color: #f87171; }
+    html.theme-dark .ctx-menu .ctx-item.danger:hover { background: rgba(248,113,113,.12); color: #fca5a5; }
+    html.theme-dark .ctx-menu .ctx-sep    { background: var(--d-border); }
+    html.theme-dark .ctx-menu .ctx-header { color: var(--d-text-muted); }
+    html.theme-dark .team-table tr.ctx-target td { background: var(--d-brand-glow) !important; }
+
+    /* Clickable user name should still pop in dark mode */
+    html.theme-dark .team-name.clickable:hover { color: var(--d-brand); }
+
     /* Separator between team members and external workers. The row spans
        every column and sticks an "External users" label on top of a
        heavier top border so it reads as a clear section break. */
