@@ -222,6 +222,167 @@
     html.theme-dark .badge-grey   { background: var(--d-surface-2); color: var(--d-text-muted); }
     html.theme-dark .badge-blue   { background: rgba(96,165,250,.15); color: #93c5fd; }
     html.theme-dark .overdue-text { color: #fca5a5; }
+
+    /* ── Address cell — premium, no underline ─────────────────────
+       Removes the 90s underline-link look. Address is bold neutral
+       text with a brand-green hover; "city, state" stays muted +
+       small. A subtle ↗ arrow appears on hover to signal it's a link
+       without the underline noise. */
+    .lawn-table .addr-link {
+      text-decoration: none !important;
+      font-weight: 600;
+      color: var(--text) !important;
+      letter-spacing: -.003em;
+      display: inline-flex; align-items: baseline; gap: 6px;
+      transition: color .12s;
+    }
+    .lawn-table .addr-link::after {
+      content: '↗';
+      font-size: .78rem;
+      color: var(--text-muted);
+      opacity: 0;
+      transform: translateX(-3px);
+      transition: opacity .15s, transform .15s, color .15s;
+    }
+    .lawn-table tbody tr:hover .addr-link { color: var(--brand) !important; }
+    .lawn-table tbody tr:hover .addr-link::after {
+      opacity: 1; transform: translateX(0); color: var(--brand);
+    }
+    .lawn-table .cell-sub {
+      font-size: .7rem; color: var(--text-muted);
+      font-weight: 500; margin-top: 3px;
+      letter-spacing: .01em;
+    }
+    html.theme-dark .lawn-table .addr-link { color: var(--d-text) !important; }
+    html.theme-dark .lawn-table tbody tr:hover .addr-link { color: var(--d-brand) !important; }
+    html.theme-dark .lawn-table tbody tr:hover .addr-link::after { color: var(--d-brand); }
+    html.theme-dark .lawn-table .cell-sub { color: var(--d-text-muted); }
+
+    /* ── Assignee dropdown — proper pill with caret ─────────────── */
+    .lawn-table .assignee-select {
+      width: 100%; min-width: 160px;
+      padding: 7px 30px 7px 12px;
+      font-size: .82rem; font-weight: 500;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      appearance: none; -webkit-appearance: none; -moz-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 12px;
+      transition: border-color .12s, box-shadow .12s, background .12s;
+    }
+    .lawn-table .assignee-select:hover {
+      border-color: var(--brand);
+      background-color: var(--brand-light);
+    }
+    .lawn-table .assignee-select:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 20%, transparent);
+    }
+    html.theme-dark .lawn-table .assignee-select {
+      background-color: var(--d-surface-2);
+      color: var(--d-text);
+      border-color: var(--d-border-strong);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b96a3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    }
+    html.theme-dark .lawn-table .assignee-select:hover {
+      background-color: var(--d-brand-glow);
+      border-color: var(--d-brand);
+    }
+    html.theme-dark .lawn-table .assignee-select:focus {
+      border-color: var(--d-brand);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--d-brand) 25%, transparent);
+    }
+
+    /* ── Row action buttons — uniform 32px height, premium feel ── */
+    .lawn-actions {
+      display: inline-flex; align-items: center; gap: 6px;
+      vertical-align: middle;
+    }
+    .lawn-action-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: .78rem; font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .12s, border-color .12s, color .12s, transform .08s, box-shadow .12s;
+      white-space: nowrap;
+      line-height: 1;
+    }
+    .lawn-action-btn svg { display: block; flex-shrink: 0; }
+    .lawn-action-btn:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+      background: var(--brand-light);
+    }
+    .lawn-action-btn:active { transform: scale(.96); }
+    .lawn-action-btn:focus-visible {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
+    }
+    .lawn-action-btn.icon-only {
+      width: 32px; height: 32px;
+      padding: 0;
+    }
+    .lawn-action-btn.icon-only > span { display: none; }
+    /* Active state for the pin icon — already pinned */
+    .lawn-action-btn.pinned {
+      background: var(--brand-light);
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+    /* Primary Mowed button — brand-filled */
+    .lawn-action-btn.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 10px -6px var(--brand);
+    }
+    .lawn-action-btn.primary:hover {
+      background: color-mix(in srgb, var(--brand) 85%, #000);
+      border-color: color-mix(in srgb, var(--brand) 85%, #000);
+      color: #fff;
+    }
+
+    /* Dark-mode parity for row actions */
+    html.theme-dark .lawn-action-btn {
+      background: var(--d-surface-2);
+      color: var(--d-text);
+      border-color: var(--d-border-strong);
+    }
+    html.theme-dark .lawn-action-btn:hover {
+      background: var(--d-brand-glow);
+      border-color: var(--d-brand);
+      color: var(--d-brand);
+    }
+    html.theme-dark .lawn-action-btn.pinned {
+      background: var(--d-brand-glow);
+      border-color: var(--d-brand);
+      color: var(--d-brand);
+    }
+    html.theme-dark .lawn-action-btn.primary {
+      background: var(--d-brand);
+      border-color: var(--d-brand);
+      color: #051a02;
+      box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 10px -6px var(--d-brand);
+    }
+    html.theme-dark .lawn-action-btn.primary:hover {
+      background: var(--d-brand-dark);
+      border-color: var(--d-brand-dark);
+      color: #051a02;
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -561,11 +722,13 @@
         <td><code class="lockbox">${escHtml(r.lockbox_code || '—')}</code></td>
         <td style="text-align:right;white-space:nowrap;">
           ${r.route_pin === 'first' ? '<span class="badge badge-blue" style="margin-right:4px;" title="Pinned first">1st</span>' : r.route_pin === 'last' ? '<span class="badge badge-amber" style="margin-right:4px;" title="Pinned last">Last</span>' : ''}
-          <button class="btn btn-secondary btn-xs" data-act="pin" data-id="${escHtml(r.id)}" data-pin="${r.route_pin || ''}" title="Pin to first or last">${r.route_pin ? '📌' : '📌'}</button>
-          <button class="btn btn-secondary btn-xs" data-act="checkin" data-id="${escHtml(r.id)}" title="Check in (records arrival + GPS)">📍 Check in</button>
-          <button class="btn btn-primary btn-xs" data-act="mowed" data-id="${escHtml(r.id)}" title="Log a mow">✓ Mowed</button>
-          <a class="btn btn-secondary btn-xs" href="${fieldcamHref}" title="Take photos in FieldCam" aria-label="Take photos"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></a>
-          <button class="btn btn-secondary btn-xs" data-act="settings" data-id="${escHtml(r.id)}" title="Settings">⚙</button>
+          <div class="lawn-actions">
+            <button class="lawn-action-btn icon-only ${r.route_pin ? 'pinned' : ''}" data-act="pin" data-id="${escHtml(r.id)}" data-pin="${r.route_pin || ''}" title="Pin to first or last" aria-label="Pin"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79L17 13V8a4 4 0 1 0-8 0v5l-.89.45A2 2 0 0 0 7 15.24V17z"/></svg></button>
+            <button class="lawn-action-btn" data-act="checkin" data-id="${escHtml(r.id)}" title="Check in (records arrival + GPS)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>Check in</span></button>
+            <button class="lawn-action-btn primary" data-act="mowed" data-id="${escHtml(r.id)}" title="Log a mow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Mowed</span></button>
+            <a class="lawn-action-btn icon-only" href="${fieldcamHref}" title="Take photos in FieldCam" aria-label="Take photos"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></a>
+            <button class="lawn-action-btn icon-only" data-act="settings" data-id="${escHtml(r.id)}" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          </div>
         </td>
       </tr>
     `;
