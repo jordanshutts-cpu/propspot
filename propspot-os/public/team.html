@@ -115,6 +115,37 @@
     .perm-prop-addr { flex: 1; }
     .perm-prop-addr small { color: var(--text-muted); margin-left: 6px; font-size: .7rem; }
 
+    /* Right-click context menu for a member row */
+    .ctx-menu {
+      position: fixed; z-index: 2000;
+      min-width: 220px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.18), 0 2px 4px rgba(0,0,0,.06);
+      padding: 6px;
+      font-size: .85rem;
+      display: none;
+    }
+    .ctx-menu.open { display: block; }
+    .ctx-menu .ctx-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      color: var(--text); user-select: none;
+    }
+    .ctx-menu .ctx-item:hover { background: var(--brand-light); color: var(--brand); }
+    .ctx-menu .ctx-item.danger { color: var(--danger); }
+    .ctx-menu .ctx-item.danger:hover { background: #fee2e2; color: #b91c1c; }
+    .ctx-menu .ctx-item.disabled { color: var(--text-muted); cursor: not-allowed; opacity: .55; }
+    .ctx-menu .ctx-item.disabled:hover { background: transparent; color: var(--text-muted); }
+    .ctx-menu .ctx-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .ctx-menu .ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+    .ctx-menu .ctx-header {
+      padding: 8px 10px 6px; font-size: .72rem;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600;
+    }
+    .team-table tr.ctx-target td { background: var(--brand-light); }
+
     /* Separator between team members and external workers. The row spans
        every column and sticks an "External users" label on top of a
        heavier top border so it reads as a clear section break. */
@@ -286,6 +317,9 @@
   </div>
 </div>
 
+<!-- Member right-click context menu -->
+<div id="member-ctx" class="ctx-menu" role="menu" aria-hidden="true"></div>
+
 <script>window.NAV_CURRENT = 'team';</script>
 
 <script src="config.js"></script>
@@ -398,7 +432,7 @@
       }).join('');
 
       return `
-        <tr data-user-id="${u.id}">
+        <tr data-user-id="${u.id}" ${me.is_owner ? `oncontextmenu="openMemberContextMenu(event,'${u.id}')"` : ''}>
           <td class="col-member">
             <div class="member-cell">
               <div class="avatar">${escHtml(name.charAt(0).toUpperCase())}</div>
@@ -582,6 +616,112 @@
       alert('Could not remove: ' + err.message);
     }
   }
+
+  // ── Right-click context menu ─────────────────────────────────
+  // Owners can right-click any member row to manage them without hunting for
+  // the row-action buttons. Lists actions appropriate to the user's state.
+  const CTX_ICON = {
+    settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+    resend:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`,
+    uninvite: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    remove:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`,
+    flip:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+    copy:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+  };
+
+  function openMemberContextMenu(evt, userId) {
+    if (!me.is_owner) return;
+    evt.preventDefault();
+
+    const u = allUsers.find(x => x.id === userId);
+    if (!u) return;
+    const name = u.full_name || u.email;
+    const isYou = u.id === me.id;
+    const isExternal = u.user_type === 'external_worker';
+    const canUninvite = !u.is_active && !u.is_owner && !isYou;
+    const canRemove   =  u.is_active && !u.is_owner && !isYou;
+    const canFlip     = !u.is_owner && !isYou;
+
+    const items = [
+      { html: `<div class="ctx-header">${escHtml(name)}</div>`, raw: true },
+      { icon: CTX_ICON.settings, label: 'Manage permissions…', onClick: () => openPermissionsModal(userId) },
+    ];
+    if (canFlip) {
+      items.push({
+        icon: CTX_ICON.flip,
+        label: isExternal ? 'Convert to team member' : 'Mark as external worker',
+        onClick: () => toggleUserType(userId, isExternal ? 'team' : 'external_worker')
+      });
+    }
+    items.push({ html: '<div class="ctx-sep"></div>', raw: true });
+    items.push({
+      icon: CTX_ICON.copy,
+      label: 'Copy email address',
+      onClick: () => { navigator.clipboard?.writeText(u.email); }
+    });
+    if (canUninvite) {
+      items.push({ html: '<div class="ctx-sep"></div>', raw: true });
+      items.push({
+        icon: CTX_ICON.resend,
+        label: 'Resend invite',
+        onClick: () => resendOne(userId, u.email)
+      });
+      items.push({
+        icon: CTX_ICON.uninvite,
+        label: 'Cancel invitation',
+        danger: true,
+        onClick: () => uninvite(userId, name)
+      });
+    }
+    if (canRemove) {
+      items.push({ html: '<div class="ctx-sep"></div>', raw: true });
+      items.push({
+        icon: CTX_ICON.remove,
+        label: 'Remove from workspace',
+        danger: true,
+        onClick: () => removeMember(userId, name, u.email)
+      });
+    }
+
+    const menu = document.getElementById('member-ctx');
+    menu.innerHTML = items.map((it, idx) => {
+      if (it.raw) return it.html;
+      const cls = `ctx-item${it.danger ? ' danger' : ''}${it.disabled ? ' disabled' : ''}`;
+      return `<div class="${cls}" data-idx="${idx}">${it.icon || ''}<span>${escHtml(it.label)}</span></div>`;
+    }).join('');
+
+    // Wire click handlers
+    menu.querySelectorAll('.ctx-item').forEach(el => {
+      const idx = parseInt(el.dataset.idx, 10);
+      const it = items[idx];
+      if (!it.disabled) el.onclick = () => { closeMemberContextMenu(); it.onClick(); };
+    });
+
+    // Position — clamp to viewport so nothing clips off-screen.
+    menu.classList.add('open');
+    const rect = menu.getBoundingClientRect();
+    const x = Math.min(evt.clientX, window.innerWidth  - rect.width  - 4);
+    const y = Math.min(evt.clientY, window.innerHeight - rect.height - 4);
+    menu.style.left = x + 'px';
+    menu.style.top  = y + 'px';
+
+    // Highlight the targeted row
+    document.querySelectorAll('tr.ctx-target').forEach(t => t.classList.remove('ctx-target'));
+    evt.currentTarget?.classList?.add('ctx-target');
+  }
+
+  function closeMemberContextMenu() {
+    document.getElementById('member-ctx').classList.remove('open');
+    document.querySelectorAll('tr.ctx-target').forEach(t => t.classList.remove('ctx-target'));
+  }
+
+  // Dismiss on click anywhere, Escape, scroll, or window resize.
+  document.addEventListener('click',  e => {
+    if (!e.target.closest('#member-ctx')) closeMemberContextMenu();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMemberContextMenu(); });
+  window.addEventListener('scroll',  closeMemberContextMenu, true);
+  window.addEventListener('resize',  closeMemberContextMenu);
 
   // ── Permissions modal ────────────────────────────────────────
   // Owners can fully manage a member: user_type, per-app access, and (for
