@@ -817,9 +817,10 @@ body.os-newchrome .user-menu {
 body.mobile-rail-open { overflow: hidden; touch-action: none; }
 
 /* Dark-mode brand overrides */
-html.theme-dark .os-topbar-brand:hover { background: rgba(110,208,87,0.08); }
-html.theme-dark .os-topbar-brand-name  { color: #e6edf3; }
+html.theme-dark .os-topbar-brand:hover  { background: rgba(110,208,87,0.08); }
+html.theme-dark .os-topbar-brand-name   { color: #e6edf3; }
 html.theme-dark .os-topbar-brand-suffix { color: #6b7280; }
+html.theme-dark .os-topbar-brand-icon   { content: url('/favicon-dark.png'); }
 
 /* Mobile fold */
 @media (max-width: 768px) {

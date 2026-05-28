@@ -84,8 +84,8 @@ html.page-loading .os-page-loader,
 }
 
 /* Dark-mode overrides — must live here (not dark.css) to avoid flash */
-html.theme-dark .os-page-loader { background: #0a0e14; }
-/* Logo PNG is transparent — no special dark-mode treatment needed */
+html.theme-dark .os-page-loader      { background: #0a0e14; }
+html.theme-dark .os-page-loader-logo { background-image: url('/logo-dark.png'); }
 
 @media (prefers-reduced-motion: reduce) {
   .os-page-loader-bar-fill { animation: none; width: 100%; opacity: 0.5; }
