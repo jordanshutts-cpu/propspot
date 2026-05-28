@@ -8,6 +8,26 @@ const gcal = require('../lib/google-calendar');
 const router = express.Router();
 router.use(requireAuth);
 
+// ── Calendar app grant check ──────────────────────────────────────
+// Owners are always allowed (auto-granted via seed). Non-owners need
+// an explicit grant in app_grants for the 'calendar' app slug.
+router.use(async (req, res, next) => {
+  try {
+    const { rows: u } = await query(`SELECT is_owner FROM users WHERE id = $1`, [req.userId]);
+    if (u[0]?.is_owner) return next();
+    const { rows } = await query(`
+      SELECT 1 FROM app_grants ag
+        JOIN apps a ON a.id = ag.app_id
+       WHERE ag.user_id = $1 AND a.slug = 'calendar' AND a.enabled = TRUE
+    `, [req.userId]);
+    if (!rows.length) return res.status(403).json({ error: 'Calendar access not granted' });
+    next();
+  } catch (err) {
+    console.error('Calendar grant check failed:', err);
+    res.status(500).json({ error: 'Authorization check failed' });
+  }
+});
+
 // ── POST /api/calendar/google/connect ─────────────────────────────
 // Kick off OAuth so the current user can grant calendar.events scope.
 // Returns the Google consent URL the frontend redirects to. Callback

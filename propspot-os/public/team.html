@@ -325,7 +325,7 @@
       <button class="btn btn-primary btn-sm" onclick="openInvite()">+ Invite team</button>
     </div>
   </div>
-  <p class="text-xs text-muted mb-16">Click a cell to grant or revoke that member's access to an app.</p>
+  <p class="text-xs text-muted mb-16" id="perms-hint">Click a cell to grant or revoke that member's access to an app.</p>
   <div class="card"><div class="card-body" id="list"><p class="text-muted text-sm">Loading…</p></div></div>
 </main>
 
@@ -346,7 +346,7 @@
         <label class="form-label">Full Name</label>
         <input class="form-input" id="i-name">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="i-apps-group">
         <label class="form-label">App access</label>
         <p class="text-xs text-muted mb-8">Check the apps they should be able to use. You can change this later.</p>
         <div id="i-apps"></div>
@@ -511,6 +511,10 @@
     if (!allUsers.length) { el.innerHTML = '<p class="text-muted text-sm">No team members yet.</p>'; return; }
     if (!allApps.length) { el.innerHTML = '<p class="text-muted text-sm">No apps registered.</p>'; return; }
 
+    // Only owners can see/edit the permissions matrix
+    const hintEl = document.getElementById('perms-hint');
+    if (hintEl) hintEl.style.display = me.is_owner ? '' : 'none';
+
     const pendingCount = allUsers.filter(u => !u.is_active && !u.is_owner).length;
     const bulkBtn = document.getElementById('resend-all-btn');
     if (bulkBtn) {
@@ -526,14 +530,14 @@
       <thead>
         <tr>
           <th class="col-member">Member</th>
-          ${allApps.map(a => `
+          ${me.is_owner ? allApps.map(a => `
             <th class="col-app" title="${escHtml(a.description || a.slug)}">
               <div class="app-head">
                 <span class="app-icon">${APP_ICONS[a.slug] || escHtml(a.icon || '🧩')}</span>
                 <span>${escHtml(a.name)}</span>
               </div>
             </th>
-          `).join('')}
+          `).join('') : ''}
           <th class="col-status">Status</th>
           <th class="col-actions"></th>
         </tr>
@@ -551,14 +555,14 @@
       // removed (you must demote them first); you cannot remove yourself.
       const canRemove   = me.is_owner && u.is_active && !u.is_owner && !isYou;
 
-      const cells = allApps.map(a => {
+      const cells = me.is_owner ? allApps.map(a => {
         const has = granted.has(a.id);
         const lockedSelfOwner = isYou && u.is_owner;
         const cls = `access-cell ${has ? 'granted' : 'empty'}${lockedSelfOwner ? ' locked' : ''}`;
         const label = has ? `Revoke ${a.name} access` : `Grant ${a.name} access`;
         const onclick = lockedSelfOwner ? '' : `onclick="toggleAccessCell(this,'${u.id}','${a.id}')"`;
         return `<td class="col-app"><span class="${cls}" ${onclick} title="${escHtml(label)}" data-has="${has ? '1' : '0'}">${has ? CHECK_SVG : ''}</span></td>`;
-      }).join('');
+      }).join('') : '';
 
       return `
         <tr data-user-id="${u.id}" ${me.is_owner ? `oncontextmenu="openMemberContextMenu(event,'${u.id}')"` : ''}>
@@ -1026,6 +1030,9 @@
     document.getElementById('i-name').value  = '';
     document.getElementById('i-err').style.display = 'none';
     document.getElementById('i-link-box').classList.add('hidden');
+    // Only owners can set app access on new invites
+    const appsGroup = document.getElementById('i-apps-group');
+    if (appsGroup) appsGroup.style.display = me.is_owner ? '' : 'none';
     const wrap = document.getElementById('i-apps');
     wrap.innerHTML = allApps.length ? allApps.map(a => `
       <label class="app-toggle" data-app-id="${a.id}">
