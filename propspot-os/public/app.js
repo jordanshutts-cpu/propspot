@@ -28,10 +28,9 @@
     div.className = 'os-page-loader';
     div.innerHTML =
       '<div class="os-page-loader-stack">' +
-        '<div class="os-page-loader-wordmark">PropSpot<span class="os-suffix">.OS</span></div>' +
-        '<div class="os-page-loader-dots" aria-hidden="true">' +
-          '<span></span><span></span><span></span>' +
-        '</div>' +
+        '<div class="os-page-loader-logo" aria-hidden="true"></div>' +
+        '<div class="os-page-loader-wordmark">Prop Spot<span class="os-suffix"> .OS</span></div>' +
+        '<div class="os-page-loader-bar" aria-hidden="true"><div class="os-page-loader-bar-fill"></div></div>' +
       '</div>';
     (document.body || document.documentElement).appendChild(div);
   }
