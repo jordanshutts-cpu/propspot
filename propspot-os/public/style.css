@@ -48,10 +48,11 @@ html.page-loading .os-page-loader,
   gap: 28px;
 }
 
-/* Logo — PNG has transparent background so it floats cleanly on any bg. */
+/* Use favicon.png (illustration only, square, no text) so the loading
+   screen shows just the dog+house mark without the propspot.os wordmark. */
 .os-page-loader-logo {
-  width: 260px; height: 172px;
-  background-image: url('/logo.png');
+  width: 200px; height: 200px;
+  background-image: url('/favicon.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
