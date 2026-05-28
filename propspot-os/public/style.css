@@ -48,16 +48,16 @@ html.page-loading .os-page-loader,
   gap: 14px;
 }
 
-/* Logo — pure white bg matches the loader canvas exactly so the
-   square plate of the PNG is invisible; only the mark shows. */
+/* Logo — multiply blend makes the PNG's white plate invisible against
+   the white canvas so only the colored mark is visible; no border/outline. */
 .os-page-loader-logo {
-  width: 80px; height: 80px;
+  width: 112px; height: 112px;
   background-image: url('/logo.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  background-color: #ffffff;
-  /* no animation, no blend mode needed when bg colors match exactly */
+  background-color: transparent;
+  mix-blend-mode: multiply;
 }
 
 /* Wordmark — static, no zoom */
@@ -105,7 +105,7 @@ html.page-loading .os-page-loader,
 
 /* Dark-mode overrides — must live here (not dark.css) to avoid flash */
 html.theme-dark .os-page-loader          { background: #0a0e14; }
-html.theme-dark .os-page-loader-logo     { background-color: #0a0e14; mix-blend-mode: normal; filter: brightness(0) invert(1); }
+html.theme-dark .os-page-loader-logo     { mix-blend-mode: screen; filter: invert(1); }
 html.theme-dark .os-page-loader-wordmark { color: #e6edf3; }
 html.theme-dark .os-page-loader-wordmark .os-suffix { color: #6ed057; }
 
