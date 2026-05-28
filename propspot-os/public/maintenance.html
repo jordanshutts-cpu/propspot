@@ -99,6 +99,153 @@
                                             align-items:center; justify-content:center;
                                             font-size:.62rem; font-weight:700; object-fit:cover; }
     @media(max-width:640px) { .stat-grid { grid-template-columns:repeat(2,1fr); } .form-row { flex-direction:column; } }
+
+    /* ── PREMIUM REFRESH ─────────────────────────────────────────
+       Matches the Tasks page treatment: KPI cards with colored
+       left accents + corner icons, segmented filter control,
+       refined work order rows with gradient hover. */
+    .wo-kpi-row {
+      display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;
+    }
+    .wo-kpi {
+      position:relative; overflow:hidden;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:14px; padding:18px 18px 16px;
+      box-shadow:0 1px 2px rgba(0,0,0,.03), 0 4px 12px -8px rgba(0,0,0,.08);
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+    .wo-kpi:hover {
+      transform: translateY(-1px);
+      box-shadow:0 2px 4px rgba(0,0,0,.04), 0 10px 24px -12px rgba(0,0,0,.18);
+    }
+    .wo-kpi::before {
+      content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+      background:var(--wo-accent, var(--brand));
+    }
+    .wo-kpi-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); font-weight:600; }
+    .wo-kpi-value { font-size:2rem; font-weight:800; color:var(--wo-accent, var(--text)); line-height:1; margin:6px 0 2px; letter-spacing:-.02em; }
+    .wo-kpi-sub { font-size:.72rem; color:var(--text-muted); font-weight:500; }
+    .wo-kpi-icon {
+      position:absolute; top:14px; right:14px;
+      width:32px; height:32px; border-radius:9px;
+      display:flex; align-items:center; justify-content:center;
+      background:var(--wo-accent-bg, var(--brand-light));
+      color:var(--wo-accent, var(--brand));
+    }
+    .wo-kpi-icon svg { width:16px; height:16px; }
+    .wo-kpi.urgent   { --wo-accent:#dc2626; --wo-accent-bg:rgba(220,38,38,.10); }
+    .wo-kpi.open     { --wo-accent:#d97706; --wo-accent-bg:rgba(217,119,6,.10); }
+    .wo-kpi.sched    { --wo-accent:#7c3aed; --wo-accent-bg:rgba(124,58,237,.10); }
+    .wo-kpi.progress { --wo-accent:#2563eb; --wo-accent-bg:rgba(37,99,235,.10); }
+
+    /* Category nav row (Work Orders / Lawn Mowing) — pill tabs */
+    .wo-cat-nav {
+      display:inline-flex; gap:2px; margin-bottom:16px;
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:10px; padding:3px;
+    }
+    .wo-cat-nav .pill {
+      padding:6px 16px; border-radius:7px; border:none;
+      background:transparent; font-size:.82rem; font-weight:600;
+      color:var(--text-muted); cursor:pointer; transition:all .12s;
+      text-decoration:none;
+    }
+    .wo-cat-nav .pill:hover { color:var(--text); background:var(--surface); }
+    .wo-cat-nav .pill.active {
+      background:var(--surface); color:var(--brand);
+      box-shadow:0 1px 2px rgba(0,0,0,.06);
+    }
+
+    /* Filter pills — same segmented control as Tasks */
+    .wo-filters {
+      display:inline-flex; gap:2px; flex-wrap:wrap;
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:10px; padding:3px; margin-bottom:16px;
+    }
+    .wo-filters .pill {
+      padding:6px 14px; border-radius:7px; border:none;
+      background:transparent; font-size:.82rem; font-weight:600;
+      color:var(--text-muted); cursor:pointer; transition:all .12s;
+    }
+    .wo-filters .pill:hover { color:var(--text); background:var(--surface); }
+    .wo-filters .pill.active {
+      background:var(--surface); color:var(--brand);
+      box-shadow:0 1px 2px rgba(0,0,0,.06);
+    }
+
+    /* Premium wo-list */
+    .wo-list {
+      background:var(--surface);
+      border:1px solid var(--border); border-radius:14px;
+      box-shadow:0 1px 2px rgba(0,0,0,.03), 0 4px 12px -8px rgba(0,0,0,.06);
+      overflow:hidden;
+    }
+    .wo-row {
+      padding:14px 18px 14px 22px;
+      position:relative;
+      transition: background .12s;
+    }
+    .wo-row::before {
+      content:''; position:absolute; left:0; top:8px; bottom:8px;
+      width:3px; border-radius:0 3px 3px 0;
+      background:transparent; transition: background .15s;
+    }
+    .wo-row:hover {
+      background: linear-gradient(90deg, var(--brand-light) 0%, transparent 70%);
+    }
+    .wo-row:hover::before { background: var(--brand); }
+    .wo-row.pri-urgent { border-left:none; padding-left:22px; }
+    .wo-row.pri-urgent::before { background:#dc2626; }
+    .wo-row.pri-high   { border-left:none; padding-left:22px; }
+    .wo-row.pri-high::before   { background:#d97706; }
+    .wo-icon {
+      background: var(--brand-light);
+      color: var(--brand);
+      border-radius: 9px;
+    }
+
+    /* "+ New" hero CTA */
+    .wo-new-btn {
+      padding:8px 16px; font-size:.85rem;
+      box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px -6px var(--brand);
+    }
+    .wo-new-btn:hover { transform: translateY(-1px); }
+
+    /* Dark-mode parity */
+    html.theme-dark .wo-kpi {
+      background: var(--d-surface);
+      border-color: var(--d-border);
+      box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px -8px rgba(0,0,0,.6);
+    }
+    html.theme-dark .wo-kpi:hover { border-color: var(--d-border-strong); }
+    html.theme-dark .wo-kpi-label,
+    html.theme-dark .wo-kpi-sub { color: var(--d-text-muted); }
+    html.theme-dark .wo-cat-nav,
+    html.theme-dark .wo-filters {
+      background: var(--d-surface-2); border-color: var(--d-border);
+    }
+    html.theme-dark .wo-cat-nav .pill,
+    html.theme-dark .wo-filters .pill { color: var(--d-text-muted); }
+    html.theme-dark .wo-cat-nav .pill:hover,
+    html.theme-dark .wo-filters .pill:hover {
+      background: var(--d-surface); color: var(--d-text);
+    }
+    html.theme-dark .wo-cat-nav .pill.active,
+    html.theme-dark .wo-filters .pill.active {
+      background: var(--d-surface); color: var(--d-brand);
+      box-shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+    html.theme-dark .wo-list {
+      background: var(--d-surface); border-color: var(--d-border);
+    }
+    html.theme-dark .wo-row { border-bottom-color: var(--d-border); }
+    html.theme-dark .wo-row:hover {
+      background: linear-gradient(90deg, var(--d-brand-glow) 0%, transparent 70%);
+    }
+    html.theme-dark .wo-icon {
+      background: var(--d-brand-glow);
+      color: var(--d-brand);
+    }
   </style>
 </head>
 <body class="os-newlayout">
@@ -107,24 +254,45 @@
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
-  <div class="stat-grid">
-    <div class="stat-card"><div class="stat-num bad" id="s-urgent">–</div><div class="stat-label">Urgent</div></div>
-    <div class="stat-card"><div class="stat-num warn" id="s-open">–</div><div class="stat-label">Open</div></div>
-    <div class="stat-card"><div class="stat-num" id="s-sched">–</div><div class="stat-label">Scheduled</div></div>
-    <div class="stat-card"><div class="stat-num" id="s-prog">–</div><div class="stat-label">In Progress</div></div>
+  <!-- Premium KPI cards — colored accent + corner icon -->
+  <div class="wo-kpi-row">
+    <div class="wo-kpi urgent">
+      <div class="wo-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <div class="wo-kpi-label">Urgent</div>
+      <div class="wo-kpi-value" id="s-urgent">—</div>
+      <div class="wo-kpi-sub">needs immediate action</div>
+    </div>
+    <div class="wo-kpi open">
+      <div class="wo-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="wo-kpi-label">Open</div>
+      <div class="wo-kpi-value" id="s-open">—</div>
+      <div class="wo-kpi-sub">awaiting assignment</div>
+    </div>
+    <div class="wo-kpi sched">
+      <div class="wo-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <div class="wo-kpi-label">Scheduled</div>
+      <div class="wo-kpi-value" id="s-sched">—</div>
+      <div class="wo-kpi-sub">on the calendar</div>
+    </div>
+    <div class="wo-kpi progress">
+      <div class="wo-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+      <div class="wo-kpi-label">In Progress</div>
+      <div class="wo-kpi-value" id="s-prog">—</div>
+      <div class="wo-kpi-sub">work in flight</div>
+    </div>
   </div>
 
-  <div class="pill-row" style="margin-bottom:16px;">
-    <a class="pill active" href="/maintenance.html" style="text-decoration:none;">Work Orders</a>
-    <a class="pill" href="/lawn.html" style="text-decoration:none;">Lawn Mowing</a>
+  <div class="wo-cat-nav">
+    <a class="pill active" href="/maintenance.html">Work Orders</a>
+    <a class="pill" href="/lawn.html">Lawn Mowing</a>
   </div>
 
   <div class="section-header">
     <span class="section-title">Work Orders</span>
-    <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="openCreate()">+ New</button>
+    <button class="btn btn-primary wo-new-btn" onclick="openCreate()">+ New</button>
   </div>
 
-  <div class="pill-row" id="pills">
+  <div class="wo-filters" id="pills">
     <button class="pill active" data-f="active">Active</button>
     <button class="pill" data-f="mine">Assigned to me</button>
     <button class="pill" data-f="open">Open</button>
