@@ -105,8 +105,10 @@
        left accents + corner icons, segmented filter control,
        refined work order rows with gradient hover. */
     .wo-kpi-row {
-      display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;
+      display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:24px;
     }
+    @media(max-width:900px) { .wo-kpi-row { grid-template-columns:repeat(3,1fr); } }
+    @media(max-width:580px) { .wo-kpi-row { grid-template-columns:repeat(2,1fr); } }
     .wo-kpi {
       position:relative; overflow:hidden;
       background:var(--surface); border:1px solid var(--border);
@@ -133,10 +135,11 @@
       color:var(--wo-accent, var(--brand));
     }
     .wo-kpi-icon svg { width:16px; height:16px; }
-    .wo-kpi.urgent   { --wo-accent:#dc2626; --wo-accent-bg:rgba(220,38,38,.10); }
-    .wo-kpi.open     { --wo-accent:#d97706; --wo-accent-bg:rgba(217,119,6,.10); }
-    .wo-kpi.sched    { --wo-accent:#7c3aed; --wo-accent-bg:rgba(124,58,237,.10); }
-    .wo-kpi.progress { --wo-accent:#2563eb; --wo-accent-bg:rgba(37,99,235,.10); }
+    .wo-kpi.urgent    { --wo-accent:#dc2626; --wo-accent-bg:rgba(220,38,38,.10); }
+    .wo-kpi.open      { --wo-accent:#d97706; --wo-accent-bg:rgba(217,119,6,.10); }
+    .wo-kpi.sched     { --wo-accent:#7c3aed; --wo-accent-bg:rgba(124,58,237,.10); }
+    .wo-kpi.progress  { --wo-accent:#2563eb; --wo-accent-bg:rgba(37,99,235,.10); }
+    .wo-kpi.completed { --wo-accent:#22c55e; --wo-accent-bg:rgba(34,197,94,.10); }
 
     /* Category nav row (Work Orders / Lawn Mowing) — pill tabs */
     .wo-cat-nav {
@@ -253,6 +256,16 @@
       background: color-mix(in srgb, var(--wo-status-color, var(--d-brand)) 16%, transparent);
       color: var(--wo-status-color, var(--d-brand));
     }
+
+    /* ── Property tag chip ── */
+    .wo-prop-tag {
+      display:inline-flex; align-items:center; gap:3px;
+      text-decoration:none;
+      color:var(--brand); background:var(--brand-light);
+      transition: background .12s, color .12s;
+    }
+    .wo-prop-tag:hover { background:var(--brand); color:#fff; }
+    .wo-prop-tag svg { width:11px; height:11px; flex-shrink:0; }
   </style>
 </head>
 <body class="os-newlayout">
@@ -286,6 +299,12 @@
       <div class="wo-kpi-label">In Progress</div>
       <div class="wo-kpi-value" id="s-prog">—</div>
       <div class="wo-kpi-sub">work in flight</div>
+    </div>
+    <div class="wo-kpi completed" onclick="document.querySelector('[data-f=completed]').click()" style="cursor:pointer;">
+      <div class="wo-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="wo-kpi-label">Completed</div>
+      <div class="wo-kpi-value" id="s-done">—</div>
+      <div class="wo-kpi-sub">finished jobs</div>
     </div>
   </div>
 
@@ -571,6 +590,7 @@
     document.getElementById('s-open').textContent   = allOrders.filter(o => o.status==='open').length;
     document.getElementById('s-sched').textContent  = allOrders.filter(o => o.status==='scheduled').length;
     document.getElementById('s-prog').textContent   = allOrders.filter(o => o.status==='in_progress').length;
+    document.getElementById('s-done').textContent   = allOrders.filter(o => o.status==='completed').length;
   }
 
   function render() {
@@ -592,6 +612,7 @@
           <div class="wo-title">${escHtml(o.title)}</div>
           <div class="wo-sub">${escHtml(o.display_name||o.address_line1||'')}${o.city?' · '+escHtml(o.city)+', '+escHtml(o.state||''):''}</div>
           <div class="wo-tags">
+            ${propertyTagHtml(o)}
             <span class="badge-xs bdg-st-${o.status}">${STATUS_LBL[o.status]||o.status}</span>
             <span class="badge-xs bdg-pri-${o.priority}">${PRI_LBL[o.priority]||o.priority}</span>
             ${assigneeChipHtml(o)}
@@ -601,6 +622,14 @@
         </div>
         <div style="color:var(--text-muted);font-size:1rem;flex-shrink:0;align-self:center;">›</div>
       </div>`).join('')}</div>`;
+  }
+
+  function propertyTagHtml(o) {
+    if (!o.property_id) return '';
+    const raw = o.display_name || o.address_line1 || '';
+    if (!raw) return '';
+    const label = raw.length > 32 ? raw.slice(0, 32) + '…' : raw;
+    return `<a href="/property.html?id=${escHtml(o.property_id)}" onclick="event.stopPropagation()" class="badge-xs wo-prop-tag" title="${escHtml(raw)}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>${escHtml(label)}</a>`;
   }
 
   function assigneeChipHtml(o) {
