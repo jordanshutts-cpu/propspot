@@ -9,6 +9,62 @@
   <link rel="stylesheet" href="style.css">
   <script>document.documentElement.classList.add('page-loading');try{var _c=document.documentElement.classList;if(localStorage.sidebar_collapsed==='1')_c.add('sidebar-collapsed');var _t=localStorage.getItem('propspot_theme');_c.add('theme-premium');if(_t==='dark')_c.add('theme-dark');}catch(e){}</script>
   <style>
+    /* ── Premium KPI cards in the hero ─────────────────────────────
+       Replaces the flat stat-grid. Each card has its own accent color,
+       a subtle gradient backplate, and an icon glyph in the corner so
+       the page reads as a dashboard summary at-a-glance. */
+    .tk-kpi-row {
+      display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;
+    }
+    .tk-kpi {
+      position:relative; overflow:hidden;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:14px; padding:18px 18px 16px;
+      box-shadow:0 1px 2px rgba(0,0,0,.03), 0 4px 12px -8px rgba(0,0,0,.08);
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+    .tk-kpi:hover { transform: translateY(-1px); box-shadow:0 2px 4px rgba(0,0,0,.04), 0 10px 24px -12px rgba(0,0,0,.18); border-color: var(--border-strong, var(--border)); }
+    .tk-kpi::before {
+      content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+      background:var(--tk-accent, var(--brand));
+    }
+    .tk-kpi-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); font-weight:600; }
+    .tk-kpi-value { font-size:2rem; font-weight:800; color:var(--tk-accent, var(--text)); line-height:1; margin:6px 0 2px; letter-spacing:-.02em; }
+    .tk-kpi-sub { font-size:.72rem; color:var(--text-muted); font-weight:500; }
+    .tk-kpi-icon {
+      position:absolute; top:14px; right:14px;
+      width:32px; height:32px; border-radius:9px;
+      display:flex; align-items:center; justify-content:center;
+      background:var(--tk-accent-bg, var(--brand-light));
+      color:var(--tk-accent, var(--brand));
+    }
+    .tk-kpi-icon svg { width:16px; height:16px; }
+    .tk-kpi.open     { --tk-accent:#d97706; --tk-accent-bg:rgba(217,119,6,.10); }
+    .tk-kpi.progress { --tk-accent:#2563eb; --tk-accent-bg:rgba(37,99,235,.10); }
+    .tk-kpi.overdue  { --tk-accent:#dc2626; --tk-accent-bg:rgba(220,38,38,.10); }
+    .tk-kpi.done     { --tk-accent:#16a34a; --tk-accent-bg:rgba(22,163,74,.12); }
+
+    /* ── Segmented filter control ─────────────────────────────────
+       Replaces the loose pill row with a single rounded "tabs" element
+       — modern enterprise pattern (think Linear / Notion). */
+    .tk-filters {
+      display:inline-flex; gap:2px;
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:10px; padding:3px; margin-bottom:16px;
+      flex-wrap:wrap;
+    }
+    .tk-filters .pill {
+      padding:6px 14px; border-radius:7px; border:none;
+      background:transparent; font-size:.82rem; font-weight:600;
+      cursor:pointer; color:var(--text-muted); transition: all .12s;
+    }
+    .tk-filters .pill:hover { color:var(--text); background:var(--surface); }
+    .tk-filters .pill.active {
+      background:var(--surface); color:var(--brand);
+      box-shadow:0 1px 2px rgba(0,0,0,.06);
+    }
+
+    /* legacy classes left in case anything still references them */
     .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
     .stat-card { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 12px; text-align:center; }
     .stat-num  { font-size:2rem; font-weight:800; color:var(--brand); line-height:1; margin-bottom:4px; }
@@ -19,12 +75,33 @@
     .pill { padding:6px 14px; border-radius:100px; border:1.5px solid var(--border); background:var(--surface); font-size:.82rem; font-weight:500; cursor:pointer; color:var(--text-muted); transition:all .12s; }
     .pill:hover { border-color:var(--brand); color:var(--brand); }
     .pill.active { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
-    .task-list { background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
-    .task-row { display:flex; gap:14px; align-items:flex-start; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+
+    /* ── Premium task rows ───────────────────────────────────────── */
+    .task-list {
+      background:var(--surface);
+      border:1px solid var(--border); border-radius:14px;
+      box-shadow:0 1px 2px rgba(0,0,0,.03), 0 4px 12px -8px rgba(0,0,0,.06);
+      overflow:hidden;
+    }
+    .task-row {
+      display:flex; gap:14px; align-items:flex-start;
+      padding:14px 18px 14px 22px;
+      border-bottom:1px solid var(--border); cursor:pointer;
+      transition: background .12s, transform .12s;
+      position:relative;
+    }
     .task-row:last-child { border-bottom:none; }
-    .task-row:hover { background:var(--brand-light); }
-    .task-row.pri-urgent { border-left:3px solid #dc2626; padding-left:13px; }
-    .task-row.pri-high   { border-left:3px solid #d97706; padding-left:13px; }
+    .task-row::before {
+      content:''; position:absolute; left:0; top:8px; bottom:8px;
+      width:3px; border-radius:0 3px 3px 0;
+      background:transparent; transition: background .15s;
+    }
+    .task-row:hover {
+      background: linear-gradient(90deg, var(--brand-light) 0%, transparent 70%);
+    }
+    .task-row:hover::before { background: var(--brand); }
+    .task-row.pri-urgent::before { background:#dc2626; }
+    .task-row.pri-high::before   { background:#d97706; }
     .task-check { flex-shrink:0; width:22px; height:22px; border-radius:50%; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s; margin-top:2px; }
     .task-check:hover { border-color:var(--brand); }
     .task-check.done { background:var(--brand); border-color:var(--brand); }
@@ -119,12 +196,74 @@
     .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:.4; }
     .empty-state p { font-size:.9rem; }
 
-    /* View toggle */
-    .view-toggle { display:flex; border:1.5px solid var(--border); border-radius:6px; overflow:hidden; margin-left:auto; }
-    .view-toggle button { padding:5px 12px; border:none; background:var(--surface); cursor:pointer; color:var(--text-muted); transition:all .1s; font-size:.78rem; font-weight:600; display:flex; align-items:center; gap:4px; }
-    .view-toggle button:first-child { border-right:1.5px solid var(--border); }
-    .view-toggle button.active { background:var(--brand); color:#fff; }
+    /* View toggle — segmented to match the filter bar */
+    .view-toggle {
+      display:inline-flex; gap:2px; margin-left:auto;
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:9px; padding:3px;
+    }
+    .view-toggle button {
+      padding:6px 12px; border:none; border-radius:6px;
+      background:transparent; cursor:pointer; color:var(--text-muted);
+      transition:all .1s; font-size:.78rem; font-weight:600;
+      display:inline-flex; align-items:center; gap:5px;
+    }
+    .view-toggle button:hover { color:var(--text); background:var(--surface); }
+    .view-toggle button.active {
+      background:var(--surface); color:var(--brand);
+      box-shadow:0 1px 2px rgba(0,0,0,.06);
+    }
     .view-toggle button svg { width:14px; height:14px; }
+
+    /* Section headers (Team Tasks / Private Tasks) — premium typography */
+    .task-section-header h3 { color:var(--text); letter-spacing:.08em; }
+    .task-section-header .section-count {
+      background: var(--brand-light); color: var(--brand);
+      border:1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+    }
+    .task-section-header .section-add {
+      border-radius:8px; padding:5px 12px;
+      box-shadow:0 1px 1px rgba(0,0,0,.04);
+    }
+
+    /* "+ New Task" hero CTA */
+    .tk-new-task-btn {
+      padding:8px 16px; font-size:.85rem;
+      box-shadow:0 1px 2px rgba(0,0,0,.06), 0 4px 12px -6px var(--brand);
+    }
+    .tk-new-task-btn:hover { transform: translateY(-1px); }
+
+    /* Dark-mode polish for KPI / filters / view toggle */
+    html.theme-dark .tk-kpi {
+      background: var(--d-surface);
+      border-color: var(--d-border);
+      box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px -8px rgba(0,0,0,.6);
+    }
+    html.theme-dark .tk-kpi:hover { border-color: var(--d-border-strong); }
+    html.theme-dark .tk-kpi-label,
+    html.theme-dark .tk-kpi-sub { color: var(--d-text-muted); }
+    html.theme-dark .tk-filters,
+    html.theme-dark .view-toggle {
+      background: var(--d-surface-2); border-color: var(--d-border);
+    }
+    html.theme-dark .tk-filters .pill,
+    html.theme-dark .view-toggle button { color: var(--d-text-muted); }
+    html.theme-dark .tk-filters .pill:hover,
+    html.theme-dark .view-toggle button:hover {
+      background: var(--d-surface); color: var(--d-text);
+    }
+    html.theme-dark .tk-filters .pill.active,
+    html.theme-dark .view-toggle button.active {
+      background: var(--d-surface); color: var(--d-brand);
+      box-shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+    html.theme-dark .task-list {
+      background: var(--d-surface); border-color: var(--d-border);
+    }
+    html.theme-dark .task-row { border-bottom-color: var(--d-border); }
+    html.theme-dark .task-row:hover {
+      background: linear-gradient(90deg, var(--d-brand-glow) 0%, transparent 70%);
+    }
 
     /* Kanban board */
     .kanban-board { display:flex; gap:16px; overflow-x:auto; padding-bottom:16px; align-items:flex-start; }
@@ -158,11 +297,32 @@
 <div class="user-menu" id="user-menu"></div>
 
 <main class="page">
-  <div class="stat-grid">
-    <div class="stat-card"><div class="stat-num warn" id="s-open">-</div><div class="stat-label">Open</div></div>
-    <div class="stat-card"><div class="stat-num" id="s-progress">-</div><div class="stat-label">In Progress</div></div>
-    <div class="stat-card"><div class="stat-num bad" id="s-overdue">-</div><div class="stat-label">Overdue</div></div>
-    <div class="stat-card"><div class="stat-num" id="s-done">-</div><div class="stat-label">Done</div></div>
+  <!-- Premium KPI cards — colored accent + corner icon -->
+  <div class="tk-kpi-row">
+    <div class="tk-kpi open">
+      <div class="tk-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="tk-kpi-label">Open</div>
+      <div class="tk-kpi-value" id="s-open">—</div>
+      <div class="tk-kpi-sub">awaiting action</div>
+    </div>
+    <div class="tk-kpi progress">
+      <div class="tk-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></div>
+      <div class="tk-kpi-label">In Progress</div>
+      <div class="tk-kpi-value" id="s-progress">—</div>
+      <div class="tk-kpi-sub">in flight</div>
+    </div>
+    <div class="tk-kpi overdue">
+      <div class="tk-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <div class="tk-kpi-label">Overdue</div>
+      <div class="tk-kpi-value" id="s-overdue">—</div>
+      <div class="tk-kpi-sub">past due date</div>
+    </div>
+    <div class="tk-kpi done">
+      <div class="tk-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="tk-kpi-label">Completed</div>
+      <div class="tk-kpi-value" id="s-done">—</div>
+      <div class="tk-kpi-sub">all-time</div>
+    </div>
   </div>
 
   <div class="section-header">
@@ -177,10 +337,10 @@
         Board
       </button>
     </div>
-    <button class="btn btn-primary" style="padding:8px 16px;font-size:.85rem;" onclick="openCreate()">+ New Task</button>
+    <button class="btn btn-primary tk-new-task-btn" onclick="openCreate()">+ New Task</button>
   </div>
 
-  <div class="pill-row" id="pills">
+  <div class="tk-filters" id="pills">
     <button class="pill active" data-f="active">Active</button>
     <button class="pill" data-f="open">Open</button>
     <button class="pill" data-f="in_progress">In Progress</button>
