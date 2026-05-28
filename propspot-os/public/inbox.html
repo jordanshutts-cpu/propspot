@@ -101,6 +101,34 @@
     .ib-compose-icon:hover { filter: brightness(1.08); }
     .ib-compose-icon:active { transform: scale(.94); }
 
+    /* Settings gets a distinct neutral look so it doesn't blend with the
+       green Compose button. Outline style on the light theme, surface fill
+       on dark. SVG gear instead of the small emoji. */
+    .ib-settings-btn {
+      background: var(--surface, #fff);
+      color: var(--text, #1f2937);
+      border: 1.5px solid var(--border, #e5e7eb);
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .ib-settings-btn svg { width: 18px; height: 18px; display: block; }
+    .ib-settings-btn:hover {
+      filter: none;
+      background: var(--brand-light, #f0fdf4);
+      border-color: var(--brand, #61b746);
+      color: var(--brand, #61b746);
+    }
+    html.theme-dark .ib-settings-btn {
+      background: var(--d-surface-2);
+      color: var(--d-text);
+      border-color: var(--d-border-strong);
+      box-shadow: none;
+    }
+    html.theme-dark .ib-settings-btn:hover {
+      background: var(--d-brand-glow);
+      border-color: var(--d-brand);
+      color: var(--d-brand);
+    }
+
     /* Hide-toggle helper for the middle-column search */
     .ib-search-wrap.hidden { display: none; }
     .col-left .col-head .brand-eyebrow {
@@ -951,7 +979,7 @@
           <div class="brand-info">
             <div class="brand-title">Inbox</div>
           </div>
-          <a id="ib-settings-link" class="ib-compose-icon" href="/admin-mailboxes.html" title="Inbox settings" aria-label="Inbox settings" style="display:none;text-decoration:none;font-size:1rem;">⚙</a>
+          <a id="ib-settings-link" class="ib-compose-icon ib-settings-btn" href="/admin-mailboxes.html" title="Inbox settings" aria-label="Inbox settings" style="display:none;text-decoration:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
           <button class="ib-compose-icon" onclick="openCompose()" title="Compose new email" aria-label="Compose">+</button>
         </div>
       </div>
