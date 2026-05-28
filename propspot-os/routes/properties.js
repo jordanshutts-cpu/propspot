@@ -5,6 +5,7 @@ const { normalizeAddress } = require('../lib/address');
 const { logActivity } = require('../lib/activity');
 const { touchRecent } = require('./recent');
 const { PATCHABLE_FIELDS } = require('../config/property-database');
+const { propertyFilterSql, userCanAccessProperty } = require('../lib/property-access');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -20,6 +21,9 @@ function badAddressBody({ address_line1, city, state, zip }) {
 // GET /api/properties
 router.get('/', async (req, res) => {
   try {
+    const filter = await propertyFilterSql(req.userId, 'p.id');
+    const where = filter ? ` WHERE ${filter.sql}` : '';
+    const params = filter ? [filter.param] : [];
     const { rows } = await query(`
       SELECT p.*,
              u.full_name  AS created_by_name,
@@ -39,8 +43,9 @@ router.get('/', async (req, res) => {
         LEFT JOIN contacts sc ON sc.id = p.seller_contact_id
         LEFT JOIN contacts oc ON oc.id = p.owner_contact_id
         LEFT JOIN contacts ac ON ac.id = p.acquisition_agent_contact_id
+       ${where}
        ORDER BY p.created_at DESC
-    `);
+    `, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -77,6 +82,9 @@ router.post('/resolve-owner', async (req, res) => {
 // GET /api/properties/:id — full detail with all pipeline records
 router.get('/:id', async (req, res) => {
   try {
+    if (!(await userCanAccessProperty(req.userId, req.params.id))) {
+      return res.status(403).json({ error: 'You do not have access to this property' });
+    }
     const { rows: pRows } = await query(`
       SELECT p.*,
              u.full_name  AS created_by_name,

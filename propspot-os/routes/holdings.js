@@ -17,6 +17,7 @@ const cloudinary = require('cloudinary').v2;
 const { query, pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { logActivity } = require('../lib/activity');
+const { propertyFilterSql, userCanAccessProperty } = require('../lib/property-access');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -75,9 +76,19 @@ function badEnum(name, value, list) {
 
 // ── Aggregates ──────────────────────────────────────────────────────────
 
+// Visibility helper: returns WHERE-clause snippet for holdings_items.property_id.
+async function buildHoldingsScope(req, alias = 'i') {
+  const filter = await propertyFilterSql(req.userId, `${alias}.property_id`);
+  if (!filter) return { sql: '', params: [] };
+  return { sql: filter.sql, params: [filter.param] };
+}
+
 // GET /api/holdings/summary — portfolio-wide rollup for the dashboard tile.
 router.get('/summary', async (req, res) => {
   try {
+    const scope = await buildHoldingsScope(req, 'holdings_items');
+    const whereScope = scope.sql ? ` AND ${scope.sql.replace(/\$1/g, '$' + 1)}` : '';
+    const params = scope.params;
     const [summary, byCat] = await Promise.all([
       query(`
         SELECT
@@ -92,14 +103,14 @@ router.get('/summary', async (req, res) => {
           COUNT(*) FILTER (WHERE next_due_date < CURRENT_DATE)::int AS overdue,
           COUNT(*)::int AS active_count
           FROM holdings_items
-         WHERE status = 'active'
-      `),
+         WHERE status = 'active'${whereScope}
+      `, params),
       query(`
         SELECT category, COUNT(*)::int AS count
           FROM holdings_items
-         WHERE status = 'active'
+         WHERE status = 'active'${whereScope}
          GROUP BY category
-      `)
+      `, params)
     ]);
     const by_category = byCat.rows.reduce((acc, r) => { acc[r.category] = r.count; return acc; }, {});
     res.json({ ...summary.rows[0], by_category });
@@ -113,15 +124,19 @@ router.get('/summary', async (req, res) => {
 router.get('/upcoming-due', async (req, res) => {
   const days = Math.max(0, Math.min(365, parseInt(req.query.days, 10) || 14));
   try {
+    const scope = await buildHoldingsScope(req, 'i');
+    // re-number scope's $1 to come after the days param
+    const scopeSql = scope.sql ? ' AND ' + scope.sql.replace(/\$1/g, '$2') : '';
+    const params = [days, ...scope.params];
     const { rows } = await query(`
       SELECT i.*, p.address_line1, p.city, p.state, p.display_name
         FROM holdings_items i
         JOIN properties p ON p.id = i.property_id
        WHERE i.status = 'active'
          AND i.next_due_date IS NOT NULL
-         AND i.next_due_date <= CURRENT_DATE + $1::int
+         AND i.next_due_date <= CURRENT_DATE + $1::int${scopeSql}
        ORDER BY i.next_due_date ASC
-    `, [days]);
+    `, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -138,6 +153,8 @@ router.get('/items', async (req, res) => {
     if (req.query.property_id) { params.push(req.query.property_id); where.push(`i.property_id = $${params.length}`); }
     if (req.query.category)    { params.push(req.query.category);    where.push(`i.category = $${params.length}`); }
     if (req.query.status)      { params.push(req.query.status);      where.push(`i.status = $${params.length}`); }
+    const scope = await propertyFilterSql(req.userId, 'i.property_id');
+    if (scope) { params.push(scope.param); where.push(scope.sql.replace(/\$1/g, '$' + params.length)); }
     const { rows } = await query(`
       SELECT i.*,
              c.full_name      AS contact_name,
@@ -161,6 +178,13 @@ router.get('/items', async (req, res) => {
 // GET /api/holdings/items/:id — item plus its payments and documents.
 router.get('/items/:id', async (req, res) => {
   try {
+    // Property-scoped visibility check first.
+    const { rows: itemProp } = await query(
+      `SELECT property_id FROM holdings_items WHERE id = $1`, [req.params.id]
+    );
+    if (itemProp[0] && !(await userCanAccessProperty(req.userId, itemProp[0].property_id))) {
+      return res.status(403).json({ error: 'You do not have access to this holdings item' });
+    }
     const { rows } = await query(`
       SELECT i.*,
              c.full_name     AS contact_name,

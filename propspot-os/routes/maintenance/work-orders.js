@@ -5,6 +5,7 @@ const { query } = require('../../db');
 const { requireAuth, requireMaintenanceGrant } = require('../../middleware/auth');
 const { scopedPropertyIds } = require('../../lib/maintenance-scope');
 const { pushNotification } = require('../../lib/notify');
+const { propertyFilterSql, userCanAccessProperty } = require('../../lib/property-access');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -72,6 +73,14 @@ router.get('/', async (req, res) => {
       where.push(`wo.priority = $${i++}`);
     }
 
+    // Apply per-user property-access filter (external workers see only
+    // properties explicitly granted; team sees unrestricted + listed).
+    const pf = await propertyFilterSql(req.userId, 'wo.property_id');
+    if (pf) {
+      params.push(pf.param);
+      where.push(pf.sql.replace(/\$1/g, '$' + i++));
+    }
+
     const sql = `
       SELECT wo.*,
              p.address_line1, p.unit, p.city, p.state, p.zip, p.display_name,
@@ -102,6 +111,12 @@ router.get('/', async (req, res) => {
 // GET /api/work-orders/:id — full detail + updates
 router.get('/:id', async (req, res) => {
   try {
+    const { rows: woProp } = await query(
+      `SELECT property_id FROM work_orders WHERE id = $1`, [req.params.id]
+    );
+    if (woProp[0] && !(await userCanAccessProperty(req.userId, woProp[0].property_id))) {
+      return res.status(403).json({ error: 'You do not have access to this work order' });
+    }
     const { rows } = await query(`
       SELECT wo.*,
              p.address_line1, p.unit, p.city, p.state, p.zip, p.display_name,
