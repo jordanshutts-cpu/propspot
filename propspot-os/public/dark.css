@@ -583,6 +583,7 @@ html.theme-dark .user-menu-icon[data-icon="user"]     { color: #c084fc; }
 html.theme-dark .user-menu-icon[data-icon="key"]      { color: #fbbf24; }
 html.theme-dark .user-menu-icon[data-icon="users"]    { color: #93c5fd; }
 html.theme-dark .user-menu-icon[data-icon="settings"] { color: #cbd5e1; }
+html.theme-dark .user-menu-icon[data-icon="building"] { color: #6ee7b7; }
 html.theme-dark .user-menu-icon[data-icon="logout"]   { color: #fca5a5; }
 
 /* AI panel */
