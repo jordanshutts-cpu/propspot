@@ -32,9 +32,7 @@
     .wo-title { font-weight:700; font-size:.95rem; margin-bottom:3px; }
     .wo-sub { font-size:.78rem; color:var(--text-muted); margin-bottom:6px; }
     .wo-tags { display:flex; gap:5px; flex-wrap:wrap; }
-    /* ── Priority accent on left border ── */
-    .wo-row.pri-urgent { border-left:3px solid #dc2626; padding-left:13px; }
-    .wo-row.pri-high   { border-left:3px solid #d97706; padding-left:13px; }
+    /* Priority accent is handled by the ::before stripe + CSS vars below — no extra border-left */
     /* ── Modal ── */
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:500; align-items:center; justify-content:center; padding:20px; }
     .modal-overlay.open { display:flex; }
@@ -51,11 +49,18 @@
     .bdg-pri-high   { background:#fef3c7; color:#92400e; }
     .bdg-pri-normal { background:#dcfce7; color:#15803d; }
     .bdg-pri-low    { background:var(--border); color:var(--text-muted); }
-    .bdg-st-open        { background:#dbeafe; color:#1e40af; }   /* blue  — waiting */
-    .bdg-st-scheduled   { background:#ede9fe; color:#5b21b6; }   /* purple — planned */
-    .bdg-st-in_progress { background:#fef3c7; color:#92400e; }   /* amber  — active */
-    .bdg-st-completed   { background:#dcfce7; color:#15803d; }   /* green  — done */
-    .bdg-st-cancelled   { background:var(--border); color:var(--text-muted); } /* gray — dead */
+    /* Status badges — light mode */
+    .bdg-st-open        { background:#eff6ff; color:#1d4ed8; }
+    .bdg-st-scheduled   { background:#f5f3ff; color:#6d28d9; }
+    .bdg-st-in_progress { background:#fffbeb; color:#b45309; }
+    .bdg-st-completed   { background:#f0fdf4; color:#15803d; }
+    .bdg-st-cancelled   { background:#f1f5f9; color:#64748b; }
+    /* Status badges — dark mode: semi-transparent so the color reads clearly on dark bg */
+    html.theme-dark .bdg-st-open        { background:rgba(37,99,235,.18);  color:#93c5fd; }
+    html.theme-dark .bdg-st-scheduled   { background:rgba(109,40,217,.2);  color:#c4b5fd; }
+    html.theme-dark .bdg-st-in_progress { background:rgba(217,119,6,.18);  color:#fcd34d; }
+    html.theme-dark .bdg-st-completed   { background:rgba(34,197,94,.15);  color:#86efac; }
+    html.theme-dark .bdg-st-cancelled   { background:rgba(148,163,184,.1); color:#94a3b8; }
     .badge-xs { font-size:.68rem; padding:2px 8px; border-radius:100px; font-weight:600; display:inline-block; }
     /* ── Assignee picker ── */
     .picker-btn { display:flex; align-items:center; justify-content:space-between;
