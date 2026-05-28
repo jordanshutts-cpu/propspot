@@ -321,7 +321,8 @@
     <span class="section-title" id="count">Members</span>
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="btn btn-secondary btn-sm" id="resend-all-btn" onclick="resendAll()" style="display:none;">↻ Resend all pending</button>
-      <button class="btn btn-primary btn-sm" onclick="openInvite()">+ Invite</button>
+      <button class="btn btn-secondary btn-sm" onclick="openInviteExternal()" title="Invite a contractor or vendor with limited access">+ Invite external</button>
+      <button class="btn btn-primary btn-sm" onclick="openInvite()">+ Invite team</button>
     </div>
   </div>
   <p class="text-xs text-muted mb-16">Click a cell to grant or revoke that member's access to an app.</p>
@@ -396,6 +397,52 @@
 
     <p id="perm-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
     <button class="btn btn-primary btn-full" id="perm-save" onclick="savePermissions()">Save changes</button>
+  </div>
+</div>
+
+<!-- Invite External User modal -->
+<div id="invite-ext-modal" class="modal-backdrop">
+  <div class="modal-card" style="max-width:640px;">
+    <div class="section-header">
+      <span class="section-title">Invite external user</span>
+      <button class="icon-btn" style="background:#eee;color:#000;" onclick="closeModal('invite-ext-modal')">×</button>
+    </div>
+    <p class="text-sm text-muted mb-12">Contractors and vendors. They'll only see the apps + properties you check below.</p>
+
+    <form onsubmit="submitInviteExternal(event)">
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input class="form-input" type="email" id="iext-email" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Full name *</label>
+        <input class="form-input" id="iext-name" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">App access *</label>
+        <p class="text-xs text-muted mb-8">Which apps they can open. FieldCam + Maintenance is the typical contractor combo.</p>
+        <div id="iext-apps"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Property access * <span id="iext-prop-count" class="text-xs text-muted"></span></label>
+        <p class="text-xs text-muted mb-8">External users can only see the properties checked below.</p>
+        <input class="form-input mb-8" id="iext-prop-search" placeholder="Search address…" oninput="filterIextProperties()">
+        <div class="perm-prop-list" id="iext-prop-list"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="selectAllIextProperties(true)">Select all</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="selectAllIextProperties(false)">Clear all</button>
+        </div>
+      </div>
+
+      <p id="iext-err" class="text-sm mb-8" style="color:var(--danger);display:none;"></p>
+      <div id="iext-link-box" class="hidden mb-12" style="background:var(--bg);border-radius:8px;padding:12px;">
+        <p class="text-xs text-muted mb-8">No email server configured. Send them this invite link:</p>
+        <p class="text-xs" id="iext-link-text" style="word-break:break-all;"></p>
+      </div>
+      <button class="btn btn-primary btn-full" type="submit" id="iext-btn">Send invite</button>
+    </form>
   </div>
 </div>
 
@@ -991,6 +1038,141 @@
       </label>
     `).join('') : '<p class="text-xs text-muted">No apps registered.</p>';
     document.getElementById('invite-modal').classList.add('open');
+  }
+
+  // ── External-user invite modal ───────────────────────────────
+  // One-shot: email + name + which apps + which properties → backend
+  // creates the user, sets app_grants, allow-lists property_access,
+  // and sends the invite email.
+  let iextCtx = null; // { propertyIds: Set, allProperties: [] }
+
+  async function openInviteExternal() {
+    document.getElementById('iext-email').value = '';
+    document.getElementById('iext-name').value  = '';
+    document.getElementById('iext-err').style.display = 'none';
+    document.getElementById('iext-link-box').classList.add('hidden');
+    document.getElementById('iext-prop-search').value = '';
+
+    iextCtx = { propertyIds: new Set(), allProperties: [] };
+
+    // App checkboxes — default-check FieldCam + Maintenance since that's
+    // the most common contractor combo.
+    const defaults = new Set(['fieldcam','maintenance']);
+    document.getElementById('iext-apps').innerHTML = allApps.map(a => `
+      <label class="perm-app-row">
+        <input type="checkbox" data-app-id="${a.id}" ${defaults.has(a.slug) ? 'checked' : ''}>
+        <span class="app-icon">${APP_ICONS[a.slug] || escHtml(a.icon || '🧩')}</span>
+        <span style="flex:1;">${escHtml(a.name)}</span>
+      </label>
+    `).join('');
+
+    document.getElementById('invite-ext-modal').classList.add('open');
+
+    // Property list — load lazily so the modal opens instantly.
+    const list = document.getElementById('iext-prop-list');
+    list.innerHTML = '<p class="text-xs text-muted" style="padding:8px;">Loading properties…</p>';
+    try {
+      const props = await apiFetch('/api/properties');
+      iextCtx.allProperties = Array.isArray(props) ? props : [];
+      renderIextProperties();
+    } catch (e) {
+      list.innerHTML = `<p class="text-xs" style="padding:8px;color:var(--danger);">Failed to load: ${escHtml(e.message)}</p>`;
+    }
+  }
+
+  function renderIextProperties() {
+    const list = document.getElementById('iext-prop-list');
+    if (!iextCtx.allProperties.length) {
+      list.innerHTML = '<p class="text-xs text-muted" style="padding:8px;">No properties yet.</p>';
+      updateIextPropCount();
+      return;
+    }
+    list.innerHTML = iextCtx.allProperties.map(p => {
+      const label = p.display_name || p.address_line1 || '(unnamed)';
+      const sub = [p.city, p.state].filter(Boolean).join(', ');
+      const searchText = ((p.display_name || '') + ' ' + (p.address_line1 || '') + ' ' + (p.city || '') + ' ' + (p.state || '')).toLowerCase();
+      return `<label class="perm-prop-row" data-search="${escHtml(searchText)}">
+        <input type="checkbox" data-prop-id="${p.id}" onchange="toggleIextProperty('${p.id}', this.checked)">
+        <span class="perm-prop-addr">${escHtml(label)}${sub ? `<small>${escHtml(sub)}</small>` : ''}</span>
+      </label>`;
+    }).join('');
+    updateIextPropCount();
+  }
+
+  function toggleIextProperty(propId, checked) {
+    if (checked) iextCtx.propertyIds.add(propId);
+    else         iextCtx.propertyIds.delete(propId);
+    updateIextPropCount();
+  }
+
+  function selectAllIextProperties(select) {
+    document.querySelectorAll('#iext-prop-list .perm-prop-row:not(.hidden) input[type=checkbox]').forEach(cb => {
+      cb.checked = select;
+      const pid = cb.dataset.propId;
+      if (select) iextCtx.propertyIds.add(pid);
+      else        iextCtx.propertyIds.delete(pid);
+    });
+    updateIextPropCount();
+  }
+
+  function filterIextProperties() {
+    const q = document.getElementById('iext-prop-search').value.trim().toLowerCase();
+    document.querySelectorAll('#iext-prop-list .perm-prop-row').forEach(row => {
+      const match = !q || row.dataset.search.includes(q);
+      row.classList.toggle('hidden', !match);
+    });
+  }
+
+  function updateIextPropCount() {
+    document.getElementById('iext-prop-count').textContent =
+      ' · ' + iextCtx.propertyIds.size + ' selected';
+  }
+
+  async function submitInviteExternal(e) {
+    e.preventDefault();
+    const btn = document.getElementById('iext-btn');
+    const err = document.getElementById('iext-err');
+    const linkBox = document.getElementById('iext-link-box');
+    err.style.display = 'none';
+    linkBox.classList.add('hidden');
+
+    const email    = document.getElementById('iext-email').value.trim();
+    const fullName = document.getElementById('iext-name').value.trim();
+    const appIds   = [...document.querySelectorAll('#iext-apps input[type=checkbox]:checked')].map(cb => cb.dataset.appId);
+    const propIds  = [...iextCtx.propertyIds];
+
+    if (!email)       return showIextErr('Email is required.');
+    if (!fullName)    return showIextErr('Full name is required.');
+    if (!appIds.length)  return showIextErr('Check at least one app.');
+    if (!propIds.length) return showIextErr('Check at least one property.');
+
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const r = await apiFetch('/api/users/invite-external', {
+        method: 'POST',
+        body: JSON.stringify({ email, full_name: fullName, app_ids: appIds, property_ids: propIds })
+      });
+      if (r.email_sent) {
+        await reloadUsers();
+        setTimeout(() => closeModal('invite-ext-modal'), 600);
+      } else if (r.invite_link) {
+        document.getElementById('iext-link-text').textContent = r.invite_link;
+        linkBox.classList.remove('hidden');
+        await reloadUsers();
+      }
+    } catch (e) {
+      showIextErr(e.message || 'Invite failed.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send invite';
+    }
+  }
+
+  function showIextErr(msg) {
+    const err = document.getElementById('iext-err');
+    err.textContent = msg;
+    err.style.display = '';
+    document.getElementById('iext-btn').disabled = false;
+    document.getElementById('iext-btn').textContent = 'Send invite';
   }
 
   async function submitInvite(e) {

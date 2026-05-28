@@ -231,6 +231,110 @@ router.post('/resend-all-pending', requireOwner, async (req, res) => {
   }
 });
 
+// POST /api/users/invite-external  (owner only)
+// Single-shot external-worker invite: creates the user, grants the
+// selected apps, allow-lists the selected properties, and emails them
+// the accept-invite link. Returns the invite link if email isn't wired.
+//
+// Body: {
+//   email:        "vendor@example.com",      // required
+//   full_name:    "Jane Vendor",             // required
+//   app_ids:      ["uuid", ...],             // required, ≥1
+//   property_ids: ["uuid", ...]              // required, ≥1
+// }
+router.post('/invite-external', requireOwner, async (req, res) => {
+  const email = (req.body.email || '').toLowerCase().trim();
+  const fullName = (req.body.full_name || '').trim();
+  const appIds = Array.isArray(req.body.app_ids) ? req.body.app_ids : [];
+  const propIds = Array.isArray(req.body.property_ids) ? req.body.property_ids : [];
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'valid email required' });
+  }
+  if (!fullName) return res.status(400).json({ error: 'full_name required' });
+  if (!appIds.length) return res.status(400).json({ error: 'pick at least one app' });
+  if (!propIds.length) return res.status(400).json({ error: 'pick at least one property' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Refuse to clobber an existing team account.
+    const { rows: existing } = await client.query(
+      `SELECT id, user_type, removed_at FROM users WHERE LOWER(email) = $1`,
+      [email]
+    );
+    if (existing[0] && existing[0].user_type === 'team' && !existing[0].removed_at) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'team_member_exists',
+        message: 'This email already belongs to an active team member.'
+      });
+    }
+
+    // Upsert as external worker. Re-inviting a removed user clears removed_at.
+    const { rows: userRows } = await client.query(`
+      INSERT INTO users (email, full_name, user_type)
+      VALUES ($1, $2, 'external_worker')
+      ON CONFLICT (email) DO UPDATE
+        SET full_name  = EXCLUDED.full_name,
+            user_type  = 'external_worker',
+            removed_at = NULL
+      RETURNING id, email, full_name, user_type
+    `, [email, fullName]);
+    const user = userRows[0];
+
+    // App grants — replace the user's set with exactly what was picked.
+    await client.query(`DELETE FROM app_grants WHERE user_id = $1`, [user.id]);
+    if (appIds.length) {
+      await client.query(`
+        INSERT INTO app_grants (user_id, app_id, role, scope, granted_by)
+        SELECT $1, id, 'member', '{"all":true}'::jsonb, $2
+          FROM apps WHERE id = ANY($3::uuid[])
+        ON CONFLICT (user_id, app_id) DO NOTHING
+      `, [user.id, req.userId, appIds]);
+    }
+
+    // Property access — replace the user's allow-list with exactly what was picked.
+    await client.query(`DELETE FROM property_access WHERE user_id = $1`, [user.id]);
+    for (const pid of propIds) {
+      await client.query(`
+        INSERT INTO property_access (property_id, user_id, access_level, granted_by)
+        VALUES ($1, $2, 'full', $3)
+        ON CONFLICT (property_id, user_id) DO NOTHING
+      `, [pid, user.id, req.userId]);
+    }
+
+    // Issue + email the invite link (transaction-aware helper).
+    const { emailSent, inviteLink } = await sendInviteToUser({
+      client, userId: user.id, inviterUserId: req.userId
+    });
+
+    await client.query('COMMIT');
+
+    await logActivity({
+      actorUserId: req.userId, entityType: 'user', entityId: user.id,
+      action: 'external_invited',
+      payload: { email, app_count: appIds.length, property_count: propIds.length, email_sent: emailSent }
+    });
+
+    res.status(201).json({
+      user,
+      email_sent: emailSent,
+      invite_link: emailSent ? undefined : inviteLink,
+      message: emailSent
+        ? `Invite sent to ${email}`
+        : `No email server configured — share this link manually`
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Invite external error:', err);
+    res.status(500).json({ error: 'Failed to invite external user' });
+  } finally {
+    client.release();
+  }
+});
+
 // GET /api/users/:id/property-access  (owner only)
 // Returns { property_ids: [...] } — every property this user is explicitly
 // listed on in property_access. Used by the permissions modal.
