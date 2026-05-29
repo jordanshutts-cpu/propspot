@@ -146,7 +146,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <a href="/dashboard.html" class="os-topbar-brand" title="Prop Spot">
-            <img src="/favicon.png" class="os-topbar-brand-icon" alt="">
+            <img src="/logo-art.png" class="os-topbar-brand-icon" alt="">
             <span class="os-topbar-brand-name">prop<span class="os-topbar-brand-spot">spot</span><span class="os-topbar-brand-suffix">.os</span></span>
           </a>
         </div>

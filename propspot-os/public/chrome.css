@@ -522,14 +522,16 @@ html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
 }
 .os-topbar-brand-name {
   font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-weight: 900;
+  letter-spacing: -0.04em;
   color: var(--text);
   white-space: nowrap;
   line-height: 1;
 }
+/* Match the loader wordmark exactly: only "spot" gets the brand accent;
+   "prop" and ".os" share the base text color (no muted suffix). */
 .os-topbar-brand-spot   { color: var(--brand); }
-.os-topbar-brand-suffix { color: var(--text-muted); font-weight: 600; }
+.os-topbar-brand-suffix { color: inherit; font-weight: inherit; }
 
 .os-newchrome-hamburger {
   /* hamburger is now inside .os-topbar-left, not a direct grid child */
@@ -819,8 +821,8 @@ body.mobile-rail-open { overflow: hidden; touch-action: none; }
 /* Dark-mode brand overrides */
 html.theme-dark .os-topbar-brand:hover  { background: rgba(110,208,87,0.08); }
 html.theme-dark .os-topbar-brand-name   { color: #e6edf3; }
-html.theme-dark .os-topbar-brand-suffix { color: #6b7280; }
-html.theme-dark .os-topbar-brand-icon   { content: url('/favicon-dark.png'); }
+/* suffix inherits the wordmark color now — no separate dark override */
+html.theme-dark .os-topbar-brand-icon   { content: url('/logo-art-dark.png'); }
 
 /* Mobile fold */
 @media (max-width: 768px) {
