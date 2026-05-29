@@ -515,13 +515,13 @@ html.sidebar-collapsed .os-newchrome-workspace-row .os-newchrome-collapse-btn {
 }
 .os-topbar-brand:hover { background: rgba(97,183,70,0.09); }
 .os-topbar-brand-icon {
-  width: 28px; height: 28px;
+  width: 40px; height: 40px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 .os-topbar-brand-name {
-  font-size: .88rem;
+  font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text);
