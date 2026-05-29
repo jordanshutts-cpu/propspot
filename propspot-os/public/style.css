@@ -42,11 +42,14 @@ html.page-loading .os-page-loader,
   transition: opacity 0.1s ease-out;
 }
 
-/* Centered stack: artwork + wordmark + loading bar */
+/* Centered stack: artwork + wordmark + loading bar. Small gap between
+   artwork and wordmark; larger margin on the bar so it doesn't crowd
+   the wordmark. */
 .os-page-loader-stack {
   display: flex; flex-direction: column; align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
+.os-page-loader-stack .os-page-loader-bar { margin-top: 24px; }
 
 /* Just the dog + house artwork. Wordmark below is rendered as text so
    the "t" in propspot is always crisp — the previous all-in-one PNG
