@@ -48,9 +48,12 @@ html.page-loading .os-page-loader,
   gap: 28px;
 }
 
-/* Full logo with text, no separator line (already removed from PNG). */
+/* Full logo with text. Height matches the trimmed PNG's aspect ratio
+   (1206 × 714 ≈ 1.689:1) so background-size:contain renders at full
+   width with no letterboxing — the t was getting visually clipped
+   when the container had extra vertical space. */
 .os-page-loader-logo {
-  width: 280px; height: 185px;
+  width: 280px; height: 166px;
   background-image: url('/logo.png');
   background-size: contain;
   background-repeat: no-repeat;
