@@ -42,23 +42,34 @@ html.page-loading .os-page-loader,
   transition: opacity 0.1s ease-out;
 }
 
-/* Centered stack: logo only + loading bar */
+/* Centered stack: artwork + wordmark + loading bar */
 .os-page-loader-stack {
   display: flex; flex-direction: column; align-items: center;
-  gap: 28px;
+  gap: 14px;
 }
 
-/* Full logo with text. Height matches the trimmed PNG's aspect ratio
-   (1206 × 714 ≈ 1.689:1) so background-size:contain renders at full
-   width with no letterboxing — the t was getting visually clipped
-   when the container had extra vertical space. */
+/* Just the dog + house artwork. Wordmark below is rendered as text so
+   the "t" in propspot is always crisp — the previous all-in-one PNG
+   had a malformed "t" baked into the raster. Aspect 652:409 ≈ 1.59. */
 .os-page-loader-logo {
-  width: 280px; height: 166px;
-  background-image: url('/logo.png');
+  width: 220px; height: 138px;
+  background-image: url('/logo-art.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
 }
+
+/* "propspot.os" wordmark, system-sans (no asset cropping risk). */
+.os-page-loader-wordmark {
+  font-size: 2.6rem;
+  font-weight: 900;
+  letter-spacing: -.04em;
+  color: #1a1f2e;
+  line-height: 1;
+  margin-top: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+.os-page-loader-wordmark .ws-accent { color: #61B746; }
 
 /* Loading bar — only animated element */
 .os-page-loader-bar {
@@ -88,7 +99,9 @@ html.page-loading .os-page-loader,
 
 /* Dark-mode overrides — must live here (not dark.css) to avoid flash */
 html.theme-dark .os-page-loader      { background: #0a0e14; }
-html.theme-dark .os-page-loader-logo { background-image: url('/logo-dark.png'); }
+html.theme-dark .os-page-loader-logo { background-image: url('/logo-art-dark.png'); }
+html.theme-dark .os-page-loader-wordmark { color: #e6edf3; }
+html.theme-dark .os-page-loader-wordmark .ws-accent { color: #6ed057; }
 
 @media (prefers-reduced-motion: reduce) {
   .os-page-loader-bar-fill { animation: none; width: 100%; opacity: 0.5; }
